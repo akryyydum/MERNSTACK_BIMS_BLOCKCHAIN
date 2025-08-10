@@ -11,9 +11,8 @@ const documentRequestSchema = new mongoose.Schema({
   purpose: { type: String },
   status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'PRINTED', 'RELEASED'], default: 'PENDING' },
   
-  // Blockchain metadata
   blockchain: {
-    hash: String, // SHA-256 hash of document metadata
+    hash: String,
     lastTxId: String,
     issuedBy: String,
     issuedAt: Date
