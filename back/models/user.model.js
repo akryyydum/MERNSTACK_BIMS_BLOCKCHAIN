@@ -7,11 +7,15 @@ const userSchema = new mongoose.Schema({
     fullName: { type: String, required: true },
     contact: {
         mobile: { type: String, required: true },
-        email: { type: String, required: true }
+        email: { type: String, required: true, lowercase: true, trim: true }
     },
     isActive: { type: Boolean, default: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
-});
+    isVerified: { type: Boolean, default: false },
+    verificationCode: String,
+    verificationCodeExpires: Date,
+    verificationToken: { type: String } 
+}, { timestamps: true });
+
+userSchema.index({ 'contact.email': 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);
