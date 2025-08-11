@@ -29,10 +29,10 @@ idFiles: [{ type: String, required: false }],
 
 blockchain: {
     hash: String,  // Hash of the resident's data for blockchain verification
-    lastTxId: String,  // Last transaction ID for blockchain updates
-    createdBy: String,  // User ID of the creator
-    VerifiedBy: String,  // User ID of the verifier
-    verifiedAt: Date  // Timestamp of verification
+    lastTxId: String, 
+    createdBy: String,
+    VerifiedBy: String, 
+    verifiedAt: Date 
 },
 status: { type: String, enum: ['verified', 'rejected', 'pending'], default: 'pending' },
 createdAt: { type: Date, default: Date.now },
