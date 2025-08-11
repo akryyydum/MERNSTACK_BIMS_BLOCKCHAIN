@@ -5,7 +5,7 @@ const documentRequestSchema = new mongoose.Schema({
   residentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
   documentType: { 
     type: String, 
-    enum: ['BarangayCertificate', 'Indigency', 'Clearance', 'Residency'], 
+    enum: ['Barangay Certificate', 'Indigency', 'Barangay Clearance', 'Residency', 'Business Clearance'], 
     required: true 
   },
   purpose: { type: String },
