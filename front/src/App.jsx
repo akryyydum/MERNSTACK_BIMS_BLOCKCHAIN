@@ -2,12 +2,16 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import Login from './auth/Login'
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
-      <div className="min-h-screen bg-gradient-to-r from-navy-900 via-navy-800 to-navy-950 flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0a192f' }}>
+    <div>
+      <Login />
+    </div>
+    /**   <div className="min-h-screen bg-gradient-to-r from-navy-900 via-navy-800 to-navy-950 flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0a192f' }}>
         <div className="relative bg-white/90 backdrop-blur-sm shadow-2xl rounded-3xl px-10 py-12 max-w-4xl w-full flex flex-col items-center border-t border-l border-white/50 overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
             <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-900/20 rounded-full blur-3xl"></div>
@@ -70,6 +74,8 @@ function App() {
           </div>
         </div>
       </div>
+      **/
+
   )
 }
 

@@ -150,7 +150,6 @@ module.exports = {
   register,
   verifyCode,
   login,
-  verifyEmail,
   forgotPassword,
   resetPassword
 };
