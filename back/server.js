@@ -1,11 +1,18 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+const cors = require('cors'); // NEW
 
 dotenv.config();
 connectDB();
 
 const app = express();
+
+// Allow frontend origins to call this API
+app.use(cors({
+  origin: [process.env.FRONTEND_ORIGIN || 'http://localhost:5173', 'http://localhost:3000'], // NEW
+})); // NEW
+
 app.use(express.json());
 
 app.use('/api/auth', require('./routes/authRoutes'));

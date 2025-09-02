@@ -7,7 +7,7 @@ const { auth, authorize } = require('../middleware/authMiddleware');
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 
-// New: verify via code (body: { email, code })
+// New: verify via code 
 router.post('/verify-code', authController.verifyCode);
 
 router.post('/forgot-password', authController.forgotPassword);
