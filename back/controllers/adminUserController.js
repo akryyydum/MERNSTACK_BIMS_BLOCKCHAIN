@@ -1,0 +1,119 @@
+const User = require("../models/user.model");
+const bcrypt = require("bcryptjs");
+
+// GET /api/admin/users
+exports.list = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const { search, role } = req.query;
+    const q = {};
+    if (role) q.role = role;
+    if (search) {
+      const s = String(search).trim();
+      q.$or = [
+        { username: new RegExp(s, "i") },
+        { fullName: new RegExp(s, "i") },
+        { "contact.email": new RegExp(s, "i") },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      User.find(q)
+        .select("-passwordHash -verificationCode -verificationCodeExpires -verificationToken")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(q),
+    ]);
+
+    res.json({ items, total, page, limit });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/admin/users
+exports.create = async (req, res) => {
+  try {
+    const { username, password, fullName, contact = {}, role } = req.body;
+    if (!username || !password || !fullName || !contact.email || !contact.mobile || !role) {
+      return res.status(400).json({ message: "username, password, fullName, contact.email, contact.mobile, role are required" });
+    }
+    if (!["admin", "official"].includes(role)) {
+      return res.status(400).json({ message: "Only admin or official can be created here" });
+    }
+
+    const exists = await User.findOne({
+      $or: [{ username }, { "contact.email": contact.email }],
+    });
+    if (exists) return res.status(400).json({ message: "Username or email already exists" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username,
+      passwordHash,
+      role,
+      fullName,
+      contact: { email: contact.email.toLowerCase().trim(), mobile: contact.mobile },
+      isVerified: true,
+      isActive: true,
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      contact: user.contact,
+      isActive: user.isActive,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/admin/users/:id
+exports.update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role, isActive } = req.body;
+
+    const update = {};
+    if (typeof isActive === "boolean") update.isActive = isActive;
+    if (role) {
+      if (!["admin", "official", "resident"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+      update.role = role;
+    }
+    if (!Object.keys(update).length) {
+      return res.status(400).json({ message: "No valid fields to update" });
+    }
+
+    await User.updateOne({ _id: id }, { $set: update });
+    res.json({ message: "Updated" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// DELETE /api/admin/users/:id
+exports.remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // optional: prevent self-delete
+    if (req.user && String(req.user.id) === String(id)) {
+      return res.status(400).json({ message: "You cannot delete your own account" });
+    }
+    await User.deleteOne({ _id: id });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

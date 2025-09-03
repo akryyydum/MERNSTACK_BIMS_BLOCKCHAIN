@@ -1,53 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-
-const iconCls = "w-5 h-5 flex-shrink-0";
-const IconDashboard = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h5v8H3v-8zm7 4h11v4H10v-4z" fill="currentColor" />
-  </svg>
-);
-const IconUsers = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.67 0-8 1.34-8 4v2h10v-2c0-1.02.38-1.96 1.02-2.78C10.1 13.49 8.87 13 8 13zm8 0c-.73 0-1.76.2-2.78.58C14.41 14.55 15 15.71 15 17v2h9v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
-  </svg>
-);
-const IconClipboard = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M9 2h6v2h3a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h3V2zm0 6h6V6H9v2z" fill="currentColor"/>
-  </svg>
-);
-const IconReport = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M3 13h8v8H3v-8zm10-10h8v18h-8V3zM5 15h4v4H5v-4z" fill="currentColor"/>
-  </svg>
-);
-const IconSettings = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M19.14 12.94a7.49 7.49 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.43 7.43 0 00-1.63-.95l-.36-2.55A.5.5 0 0013.9 2h-3.8a.5.5 0 00-.49.41l-.36 2.55c-.58.24-1.12.55-1.63.95l-2.39-.96a.5.5 0 00-.6.22L2.3 8.04a.5.5 0 00.12.64l2.03 1.58c-.06.31-.09.63-.09.94 0 .32.03.63.09.94L2.42 13.7a.5.5 0 00-.12.64l1.92 3.32c.13.22.38.31.6.22l2.39-.96c.51.4 1.05.71 1.63.95l.36 2.55c.05.24.25.41.49.41h3.8c.24 0 .45-.17.49-.41l.36-2.55c.58-.24 1.12-.55 1.63-.95l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z" fill="currentColor"/>
-  </svg>
-);
-const IconShield = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M12 2l8 4v6c0 5-3.5 9.74-8 10-4.5-.26-8-5-8-10V6l8-4z" fill="currentColor"/>
-  </svg>
-);
-const IconLogout = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M10 17l-1.41-1.41L11.17 13H3v-2h8.17l-2.58-2.59L10 7l5 5-5 5zM19 3h-6v2h6v14h-6v2h6a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/>
-  </svg>
-);
+import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
+    ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
+ } from "@ant-design/icons";
 
 const defaultMenu = [
-  { to: "/admin-dashboard", label: "Dashboard", icon: <IconDashboard /> },
-  { to: "/admin/", label: "Dashboard", icon: <IconDashboard /> },
-  { to: "/admin/residents", label: "Residents Management", icon: <IconUsers /> },
-  { to: "/admin/officials", label: "Officials Management", icon: <IconUsers /> },
-  { to: "/admin/blockchain", label: "Blockchain Network", icon: <IconShield /> },
+  { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
+  { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
+  { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
+  { to: "/admin/officials", label: "Officials Management", icon: <UserOutlined /> },
+  { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
 
-  { to: "/admin/monitor", label: "System Monitor", icon: <IconClipboard /> },
-  { to: "/admin/analytics", label: "Analytics", icon: <IconReport /> },
-  { to: "/admin/settings", label: "Settings", icon: <IconSettings /> },
+  { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },
+  { to: "/admin/analytics", label: "Analytics", icon: <BarChartOutlined /> },
+  { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
 ];
 
 export default function AdminSidebar({
@@ -122,7 +88,7 @@ export default function AdminSidebar({
         <div className="px-3 md:px-4 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
-              <IconShield />
+              <SafetyOutlined />
             </div>
             {!collapsed && (
               <div className="truncate">
@@ -186,12 +152,27 @@ export default function AdminSidebar({
         <div className="mt-auto p-3">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-red-200 hover:text-white hover:bg-red-500/20 transition-colors"
+            type="button"
+            className="bg-slate-900 text-center w-full rounded-2xl h-14 relative text-black text-xl font-semibold border-4 border-slate group"
           >
-            <span className="text-red-300">
-              <IconLogout />
-            </span>
-            {!collapsed && <span>Logout</span>}
+            <div className="bg-white rounded-xl h-12 w-1/4 grid place-items-center absolute left-0 top-0 group-hover:w-full z-10 duration-500">
+              <svg
+                width="25px"
+                height="25px"
+                viewBox="0 0 1024 1024"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fill="#000000"
+                  d="M224 480h640a32 32 0 1 1 0 64H224a32 32 0 0 1 0-64z"
+                ></path>
+                <path
+                  fill="#000000"
+                  d="m237.248 512 265.408 265.344a32 32 0 0 1-45.312 45.312l-288-288a32 32 0 0 1 0-45.312l288-288a32 32 0 1 1 45.312 45.312L237.248 512z"
+                ></path>
+              </svg>
+            </div>
+            <p className="translate-x-4">Logout</p>
           </button>
         </div>
       </aside>
@@ -199,14 +180,12 @@ export default function AdminSidebar({
   );
 }
 
-/**
- * Optional layout that places the sidebar on the left and the page content on the right.
- */
 export function AdminLayout({ children, title = "Admin" }) {
   return (
     <div className="min-h-screen bg-slate-100 md:flex">
       <AdminSidebar title={title} />
-      <main className="flex-1 md:ml-64 p-4 md:p-6">
+      {/* Removed md:ml-64 to eliminate the big left gap */}
+      <main className="flex-1 p-4 md:p-6">
         {children}
       </main>
     </div>

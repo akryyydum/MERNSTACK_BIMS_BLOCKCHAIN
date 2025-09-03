@@ -10,6 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import OfficialDashboard from "./pages/OfficialDashboard";
 import ResidentDashboard from "./pages/ResidentDashboard";
 import SplashRedirect from "./routes/SplashRedirect";
+import AdminUserManagement from "./pages/AdminUserManagement"; // add
 
 function App() {
   const [count, setCount] = useState(0)
@@ -25,6 +26,7 @@ function App() {
         {/* Admin only */}
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/user-management" element={<AdminUserManagement />} /> {/* add */}
         </Route>
 
         {/* Official only */}
