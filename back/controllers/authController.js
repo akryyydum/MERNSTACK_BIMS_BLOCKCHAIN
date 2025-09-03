@@ -1,4 +1,5 @@
 const User = require('../models/user.model');
+const Resident = require('../models/resident.model'); // add
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -6,12 +7,44 @@ const sendEmail = require('../utils/sendEmail');
 
 async function register(req, res) {
   try {
-    const { username, password, fullName, contact = {}, role } = req.body;
+    const {
+      username,
+      password,
+      fullName,
+      contact = {},
+      role,
+      // Resident fields
+      firstName,
+      middleName,
+      lastName,
+      suffix,
+      dateOfBirth,
+      birthPlace,
+      gender,
+      civilStatus,
+      religion,
+      address,
+      citizenship,
+      occupation,
+      education,
+    } = req.body;
 
+    // Basic user validation
     if (!username || !password || !fullName || !contact.email) {
       return res.status(400).json({ message: 'username, password, fullName, and contact.email are required' });
     }
 
+    // Basic resident validation (ensure required Resident fields exist)
+    const missingResident =
+      !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
+      !address?.street || !address?.barangay || !address?.municipality || !address?.province ||
+      !citizenship || !occupation || !education || !contact.mobile;
+
+    if (missingResident) {
+      return res.status(400).json({ message: 'Missing required resident fields' });
+    }
+
+    // Uniqueness check
     const existingUser = await User.findOne({
       $or: [{ username }, { 'contact.email': contact.email }]
     });
@@ -19,11 +52,12 @@ async function register(req, res) {
       return res.status(400).json({ message: 'Username or email already exists' });
     }
 
+    // Create User
     const passwordHash = await bcrypt.hash(password, 10);
     const verificationCode = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
     const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-    const newUser = new User({
+    const user = await new User({
       username,
       passwordHash,
       role: role || 'resident',
@@ -32,9 +66,38 @@ async function register(req, res) {
       isVerified: false,
       verificationCode,
       verificationCodeExpires
-    });
-    await newUser.save();
+    }).save();
 
+    try {
+      // Create Resident linked to the user
+      await Resident.create({
+        user: user._id,
+        firstName,
+        middleName,
+        lastName,
+        suffix,
+        dateOfBirth,     // accepts ISO string or Date
+        birthPlace,
+        gender,
+        civilStatus,
+        religion,
+        address,
+        citizenship,
+        occupation,
+        education,
+        contact: {
+          mobile: contact.mobile,
+          email: contact.email
+        },
+        status: 'pending'
+      });
+    } catch (residentErr) {
+      // Rollback user if resident creation fails
+      await User.deleteOne({ _id: user._id });
+      return res.status(400).json({ message: residentErr.message || 'Failed to create resident record' });
+    }
+
+    // Send verification email (after data is saved)
     await sendEmail(
       contact.email,
       'Your verification code',
@@ -146,10 +209,28 @@ async function resetPassword(req, res) {
   }
 }
 
+async function resendCode(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'email is required' });
+    const user = await User.findOne({ 'contact.email': email });
+    if (!user) return res.status(404).json({ message: 'Email not found' });
+    const verificationCode = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+    await sendEmail(email, 'Your verification code', `Your verification code is ${verificationCode}. It expires in 10 minutes.`);
+    res.json({ message: 'A new verification code has been sent.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 module.exports = {
   register,
   verifyCode,
   login,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  resendCode, // add
 };

@@ -1,16 +1,46 @@
 import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import Login from './auth/Login'
+import ProtectedRoute from "./routes/ProtectedRoute";
+import PublicOnly from "./routes/PublicOnly";
+import AdminDashboard from "./pages/AdminDashboard";
+import OfficialDashboard from "./pages/OfficialDashboard";
+import ResidentDashboard from "./pages/ResidentDashboard";
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
-    <div>
-      <Login />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Public route (blocked for authenticated users) */}
+        <Route element={<PublicOnly />}>
+          <Route path="/login" element={<Login />} />
+        </Route>
+
+        {/* Admin only */}
+        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        </Route>
+
+        {/* Official only */}
+        <Route element={<ProtectedRoute allowedRoles={["official"]} />}>
+          <Route path="/official-dashboard" element={<OfficialDashboard />} />
+        </Route>
+
+        {/* Resident only */}
+        <Route element={<ProtectedRoute allowedRoles={["resident"]} />}>
+          <Route path="/resident-dashboard" element={<ResidentDashboard />} />
+        </Route>
+
+        {/* Default and 404 handling */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
     /**   <div className="min-h-screen bg-gradient-to-r from-navy-900 via-navy-800 to-navy-950 flex flex-col items-center justify-center p-6" style={{ backgroundColor: '#0a192f' }}>
         <div className="relative bg-white/90 backdrop-blur-sm shadow-2xl rounded-3xl px-10 py-12 max-w-4xl w-full flex flex-col items-center border-t border-l border-white/50 overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">

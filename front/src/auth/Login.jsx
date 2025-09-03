@@ -140,30 +140,35 @@ const Login = () => {
       }
 
       const payload = {
-  username,
-  password,
-  fullName,
-  dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD"), // convert Dayjs to string
-  birthPlace: values.birthPlace,
-  gender: values.gender,
-  civilStatus: values.civilStatus,
-  religion: values.religion,
-  address: {
-    street: values?.address?.street,
-    barangay: values?.address?.barangay,
-    municipality: values?.address?.municipality,
-    province: values?.address?.province,
-    zipCode: values?.address?.zipCode,
-  },
-  contact: {
-    email,
-    mobile: values?.contact?.mobile?.trim(),
-  },
-  citizenship: values.citizenship,
-  occupation: values.occupation,
-  education: values.education,
-  role: "resident",
-};
+        username,
+        password,
+        fullName,
+        // Name fields needed by Resident
+        firstName: values.firstName,
+        middleName: values.middleName,
+        lastName: values.lastName,
+        suffix: values.suffix,
+        dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD"), // convert Dayjs to string
+        birthPlace: values.birthPlace,
+        gender: values.gender,
+        civilStatus: values.civilStatus,
+        religion: values.religion,
+        address: {
+          street: values?.address?.street,
+          barangay: values?.address?.barangay,
+          municipality: values?.address?.municipality,
+          province: values?.address?.province,
+          zipCode: values?.address?.zipCode,
+        },
+        contact: {
+          email,
+          mobile: values?.contact?.mobile?.trim(),
+        },
+        citizenship: values.citizenship,
+        occupation: values.occupation,
+        education: values.education,
+        role: "resident",
+      };
 
 
       await axios.post(`${API_BASE}/api/auth/register`, payload);
