@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload } from "antd"; // CHANGED: add Drawer, Steps, Select, DatePicker, Upload
+import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload } from "antd";
 
 const Login = () => {
   const [error, setError] = useState("");
@@ -13,16 +13,33 @@ const Login = () => {
   const [regEmail, setRegEmail] = useState("");
   const [regForm] = Form.useForm();
 
-  // Fields to validate by step (only what's visible)
   const stepFieldNames = {
-    1: ["username", "password", "confirmPassword", "firstName", "lastName"],
-    // step 2 is optional to avoid blocking on personal info
-    2: [],
-    // Only enforce contact details on the last step before submit
-    3: [
-      ["contact", "email"],
-      ["contact", "mobile"], // keep mobile if you want it required; remove to make optional
+    1: [
+      "firstName",
+      "middleName",
+      "lastName",
+      "dateOfBirth",
+      "birthPlace",
+      "gender",
+      "civilStatus",
+      "religion"
     ],
+    2: [
+      ["address", "street"],
+      ["address", "barangay"],
+      ["address", "municipality"],
+      ["address", "province"],
+      ["address", "zipCode"],
+      "citizenship",
+      "occupation",
+      "education",
+      ["contact", "mobile"],
+      ["contact", "email"]
+    ],
+    3: [
+      "password",
+      "confirmPassword"
+    ]
   };
 
   // Prefer Vite env variable; fallback to local backend
@@ -67,8 +84,25 @@ const Login = () => {
       if (fields.length) {
         await regForm.validateFields(fields); // validate current step only
       }
+      setRegError("");
       setStep((prev) => prev + 1);
-    } catch {
+    } catch (err) {
+      // Show field errors if any
+      if (err && err.errorFields && err.errorFields.length > 0) {
+        // Optionally, scroll to first error
+        const firstError = err.errorFields[0];
+        if (firstError && firstError.name) {
+          regForm.scrollToField(firstError.name);
+        }
+        // Build a readable list of missing fields
+        const missing = err.errorFields.map(f => {
+          // Try to get the label from the form item meta
+          const name = Array.isArray(f.name) ? f.name[f.name.length-1] : f.name;
+          // Convert camelCase or snake_case to Title Case
+          return name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, s => s.toUpperCase());
+        });
+        setRegError(`Please fill in the following required field(s): ${missing.join(", ")}`);
+      }
       // keep user on the same step
     }
   };
@@ -126,21 +160,15 @@ const Login = () => {
         .trim();
 
       const email = values?.contact?.email?.trim();
-      const username = values?.username?.trim();
       const password = values?.password;
 
-      // Frontend guard for required fields
-      if (!username || !password || !fullName || !email) { // NEW
-        setRegError("username, password, fullName, and contact.email are required");
-        // Navigate to the step that likely misses data
-        if (!username || !password || !values.firstName || !values.lastName) setStep(1);
-        else if (!values.dateOfBirth || !values.birthPlace || !values.gender || !values.civilStatus) setStep(2);
-        else setStep(3);
+      // Frontend guard for required fields (let antd Form handle most validation)
+      if (!password || !fullName || !email) {
+        setRegError("Password, full name, and contact email are required");
         return;
       }
 
       const payload = {
-        username,
         password,
         fullName,
         // Name fields needed by Resident
@@ -394,9 +422,9 @@ const Login = () => {
               size="small"
               current={step - 1}
               items={[
-                { title: "Account" },
                 { title: "Personal" },
                 { title: "Address & Contact" },
+                { title: "Account" },
               ]}
             />
           </div>
@@ -416,19 +444,200 @@ const Login = () => {
           <Form
             form={regForm}
             layout="vertical"
-             preserve={true}
+            preserve={true}
             onFinish={handleRegister}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && step !== 4) e.preventDefault();
             }}
+            onValuesChange={(changed, all) => {
+              // If the user updates the Address & Contact email, sync it to the Account step
+              if (changed?.contact?.email !== undefined) {
+                regForm.setFieldsValue({ accountEmail: changed.contact.email });
+              }
+            }}
           >
-            {/* STEP 1: Account & Name */}
+            {/* STEP 1: Personal Info */}
             {step === 1 && (
               <>
-                <h3 className="text-sm font-semibold mb-2">Account</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Username" name="username" rules={[{ required: true }]} className="mb-2">
+                <h3 className="text-sm font-semibold mb-2">Personal Info</h3>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <Form.Item
+                    label="First Name"
+                    name="firstName"
+                    rules={[
+                      { required: true, message: 'First name is required' },
+                      { pattern: /^[A-Za-z ]+$/, message: 'First name must contain only letters and spaces' }
+                    ]}
+                    className="mb-2"
+                  >
                     <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item
+                    label="Middle Name"
+                    name="middleName"
+                    rules={[
+                      { pattern: /^[A-Za-z ]*$/, message: 'Middle name must contain only letters and spaces' }
+                    ]}
+                    className="mb-2"
+                  >
+                    <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item
+                    label="Last Name"
+                    name="lastName"
+                    rules={[
+                      { required: true, message: 'Last name is required' },
+                      { pattern: /^[A-Za-z ]+$/, message: 'Last name must contain only letters and spaces' }
+                    ]}
+                    className="mb-2"
+                  >
+                    <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item label="Suffix" name="suffix" className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Form.Item label="Date of Birth" name="dateOfBirth" rules={[{ required: true, message: 'Please select your date of birth!' }]} className="mb-2">
+                    <DatePicker
+                      className="w-full"
+                      size="middle"
+                      disabledDate={current => current && current > new Date()}
+                      placeholder="Select date of birth"
+                    />
+                  </Form.Item>
+                  <Form.Item label="Birth Place" name="birthPlace" rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Form.Item label="Gender" name="gender" rules={[{ required: true }]} className="mb-2">
+                    <Select
+                      options={[ 
+                        { value: "male", label: "Male" },
+                        { value: "female", label: "Female" },
+                        { value: "other", label: "Prefer not to say" },
+                      ]}
+                      size="middle"
+                    />
+                  </Form.Item>
+                  <Form.Item label="Civil Status" name="civilStatus" rules={[{ required: true }]} className="mb-2">
+                    <Select
+                      options={[ 
+                        { value: "single", label: "Single" },
+                        { value: "married", label: "Married" },
+                        { value: "widowed", label: "Widowed" },
+                        { value: "separated", label: "Separated" },
+                      ]}
+                      size="middle"
+                    />
+                  </Form.Item>
+                </div>
+                <Form.Item
+                  label="Religion"
+                  name="religion"
+                  rules={[
+                    { required: true, message: 'Religion is required' },
+                    { pattern: /^[A-Za-z ]+$/, message: 'Religion must contain only letters and spaces' }
+                  ]}
+                  className="mb-2"
+                >
+                  <Input size="middle" />
+                </Form.Item>
+              </>
+            )}
+
+            {/* STEP 2: Address & Contact */}
+            {step === 2 && (
+              <>
+                <h3 className="text-sm font-semibold mb-2">Address</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Form.Item label="Street" name={["address", "street"]} rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item label="Barangay" name={["address", "barangay"]} initialValue="La Torre North" rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" disabled />
+                  </Form.Item>
+                  <Form.Item label="Municipality" name={["address", "municipality"]} initialValue="Bayombong" rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" disabled />
+                  </Form.Item>
+                  <Form.Item label="Province" name={["address", "province"]} initialValue="Nueva Vizcaya" rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" disabled />
+                  </Form.Item>
+                  <Form.Item label="ZIP Code" name={["address", "zipCode"]} initialValue="3700" className="mb-2">
+                    <Input size="middle" disabled />
+                  </Form.Item>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <Form.Item label="Citizenship" name="citizenship" rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item label="Education" name="education" rules={[{ required: true }]} className="mb-2">
+                    <Select
+                      options={[
+                        { value: "Elementary", label: "Elementary" },
+                        { value: "High School", label: "High School" },
+                        { value: "Senior High School", label: "Senior High School" },
+                        { value: "Vocational", label: "Vocational" },
+                        { value: "College", label: "College" },
+                        { value: "Post Graduate", label: "Post Graduate" },
+                        { value: "Doctorate", label: "Doctorate" },
+                        { value: "None", label: "None" }
+                      ]}
+                      size="middle"
+                      placeholder="Select education level"
+                    />
+                  </Form.Item>
+                </div>
+
+                <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ required: true }]} className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ required: true, type: "email" }]} className="mb-2">
+                    <Input size="middle" />
+                  </Form.Item>
+                </div>
+
+                <Form.Item
+                  label="Upload Valid ID"
+                  name="idFiles"
+                  valuePropName="fileList"
+                  getValueFromEvent={normFile}
+                  className="mb-2"
+                  rules={[{ required: true, message: 'Please upload a valid ID image.' }]}
+                >
+                  <Upload.Dragger
+                    multiple
+                    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+                    beforeUpload={file => {
+                      const isImage = file.type.startsWith('image/');
+                      if (!isImage) {
+                        message.error('You can only upload image files!');
+                      }
+                      return false; // Prevent upload
+                    }}
+                  >
+                    <p className="ant-upload-drag-icon">+</p>
+                    <p className="ant-upload-text">Click or drag image files to this area to upload</p>
+                    <p className="ant-upload-hint">Only for verification; not sent to backend yet. (JPG, PNG, GIF, WEBP)</p>
+                  </Upload.Dragger>
+                </Form.Item>
+              </>
+            )}
+
+            {/* STEP 3: Account */}
+            {step === 3 && (
+              <>
+                <h3 className="text-sm font-semibold mb-2">Account</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <Form.Item label="Email" name="accountEmail" className="mb-2">
+                    <Input size="middle" disabled placeholder="(auto-filled from Address & Contact)" />
                   </Form.Item>
                   <Form.Item label="Password" name="password" rules={[{ required: true, min: 6 }]} className="mb-2">
                     <Input.Password size="middle" />
@@ -451,123 +660,6 @@ const Login = () => {
                     <Input.Password size="middle" />
                   </Form.Item>
                 </div>
-
-                <h3 className="text-sm font-semibold mt-4 mb-2">Name</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="First Name" name="firstName" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Middle Name" name="middleName" className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Last Name" name="lastName" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Suffix" name="suffix" className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                </div>
-              </>
-            )}
-
-            {/* STEP 2: Personal Info */}
-            {step === 2 && (
-              <>
-                <h3 className="text-sm font-semibold mb-2">Personal Info</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Date of Birth" name="dateOfBirth" className="mb-2">
-                    <DatePicker className="w-full" size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Birth Place" name="birthPlace" className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Gender" name="gender" className="mb-2">
-                    <Select
-                      options={[
-                        { value: "male", label: "Male" },
-                        { value: "female", label: "Female" },
-                        { value: "other", label: "Other" },
-                      ]}
-                      size="middle"
-                    />
-                  </Form.Item>
-                  <Form.Item label="Civil Status" name="civilStatus" className="mb-2">
-                    <Select
-                      options={[
-                        { value: "single", label: "Single" },
-                        { value: "married", label: "Married" },
-                        { value: "widowed", label: "Widowed" },
-                        { value: "separated", label: "Separated" },
-                      ]}
-                      size="middle"
-                    />
-                  </Form.Item>
-                </div>
-                <Form.Item label="Religion" name="religion" className="mb-2">
-                  <Input size="middle" />
-                </Form.Item>
-              </>
-            )}
-
-            {/* STEP 3: Address & Contact */}
-            {step === 3 && (
-              <>
-                <h3 className="text-sm font-semibold mb-2">Address</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Street" name={["address", "street"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Barangay" name={["address", "barangay"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Municipality" name={["address", "municipality"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Province" name={["address", "province"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="ZIP Code" name={["address", "zipCode"]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <Form.Item label="Citizenship" name="citizenship" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Education" name="education" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                </div>
-
-                <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ required: true, type: "email" }]} className="mb-2">
-                    <Input size="middle" />
-                  </Form.Item>
-                </div>
-
-                <Form.Item
-                  label="Upload Valid ID"
-                  name="idFiles"
-                  valuePropName="fileList"
-                  getValueFromEvent={normFile}
-                  className="mb-2"
-                >
-                  <Upload.Dragger multiple beforeUpload={() => false}>
-                    <p className="ant-upload-drag-icon">+</p>
-                    <p className="ant-upload-text">Click or drag files to this area to upload</p>
-                    <p className="ant-upload-hint">Only for verification; not sent to backend yet.</p>
-                  </Upload.Dragger>
-                </Form.Item>
               </>
             )}
 
@@ -600,7 +692,13 @@ const Login = () => {
             {/* Navigation Buttons */}
             <div className="mt-4 flex gap-2">
               {step > 1 && step <= 3 && (
-                <button onClick={handlePrev} className="cssbuttons-io-button-left flex-1 w-full">
+                <button
+                  onClick={() => {
+                    if (step === 3) setStep(2);
+                    else handlePrev();
+                  }}
+                  className="cssbuttons-io-button-left flex-1 w-full"
+                >
                   Previous
                   <div className="icon">
                     <svg height="24" width="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 import Login from './auth/Login'
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicOnly from "./routes/PublicOnly";
 import AdminDashboard from "./pages/AdminDashboard";
 import OfficialDashboard from "./pages/OfficialDashboard";
-import ResidentDashboard from "./pages/ResidentDashboard";
+import ResidentDashboard from "./pages/Residents/ResidentDashboard";
 import SplashRedirect from "./routes/SplashRedirect";
 
 function App() {
