@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm } from "antd";
-import { AdminLayout } from "./AdminSidebar"; // add
+import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, DatePicker, Steps } from "antd"; // + Steps
+import { AdminLayout } from "./AdminSidebar";
 
 const { Search } = Input;
 const { Option } = Select;
@@ -17,6 +17,21 @@ export default function AdminUserManagement() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [creating, setCreating] = useState(false);
+
+  const [createResidentOpen, setCreateResidentOpen] = useState(false);
+  const [residentForm] = Form.useForm();
+  const [creatingResident, setCreatingResident] = useState(false);
+  const [residentStep, setResidentStep] = useState(1); // +
+
+  // Fields to validate per step
+  const residentStepFields = {                                  // +
+    1: ["username", "password", ["contact","email"], ["contact","mobile"]],
+    2: ["firstName", "lastName", "dateOfBirth", "birthPlace", "gender", "civilStatus", "religion"],
+    3: [
+      ["address","street"], ["address","barangay"], ["address","municipality"], ["address","province"], ["address","zipCode"],
+      "citizenship", "occupation", "education"
+    ],
+  };
 
   const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
   const token = localStorage.getItem("token");
@@ -135,6 +150,57 @@ export default function AdminUserManagement() {
     }
   };
 
+  const openCreateResident = () => { // +
+    residentForm.resetFields();
+    setResidentStep(1);
+    setCreateResidentOpen(true);
+  };
+
+  const handleNextResident = async () => {                      // +
+    try {
+      await residentForm.validateFields(residentStepFields[residentStep]);
+      setResidentStep((s) => Math.min(3, s + 1));
+    } catch (_) {
+      // validation errors shown by antd
+    }
+  };
+
+  const handlePrevResident = () => setResidentStep((s) => Math.max(1, s - 1)); // +
+
+  const submitCreateResident = async () => {
+    try {
+      // Validate all before submit
+      await residentForm.validateFields([
+        ...residentStepFields[1],
+        ...residentStepFields[2],
+        ...residentStepFields[3],
+      ]);
+      const values = residentForm.getFieldsValue(true);
+      const payload = {
+        ...values,
+        dateOfBirth: values.dateOfBirth?.toISOString?.() ?? values.dateOfBirth,
+      };
+      setCreatingResident(true);
+      const res = await fetch(`${API_BASE}/api/admin/residents`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to create resident");
+      }
+      message.success("Resident created");
+      setCreateResidentOpen(false);
+      fetchUsers();
+    } catch (e) {
+      if (e?.errorFields) return;
+      message.error(e.message);
+    } finally {
+      setCreatingResident(false);
+    }
+  };
+
   const columns = [
     {
       title: "Name",
@@ -212,7 +278,7 @@ export default function AdminUserManagement() {
   return (
     <AdminLayout title="Admin">
       <div className="space-y-4">
-        <h1 class="text-5xl">User Management</h1>
+        <h1 className="text-5xl">User Management</h1> {/* fix class -> className */}
         <div className="flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
           <div className="flex gap-2">
             <Search
@@ -233,7 +299,10 @@ export default function AdminUserManagement() {
               <Option value="resident">Resident</Option>
             </Select>
           </div>
-          <Button type="primary" onClick={openCreate}>Create User</Button>
+          <div className="flex gap-2">
+            <Button onClick={openCreateResident}>Add Resident</Button> {/* new button */}
+            <Button type="primary" onClick={openCreate}>Create User</Button>
+          </div>
         </div>
 
         <Table
@@ -270,6 +339,7 @@ export default function AdminUserManagement() {
             >
               <Select
                 options={[
+
                   { value: "official", label: "Official" },
                   { value: "admin", label: "Admin" },
                 ]}
@@ -313,6 +383,158 @@ export default function AdminUserManagement() {
             >
               <Input.Password autoComplete="new-password" />
             </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Add Resident modal (now multi-step) */}
+        <Modal
+          title="Add Resident"
+          open={createResidentOpen}
+          onCancel={() => setCreateResidentOpen(false)}
+          width={800}
+          footer={[
+            <Button key="cancel" onClick={() => setCreateResidentOpen(false)} disabled={creatingResident}>Cancel</Button>,
+            residentStep > 1 && (
+              <Button key="back" onClick={handlePrevResident} disabled={creatingResident}>
+                Back
+              </Button>
+            ),
+            residentStep < 3 && (
+              <Button key="next" type="primary" onClick={handleNextResident} disabled={creatingResident}>
+                Next
+              </Button>
+            ),
+            residentStep === 3 && (
+              <Button key="create" type="primary" loading={creatingResident} onClick={submitCreateResident}>
+                Create
+              </Button>
+            ),
+          ]}
+        >
+          <Steps
+            size="small"
+            current={residentStep - 1}
+            className="mb-4"
+            items={[
+              { title: "Account" },
+              { title: "Identity" },
+              { title: "Address & Details" },
+            ]}
+          />
+
+          <Form form={residentForm} layout="vertical">
+            {residentStep === 1 && (
+              <>
+                <Form.Item
+                  name="username"
+                  label="Username"
+                  rules={[{ required: true, message: "Username is required" }]}
+                >
+                  <Input autoComplete="off" />
+                </Form.Item>
+                <Form.Item
+                  name="password"
+                  label="Temporary password"
+                  rules={[{ required: true, message: "Password is required" }, { min: 6 }]}
+                >
+                  <Input.Password autoComplete="new-password" />
+                </Form.Item>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Form.Item
+                    name={["contact", "email"]}
+                    label="Email"
+                    rules={[{ required: true }, { type: "email" }]}
+                  >
+                    <Input type="email" />
+                  </Form.Item>
+                  <Form.Item
+                    name={["contact", "mobile"]}
+                    label="Mobile"
+                    rules={[{ required: true }]}
+                  >
+                    <Input />
+                  </Form.Item>
+                </div>
+              </>
+            )}
+
+            {residentStep === 2 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Form.Item name="firstName" label="First name" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="middleName" label="Middle name">
+                  <Input />
+                </Form.Item>
+                <Form.Item name="lastName" label="Last name" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="suffix" label="Suffix">
+                  <Input />
+                </Form.Item>
+                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                  <DatePicker className="w-full" />
+                </Form.Item>
+                <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: "single", label: "Single" },
+                      { value: "married", label: "Married" },
+                      { value: "widowed", label: "Widowed" },
+                      { value: "separated", label: "Separated" },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item name="religion" label="Religion">
+                  <Input />
+                </Form.Item>
+              </div>
+            )}
+
+            {residentStep === 3 && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name={["address", "zipCode"]} label="ZIP Code">
+                    <Input />
+                  </Form.Item>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="education" label="Education" rules={[{ required: true }]}>
+                    <Input />
+                  </Form.Item>
+                </div>
+              </>
+            )}
           </Form>
         </Modal>
       </div>
