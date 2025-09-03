@@ -1,53 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-
-const iconCls = "w-5 h-5 flex-shrink-0";
-const IconDashboard = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h5v8H3v-8zm7 4h11v4H10v-4z" fill="currentColor" />
-  </svg>
-);
-const IconUsers = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.67 0-8 1.34-8 4v2h10v-2c0-1.02.38-1.96 1.02-2.78C10.1 13.49 8.87 13 8 13zm8 0c-.73 0-1.76.2-2.78.58C14.41 14.55 15 15.71 15 17v2h9v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
-  </svg>
-);
-const IconClipboard = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M9 2h6v2h3a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h3V2zm0 6h6V6H9v2z" fill="currentColor"/>
-  </svg>
-);
-const IconReport = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M3 13h8v8H3v-8zm10-10h8v18h-8V3zM5 15h4v4H5v-4z" fill="currentColor"/>
-  </svg>
-);
-const IconSettings = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M19.14 12.94a7.49 7.49 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.43 7.43 0 00-1.63-.95l-.36-2.55A.5.5 0 0013.9 2h-3.8a.5.5 0 00-.49.41l-.36 2.55c-.58.24-1.12.55-1.63.95l-2.39-.96a.5.5 0 00-.6.22L2.3 8.04a.5.5 0 00.12.64l2.03 1.58c-.06.31-.09.63-.09.94 0 .32.03.63.09.94L2.42 13.7a.5.5 0 00-.12.64l1.92 3.32c.13.22.38.31.6.22l2.39-.96c.51.4 1.05.71 1.63.95l.36 2.55c.05.24.25.41.49.41h3.8c.24 0 .45-.17.49-.41l.36-2.55c.58-.24 1.12-.55 1.63-.95l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z" fill="currentColor"/>
-  </svg>
-);
-const IconShield = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M12 2l8 4v6c0 5-3.5 9.74-8 10-4.5-.26-8-5-8-10V6l8-4z" fill="currentColor"/>
-  </svg>
-);
-const IconLogout = () => (
-  <svg className={iconCls} viewBox="0 0 24 24" fill="none">
-    <path d="M10 17l-1.41-1.41L11.17 13H3v-2h8.17l-2.58-2.59L10 7l5 5-5 5zM19 3h-6v2h6v14h-6v2h6a2 2 0 002-2V5a2 2 0 00-2-2z" fill="currentColor"/>
-  </svg>
-);
+import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
+    ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
+ } from "@ant-design/icons";
 
 const defaultMenu = [
-  { to: "/admin-dashboard", label: "Dashboard", icon: <IconDashboard /> },
-  { to: "/admin/", label: "Dashboard", icon: <IconDashboard /> },
-  { to: "/admin/residents", label: "Residents Management", icon: <IconUsers /> },
-  { to: "/admin/officials", label: "Officials Management", icon: <IconUsers /> },
-  { to: "/admin/blockchain", label: "Blockchain Network", icon: <IconShield /> },
+  { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
+  { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
+  { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
+  { to: "/admin/officials", label: "Officials Management", icon: <UserOutlined /> },
+  { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
 
-  { to: "/admin/monitor", label: "System Monitor", icon: <IconClipboard /> },
-  { to: "/admin/analytics", label: "Analytics", icon: <IconReport /> },
-  { to: "/admin/settings", label: "Settings", icon: <IconSettings /> },
+  { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },
+  { to: "/admin/analytics", label: "Analytics", icon: <BarChartOutlined /> },
+  { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
 ];
 
 export default function AdminSidebar({
@@ -122,7 +88,7 @@ export default function AdminSidebar({
         <div className="px-3 md:px-4 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
-              <IconShield />
+              <SafetyOutlined />
             </div>
             {!collapsed && (
               <div className="truncate">
@@ -183,30 +149,51 @@ export default function AdminSidebar({
         </nav>
 
         {/* Footer actions */}
-        <div className="mt-auto p-3">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-red-200 hover:text-white hover:bg-red-500/20 transition-colors"
-          >
-            <span className="text-red-300">
-              <IconLogout />
-            </span>
-            {!collapsed && <span>Logout</span>}
-          </button>
-        </div>
+       <div className="mt-auto p-3">
+  <button
+    onClick={handleLogout}
+    className="p-16-semibold flex size-full gap-4 p-4 group font-semibold rounded-full bg-cover hover:bg-red-500 hover:shadow-inner focus:bg-gradient-to-r from-red-400 to-red-600 focus:text-black text-gray-700 transition-all ease-linear"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      className="size-6"
+    >
+      <g strokeWidth="0" id="SVGRepo_bgCarrier"></g>
+      <g
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        id="SVGRepo_tracerCarrier"
+      ></g>
+      <g id="SVGRepo_iconCarrier">
+        <path
+          className="group-focus:fill-white"
+          fill="white"
+          d="M17.2929 14.2929C16.9024 14.6834 16.9024 15.3166 17.2929 15.7071C17.6834 16.0976 18.3166 16.0976 18.7071 15.7071L21.6201 12.7941C21.6351 12.7791 21.6497 12.7637 21.6637 12.748C21.87 12.5648 22 12.2976 22 12C22 11.7024 21.87 11.4352 21.6637 11.252C21.6497 11.2363 21.6351 11.2209 21.6201 11.2059L18.7071 8.29289C18.3166 7.90237 17.6834 7.90237 17.2929 8.29289C16.9024 8.68342 16.9024 9.31658 17.2929 9.70711L18.5858 11H13C12.4477 11 12 11.4477 12 12C12 12.5523 12.4477 13 13 13H18.5858L17.2929 14.2929Z"
+        ></path>
+        <path
+          className="group-focus:fill-white"
+          fill="white"
+          d="M5 2C3.34315 2 2 3.34315 2 5V19C2 20.6569 3.34315 22 5 22H14.5C15.8807 22 17 20.8807 17 19.5V16.7326C16.8519 16.647 16.7125 16.5409 16.5858 16.4142C15.9314 15.7598 15.8253 14.7649 16.2674 14H13C11.8954 14 11 13.1046 11 12C11 10.8954 11.8954 10 13 10H16.2674C15.8253 9.23514 15.9314 8.24015 16.5858 7.58579C16.7125 7.4591 16.8519 7.35296 17 7.26738V4.5C17 3.11929 15.8807 2 14.5 2H5Z"
+        ></path>
+      </g>
+    </svg>
+    Logout
+  </button>
+</div>
+
       </aside>
     </>
   );
 }
 
-/**
- * Optional layout that places the sidebar on the left and the page content on the right.
- */
 export function AdminLayout({ children, title = "Admin" }) {
   return (
     <div className="min-h-screen bg-slate-100 md:flex">
       <AdminSidebar title={title} />
-      <main className="flex-1 md:ml-64 p-4 md:p-6">
+      {/* Removed md:ml-64 to eliminate the big left gap */}
+      <main className="flex-1 p-4 md:p-6">
         {children}
       </main>
     </div>

@@ -15,28 +15,14 @@ const Login = () => {
 
   const stepFieldNames = {
     1: [
-      "firstName",
-      "middleName",
-      "lastName",
-      "dateOfBirth",
-      "birthPlace",
-      "gender",
-      "civilStatus",
-      "religion"
+      "firstName","middleName","lastName","dateOfBirth","birthPlace","gender","civilStatus","religion"
     ],
     2: [
-      ["address", "street"],
-      ["address", "barangay"],
-      ["address", "municipality"],
-      ["address", "province"],
-      ["address", "zipCode"],
-      "citizenship",
-      "occupation",
-      "education",
-      ["contact", "mobile"],
-      ["contact", "email"]
+      ["address","street"],["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
+      "citizenship","occupation","education",["contact","mobile"],["contact","email"]
     ],
     3: [
+      "username", // <-- add
       "password",
       "confirmPassword"
     ]
@@ -161,14 +147,15 @@ const Login = () => {
 
       const email = values?.contact?.email?.trim();
       const password = values?.password;
+      const username = values?.username?.trim(); // <-- add
 
-      // Frontend guard for required fields (let antd Form handle most validation)
-      if (!password || !fullName || !email) {
-        setRegError("Password, full name, and contact email are required");
+      if (!password || !fullName || !email || !username) { // <-- include username
+        setRegError("Username, password, full name, and contact email are required");
         return;
       }
 
       const payload = {
+        username, // <-- add
         password,
         fullName,
         // Name fields needed by Resident
@@ -176,7 +163,7 @@ const Login = () => {
         middleName: values.middleName,
         lastName: values.lastName,
         suffix: values.suffix,
-        dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD"), // convert Dayjs to string
+        dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD"),
         birthPlace: values.birthPlace,
         gender: values.gender,
         civilStatus: values.civilStatus,
@@ -639,6 +626,21 @@ const Login = () => {
                   <Form.Item label="Email" name="accountEmail" className="mb-2">
                     <Input size="middle" disabled placeholder="(auto-filled from Address & Contact)" />
                   </Form.Item>
+
+                  {/* NEW: Username */}
+                  <Form.Item
+                    label="Username"
+                    name="username"
+                    rules={[
+                      { required: true, message: "Username is required" },
+                      { min: 3, message: "At least 3 characters" },
+                      { pattern: /^[a-zA-Z0-9._-]+$/, message: "Use letters, numbers, . _ -" },
+                    ]}
+                    className="mb-2"
+                  >
+                    <Input size="middle" autoComplete="off" />
+                  </Form.Item>
+
                   <Form.Item label="Password" name="password" rules={[{ required: true, min: 6 }]} className="mb-2">
                     <Input.Password size="middle" />
                   </Form.Item>
