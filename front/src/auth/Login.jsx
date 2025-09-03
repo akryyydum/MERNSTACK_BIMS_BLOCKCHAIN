@@ -732,7 +732,7 @@ const Login = () => {
                   type="primary"
                   onClick={handleRegister}
                   loading={regLoading}
-                  className="flex-1 bg-black hover:bg-gray-800"
+                  className="flex-1 bg-black hover:bg-gray-800 h-64"
                 >
                   Submit Registration
                 </Button>
