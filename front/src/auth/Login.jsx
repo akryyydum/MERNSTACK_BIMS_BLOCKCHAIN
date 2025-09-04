@@ -8,9 +8,6 @@ const Login = () => {
   const [step, setStep] = useState(1);
   const [regError, setRegError] = useState("");
   const [regLoading, setRegLoading] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [regEmail, setRegEmail] = useState("");
   const [regForm] = Form.useForm();
 
   const stepFieldNames = {
@@ -92,10 +89,7 @@ const Login = () => {
     setShowRegister(false);
     setStep(1);
     setRegError("");
-    setVerifyError("");
     setRegLoading(false);
-    setVerifyLoading(false);
-    setRegEmail("");
     regForm.resetFields();
   };
 
@@ -103,15 +97,7 @@ const Login = () => {
     setShowRegister(true);
     setStep(1);
     setRegError("");
-    setVerifyError("");
-    setRegEmail("");
     regForm.resetFields();
-  };
-
-  const openVerifyPanel = () => {
-    setShowRegister(true);
-    setStep(4);
-    setVerifyError("");
   };
 
   const normFile = (e) => { // NEW
@@ -172,10 +158,8 @@ const Login = () => {
 
 
       await axios.post(`${API_BASE}/api/auth/register`, payload);
-      message.success("Verification code sent to your email. Enter it to verify.");
-      setRegEmail(email);
-      regForm.setFieldsValue({ verifyEmail: email }); 
-      setStep(4);
+      message.success("Registration successful. You can now log in.");
+      closeRegisterPanel();
     } catch (err) {
       const status = err.response?.status;
       const msg =
@@ -190,56 +174,7 @@ const Login = () => {
     }
   };
 
-  // NEW: resend code
-  const handleResendCode = async () => {
-    try {
-      const email = regForm.getFieldValue("verifyEmail")?.trim() || regEmail;
-      if (!email) {
-        setVerifyError("Please enter your email to resend the code.");
-        return;
-      }
-      await axios.post(`${API_BASE}/api/auth/resend-code`, { email });
-      message.success("A new code has been sent to your email.");
-    } catch (err) {
-      const status = err.response?.status;
-      const msg =
-        status === 404
-          ? "Email not found."
-          : status === 400
-          ? err.response?.data?.message || "Cannot resend code."
-          : status >= 500
-          ? "Server error. Please try again later."
-          : err.response?.data?.message || "Failed to resend code.";
-      setVerifyError(msg);
-    }
-  };
 
-  // NEW: verification submit handler
-  const handleVerify = async () => {
-    setVerifyError("");
-    setVerifyLoading(true);
-    try {
-      await regForm.validateFields(["verifyEmail", "verifyCode"]); 
-      const email = regForm.getFieldValue("verifyEmail")?.trim() || regEmail;
-      const code = regForm.getFieldValue("verifyCode");
-      await axios.post(`${API_BASE}/api/auth/verify-code`, { email, code });
-      message.success("Email verified. You can now log in.");
-      closeRegisterPanel();
-    } catch (err) {
-      if (!err?.errorFields) {
-        const status = err.response?.status;
-        const msg =
-          status === 503
-            ? "Service temporarily unavailable. Please try again later."
-            : status >= 500
-            ? "Server error. Please try again later."
-            : err.response?.data?.message || "Verification failed";
-        setVerifyError(msg);
-      }
-    } finally {
-      setVerifyLoading(false);
-    }
-  };
 
   return (
     <div className="flex min-h-screen bg-gray-100 relative overflow-hidden">
@@ -345,20 +280,13 @@ const Login = () => {
 
 
   {/* Forgot Password Link */}
-  <div className="flex justify-between mt-4">
+  <div className="flex justify-center mt-4">
     <a
       href="/forgot-password"
       className="text-sm text-gray-500 hover:underline"
     >
       Forgot Password?
     </a>
-    <button
-      type="button"
-      onClick={openVerifyPanel}
-      className="text-sm text-gray-500 hover:underline"
-    >
-      Verify Email
-    </button>
   </div>
 </div>
 
@@ -373,38 +301,28 @@ const Login = () => {
 
       {/* Registration*/}
       <Drawer
-        title={step <= 3 ? "Resident Registration" : "Verify Your Email"} 
+        title="Resident Registration" 
         placement="right"
         onClose={closeRegisterPanel}
         open={showRegister}
         width={480} 
         destroyOnClose={false}
-        maskClosable={!regLoading && !verifyLoading}
+        maskClosable={!regLoading}
       >
-        {step <= 3 ? (
-          <div className="mb-4">
-            <Steps
-              size="small"
-              current={step - 1}
-              items={[
-                { title: "Personal" },
-                { title: "Address & Contact" },
-                { title: "Account" },
-              ]}
-            />
-          </div>
-        ) : (
-          <Alert
-            type="info"
-            showIcon
-            className="mb-3"
-            message={`Enter the 6-digit code sent to ${regEmail || "your email"}.`}
+        <div className="mb-4">
+          <Steps
+            size="small"
+            current={step - 1}
+            items={[
+              { title: "Personal" },
+              { title: "Address & Contact" },
+              { title: "Account" },
+            ]}
           />
-        )}
+        </div>
 
         <div className="w-full max-w-sm mx-auto">
-          {regError && step <= 3 && <Alert message={regError} type="error" showIcon className="mb-3" />}
-          {verifyError && step === 4 && <Alert message={verifyError} type="error" showIcon className="mb-3" />}
+          {regError && <Alert message={regError} type="error" showIcon className="mb-3" />}
 
           <Form
             form={regForm}
@@ -412,7 +330,7 @@ const Login = () => {
             preserve={true}
             onFinish={handleRegister}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && step !== 4) e.preventDefault();
+              if (e.key === 'Enter') e.preventDefault();
             }}
             onValuesChange={(changed, all) => {
               if (changed?.contact?.email !== undefined) {
@@ -640,35 +558,9 @@ const Login = () => {
               </>
             )}
 
-            {/* STEP 4: Verification */}
-            {step === 4 && (
-              <>
-                <Form.Item
-                  label="Email"
-                  name="verifyEmail"
-                  initialValue={regEmail || undefined} 
-                  rules={[{ required: true, type: "email", message: "Please enter a valid email" }]}
-                  className="mb-2"
-                >
-                  <Input size="middle" placeholder="your@email.com" />
-                </Form.Item>
-                <Form.Item
-                  label="Verification Code"
-                  name="verifyCode"
-                  rules={[{ required: true, message: "Please enter the 6-digit code" }]}
-                  className="mb-2"
-                >
-                  <Input size="middle" maxLength={6} placeholder="Enter 6-digit code" />
-                </Form.Item>
-                <div className="flex justify-end">
-                  <Button type="link" onClick={handleResendCode}>Resend code</Button>
-                </div>
-              </>
-            )}
-
             {/* Navigation Buttons */}
             <div className="mt-4 flex gap-2">
-              {step > 1 && step <= 3 && (
+              {step > 1 && (
                 <button
                   onClick={() => {
                     if (step === 3) setStep(2);
@@ -711,26 +603,6 @@ const Login = () => {
                 >
                   Submit Registration
                 </Button>
-              )}
-              {step === 4 && (
-                <>
-                  <Button
-                    type="primary"
-                    onClick={handleVerify}
-                    loading={verifyLoading}
-                    className="flex-1 bg-black hover:bg-gray-800"
-                  >
-                    Verify
-                  </Button>
-                  <Button
-                    type="default"
-                    onClick={closeRegisterPanel}
-                    className="flex-1 border-gray-400"
-                    disabled={verifyLoading}
-                  >
-                    Cancel
-                  </Button>
-                </>
               )}
             </div>
           </Form>
