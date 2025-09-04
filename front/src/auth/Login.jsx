@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload } from "antd";
+import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions } from "antd";
 
 const Login = () => {
   const [error, setError] = useState("");
@@ -16,14 +16,16 @@ const Login = () => {
       "firstName","middleName","lastName","dateOfBirth","birthPlace","gender","civilStatus","religion"
     ],
     2: [
-      ["address","street"],["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
+      ["address","street"],["address","purok"],
+      ["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
       "citizenship","occupation","education",["contact","mobile"],["contact","email"]
     ],
     3: [
-      "username", // <-- add
+      "username",
       "password",
       "confirmPassword"
-    ]
+    ],
+    4: [] // No validation needed for confirmation step
   };
 
   // Prefer Vite env variable; fallback to local backend
@@ -33,8 +35,9 @@ const Login = () => {
   const handleSubmit = async (values) => {
     setError("");
     try {
+      // Send the credential as usernameOrEmail to handle both username and email login
       const res = await axios.post(`${API_BASE}/api/auth/login`, {
-        username: values.username,
+        usernameOrEmail: values.username,
         password: values.password,
       });
       localStorage.setItem("token", res.data.token);
@@ -57,6 +60,8 @@ const Login = () => {
           ? "Service temporarily unavailable. Please try again later."
           : status >= 500
           ? "Server error. Please try again later."
+          : status === 400
+          ? "Invalid username/email or password."
           : err.response?.data?.message || "Login failed";
       setError(message);
     }
@@ -69,7 +74,15 @@ const Login = () => {
         await regForm.validateFields(fields); // validate current step only
       }
       setRegError("");
-      setStep((prev) => prev + 1);
+      
+      if (step === 4) {
+        // If it's the confirmation step, proceed directly to registration
+        const values = regForm.getFieldsValue(true);
+        await handleRegister(values);
+      } else {
+        // Otherwise, proceed to next step
+        setStep((prev) => prev + 1);
+      }
     } catch (err) {
       // Show field errors if any
       if (err && err.errorFields && err.errorFields.length > 0) {
@@ -118,13 +131,16 @@ const Login = () => {
     return e?.fileList || [];
   };
 
+  // Registration directly handled by handleNext at step 3
+  
   // Registration submit handler
-  const handleRegister = async () => {
+  const handleRegister = async (formValues) => {
     setRegError("");
     setRegLoading(true);
+    message.loading({ content: "Creating your account...", key: "registerLoading" });
     try {
-      // Read all current form values, including unmounted preserved fields
-      const values = regForm.getFieldsValue(true);
+      // Use provided values or read from the form
+      const values = formValues || regForm.getFieldsValue(true);
 
       // Build fullName and normalize
       const fullName = [values.firstName, values.middleName, values.lastName, values.suffix]
@@ -157,6 +173,7 @@ const Login = () => {
         religion: values.religion,
         address: {
           street: values?.address?.street,
+          purok: values?.address?.purok,
           barangay: values?.address?.barangay,
           municipality: values?.address?.municipality,
           province: values?.address?.province,
@@ -172,18 +189,35 @@ const Login = () => {
         role: "resident",
       };
 
-      await axios.post(`${API_BASE}/api/auth/register`, payload);
-      message.success("Registration successful! You can now log in immediately.");
+      console.log('Registration payload:', payload);
+      const response = await axios.post(`${API_BASE}/api/auth/register`, payload);
+      console.log('Registration response:', response.data);
+      message.success({ 
+        content: "Registration successful! You can now log in immediately.", 
+        key: "registerLoading", 
+        duration: 3 
+      });
       closeRegisterPanel();
     } catch (err) {
+      console.error('Registration error:', err.response?.data || err);
       const status = err.response?.status;
+      
+      // Get more detailed error message when available
+      let errorDetail = '';
+      if (err.response?.data?.message) {
+        errorDetail = `: ${err.response.data.message}`;
+      }
+      
       const msg =
         status === 503
           ? "Service temporarily unavailable. Please try again later."
           : status >= 500
           ? "Server error. Please try again later."
-          : err.response?.data?.message || "Registration failed";
+          : status === 400
+          ? `Registration failed${errorDetail}`
+          : "Registration failed";
       setRegError(msg);
+      message.error({ content: msg, key: "registerLoading", duration: 3 });
     } finally {
       setRegLoading(false);
     }
@@ -226,13 +260,13 @@ const Login = () => {
           )}
           <Form layout="vertical" onFinish={handleSubmit}>
             <Form.Item
-              label="Username"
+              label="Username or Email"
               name="username"
               rules={[
-                { required: true, message: "Please input your username!" },
+                { required: true, message: "Please input your username or email!" },
               ]}
             >
-              <Input size="large" />
+              <Input size="large" placeholder="Enter your username or email" />
             </Form.Item>
             <Form.Item
               label="Password"
@@ -241,7 +275,7 @@ const Login = () => {
                 { required: true, message: "Please input your password!" },
               ]}
             >
-              <Input.Password size="large" />
+              <Input.Password size="large" placeholder="Enter your password" />
             </Form.Item>
            <div className="flex flex-col gap-2">
             <button
@@ -279,7 +313,7 @@ const Login = () => {
         <span
           className="absolute inset-0 transition-transform duration-300 translate-y-full group-hover:translate-y-0"
         >
-          Register Now!
+          Register Here!
         </span>
       </span>
 
@@ -326,9 +360,10 @@ const Login = () => {
         placement="right"
         onClose={closeRegisterPanel}
         open={showRegister}
-        width={480}
+        width={640}
         destroyOnClose={false}
         maskClosable={!regLoading}
+        height="100vh"
       >
         {/* Step indicator */}
         <div className="mb-4">
@@ -337,13 +372,14 @@ const Login = () => {
             current={step - 1}
             items={[
               { title: "Personal" },
-              { title: "Address & Contact" },
+              { title: "Address" },
               { title: "Account" },
+              { title: "Confirm" },
             ]}
           />
         </div>
 
-        <div className="w-full max-w-sm mx-auto">
+        <div className="w-full max-w-lg mx-auto">
           {regError && <Alert message={regError} type="error" showIcon className="mb-3" />}
 
           <Form
@@ -375,7 +411,7 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Juan" />
                   </Form.Item>
                   <Form.Item
                     label="Middle Name"
@@ -385,7 +421,7 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Santos" />
                   </Form.Item>
                   <Form.Item
                     label="Last Name"
@@ -396,10 +432,10 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Dela Cruz" />
                   </Form.Item>
                   <Form.Item label="Suffix" name="suffix" className="mb-2">
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Jr., Sr., III" />
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -412,7 +448,7 @@ const Login = () => {
                     />
                   </Form.Item>
                   <Form.Item label="Birth Place" name="birthPlace" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Bayombong, Nueva Vizcaya" />
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -447,7 +483,7 @@ const Login = () => {
                   ]}
                   className="mb-2"
                 >
-                  <Input size="middle" />
+                  <Input size="middle" placeholder="e.g., Roman Catholic" />
                 </Form.Item>
               </>
             )}
@@ -456,9 +492,31 @@ const Login = () => {
             {step === 2 && (
               <>
                 <h3 className="text-sm font-semibold mb-2">Address</h3>
+                <div className="flex gap-2 mb-2">
+                  <Form.Item 
+                    label="Street" 
+                    name={["address", "street"]} 
+                    rules={[
+                      { required: true, message: 'Street is required' },
+                      { pattern: /^[A-Za-z ]+$/, message: 'Street must contain only letters and spaces' }
+                    ]} 
+                    className="mb-1 flex-1"
+                  >
+                    <Input size="middle" placeholder="e.g., Rizal Street" />
+                  </Form.Item>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Street" name={["address", "street"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
+                  <Form.Item label="Purok" name={["address", "purok"]} rules={[{ required: true }]} className="mb-2">
+                    <Select
+                      options={[
+                        { value: "Purok 1", label: "Purok 1" },
+                        { value: "Purok 2", label: "Purok 2" },
+                        { value: "Purok 3", label: "Purok 3" },
+                        { value: "Purok 4", label: "Purok 4" },
+                        { value: "Purok 5", label: "Purok 5" },
+                      ]}
+                      size="middle"
+                    />
                   </Form.Item>
                   <Form.Item label="Barangay" name={["address", "barangay"]} initialValue="La Torre North" rules={[{ required: true }]} className="mb-2">
                     <Input size="middle" disabled />
@@ -476,10 +534,10 @@ const Login = () => {
 
                 <div className="grid grid-cols-3 gap-2">
                   <Form.Item label="Citizenship" name="citizenship" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Filipino" />
                   </Form.Item>
                   <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., Teacher" />
                   </Form.Item>
                   <Form.Item label="Education" name="education" rules={[{ required: true }]} className="mb-2">
                     <Select
@@ -502,10 +560,10 @@ const Login = () => {
                 <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., 09123456789" />
                   </Form.Item>
                   <Form.Item label="Email" name={["contact", "email"]} rules={[{ required: true, type: "email" }]} className="mb-2">
-                    <Input size="middle" />
+                    <Input size="middle" placeholder="e.g., juan.delacruz@email.com" />
                   </Form.Item>
                 </div>
 
@@ -556,11 +614,11 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" autoComplete="off" />
+                    <Input size="middle" autoComplete="off" placeholder="e.g., juan.delacruz" />
                   </Form.Item>
 
                   <Form.Item label="Password" name="password" rules={[{ required: true, min: 6 }]} className="mb-2">
-                    <Input.Password size="middle" />
+                    <Input.Password size="middle" placeholder="At least 6 characters" />
                   </Form.Item>
                   <Form.Item
                     label="Confirm Password"
@@ -577,22 +635,64 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input.Password size="middle" />
+                    <Input.Password size="middle" placeholder="Repeat your password" />
                   </Form.Item>
                 </div>
               </>
             )}
 
-            {/* Verification step removed */}
+            {/* STEP 4: Confirmation */}
+            {step === 4 && (
+              <>
+                <h3 className="text-sm font-semibold mb-4">Please Review Your Information</h3>
+                
+                <div className="max-h-[70vh] overflow-y-auto">
+                  <Alert
+                    message="Please verify all information is correct before submitting"
+                    description="You can go back to edit any incorrect information by clicking 'Previous'."
+                    type="info"
+                    showIcon
+                    className="mb-4"
+                  />
+                  
+                  <Descriptions title="Personal Information" bordered column={2} className="mb-4" size="middle">
+                    <Descriptions.Item label="First Name" span={1}>{regForm.getFieldValue('firstName')}</Descriptions.Item>
+                    <Descriptions.Item label="Middle Name" span={1}>{regForm.getFieldValue('middleName') || 'N/A'}</Descriptions.Item>
+                    <Descriptions.Item label="Last Name" span={1}>{regForm.getFieldValue('lastName')}</Descriptions.Item>
+                    <Descriptions.Item label="Suffix" span={1}>{regForm.getFieldValue('suffix') || 'N/A'}</Descriptions.Item>
+                    <Descriptions.Item label="Date of Birth" span={1}>{regForm.getFieldValue('dateOfBirth')?.format?.('MMMM D, YYYY') || 'N/A'}</Descriptions.Item>
+                    <Descriptions.Item label="Birth Place" span={1}>{regForm.getFieldValue('birthPlace')}</Descriptions.Item>
+                    <Descriptions.Item label="Gender" span={1}>{regForm.getFieldValue('gender')}</Descriptions.Item>
+                    <Descriptions.Item label="Civil Status" span={1}>{regForm.getFieldValue('civilStatus')}</Descriptions.Item>
+                    <Descriptions.Item label="Religion" span={2}>{regForm.getFieldValue('religion')}</Descriptions.Item>
+                  </Descriptions>
+                  
+                  <Descriptions title="Address Information" bordered column={2} className="mb-4" size="middle">
+                    <Descriptions.Item label="Street" span={1}>{regForm.getFieldValue(['address', 'street'])}</Descriptions.Item>
+                    <Descriptions.Item label="Purok" span={2}>{regForm.getFieldValue(['address', 'purok'])}</Descriptions.Item>
+                    <Descriptions.Item label="Barangay" span={2}>{regForm.getFieldValue(['address', 'barangay'])}</Descriptions.Item>
+                    <Descriptions.Item label="Municipality" span={2}>{regForm.getFieldValue(['address', 'municipality'])}</Descriptions.Item>
+                    <Descriptions.Item label="Province" span={2}>{regForm.getFieldValue(['address', 'province'])}</Descriptions.Item>
+                    <Descriptions.Item label="ZIP Code" span={2}>{regForm.getFieldValue(['address', 'zipCode'])}</Descriptions.Item>
+                  </Descriptions>
+                  
+                  <Descriptions title="Other Information" bordered column={2} className="mb-4" size="middle">
+                    <Descriptions.Item label="Citizenship" span={1}>{regForm.getFieldValue('citizenship')}</Descriptions.Item>
+                    <Descriptions.Item label="Occupation" span={1}>{regForm.getFieldValue('occupation')}</Descriptions.Item>
+                    <Descriptions.Item label="Education" span={2}>{regForm.getFieldValue('education')}</Descriptions.Item>
+                    <Descriptions.Item label="Mobile" span={2}>{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>
+                    <Descriptions.Item label="Email" span={2}>{regForm.getFieldValue(['contact', 'email'])}</Descriptions.Item>
+                    <Descriptions.Item label="Username" span={2}>{regForm.getFieldValue('username')}</Descriptions.Item>
+                  </Descriptions>
+                </div>
+              </>
+            )}
 
             {/* Navigation Buttons */}
             <div className="mt-4 flex gap-2">
               {step > 1 && (
                 <button
-                  onClick={() => {
-                    if (step === 3) setStep(2);
-                    else handlePrev();
-                  }}
+                  onClick={handlePrev}
                   className="cssbuttons-io-button-left flex-1 w-full"
                 >
                   Previous
@@ -607,7 +707,7 @@ const Login = () => {
                   </div>
                 </button>
               )}
-              {step < 3 && (
+              {step < 4 && step !== 3 && (
                 <button type="button" onClick={handleNext} className="cssbuttons-io-button flex-1 w-full">
                   Next
                   <div className="icon">
@@ -622,19 +722,54 @@ const Login = () => {
                 </button>
               )}
               {step === 3 && (
-                <Button
-                  type="primary"
-                  onClick={handleRegister}
-                  loading={regLoading}
-                  className="flex-1 bg-black hover:bg-gray-800 h-64"
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={regLoading}
+                  className="cssbuttons-io-button flex-1 w-full"
+                  style={{ backgroundColor: "#0f172a" }}
+                >
+                  Continue to Review
+                  <div className="icon">
+                    <svg height="24" width="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M0 0h24v24H0z" fill="none"></path>
+                      <path
+                        d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z"
+                        fill="currentColor"
+                      ></path>
+                    </svg>
+                  </div>
+                </button>
+              )}
+              {step === 4 && (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={regLoading}
+                  className="cssbuttons-io-button flex-1 w-full"
+                  style={{ backgroundColor: "#0f172a" }}
                 >
                   Submit Registration
-                </Button>
+                  <div className="icon">
+                    {regLoading ? (
+                      <span className="loading-spinner"></span>
+                    ) : (
+                      <svg height="24" width="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none"></path>
+                        <path
+                          d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"
+                          fill="currentColor"
+                        ></path>
+                      </svg>
+                    )}
+                  </div>
+                </button>
               )}
             </div>
           </Form>
         </div>
       </Drawer>
+
 
     </div>
   );

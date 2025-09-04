@@ -37,7 +37,8 @@ async function register(req, res) {
     // Basic resident validation (ensure required Resident fields exist)
     const missingResident =
       !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
-      !address?.street || !address?.barangay || !address?.municipality || !address?.province ||
+      !address?.street || !address?.purok ||
+      !address?.barangay || !address?.municipality || !address?.province ||
       !citizenship || !occupation || !education || !contact.mobile;
 
     if (missingResident) {
@@ -102,16 +103,23 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const { username, password } = req.body;
+    const { usernameOrEmail, password } = req.body;
 
-    const user = await User.findOne({ username });
+    // Find user by either username or email
+    const user = await User.findOne({
+      $or: [
+        { username: usernameOrEmail },
+        { 'contact.email': usernameOrEmail }
+      ]
+    });
+
     if (!user) {
-      return res.status(400).json({ message: 'Invalid username or password' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid username or password' });
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     // No verification check - users can log in instantly

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
     ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
- } from "@ant-design/icons";
+} from "@ant-design/icons";
 
 const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },

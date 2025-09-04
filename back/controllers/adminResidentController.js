@@ -31,7 +31,8 @@ exports.create = async (req, res) => {
     }
     const requiredResidentMissing =
       !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
-      !address?.street || !address?.barangay || !address?.municipality || !address?.province ||
+      !address?.street || !address?.purok || !address?.barangay || 
+      !address?.municipality || !address?.province ||
       !citizenship || !occupation || !education || !contact?.email || !contact?.mobile;
     if (requiredResidentMissing) {
       return res.status(400).json({ message: "Missing required resident fields" });

@@ -33,7 +33,8 @@ export default function AdminUserManagement() {
     1: ["username", "password", ["contact","email"], ["contact","mobile"]],
     2: ["firstName", "lastName", "dateOfBirth", "birthPlace", "gender", "civilStatus", "religion"],
     3: [
-      ["address","street"], ["address","barangay"], ["address","municipality"], ["address","province"], ["address","zipCode"],
+      ["address","street"], ["address","purok"], 
+      ["address","barangay"], ["address","municipality"], ["address","province"], ["address","zipCode"],
       "citizenship", "occupation", "education"
     ],
   };
@@ -564,9 +565,30 @@ export default function AdminUserManagement() {
 
             {residentStep === 3 && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
+                <div className="mb-3">
+                  <Form.Item 
+                    name={["address", "street"]} 
+                    label="Street" 
+                    rules={[
+                      { required: true, message: 'Street is required' },
+                      { pattern: /^[A-Za-z ]+$/, message: 'Street must contain only letters and spaces' }
+                    ]} 
+                    className="flex-1"
+                  >
                     <Input />
+                  </Form.Item>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
+                    <Select
+                      options={[
+                        { value: "Purok 1", label: "Purok 1" },
+                        { value: "Purok 2", label: "Purok 2" },
+                        { value: "Purok 3", label: "Purok 3" },
+                        { value: "Purok 4", label: "Purok 4" },
+                        { value: "Purok 5", label: "Purok 5" },
+                      ]}
+                    />
                   </Form.Item>
                   <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
                     <Input />
