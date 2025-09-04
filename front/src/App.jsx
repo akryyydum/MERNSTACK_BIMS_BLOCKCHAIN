@@ -9,6 +9,7 @@ import OfficialDashboard from "./pages/OfficialDashboard";
 import ResidentDashboard from "./pages/ResidentDashboard";
 import SplashRedirect from "./routes/SplashRedirect";
 import AdminUserManagement from "./pages/AdminUserManagement"; // add
+import AdminResidentManagement from "./pages/AdminResidentManagement"; // add this import
 
 function App() {
   const [count, setCount] = useState(0)
@@ -25,6 +26,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/user-management" element={<AdminUserManagement />} /> {/* add */}
+          <Route path="/admin/residents-management" element={<AdminResidentManagement />} /> {/* add this line */}
         </Route>
 
         {/* Official only */}

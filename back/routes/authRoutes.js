@@ -20,4 +20,5 @@ router.get('/official-dashboard', auth, authorize('admin', 'official'), (req, re
     res.json({ message: 'Welcome, Barangay Official!' });
 });
 
+
 module.exports = router;
