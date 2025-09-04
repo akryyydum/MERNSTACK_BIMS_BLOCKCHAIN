@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, DatePicker, Steps } from "antd"; // + Steps
+import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, DatePicker, Steps } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 
 const { Search } = Input;
@@ -22,6 +22,11 @@ export default function AdminUserManagement() {
   const [residentForm] = Form.useForm();
   const [creatingResident, setCreatingResident] = useState(false);
   const [residentStep, setResidentStep] = useState(1); // +
+
+  const [editOpen, setEditOpen] = useState(false);              // + add
+  const [editForm] = Form.useForm();                            // + add
+  const [editingUser, setEditingUser] = useState(null);         // + add
+  const [savingEdit, setSavingEdit] = useState(false);          // + add
 
   // Fields to validate per step
   const residentStepFields = {                                  // +
@@ -201,6 +206,57 @@ export default function AdminUserManagement() {
     }
   };
 
+  // + open edit
+  const openEdit = (record) => {
+    setEditingUser(record);
+    setEditOpen(true);
+    editForm.setFieldsValue({
+      fullName: record.fullName,
+      role: record.role,
+      isActive: record.isActive,
+      isVerified: record.isVerified,
+      contact: {
+        email: record.contact?.email,
+        mobile: record.contact?.mobile,
+      },
+    });
+  };
+
+  // + submit edit
+  const submitEdit = async () => {
+    try {
+      const values = await editForm.validateFields();
+      setSavingEdit(true);
+      const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}`, {
+        method: "PATCH",
+        headers: authHeaders,
+        body: JSON.stringify({
+          fullName: values.fullName,
+          role: values.role,
+          isActive: values.isActive,
+          isVerified: values.isVerified,
+          contact: {
+            email: values.contact?.email,
+            mobile: values.contact?.mobile,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update user");
+      }
+      message.success("User updated");
+      setEditOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (e) {
+      if (e?.errorFields) return;
+      message.error(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const columns = [
     {
       title: "Name",
@@ -263,14 +319,17 @@ export default function AdminUserManagement() {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
-        <Popconfirm
-          title="Delete user?"
-          description="This action cannot be undone."
-          okButtonProps={{ danger: true }}
-          onConfirm={() => handleDelete(r._id)}
-        >
-          <Button danger size="small">Delete</Button>
-        </Popconfirm>
+        <div className="flex gap-2">
+          <Button size="small" onClick={() => openEdit(r)}>Edit</Button> {/* + */}
+          <Popconfirm
+            title="Delete user?"
+            description="This action cannot be undone."
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(r._id)}
+          >
+            <Button danger size="small">Delete</Button>
+          </Popconfirm>
+        </div>
       ),
     },
   ];
@@ -537,6 +596,48 @@ export default function AdminUserManagement() {
             )}
           </Form>
         </Modal>
+
+        {/* + Edit User modal */}
+        <Modal
+          title="Edit User"
+          open={editOpen}
+          onCancel={() => setEditOpen(false)}
+          onOk={submitEdit}
+          okText="Save"
+          confirmLoading={savingEdit}
+          destroyOnClose
+        >
+          <Form form={editForm} layout="vertical">
+            <Form.Item name="fullName" label="Full name" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: "admin", label: "Admin" },
+                  { value: "official", label: "Official" },
+                  { value: "resident", label: "Resident", disabled: true }, // keep resident immutable here
+                ]}
+              />
+            </Form.Item>
+            <Form.Item label="Email" name={["contact", "email"]} rules={[{ required: true }, { type: "email" }]}>
+              <Input type="email" />
+            </Form.Item>
+            <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <div className="grid grid-cols-2 gap-3">
+              <Form.Item name="isVerified" label="Verified" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="isActive" label="Active" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </div>
+          </Form>
+        </Modal>
+
+        {/* ...existing Create User and Add Resident modals... */}
       </div>
     </AdminLayout>
   );

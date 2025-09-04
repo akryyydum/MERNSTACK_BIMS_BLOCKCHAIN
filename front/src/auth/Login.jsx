@@ -22,13 +22,12 @@ const Login = () => {
       "citizenship","occupation","education",["contact","mobile"],["contact","email"]
     ],
     3: [
-      "username", // <-- add
+      "username",
       "password",
       "confirmPassword"
     ]
   };
 
-  // Prefer Vite env variable; fallback to local backend
   const API_BASE =
     import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -68,34 +67,27 @@ const Login = () => {
     try {
       const fields = stepFieldNames[step] || [];
       if (fields.length) {
-        await regForm.validateFields(fields); // validate current step only
+        await regForm.validateFields(fields); 
       }
       setRegError("");
       setStep((prev) => prev + 1);
     } catch (err) {
-      // Show field errors if any
       if (err && err.errorFields && err.errorFields.length > 0) {
-        // Optionally, scroll to first error
         const firstError = err.errorFields[0];
         if (firstError && firstError.name) {
           regForm.scrollToField(firstError.name);
         }
-        // Build a readable list of missing fields
         const missing = err.errorFields.map(f => {
-          // Try to get the label from the form item meta
           const name = Array.isArray(f.name) ? f.name[f.name.length-1] : f.name;
-          // Convert camelCase or snake_case to Title Case
           return name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, s => s.toUpperCase());
         });
         setRegError(`Please fill in the following required field(s): ${missing.join(", ")}`);
       }
-      // keep user on the same step
     }
   };
 
   const handlePrev = () => setStep((prev) => prev - 1);
 
-  // Helper to close and reset the register panel
   const closeRegisterPanel = () => {
     setShowRegister(false);
     setStep(1);
@@ -107,7 +99,6 @@ const Login = () => {
     regForm.resetFields();
   };
 
-  // Helper to open the register panel fresh
   const openRegisterPanel = () => {
     setShowRegister(true);
     setStep(1);
@@ -117,29 +108,23 @@ const Login = () => {
     regForm.resetFields();
   };
 
-  // NEW: open verification directly from Login
   const openVerifyPanel = () => {
     setShowRegister(true);
     setStep(4);
     setVerifyError("");
-    // keep regEmail if you have it; user can type email in the field
   };
 
-  // Helper to normalize Upload value for Form
   const normFile = (e) => { // NEW
     if (Array.isArray(e)) return e;
     return e?.fileList || [];
   };
 
-  // Registration submit handler
   const handleRegister = async () => {
     setRegError("");
     setRegLoading(true);
     try {
-      // Read all current form values, including unmounted preserved fields
-      const values = regForm.getFieldsValue(true); // NEW
+      const values = regForm.getFieldsValue(true);
 
-      // Build fullName and normalize
       const fullName = [values.firstName, values.middleName, values.lastName, values.suffix]
         .filter(Boolean)
         .join(" ")
@@ -147,7 +132,7 @@ const Login = () => {
 
       const email = values?.contact?.email?.trim();
       const password = values?.password;
-      const username = values?.username?.trim(); // <-- add
+      const username = values?.username?.trim(); 
 
       if (!password || !fullName || !email || !username) { // <-- include username
         setRegError("Username, password, full name, and contact email are required");
@@ -189,7 +174,7 @@ const Login = () => {
       await axios.post(`${API_BASE}/api/auth/register`, payload);
       message.success("Verification code sent to your email. Enter it to verify.");
       setRegEmail(email);
-      regForm.setFieldsValue({ verifyEmail: email }); // NEW: prefill verify email
+      regForm.setFieldsValue({ verifyEmail: email }); 
       setStep(4);
     } catch (err) {
       const status = err.response?.status;
@@ -234,7 +219,7 @@ const Login = () => {
     setVerifyError("");
     setVerifyLoading(true);
     try {
-      await regForm.validateFields(["verifyEmail", "verifyCode"]); // CHANGED: also validate email
+      await regForm.validateFields(["verifyEmail", "verifyCode"]); 
       const email = regForm.getFieldValue("verifyEmail")?.trim() || regEmail;
       const code = regForm.getFieldValue("verifyCode");
       await axios.post(`${API_BASE}/api/auth/verify-code`, { email, code });
@@ -267,12 +252,6 @@ const Login = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <h1 className="text-8xl font-poppins font-extrabold text-white drop-shadow-lg mb-4">
-            WELCOME TO <br /> LA TORRE NORTH
-          </h1>
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-poppins font-semibold text-white drop-shadow-md max-w-2xl">
-            Blockchain-Based Barangay Information Management System
-          </h2>
         </div>
       </div>
 
@@ -392,17 +371,16 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Registration Drawer (Ant Design) */}
+      {/* Registration*/}
       <Drawer
-        title={step <= 3 ? "Resident Registration" : "Verify Your Email"} // NEW
+        title={step <= 3 ? "Resident Registration" : "Verify Your Email"} 
         placement="right"
         onClose={closeRegisterPanel}
         open={showRegister}
-        width={480} // NEW: panel width
+        width={480} 
         destroyOnClose={false}
         maskClosable={!regLoading && !verifyLoading}
       >
-        {/* Step indicator or verify hint */}
         {step <= 3 ? (
           <div className="mb-4">
             <Steps
@@ -437,13 +415,11 @@ const Login = () => {
               if (e.key === 'Enter' && step !== 4) e.preventDefault();
             }}
             onValuesChange={(changed, all) => {
-              // If the user updates the Address & Contact email, sync it to the Account step
               if (changed?.contact?.email !== undefined) {
                 regForm.setFieldsValue({ accountEmail: changed.contact.email });
               }
             }}
           >
-            {/* STEP 1: Personal Info */}
             {step === 1 && (
               <>
                 <h3 className="text-sm font-semibold mb-2">Personal Info</h3>
@@ -607,7 +583,7 @@ const Login = () => {
                       if (!isImage) {
                         message.error('You can only upload image files!');
                       }
-                      return false; // Prevent upload
+                      return false;
                     }}
                   >
                     <p className="ant-upload-drag-icon">+</p>
@@ -627,7 +603,6 @@ const Login = () => {
                     <Input size="middle" disabled placeholder="(auto-filled from Address & Contact)" />
                   </Form.Item>
 
-                  {/* NEW: Username */}
                   <Form.Item
                     label="Username"
                     name="username"
@@ -671,7 +646,7 @@ const Login = () => {
                 <Form.Item
                   label="Email"
                   name="verifyEmail"
-                  initialValue={regEmail || undefined} // NEW: allow typing email
+                  initialValue={regEmail || undefined} 
                   rules={[{ required: true, type: "email", message: "Please enter a valid email" }]}
                   className="mb-2"
                 >

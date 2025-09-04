@@ -82,16 +82,31 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role, isActive } = req.body;
+    const { role, isActive, isVerified, fullName, contact } = req.body;
 
     const update = {};
     if (typeof isActive === "boolean") update.isActive = isActive;
+    if (typeof isVerified === "boolean") update.isVerified = isVerified;
+    if (fullName) update.fullName = String(fullName).trim();
     if (role) {
       if (!["admin", "official", "resident"].includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
       update.role = role;
     }
+    if (contact) {
+      if (contact.email !== undefined) update["contact.email"] = String(contact.email).toLowerCase().trim();
+      if (contact.mobile !== undefined) update["contact.mobile"] = contact.mobile;
+      // ensure unique email if changed
+      if (contact.email) {
+        const exists = await User.findOne({
+          _id: { $ne: id },
+          "contact.email": String(contact.email).toLowerCase().trim(),
+        });
+        if (exists) return res.status(400).json({ message: "Email already in use" });
+      }
+    }
+
     if (!Object.keys(update).length) {
       return res.status(400).json({ message: "No valid fields to update" });
     }
