@@ -61,7 +61,7 @@ async function register(req, res) {
       role: role || 'resident',
       fullName,
       contact: { mobile: contact.mobile, email: contact.email },
-      isVerified: true // Set to true by default since we're removing verification
+      isVerified: true // Ensure user is verified instantly for immediate login
     }).save();
 
     try {
@@ -93,7 +93,7 @@ async function register(req, res) {
       return res.status(400).json({ message: residentErr.message || 'Failed to create resident record' });
     }
 
-    res.status(201).json({ message: 'Registration successful! You can now log in.' });
+    res.status(201).json({ message: 'Registration successful! You can log in immediately.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -114,6 +114,7 @@ async function login(req, res) {
       return res.status(400).json({ message: 'Invalid username or password' });
     }
 
+    // No verification check - users can log in instantly
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,

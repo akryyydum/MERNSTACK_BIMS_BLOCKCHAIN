@@ -173,7 +173,7 @@ const Login = () => {
       };
 
       await axios.post(`${API_BASE}/api/auth/register`, payload);
-      message.success("Registration successful! You can now log in.");
+      message.success("Registration successful! You can now log in immediately.");
       closeRegisterPanel();
     } catch (err) {
       const status = err.response?.status;
