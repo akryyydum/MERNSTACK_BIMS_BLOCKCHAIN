@@ -22,7 +22,7 @@ exports.list = async (req, res) => {
 
     const [items, total] = await Promise.all([
       User.find(q)
-        .select("-passwordHash -verificationCode -verificationCodeExpires -verificationToken")
+        .select("-passwordHash -verificationToken")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)

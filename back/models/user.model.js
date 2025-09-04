@@ -10,10 +10,8 @@ const userSchema = new mongoose.Schema({
         email: { type: String, required: true, lowercase: true, trim: true }
     },
     isActive: { type: Boolean, default: true },
-    isVerified: { type: Boolean, default: false },
-    verificationCode: String,
-    verificationCodeExpires: Date,
-    verificationToken: { type: String } 
+    isVerified: { type: Boolean, default: true },
+    verificationToken: { type: String } // keeping for password reset functionality
 }, { timestamps: true });
 
 userSchema.index({ 'contact.email': 1 }, { unique: true });

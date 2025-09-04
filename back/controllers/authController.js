@@ -54,8 +54,6 @@ async function register(req, res) {
 
     // Create User
     const passwordHash = await bcrypt.hash(password, 10);
-    const verificationCode = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
-    const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     const user = await new User({
       username,
@@ -63,9 +61,7 @@ async function register(req, res) {
       role: role || 'resident',
       fullName,
       contact: { mobile: contact.mobile, email: contact.email },
-      isVerified: false,
-      verificationCode,
-      verificationCodeExpires
+      isVerified: true // Set to true by default since we're removing verification
     }).save();
 
     try {
@@ -97,49 +93,12 @@ async function register(req, res) {
       return res.status(400).json({ message: residentErr.message || 'Failed to create resident record' });
     }
 
-    // Send verification email (after data is saved)
-    await sendEmail(
-      contact.email,
-      'Your verification code',
-      `Your verification code is ${verificationCode}. It expires in 10 minutes.`
-    );
-
-    res.status(201).json({ message: 'Verification code sent to your email.' });
+    res.status(201).json({ message: 'Registration successful! You can now log in.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 }
 
-async function verifyCode(req, res) {
-  try {
-    const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ message: 'email and code are required' });
-    }
-
-    const user = await User.findOne({ 'contact.email': email });
-    if (!user || !user.verificationCode || !user.verificationCodeExpires) {
-      return res.status(400).json({ message: 'No verification code found' });
-    }
-
-    if (user.verificationCodeExpires < new Date()) {
-      return res.status(400).json({ message: 'Verification code expired' });
-    }
-
-    if (user.verificationCode !== code) {
-      return res.status(400).json({ message: 'Invalid verification code' });
-    }
-
-    user.isVerified = true;
-    user.verificationCode = undefined;
-    user.verificationCodeExpires = undefined;
-    await user.save();
-
-    res.json({ message: 'Email verified successfully.' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-}
 
 async function login(req, res) {
   try {
@@ -148,10 +107,6 @@ async function login(req, res) {
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).json({ message: 'Invalid username or password' });
-    }
-
-    if (!user.isVerified) {
-      return res.status(403).json({ message: 'Please verify your email before logging in.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
@@ -209,28 +164,9 @@ async function resetPassword(req, res) {
   }
 }
 
-async function resendCode(req, res) {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: 'email is required' });
-    const user = await User.findOne({ 'contact.email': email });
-    if (!user) return res.status(404).json({ message: 'Email not found' });
-    const verificationCode = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
-    user.verificationCode = verificationCode;
-    user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
-    await user.save();
-    await sendEmail(email, 'Your verification code', `Your verification code is ${verificationCode}. It expires in 10 minutes.`);
-    res.json({ message: 'A new verification code has been sent.' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-}
-
 module.exports = {
   register,
-  verifyCode,
   login,
   forgotPassword,
-  resetPassword,
-  resendCode, // add
+  resetPassword
 };
