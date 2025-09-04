@@ -8,6 +8,9 @@ const Login = () => {
   const [step, setStep] = useState(1);
   const [regError, setRegError] = useState("");
   const [regLoading, setRegLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [regEmail, setRegEmail] = useState("");
   const [regForm] = Form.useForm();
 
   const stepFieldNames = {
@@ -19,12 +22,13 @@ const Login = () => {
       "citizenship","occupation","education",["contact","mobile"],["contact","email"]
     ],
     3: [
-      "username",
+      "username", // <-- add
       "password",
       "confirmPassword"
     ]
   };
 
+  // Prefer Vite env variable; fallback to local backend
   const API_BASE =
     import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -64,53 +68,78 @@ const Login = () => {
     try {
       const fields = stepFieldNames[step] || [];
       if (fields.length) {
-        await regForm.validateFields(fields); 
+        await regForm.validateFields(fields); // validate current step only
       }
       setRegError("");
       setStep((prev) => prev + 1);
     } catch (err) {
+      // Show field errors if any
       if (err && err.errorFields && err.errorFields.length > 0) {
+        // Optionally, scroll to first error
         const firstError = err.errorFields[0];
         if (firstError && firstError.name) {
           regForm.scrollToField(firstError.name);
         }
+        // Build a readable list of missing fields
         const missing = err.errorFields.map(f => {
+          // Try to get the label from the form item meta
           const name = Array.isArray(f.name) ? f.name[f.name.length-1] : f.name;
+          // Convert camelCase or snake_case to Title Case
           return name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, s => s.toUpperCase());
         });
         setRegError(`Please fill in the following required field(s): ${missing.join(", ")}`);
       }
+      // keep user on the same step
     }
   };
 
   const handlePrev = () => setStep((prev) => prev - 1);
 
+  // Helper to close and reset the register panel
   const closeRegisterPanel = () => {
     setShowRegister(false);
     setStep(1);
     setRegError("");
+    setVerifyError("");
     setRegLoading(false);
+    setVerifyLoading(false);
+    setRegEmail("");
     regForm.resetFields();
   };
 
+  // Helper to open the register panel fresh
   const openRegisterPanel = () => {
     setShowRegister(true);
     setStep(1);
     setRegError("");
+    setVerifyError("");
+    setRegEmail("");
     regForm.resetFields();
   };
 
+  // NEW: open verification directly from Login
+  const openVerifyPanel = () => {
+    setShowRegister(true);
+    setStep(4);
+    setVerifyError("");
+    // keep regEmail if you have it; user can type email in the field
+  };
+
+  // Helper to normalize Upload value for Form
   const normFile = (e) => { // NEW
     if (Array.isArray(e)) return e;
     return e?.fileList || [];
   };
 
+  // Registration submit handler
   const handleRegister = async () => {
     setRegError("");
     setRegLoading(true);
     try {
-      const values = regForm.getFieldsValue(true);
+      // Read all current form values, including unmounted preserved fields
+      const values = regForm.getFieldsValue(true); // NEW
 
+      // Build fullName and normalize
       const fullName = [values.firstName, values.middleName, values.lastName, values.suffix]
         .filter(Boolean)
         .join(" ")
@@ -118,7 +147,7 @@ const Login = () => {
 
       const email = values?.contact?.email?.trim();
       const password = values?.password;
-      const username = values?.username?.trim(); 
+      const username = values?.username?.trim(); // <-- add
 
       if (!password || !fullName || !email || !username) { // <-- include username
         setRegError("Username, password, full name, and contact email are required");
@@ -158,8 +187,10 @@ const Login = () => {
 
 
       await axios.post(`${API_BASE}/api/auth/register`, payload);
-      message.success("Registration successful. You can now log in.");
-      closeRegisterPanel();
+      message.success("Verification code sent to your email. Enter it to verify.");
+      setRegEmail(email);
+      regForm.setFieldsValue({ verifyEmail: email }); // NEW: prefill verify email
+      setStep(4);
     } catch (err) {
       const status = err.response?.status;
       const msg =
@@ -174,7 +205,56 @@ const Login = () => {
     }
   };
 
+  // NEW: resend code
+  const handleResendCode = async () => {
+    try {
+      const email = regForm.getFieldValue("verifyEmail")?.trim() || regEmail;
+      if (!email) {
+        setVerifyError("Please enter your email to resend the code.");
+        return;
+      }
+      await axios.post(`${API_BASE}/api/auth/resend-code`, { email });
+      message.success("A new code has been sent to your email.");
+    } catch (err) {
+      const status = err.response?.status;
+      const msg =
+        status === 404
+          ? "Email not found."
+          : status === 400
+          ? err.response?.data?.message || "Cannot resend code."
+          : status >= 500
+          ? "Server error. Please try again later."
+          : err.response?.data?.message || "Failed to resend code.";
+      setVerifyError(msg);
+    }
+  };
 
+  // NEW: verification submit handler
+  const handleVerify = async () => {
+    setVerifyError("");
+    setVerifyLoading(true);
+    try {
+      await regForm.validateFields(["verifyEmail", "verifyCode"]); // CHANGED: also validate email
+      const email = regForm.getFieldValue("verifyEmail")?.trim() || regEmail;
+      const code = regForm.getFieldValue("verifyCode");
+      await axios.post(`${API_BASE}/api/auth/verify-code`, { email, code });
+      message.success("Email verified. You can now log in.");
+      closeRegisterPanel();
+    } catch (err) {
+      if (!err?.errorFields) {
+        const status = err.response?.status;
+        const msg =
+          status === 503
+            ? "Service temporarily unavailable. Please try again later."
+            : status >= 500
+            ? "Server error. Please try again later."
+            : err.response?.data?.message || "Verification failed";
+        setVerifyError(msg);
+      }
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-100 relative overflow-hidden">
@@ -187,6 +267,12 @@ const Login = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+          <h1 className="text-8xl font-poppins font-extrabold text-white drop-shadow-lg mb-4">
+            WELCOME TO <br /> LA TORRE NORTH
+          </h1>
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-poppins font-semibold text-white drop-shadow-md max-w-2xl">
+            Blockchain-Based Barangay Information Management System
+          </h2>
         </div>
       </div>
 
@@ -280,13 +366,20 @@ const Login = () => {
 
 
   {/* Forgot Password Link */}
-  <div className="flex justify-center mt-4">
+  <div className="flex justify-between mt-4">
     <a
       href="/forgot-password"
       className="text-sm text-gray-500 hover:underline"
     >
       Forgot Password?
     </a>
+    <button
+      type="button"
+      onClick={openVerifyPanel}
+      className="text-sm text-gray-500 hover:underline"
+    >
+      Verify Email
+    </button>
   </div>
 </div>
 
@@ -299,30 +392,41 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Registration*/}
+      {/* Registration Drawer (Ant Design) */}
       <Drawer
-        title="Resident Registration" 
+        title={step <= 3 ? "Resident Registration" : "Verify Your Email"} // NEW
         placement="right"
         onClose={closeRegisterPanel}
         open={showRegister}
-        width={480} 
+        width={480} // NEW: panel width
         destroyOnClose={false}
-        maskClosable={!regLoading}
+        maskClosable={!regLoading && !verifyLoading}
       >
-        <div className="mb-4">
-          <Steps
-            size="small"
-            current={step - 1}
-            items={[
-              { title: "Personal" },
-              { title: "Address & Contact" },
-              { title: "Account" },
-            ]}
+        {/* Step indicator or verify hint */}
+        {step <= 3 ? (
+          <div className="mb-4">
+            <Steps
+              size="small"
+              current={step - 1}
+              items={[
+                { title: "Personal" },
+                { title: "Address & Contact" },
+                { title: "Account" },
+              ]}
+            />
+          </div>
+        ) : (
+          <Alert
+            type="info"
+            showIcon
+            className="mb-3"
+            message={`Enter the 6-digit code sent to ${regEmail || "your email"}.`}
           />
-        </div>
+        )}
 
         <div className="w-full max-w-sm mx-auto">
-          {regError && <Alert message={regError} type="error" showIcon className="mb-3" />}
+          {regError && step <= 3 && <Alert message={regError} type="error" showIcon className="mb-3" />}
+          {verifyError && step === 4 && <Alert message={verifyError} type="error" showIcon className="mb-3" />}
 
           <Form
             form={regForm}
@@ -330,14 +434,16 @@ const Login = () => {
             preserve={true}
             onFinish={handleRegister}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') e.preventDefault();
+              if (e.key === 'Enter' && step !== 4) e.preventDefault();
             }}
             onValuesChange={(changed, all) => {
+              // If the user updates the Address & Contact email, sync it to the Account step
               if (changed?.contact?.email !== undefined) {
                 regForm.setFieldsValue({ accountEmail: changed.contact.email });
               }
             }}
           >
+            {/* STEP 1: Personal Info */}
             {step === 1 && (
               <>
                 <h3 className="text-sm font-semibold mb-2">Personal Info</h3>
@@ -501,7 +607,7 @@ const Login = () => {
                       if (!isImage) {
                         message.error('You can only upload image files!');
                       }
-                      return false;
+                      return false; // Prevent upload
                     }}
                   >
                     <p className="ant-upload-drag-icon">+</p>
@@ -521,6 +627,7 @@ const Login = () => {
                     <Input size="middle" disabled placeholder="(auto-filled from Address & Contact)" />
                   </Form.Item>
 
+                  {/* NEW: Username */}
                   <Form.Item
                     label="Username"
                     name="username"
@@ -558,9 +665,35 @@ const Login = () => {
               </>
             )}
 
+            {/* STEP 4: Verification */}
+            {step === 4 && (
+              <>
+                <Form.Item
+                  label="Email"
+                  name="verifyEmail"
+                  initialValue={regEmail || undefined} // NEW: allow typing email
+                  rules={[{ required: true, type: "email", message: "Please enter a valid email" }]}
+                  className="mb-2"
+                >
+                  <Input size="middle" placeholder="your@email.com" />
+                </Form.Item>
+                <Form.Item
+                  label="Verification Code"
+                  name="verifyCode"
+                  rules={[{ required: true, message: "Please enter the 6-digit code" }]}
+                  className="mb-2"
+                >
+                  <Input size="middle" maxLength={6} placeholder="Enter 6-digit code" />
+                </Form.Item>
+                <div className="flex justify-end">
+                  <Button type="link" onClick={handleResendCode}>Resend code</Button>
+                </div>
+              </>
+            )}
+
             {/* Navigation Buttons */}
             <div className="mt-4 flex gap-2">
-              {step > 1 && (
+              {step > 1 && step <= 3 && (
                 <button
                   onClick={() => {
                     if (step === 3) setStep(2);
@@ -603,6 +736,26 @@ const Login = () => {
                 >
                   Submit Registration
                 </Button>
+              )}
+              {step === 4 && (
+                <>
+                  <Button
+                    type="primary"
+                    onClick={handleVerify}
+                    loading={verifyLoading}
+                    className="flex-1 bg-black hover:bg-gray-800"
+                  >
+                    Verify
+                  </Button>
+                  <Button
+                    type="default"
+                    onClick={closeRegisterPanel}
+                    className="flex-1 border-gray-400"
+                    disabled={verifyLoading}
+                  >
+                    Cancel
+                  </Button>
+                </>
               )}
             </div>
           </Form>
