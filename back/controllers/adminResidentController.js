@@ -88,3 +88,13 @@ exports.create = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// GET /api/admin/residents
+exports.list = async (req, res) => {
+  try {
+    const residents = await Resident.find().populate("user", "username fullName contact");
+    res.json(residents);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

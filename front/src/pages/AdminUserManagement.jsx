@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, DatePicker, Steps } from "antd";
 import { AdminLayout } from "./AdminSidebar";
-
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowUpRight } from "lucide-react"
 const { Search } = Input;
 const { Option } = Select;
 
@@ -10,7 +11,7 @@ export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(4);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState(undefined);
 
@@ -336,20 +337,149 @@ export default function AdminUserManagement() {
 
   return (
     <AdminLayout title="Admin">
-      <div className="space-y-4">
-        <h1 className="text-5xl">User Management</h1> {/* fix class -> className */}
-        <div className="flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
-          <div className="flex gap-2">
+      <div className="space-y-4 px-2 md:px-8" >
+        <div className="bg-white rounded-2xl outline outline-offset-1 outline-slate-300 mb-4">
+          <nav className="px-4 h-20 flex items-center p-15">
+            <h1 className="text-2xl md:text-4xl font-bold text-gray-800">
+              User Management
+            </h1>
+          </nav>
+          {/* Statistics Section */}
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Users
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Officials
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.role === "official").length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.role === "official").length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Residents
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.role === "resident").length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.role === "resident").length}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-3">
+                <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Verified Users
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.isVerified === true).length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.isVerified === true).length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Unverified Users
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.isVerified === false).length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.isVerified === false).length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Active Users
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.isActive === true).length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.isActive === true).length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Inactive Users
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.isActive === false).length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.isActive === false).length}
+                  </div>
+                </CardContent>
+              </Card>
+              </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 outline outline-offset-1 outline-slate-300 space-y-4">
+
+        
+        <div className="flex flex-col md:flex-row flex-wrap gap-2  md:items-center md:justify-between">
+          <div className="flex flex-wrap gap-2">
             <Search
               allowClear
               placeholder="Search name, username, email"
               onSearch={onSearch}
               enterButton
+              className="min-w-[180px] max-w-xs"
             />
             <Select
               allowClear
               placeholder="Filter role"
-              style={{ width: 160 }}
+              style={{ minWidth: 120, maxWidth: 160 }}
               value={roleFilter}
               onChange={setRoleFilter}
             >
@@ -358,29 +488,32 @@ export default function AdminUserManagement() {
               <Option value="resident">Resident</Option>
             </Select>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={openCreateResident}>Add Resident</Button> {/* new button */}
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={openCreateResident}>Add Resident</Button>
             <Button type="primary" onClick={openCreate}>Create User</Button>
           </div>
         </div>
 
-        <Table
-          rowKey="_id"
-          loading={loading}
-          dataSource={users}
-          columns={columns}
-          pagination={{
-            current: page,
-            pageSize,
-            total,
-            showSizeChanger: true,
-            onChange: (p, ps) => {
-              setPage(p);
-              setPageSize(ps);
-            },
-          }}
-        />
-
+        <div className="overflow-x-auto">
+          <Table
+            rowKey="_id"
+            loading={loading}
+            dataSource={users}
+            columns={columns}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              onChange: (p, ps) => {
+                setPage(p);
+                setPageSize(ps);
+              },
+            }}
+            scroll={{ x: 800 }}
+          />
+        </div>
+  </div>
         <Modal
           title="Create User"
           open={createOpen}
@@ -388,6 +521,8 @@ export default function AdminUserManagement() {
           confirmLoading={creating}
           onCancel={() => setCreateOpen(false)}
           okText="Create"
+          width={window.innerWidth < 600 ? "95vw" : 520}
+          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
         >
           <Form form={createForm} layout="vertical">
             <Form.Item
@@ -450,7 +585,8 @@ export default function AdminUserManagement() {
           title="Add Resident"
           open={createResidentOpen}
           onCancel={() => setCreateResidentOpen(false)}
-          width={800}
+          width={window.innerWidth < 600 ? "98vw" : 800}
+          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
           footer={[
             <Button key="cancel" onClick={() => setCreateResidentOpen(false)} disabled={creatingResident}>Cancel</Button>,
             residentStep > 1 && (
@@ -597,7 +733,6 @@ export default function AdminUserManagement() {
           </Form>
         </Modal>
 
-        {/* + Edit User modal */}
         <Modal
           title="Edit User"
           open={editOpen}
@@ -606,6 +741,8 @@ export default function AdminUserManagement() {
           okText="Save"
           confirmLoading={savingEdit}
           destroyOnClose
+          width={window.innerWidth < 600 ? "95vw" : 520}
+          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
         >
           <Form form={editForm} layout="vertical">
             <Form.Item name="fullName" label="Full name" rules={[{ required: true }]}>
