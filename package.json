@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "antd": "^5.27.2",
+    "tailwindcss": "^4.1.12"
+  }
+}

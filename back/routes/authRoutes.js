@@ -7,8 +7,11 @@ const { auth, authorize } = require('../middleware/authMiddleware');
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 
-// New: verify via code (body: { email, code })
+// New: verify via code 
 router.post('/verify-code', authController.verifyCode);
+
+// Resend verification code
+router.post('/resend-code', authController.resendCode);
 
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password/:token', authController.resetPassword);

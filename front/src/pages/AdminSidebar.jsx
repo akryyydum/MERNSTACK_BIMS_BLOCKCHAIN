@@ -1,0 +1,201 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
+    ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
+ } from "@ant-design/icons";
+
+const defaultMenu = [
+  { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
+  { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
+  { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
+  { to: "/admin/officials", label: "Officials Management", icon: <UserOutlined /> },
+  { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
+
+  { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },
+  { to: "/admin/analytics", label: "Analytics", icon: <BarChartOutlined /> },
+  { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
+];
+
+export default function AdminSidebar({
+  title = "Admin",
+  menuItems,
+  className = "",
+  onNavigate,
+  collapsible = true,
+}) {
+  const navigate = useNavigate();
+  const items = useMemo(() => menuItems ?? defaultMenu, [menuItems]);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("adminSidebarCollapsed");
+    if (saved) setCollapsed(saved === "1");
+  }, []);
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem("adminSidebarCollapsed", next ? "1" : "0");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    navigate("/login", { replace: true });
+  };
+
+  const base = "bg-slate-900 text-slate-200";
+  const widthCls = collapsed ? "w-16" : "w-64";
+  const mobileCls = mobileOpen ? "translate-x-0" : "-translate-x-full";
+
+  return (
+    <>
+      {/* Mobile toggle button */}
+      <button
+        aria-label="Open menu"
+        className="md:hidden fixed top-3 left-3 z-40 inline-flex items-center justify-center rounded-md p-2 bg-slate-900 text-white"
+        onClick={() => setMobileOpen(true)}
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+        </svg>
+      </button>
+
+      {/* Overlay */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={[
+          base,
+          widthCls,
+          "md:translate-x-0",
+          "fixed md:static z-40 h-full md:h-auto top-0 left-0 transition-transform duration-200 ease-out",
+          "md:flex md:flex-col",
+          "shadow-lg md:shadow-none",
+          "select-none",
+          "pt-4 md:pt-6",
+          mobileCls,
+          className,
+        ].join(" ")}
+      >
+        {/* Header */}
+        <div className="px-3 md:px-4 pb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
+              <SafetyOutlined />
+            </div>
+            {!collapsed && (
+              <div className="truncate">
+                <div className="text-sm font-semibold leading-5">{title}</div>
+                <div className="text-xs text-slate-400">Control Panel</div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {/* Close on mobile */}
+            <button
+              className="md:hidden p-2 rounded hover:bg-white/10"
+              onClick={() => setMobileOpen(false)}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.3 5.71L12 12.01l-6.29-6.3-1.41 1.42 6.29 6.29-6.29 6.29 1.41 1.42L12 14.85l6.29 6.28 1.41-1.42-6.29-6.29 6.29-6.29-1.41-1.42z" />
+              </svg>
+            </button>
+            {collapsible && (
+              <button
+                className="hidden md:inline-flex p-2 rounded hover:bg-white/10"
+                onClick={toggleCollapse}
+                title={collapsed ? "Expand" : "Collapse"}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  {collapsed ? (
+                    <path d="M8 5v14l11-7L8 5z" />
+                  ) : (
+                    <path d="M16 19V5L5 12l11 7z" />
+                  )}
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Menu */}
+        <nav className="px-2 md:px-3 space-y-1 overflow-y-auto">
+          {items.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                [
+                  "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  isActive ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5 hover:text-white",
+                ].join(" ")
+              }
+              onClick={() => {
+                setMobileOpen(false);
+                onNavigate?.(item.to);
+              }}
+            >
+              <span className="text-slate-300 group-hover:text-white">{item.icon}</span>
+              {!collapsed && <span className="truncate">{item.label}</span>}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Footer actions */}
+       <div className="mt-auto p-3">
+  <button
+    onClick={handleLogout}
+    className="p-16-semibold flex size-full gap-4 p-4 group font-semibold rounded-full bg-cover hover:bg-red-500 hover:shadow-inner focus:bg-gradient-to-r from-red-400 to-red-600 focus:text-black text-gray-700 transition-all ease-linear"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      className="size-6"
+    >
+      <g strokeWidth="0" id="SVGRepo_bgCarrier"></g>
+      <g
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        id="SVGRepo_tracerCarrier"
+      ></g>
+      <g id="SVGRepo_iconCarrier">
+        <path
+          className="group-focus:fill-white"
+          fill="white"
+          d="M17.2929 14.2929C16.9024 14.6834 16.9024 15.3166 17.2929 15.7071C17.6834 16.0976 18.3166 16.0976 18.7071 15.7071L21.6201 12.7941C21.6351 12.7791 21.6497 12.7637 21.6637 12.748C21.87 12.5648 22 12.2976 22 12C22 11.7024 21.87 11.4352 21.6637 11.252C21.6497 11.2363 21.6351 11.2209 21.6201 11.2059L18.7071 8.29289C18.3166 7.90237 17.6834 7.90237 17.2929 8.29289C16.9024 8.68342 16.9024 9.31658 17.2929 9.70711L18.5858 11H13C12.4477 11 12 11.4477 12 12C12 12.5523 12.4477 13 13 13H18.5858L17.2929 14.2929Z"
+        ></path>
+        <path
+          className="group-focus:fill-white"
+          fill="white"
+          d="M5 2C3.34315 2 2 3.34315 2 5V19C2 20.6569 3.34315 22 5 22H14.5C15.8807 22 17 20.8807 17 19.5V16.7326C16.8519 16.647 16.7125 16.5409 16.5858 16.4142C15.9314 15.7598 15.8253 14.7649 16.2674 14H13C11.8954 14 11 13.1046 11 12C11 10.8954 11.8954 10 13 10H16.2674C15.8253 9.23514 15.9314 8.24015 16.5858 7.58579C16.7125 7.4591 16.8519 7.35296 17 7.26738V4.5C17 3.11929 15.8807 2 14.5 2H5Z"
+        ></path>
+      </g>
+    </svg>
+    Logout
+  </button>
+</div>
+
+      </aside>
+    </>
+  );
+}
+
+export function AdminLayout({ children, title = "Admin" }) {
+  return (
+    <div className="min-h-screen bg-slate-100 md:flex">
+      <AdminSidebar title={title} />
+      {/* Removed md:ml-64 to eliminate the big left gap */}
+      <main className="flex-1 p-4 md:p-6">
+        {children}
+      </main>
+    </div>
+  );
+}
