@@ -4,12 +4,12 @@ import './App.css'
 import Login from './auth/Login'
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicOnly from "./routes/PublicOnly";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
 import OfficialDashboard from "./pages/OfficialDashboard";
 import ResidentDashboard from "./pages/ResidentDashboard";
 import SplashRedirect from "./routes/SplashRedirect";
-import AdminUserManagement from "./pages/AdminUserManagement"; // add
-import AdminResidentManagement from "./pages/AdminResidentManagement";
+import AdminUserManagement from "./pages/Admin/AdminUserManagement"; // add
+import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
 
 function App() {
   const [count, setCount] = useState(0)
