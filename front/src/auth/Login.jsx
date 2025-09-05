@@ -43,6 +43,14 @@ const Login = () => {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("role", res.data.role);
 
+      // Resident verification check
+      if (res.data.role === "resident" && res.data.isVerified === false) {
+        setError("Your information is pending admin verification. Please wait for approval before accessing the resident dashboard.");
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        return;
+      }
+
       // Role-based redirect
       if (res.data.role === "admin") {
         window.location.href = "/admin-dashboard";

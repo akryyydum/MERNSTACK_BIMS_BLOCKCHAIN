@@ -122,14 +122,20 @@ async function login(req, res) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // No verification check - users can log in instantly
+    let isVerified = true;
+    if (user.role === 'resident') {
+      // Check if resident info exists and is verified
+      const resident = await require('../models/resident.model').findOne({ user: user._id });
+      if (!resident || resident.status !== 'verified') {
+        isVerified = false;
+      }
+    }
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
-
-    res.json({ token, role: user.role });
+    res.json({ token, role: user.role, isVerified });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
