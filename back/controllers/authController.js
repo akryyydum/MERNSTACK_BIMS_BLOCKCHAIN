@@ -123,19 +123,27 @@ async function login(req, res) {
     }
 
     let isVerified = true;
+    let userData = { username: user.username };
     if (user.role === 'resident') {
       // Check if resident info exists and is verified
       const resident = await require('../models/resident.model').findOne({ user: user._id });
       if (!resident || resident.status !== 'verified') {
         isVerified = false;
       }
+      if (resident) {
+        userData.firstName = resident.firstName;
+        userData.lastName = resident.lastName;
+      }
+    } else {
+      userData.firstName = user.fullName ? user.fullName.split(' ')[0] : '';
+      userData.lastName = user.fullName ? user.fullName.split(' ').slice(1).join(' ') : '';
     }
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
-    res.json({ token, role: user.role, isVerified });
+    res.json({ token, role: user.role, isVerified, userData });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
