@@ -99,3 +99,50 @@ exports.list = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// PATCH /api/admin/residents/:id
+exports.update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const update = req.body;
+    if (update.dateOfBirth && typeof update.dateOfBirth === "string") {
+      update.dateOfBirth = new Date(update.dateOfBirth);
+    }
+    const resident = await Resident.findByIdAndUpdate(id, update, { new: true });
+    if (!resident) return res.status(404).json({ message: "Resident not found" });
+    res.json({ message: "Resident updated", resident });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// DELETE /api/admin/residents/:id
+exports.remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const resident = await Resident.findByIdAndDelete(id);
+    if (!resident) return res.status(404).json({ message: "Resident not found" });
+    // Optionally delete the linked user:
+    await User.findByIdAndDelete(resident.user);
+    res.json({ message: "Resident deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/admin/residents/:id/verify
+exports.verify = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const resident = await Resident.findByIdAndUpdate(
+      id,
+      { status: status || "verified" },
+      { new: true }
+    );
+    if (!resident) return res.status(404).json({ message: "Resident not found" });
+    res.json({ message: "Resident status updated", resident });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

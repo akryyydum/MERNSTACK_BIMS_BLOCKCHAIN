@@ -2,12 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
     ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
-<<<<<<< HEAD
-} from "@ant-design/icons";
-=======
  } from "@ant-design/icons";
 import AdminResidentManagement from "./AdminResidentManagement"; // add this import
->>>>>>> bfb6b63c3c79e285e35329a5bd30cd54ab9a306b
 
 const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
@@ -80,15 +76,16 @@ export default function AdminSidebar({
           base,
           widthCls,
           "md:translate-x-0",
-          "fixed md:static z-40 h-full md:h-auto top-0 left-0",
+          "fixed md:static z-40 h-screen top-0 left-0", // use h-screen here
           "md:flex md:flex-col",
           "shadow-lg md:shadow-none",
           "select-none",
           "pt-4 md:pt-6",
           mobileCls,
           className,
-          "transition-all duration-300 ease-in-out", // Add this for smooth width animation
-          collapsed ? "opacity-95" : "opacity-100",  // Optional: fade effect
+          "transition-all duration-300 ease-in-out",
+          collapsed ? "opacity-95" : "opacity-100",
+          "overflow-y-auto", // keep this for sidebar scroll
         ].join(" ")}
       >
         {/* Header */}
@@ -183,8 +180,7 @@ export function AdminLayout({ children, title = "Admin" }) {
   return (
     <div className="min-h-screen bg-slate-200 md:flex">
       <AdminSidebar title={title} />
-      {/* Removed md:ml-64 to eliminate the big left gap */}
-      <main className="flex-1 p-4 md:p-3">
+      <main className="flex-1 p-4 overflow-y-auto h-screen">
         {children}
       </main>
     </div>

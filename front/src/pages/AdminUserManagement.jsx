@@ -3,6 +3,8 @@ import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popcon
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
+import { UserOutlined } from "@ant-design/icons";
+
 const { Search } = Input;
 const { Option } = Select;
 
@@ -11,7 +13,7 @@ export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(4);
+  const [pageSize, setPageSize] = useState(5);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState(undefined);
 
@@ -336,14 +338,27 @@ export default function AdminUserManagement() {
     },
   ];
 
+  // Get user info from localStorage (or context/auth if you have it)
+  const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+  const username = userProfile.username || localStorage.getItem("username") || "Admin";
+
   return (
     <AdminLayout title="Admin">
-      <div className="space-y-4 px-2 md:px-8" >
-        <div className="bg-white rounded-2xl outline outline-offset-1 outline-slate-300 mb-4">
-          <nav className="px-4 h-20 flex items-center p-15">
-            <h1 className="text-2xl md:text-4xl font-bold text-gray-800">
-              User Management
-            </h1>
+      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300 " >
+        <div>
+          <nav className="px-5 h-20 flex items-center justify-between p-15">
+            <div>
+              <span className="text-2xl md:text-4xl font-bold text-gray-800">
+                User Management
+              </span>
+            </div>
+            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
+              <UserOutlined className="text-2xl text-blue-600" />
+              <div className="flex flex-col items-start">
+                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
+                <span className="text-xs text-gray-500">{username}</span>
+              </div>
+            </div>
           </nav>
           {/* Statistics Section */}
           <div className="px-4 pb-4">
@@ -398,7 +413,7 @@ export default function AdminUserManagement() {
               </Card>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-3">
-                <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+                <Card className="bg-slate-50 text-black shadow-md py-10 p-4">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Verified Users
@@ -465,9 +480,9 @@ export default function AdminUserManagement() {
               </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-4 outline outline-offset-1 outline-slate-300 space-y-4">
+        <div className="bg-white rounded-2xl p-4  space-y-4">
+          <hr className="border-t border-gray-300" />
 
-        
         <div className="flex flex-col md:flex-row flex-wrap gap-2  md:items-center md:justify-between">
           <div className="flex flex-wrap gap-2">
             <Search
@@ -477,17 +492,6 @@ export default function AdminUserManagement() {
               enterButton
               className="min-w-[180px] max-w-xs"
             />
-            <Select
-              allowClear
-              placeholder="Filter role"
-              style={{ minWidth: 120, maxWidth: 160 }}
-              value={roleFilter}
-              onChange={setRoleFilter}
-            >
-              <Option value="admin">Admin</Option>
-              <Option value="official">Official</Option>
-              <Option value="resident">Resident</Option>
-            </Select>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={openCreateResident}>Add Resident</Button>
