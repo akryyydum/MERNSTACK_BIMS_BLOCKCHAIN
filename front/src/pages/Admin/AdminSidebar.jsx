@@ -3,10 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
     ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
  } from "@ant-design/icons";
-<<<<<<< HEAD:front/src/pages/AdminSidebar.jsx
 import AdminResidentManagement from "./AdminResidentManagement"; // add this import
-=======
->>>>>>> 5492a75010400243039aa7814096697f0c70831e:front/src/pages/Admin/AdminSidebar.jsx
 
 const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
@@ -48,7 +45,7 @@ export default function AdminSidebar({
     navigate("/login", { replace: true });
   };
 
-  const base = "bg-slate-900 text-slate-200";
+  const base = "bg-slate-200 text-slate-900 border-r border-slate-300  ";
   const widthCls = collapsed ? "w-16" : "w-64";
   const mobileCls = mobileOpen ? "translate-x-0" : "-translate-x-full";
 
@@ -79,27 +76,20 @@ export default function AdminSidebar({
           base,
           widthCls,
           "md:translate-x-0",
-<<<<<<< HEAD:front/src/pages/AdminSidebar.jsx
           "fixed md:static z-40 h-screen top-0 left-0", // use h-screen here
-=======
-          "fixed md:static z-40 h-full md:h-auto top-0 left-0 transition-transform duration-200 ease-out",
->>>>>>> 5492a75010400243039aa7814096697f0c70831e:front/src/pages/Admin/AdminSidebar.jsx
           "md:flex md:flex-col",
           "shadow-lg md:shadow-none",
           "select-none",
           "pt-4 md:pt-6",
           mobileCls,
           className,
-<<<<<<< HEAD:front/src/pages/AdminSidebar.jsx
           "transition-all duration-300 ease-in-out",
           collapsed ? "opacity-95" : "opacity-100",
           "overflow-y-auto", // keep this for sidebar scroll
-=======
->>>>>>> 5492a75010400243039aa7814096697f0c70831e:front/src/pages/Admin/AdminSidebar.jsx
         ].join(" ")}
       >
         {/* Header */}
-        <div className="px-3 md:px-4 pb-4 flex items-center justify-between">
+        <div className="px-3 md:px-4 pb-4 flex items-center justify-between border-b border-slate-300">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
               <SafetyOutlined />
@@ -107,7 +97,7 @@ export default function AdminSidebar({
             {!collapsed && (
               <div className="truncate">
                 <div className="text-sm font-semibold leading-5">{title}</div>
-                <div className="text-xs text-slate-400">Control Panel</div>
+                <div className="text-xs text-slate-900">Control Panel</div>
               </div>
             )}
           </div>
@@ -138,7 +128,7 @@ export default function AdminSidebar({
             )}
           </div>
         </div>
-
+        
         {/* Menu */}
         <nav className="px-2 md:px-3 space-y-1 overflow-y-auto">
           {items.map((item) => (
@@ -148,7 +138,7 @@ export default function AdminSidebar({
               className={({ isActive }) =>
                 [
                   "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                  isActive ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5 hover:text-white",
+                  isActive ? "bg-slate-100 text-black" : "text-slate-200 hover:bg-slate-300 hover:text-white",
                 ].join(" ")
               }
               onClick={() => {
@@ -156,7 +146,7 @@ export default function AdminSidebar({
                 onNavigate?.(item.to);
               }}
             >
-              <span className="text-slate-300 group-hover:text-white">{item.icon}</span>
+              <span className="text-slate-900 group-hover:text-slate-900">{item.icon}</span>
               {!collapsed && <span className="truncate">{item.label}</span>}
             </NavLink>
           ))}
@@ -188,14 +178,10 @@ export default function AdminSidebar({
 
 export function AdminLayout({ children, title = "Admin" }) {
   return (
-    <div className="min-h-screen bg-slate-100 md:flex">
+    <div className="min-h-screen bg-slate-200 md:flex">
       <AdminSidebar title={title} />
-<<<<<<< HEAD:front/src/pages/AdminSidebar.jsx
-      <main className="flex-1 p-4 overflow-y-auto h-screen">
-=======
-      {/* Removed md:ml-64 to eliminate the big left gap */}
-      <main className="flex-1 p-4 md:p-6">
->>>>>>> 5492a75010400243039aa7814096697f0c70831e:front/src/pages/Admin/AdminSidebar.jsx
+      
+      <main className="flex-1 p-4 overflow-y-auto h-screen rounded-3xl">
         {children}
       </main>
     </div>
