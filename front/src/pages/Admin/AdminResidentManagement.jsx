@@ -265,7 +265,7 @@ export default function AdminResidentManagement() {
           </nav>
           <div className="px-4 pb-4">
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Total Residents
@@ -281,7 +281,7 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Male Residents
@@ -297,7 +297,7 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Female Residents
@@ -313,7 +313,7 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-10 p-4">
+              <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Verified Residents
@@ -329,7 +329,7 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Unverified Residents

@@ -5,9 +5,31 @@ export default function AdminDashboard() {
   return (
     <AdminLayout title="Admin">
       <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        <div className="p-4 bg-white rounded-lg shadow">Total Residents</div>
-        <div className="p-4 bg-white rounded-lg shadow">Pending Requests</div>
-        <div className="p-4 bg-white rounded-lg shadow">System Health</div>
+<div class="card">
+  <div class="container">
+    <div class="cloud front">
+      <span class="left-front"></span>
+      <span class="right-front"></span>
+    </div>
+    <span class="sun sunshine"></span>
+    <span class="sun"></span>
+    <div class="cloud back">
+      <span class="left-back"></span>
+      <span class="right-back"></span>
+    </div>
+  </div>
+
+  <div class="card-header">
+    <span>Messadine, Susah<br/>Tunisia</span>
+    <span>March 13</span>
+  </div>
+
+  <span class="temp">10°</span>
+
+  <div class="temp-scale">
+    <span>Celcius</span>
+  </div>
+</div>
       </div>
     </AdminLayout>
   );

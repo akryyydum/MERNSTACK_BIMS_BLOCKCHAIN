@@ -89,7 +89,7 @@ export default function AdminSidebar({
         ].join(" ")}
       >
         {/* Header */}
-        <div className="px-3 md:px-4 pb-4 flex items-center justify-between border-b border-slate-300">
+        <div className="px-3 md:px-4 pb-4 flex items-center justify-between border-b mb-3 border-slate-300">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center">
               <SafetyOutlined />

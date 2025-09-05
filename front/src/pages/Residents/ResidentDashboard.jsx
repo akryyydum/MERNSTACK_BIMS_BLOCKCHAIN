@@ -13,6 +13,31 @@ export default function ResidentDashboard() {
   return (
     <div className="p-6">
       Resident Dashboard
+        <div class="card">
+          <div class="container">
+            <div class="cloud front">
+              <span class="left-front"></span>
+              <span class="right-front"></span>
+            </div>
+            <span class="sun sunshine"></span>
+            <span class="sun"></span>
+            <div class="cloud back">
+              <span class="left-back"></span>
+              <span class="right-back"></span>
+            </div>
+          </div>
+
+          <div class="card-header">
+            <span>Messadine, Susah<br />Tunisia</span>
+            <span>March 13</span>
+          </div>
+
+          <span class="temp">23°</span>
+
+          <div class="temp-scale">
+            <span>Celcius</span>
+          </div>
+        </div>
       <button
         onClick={handleLogout}
         class="p-16-semibold flex size-full gap-4 p-4 group font-semibold rounded-full bg-cover hover:bg-purple-100 hover:shadow-inner focus:bg-gradient-to-r from-purple-400 to-purple-600 focus:text-white text-gray-700 transition-all ease-linear"

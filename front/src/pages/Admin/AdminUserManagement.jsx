@@ -363,7 +363,7 @@ export default function AdminUserManagement() {
           {/* Statistics Section */}
           <div className="px-4 pb-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Total Users
@@ -379,7 +379,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Total Officials
@@ -395,7 +395,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Total Residents
@@ -413,7 +413,7 @@ export default function AdminUserManagement() {
               </Card>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-3">
-                <Card className="bg-slate-50 text-black shadow-md py-10 p-4">
+                <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Verified Users
@@ -429,7 +429,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Unverified Users
@@ -445,7 +445,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Active Users
@@ -461,7 +461,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Inactive Users
