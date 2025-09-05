@@ -1,10 +1,10 @@
 const Document = require('../models/document.model');
-const Resident = require('../models/resident.model');
 
 exports.list = async (req, res) => {
     try {
         const docs = await Document.find()
-        .populate("residentID")
+        .populate("residentId")
+        .populate("requestedBy")
         .sort({ createdAt: -1 });
         res.json(docs);
     } catch (error) {
@@ -56,5 +56,15 @@ exports.delete = async (req, res) => {
     } catch (error) {
         console.error("Error deleting document request:", error);
         res.status(500).json({ message: "Failed to delete document request." });
+    }
+};
+
+exports.create = async (req, res) => {
+    try {
+        const doc = await Document.create(req.body);
+        res.status(201).json(doc);
+    } catch (error) {
+        console.error("Error creating document request:", error);
+        res.status(500).json({ message: "Failed to create document request." });
     }
 };

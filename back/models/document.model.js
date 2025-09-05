@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const documentRequestSchema = new mongoose.Schema({
   residentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
+  requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
   documentType: { 
     type: String, 
     enum: ['Barangay Certificate', 'Indigency', 'Barangay Clearance', 'Residency', 'Business Clearance'], 

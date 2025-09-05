@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Descriptions, Tag, Select, message } from "antd";
+import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { saveAs } from "file-saver";
 
 export default function AdminDocumentRequests() {
 
@@ -13,12 +15,18 @@ export default function AdminDocumentRequests() {
   const [search, setSearch] = useState("");
   const [viewOpen, setViewOpen] = useState(false);
   const [viewRequest, setViewRequest] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [residents, setResidents] = useState([]);
+
+  const [createForm] = Form.useForm();
 
   const userProfile =JSON.parse(localStorage.getItem("userProfile")) || {};
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   useEffect(() => {
     fetchRequests();
+    fetchResidents();
   }, []);
 
   const fetchRequests = async () => {
@@ -39,21 +47,43 @@ export default function AdminDocumentRequests() {
     setLoading(false);
   };
 
+  const fetchResidents = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/residents`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setResidents(res.data);
+    } catch (err) {
+      message.error("Failed to load residents");
+    }
+  };
+
   const totalRequests = requests.length;
-  const pendingRequests = requests.filter(r => r.status === "pending").length;
-  const approvedRequests = requests.filter(r => r.status === "approved").length;
-  const rejectedRequests = requests.filter(r => r.status === "rejected").length;
-  const releasedRequests = requests.filter(r => r.status === "released").length;
+  const pendingRequests = requests.filter(r => r.status === "PENDING").length;
+  const approvedRequests = requests.filter(r => r.status === "APPROVED").length;
+  const rejectedRequests = requests.filter(r => r.status === "REJECTED").length;
+  const releasedRequests = requests.filter(r => r.status === "RELEASED").length;
 
   const columns = [
     {
-      title: "Request ID",
-      dataIndex: ["requestId", "fullName"],
-      key: "requestId",
+      title: "Resident",
+      key: "resident",
       render: (_, r) =>
-        r.residentID
-          ? [r.residentID.firstName, r.residentID.middleName, r.residentID.lastName].filter(Boolean).join(" ")
+        r.residentId
+          ? [r.residentId.firstName, r.residentId.middleName, r.residentId.lastName].filter(Boolean).join(" ")
           : "-",
+    },
+    {
+      title: "Civil Status",
+      key: "civilStatus",
+      render: (_, r) => r.residentId?.civilStatus || "-",
+    },
+    {
+      title: "Purok",
+      key: "purok",
+      render: (_, r) => r.residentId?.address?.purok || "-",
     },
     {
       title: "Document Type",
@@ -71,10 +101,10 @@ export default function AdminDocumentRequests() {
       key: "status",
       render: v => {
         let color = "default";
-        if (v === "pending") color = "orange";
-        else if (v === "approved") color = "green";
-        else if (v === "rejected") color = "red";
-        else if (v === "released") color = "blue";
+        if (v === "PENDING") color = "orange";
+        else if (v === "APPROVED") color = "green";
+        else if (v === "REJECTED") color = "red";
+        else if (v === "RELEASED") color = "blue";
         return <Tag color={color} className="capitalize">{v}</Tag>;
       },
     },
@@ -88,30 +118,69 @@ export default function AdminDocumentRequests() {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
-        <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
+        <div className="flex gap-2">
+          <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
+          <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
+        </div>
       ),
     }
   ];
 
-  const filteredRequests = requests.filter(r => 
+  const filteredRequests = requests.filter(r =>
   [
-    r.residentID?.firstName,
-    r.residentID?.middleName,
-    r.residentID?.lastName,
-    r.residentID?.suffix,
+    r.residentId?.firstName,
+    r.residentId?.middleName,
+    r.residentId?.lastName,
+    r.residentId?.suffix,
     r.documentType,
     r.purpose,
     r.status,
-  ].filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-   );
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(search.toLowerCase())
+);
 
    const openView = (request) => {
     setViewRequest(request);
     setViewOpen(true);
    };
+
+   const handlePrint = async (record) => {
+    const fullName = record.residentId
+      ? [record.residentId.firstName, record.residentId.middleName, record.residentId.lastName, record.residentId.suffix]
+          .filter(Boolean)
+          .join(" ")
+      : "-";
+    const civilStatus = record.residentId?.civilStatus || "-";
+    const purok = record.residentId?.address?.purok || "-";
+    const docType = record.documentType || "-";
+    const purpose = record.purpose || "-";
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: "Document Request Details", bold: true, size: 32 })],
+              spacing: { after: 300 },
+            }),
+            new Paragraph(`Name: ${fullName}`),
+            new Paragraph(`Civil Status: ${civilStatus}`),
+            new Paragraph(`Purok: ${purok}`),
+            new Paragraph(`Document Type: ${docType}`),
+            new Paragraph(`Purpose: ${purpose}`),
+          ],
+        },
+      ],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `document-request-${fullName.replace(/\s+/g, "_")}.docx`);
+  };
+
   return (
     <AdminLayout>
      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
@@ -231,6 +300,9 @@ export default function AdminDocumentRequests() {
                 enterButton
                 className="min-w-[180px] max-w-xs"
               />
+              <Button type="primary" onClick={() => setCreateOpen(true)}>
+                Create Request Document
+              </Button>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -259,6 +331,12 @@ export default function AdminDocumentRequests() {
                   ? [viewRequest.residentId.firstName, viewRequest.residentId.middleName, viewRequest.residentId.lastName, viewRequest.residentId.suffix].filter(Boolean).join(" ")
                   : "-"}
               </Descriptions.Item>
+              <Descriptions.Item label="Civil Status">
+                {viewRequest.residentId?.civilStatus || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Purok">
+                {viewRequest.residentId?.address?.purok || "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="Document Type">{viewRequest.documentType}</Descriptions.Item>
               <Descriptions.Item label="Purpose">{viewRequest.purpose}</Descriptions.Item>
               <Descriptions.Item label="Status">{viewRequest.status}</Descriptions.Item>
@@ -270,6 +348,83 @@ export default function AdminDocumentRequests() {
               <Descriptions.Item label="Issued At">{viewRequest.blockchain?.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</Descriptions.Item>
             </Descriptions>
           )}
+        </Modal>
+        {/* Create Request Modal */}
+        <Modal
+          title="Create Document Request"
+          open={createOpen}
+          onCancel={() => setCreateOpen(false)}
+          onOk={async () => {
+            try {
+              setCreating(true);
+              const values = await createForm.validateFields();
+              const token = localStorage.getItem("token");
+              await axios.post(
+                `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
+                values,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              message.success("Document request created!");
+              setCreateOpen(false);
+              createForm.resetFields();
+              fetchRequests();
+            } catch (err) {
+              message.error(err?.response?.data?.message || "Failed to create document request");
+            }
+            setCreating(false);
+          }}
+          confirmLoading={creating}
+          okText="Create"
+          width={600}
+        >
+          <Form form={createForm} layout="vertical">
+            <Form.Item name="residentId" label="Resident" rules={[{ required: true }]}>
+              <Select
+                showSearch
+                placeholder="Select resident"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {residents.map(r => (
+                  <Select.Option key={r._id} value={r._id}>
+                    {[r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ")}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
+              <Select
+                showSearch
+                placeholder="Select requester"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {residents.map(r => (
+                  <Select.Option key={r._id} value={r._id}>
+                    {[r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ")}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="documentType" label="Document Type" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: "Barangay Certificate", label: "Barangay Certificate" },
+                  { value: "Indigency", label: "Indigency" },
+                  { value: "Barangay Clearance", label: "Barangay Clearance" },
+                  { value: "Residency", label: "Residency" },
+                  { value: "Business Clearance", label: "Business Clearance" },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="purpose" label="Purpose" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+          </Form>
         </Modal>
       </div>
     </AdminLayout>

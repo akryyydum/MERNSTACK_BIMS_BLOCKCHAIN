@@ -18,4 +18,7 @@ router.patch("/:id/deny", adminDocumentRequestCtrl.deny);
 // Delete a document request
 router.delete("/:id", adminDocumentRequestCtrl.delete);
 
+// Create a new document request
+router.post("/", adminDocumentRequestCtrl.create);
+
 module.exports = router;
