@@ -4,12 +4,12 @@ import './App.css'
 import Login from './auth/Login'
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicOnly from "./routes/PublicOnly";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
 import OfficialDashboard from "./pages/OfficialDashboard";
-import ResidentDashboard from "./pages/ResidentDashboard";
+import ResidentDashboard from "./pages/Residents/ResidentDashboard";
 import SplashRedirect from "./routes/SplashRedirect";
-import AdminUserManagement from "./pages/AdminUserManagement"; // add
-import AdminResidentManagement from "./pages/AdminResidentManagement"; // add this import
+import AdminUserManagement from "./pages/Admin/AdminUserManagement"; // add
+import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -26,7 +26,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/user-management" element={<AdminUserManagement />} /> {/* add */}
-          <Route path="/admin/residents-management" element={<AdminResidentManagement />} /> {/* add this line */}
+          <Route path="/admin/residents" element={<AdminResidentManagement />} />
         </Route>
 
         {/* Official only */}

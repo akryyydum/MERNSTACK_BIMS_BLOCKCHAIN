@@ -34,7 +34,7 @@ export default function AdminResidentManagement() {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000/api/admin/residents"}`,
+        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000"}/api/admin/residents`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
