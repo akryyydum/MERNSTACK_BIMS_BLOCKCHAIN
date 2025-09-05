@@ -10,6 +10,7 @@ import ResidentDashboard from "./pages/Residents/ResidentDashboard";
 import SplashRedirect from "./routes/SplashRedirect";
 import AdminUserManagement from "./pages/Admin/AdminUserManagement"; // add
 import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
+import AdminDocumentRequests from "./pages/Admin/AdminDocumentRequests";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -27,6 +28,7 @@ function App() {
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/admin/user-management" element={<AdminUserManagement />} /> {/* add */}
           <Route path="/admin/residents" element={<AdminResidentManagement />} />
+          <Route path="/admin/document-requests" element={<AdminDocumentRequests />} />
         </Route>
 
         {/* Official only */}
