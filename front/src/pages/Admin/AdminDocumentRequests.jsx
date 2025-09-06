@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
 
 export default function AdminDocumentRequests() {
@@ -37,8 +38,7 @@ export default function AdminDocumentRequests() {
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      });
       setRequests(res.data);
     } catch (error) {
       console.error("Error fetching document requests:", error);
@@ -147,39 +147,46 @@ export default function AdminDocumentRequests() {
     setViewOpen(true);
    };
 
-   const handlePrint = async (record) => {
-    const fullName = record.residentId
-      ? [record.residentId.firstName, record.residentId.middleName, record.residentId.lastName, record.residentId.suffix]
-          .filter(Boolean)
-          .join(" ")
-      : "-";
-    const civilStatus = record.residentId?.civilStatus || "-";
-    const purok = record.residentId?.address?.purok || "-";
-    const docType = record.documentType || "-";
-    const purpose = record.purpose || "-";
+   async function loadFile(url) {
+  const response = await fetch(url);
+  return await response.arrayBuffer();
+}
 
-    const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children: [
-            new Paragraph({
-              children: [new TextRun({ text: "Document Request Details", bold: true, size: 32 })],
-              spacing: { after: 300 },
-            }),
-            new Paragraph(`Name: ${fullName}`),
-            new Paragraph(`Civil Status: ${civilStatus}`),
-            new Paragraph(`Purok: ${purok}`),
-            new Paragraph(`Document Type: ${docType}`),
-            new Paragraph(`Purpose: ${purpose}`),
-          ],
-        },
-      ],
-    });
+const handlePrint = async (record) => {
+  const fullName = record.residentId
+    ? [record.residentId.firstName, record.residentId.middleName, record.residentId.lastName, record.residentId.suffix]
+        .filter(Boolean)
+        .join(" ")
+    : "-";
 
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `document-request-${fullName.replace(/\s+/g, "_")}.docx`);
+  const data = {
+    name: fullName,
+    civilStatus: record.residentId?.civilStatus || "-",
+    purok: record.residentId?.address?.purok || "-",
+    docType: record.documentType || "-",
+    purpose: record.purpose || "-",
   };
+
+  try {
+    // 1. Load the template
+    const content = await loadFile("/BARANGAY CLEARANCE.docx"); // adjust filename as needed
+    const zip = new PizZip(content);
+
+    // 2. Render the template
+    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+    doc.render(data);
+
+    // 3. Export modified file
+    const out = doc.getZip().generate({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    saveAs(out, `document-request-${fullName.replace(/\s+/g, "_")}.docx`);
+  } catch (err) {
+    console.error("Error generating document:", err);
+    message.error("Failed to generate document.");
+  }
+};
 
   return (
     <AdminLayout>
