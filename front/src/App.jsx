@@ -7,6 +7,7 @@ import PublicOnly from "./routes/PublicOnly";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import OfficialDashboard from "./pages/BarangayOfficers/OfficialDashboard";
 import ResidentDashboard from "./pages/Residents/ResidentDashboard";
+import ResidentRequest from "./pages/Residents/ResidentRequest";
 import SplashRedirect from "./routes/SplashRedirect";
 import AdminUserManagement from "./pages/Admin/AdminUserManagement"; // add
 import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
@@ -39,6 +40,7 @@ function App() {
         {/* Resident only */}
         <Route element={<ProtectedRoute allowedRoles={["resident"]} />}>
           <Route path="/resident-dashboard" element={<ResidentDashboard />} />
+          <Route path="/resident/requests" element={<ResidentRequest />} />
         </Route>
 
         {/* Default and 404 handling */}
