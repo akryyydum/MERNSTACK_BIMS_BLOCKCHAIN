@@ -67,10 +67,11 @@ export default function ResidentDashboard() {
 
   // Request statistics
   const totalRequests = requests.length;
-  const pendingRequests = requests.filter(r => r.status === "PENDING").length;
-  const approvedRequests = requests.filter(r => r.status === "APPROVED").length;
-  const rejectedRequests = requests.filter(r => r.status === "REJECTED").length;
-  const pendingPayments = requests.filter(r => r.status === "APPROVED" && !r.paymentStatus).length;
+  const pendingRequests = requests.filter(r => r.status === "pending").length;
+  const approvedRequests = requests.filter(r => r.status === "accepted").length;
+  const rejectedRequests = requests.filter(r => r.status === "declined").length;
+  const completedRequests = requests.filter(r => r.status === "completed").length;
+  const pendingPayments = requests.filter(r => r.status === "accepted" && !r.paymentStatus).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,7 +121,7 @@ export default function ResidentDashboard() {
           
           {/* Request Statistics Cards */}
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Your Document Requests</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-6 gap-4 mb-8">
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
               <div className="flex items-center justify-between">
                 <div>
@@ -162,6 +163,17 @@ export default function ResidentDashboard() {
                 </div>
                 <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
                   <ClockCircleOutlined className="text-red-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-700">Completed</p>
+                  <p className="text-2xl font-bold text-blue-900 mt-1">{completedRequests}</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <CheckCircleOutlined className="text-blue-600" />
                 </div>
               </div>
             </div>
@@ -208,22 +220,22 @@ export default function ResidentDashboard() {
                         <p className="font-medium text-gray-800 truncate">{request.documentType}</p>
                       </div>
                       <div className="ml-2">
-                        {request.status === "PENDING" && (
+                        {request.status === "pending" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
                             PENDING
                           </span>
                         )}
-                        {request.status === "APPROVED" && (
+                        {request.status === "accepted" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                             APPROVED
                           </span>
                         )}
-                        {request.status === "REJECTED" && (
+                        {request.status === "declined" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                             REJECTED
                           </span>
                         )}
-                        {request.status === "RELEASED" && (
+                        {request.status === "completed" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                             RELEASED
                           </span>
@@ -239,6 +251,12 @@ export default function ResidentDashboard() {
                       <p className="text-xs text-gray-500">
                         Requested on {new Date(request.requestedAt).toLocaleDateString()}
                       </p>
+                    </div>
+                    <div className="mt-4">
+                      <span className="text-xs text-gray-500">Status: </span>
+                      <span className={`text-xs font-medium ${request.status === "accepted" ? "text-green-600" : request.status === "declined" ? "text-red-600" : "text-gray-800"}`}>
+                        {request.status}
+                      </span>
                     </div>
                   </div>
                 ))}

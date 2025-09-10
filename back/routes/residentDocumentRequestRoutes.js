@@ -1,21 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const { auth, authorize } = require("../middleware/authMiddleware");
-const residentDocumentRequestCtrl = require("../controllers/residentDocumentRequestController");
+const { createRequest, list, getStats, getById } = require("../controllers/residentDocumentRequestController");
 
 // Protect all routes for residents only
 router.use(auth, authorize("resident"));
 
 // List all document requests for the current resident
-router.get("/", residentDocumentRequestCtrl.list);
+router.get("/", list);
 
 // Get document request statistics
-router.get("/stats", residentDocumentRequestCtrl.getStats);
+router.get("/stats", getStats);
 
 // Get a specific document request by ID
-router.get("/:id", residentDocumentRequestCtrl.getById);
+router.get("/:id", getById);
 
 // Create a new document request
-router.post("/", residentDocumentRequestCtrl.create);
+router.post("/", createRequest);
 
 module.exports = router;

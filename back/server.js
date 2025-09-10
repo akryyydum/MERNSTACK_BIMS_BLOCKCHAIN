@@ -20,8 +20,8 @@ const adminUserRoutes = require("./routes/adminUserRoutes");
 app.use("/api/admin/users", adminUserRoutes);
 const adminResidentRoutes = require("./routes/adminResidentRoutes");
 app.use("/api/admin/residents", adminResidentRoutes);
-const adminDocumentRequestRoutes = require("./routes/adminDocumentRequest");
-app.use("/api/admin/document-requests", adminDocumentRequestRoutes);
+const adminDocumentRequestRoutes = require('./routes/adminDocumentRequest');
+app.use('/api/admin/document-requests', adminDocumentRequestRoutes);
 const residentDocumentRequestRoutes = require("./routes/residentDocumentRequestRoutes");
 app.use("/api/document-requests", residentDocumentRequestRoutes);
 

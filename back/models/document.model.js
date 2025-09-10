@@ -10,7 +10,11 @@ const documentRequestSchema = new mongoose.Schema({
     required: true 
   },
   purpose: { type: String },
-  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'PRINTED', 'RELEASED'], default: 'PENDING' },
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'declined', 'completed'],
+    default: 'pending'
+  },
   
   blockchain: {
     hash: String,

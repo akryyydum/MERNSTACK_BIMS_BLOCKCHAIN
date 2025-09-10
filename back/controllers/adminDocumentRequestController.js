@@ -1,8 +1,9 @@
-const Document = require('../models/document.model');
+const DocumentRequest = require('../models/document.model');
+const sendEmail = require('../utils/sendEmail');
 
 exports.list = async (req, res) => {
     try {
-        const docs = await Document.find()
+        const docs = await DocumentRequest.find()
         .populate("residentId")
         .populate("requestedBy")
         .sort({ createdAt: -1 });
@@ -16,7 +17,7 @@ exports.list = async (req, res) => {
 exports.approve = async (req, res) => {
     const { id } = req.params;
     try {
-        const doc = await Document.findById(id);
+        const doc = await DocumentRequest.findById(id);
         if (!doc) {
             return res.status(404).json({ message: "Document request not found." });
         }
@@ -32,7 +33,7 @@ exports.approve = async (req, res) => {
 exports.deny = async (req, res) => {
     const { id } = req.params;
     try {
-        const doc = await Document.findById(id);
+        const doc = await DocumentRequest.findById(id);
         if (!doc) {
             return res.status(404).json({ message: "Document request not found." });
         }
@@ -48,7 +49,7 @@ exports.deny = async (req, res) => {
 exports.delete = async (req, res) => {
     const { id } = req.params;
     try {
-        const doc = await Document.findByIdAndDelete(id);
+        const doc = await DocumentRequest.findByIdAndDelete(id);
         if (!doc) {
             return res.status(404).json({ message: "Document request not found." });
         }
@@ -61,10 +62,50 @@ exports.delete = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const doc = await Document.create(req.body);
+        const doc = await DocumentRequest.create(req.body);
         res.status(201).json(doc);
     } catch (error) {
         console.error("Error creating document request:", error);
         res.status(500).json({ message: "Failed to create document request." });
+    }
+};
+
+exports.acceptRequest = async (req, res) => {
+    try {
+        const request = await DocumentRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Request not found' });
+        request.status = 'accepted';
+        await request.save();
+        res.json(request);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+exports.declineRequest = async (req, res) => {
+    try {
+        const request = await DocumentRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Request not found' });
+        request.status = 'declined';
+        await request.save();
+        res.json(request);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+exports.completeRequest = async (req, res) => {
+    try {
+        const request = await DocumentRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Request not found' });
+        request.status = 'completed';
+        await request.save();
+        // Notify resident
+        if (request.residentId && request.residentId.email) {
+            await sendEmail(request.residentId.email, 'Document Request Completed', 'Your document request has been completed.');
+        }
+        res.json(request);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 };

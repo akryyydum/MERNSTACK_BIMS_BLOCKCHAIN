@@ -1,24 +1,42 @@
 const express = require("express");
 const router = express.Router();
 const { auth, authorize } = require("../middleware/authMiddleware");
-const adminDocumentRequestCtrl = require("../controllers/adminDocumentRequestController");
+const {
+  list,
+  approve,
+  deny,
+  delete: deleteRequest,
+  create,
+  acceptRequest,
+  declineRequest,
+  completeRequest,
+} = require("../controllers/adminDocumentRequestController");
 
 // Protect all routes
 router.use(auth, authorize("admin"));
 
 // List all document requests
-router.get("/", adminDocumentRequestCtrl.list);
+router.get("/", list);
 
 // Approve a document request
-router.patch("/:id/approve", adminDocumentRequestCtrl.approve);
+router.patch("/:id/approve", approve);
 
 // Deny a document request
-router.patch("/:id/deny", adminDocumentRequestCtrl.deny);
+router.patch("/:id/deny", deny);
 
 // Delete a document request
-router.delete("/:id", adminDocumentRequestCtrl.delete);
+router.delete("/:id", deleteRequest);
 
 // Create a new document request
-router.post("/", adminDocumentRequestCtrl.create);
+router.post("/", create);
+
+// Accept a document request
+router.patch("/:id/accept", acceptRequest);
+
+// Decline a document request
+router.patch("/:id/decline", declineRequest);
+
+// Complete a document request
+router.patch("/:id/complete", completeRequest);
 
 module.exports = router;

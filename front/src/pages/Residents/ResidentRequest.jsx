@@ -27,8 +27,6 @@ export default function ResidentRequest() {
 
   const [createForm] = Form.useForm();
 
-  const userProfile = JSON.parse(localStorage.getItem("userProfile")) || {};
-  const username = userProfile.username || localStorage.getItem("username") || "Resident";
 
   useEffect(() => {
     // Only fetch requests on initial load
@@ -38,32 +36,7 @@ export default function ResidentRequest() {
     setResident(userProfile);
   }, []);
 
-  // Fetch resident profile information 
-  const fetchUserInfo = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      // Get the user ID from the token
-      if (token) {
-        // First, get user's document requests which contains the resident ID
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        // If there are requests, we can get the resident info from the first request
-        if (res.data && res.data.length > 0 && res.data[0].residentId) {
-          setResident(res.data[0].residentId);
-        } else {
-          // Otherwise, use what's in localStorage
-          const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-          setResident(userProfile);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      // Don't show error message for profile since we're using a workaround
-      // message.error("Failed to load profile information.");
-    }
-  };
+  // (Removed unused fetchUserInfo function)
 
   // Fetch document requests for the current resident
   const fetchRequests = async () => {
@@ -101,21 +74,18 @@ export default function ResidentRequest() {
 
   // Request statistics
   const totalRequests = requests.length;
-  const pendingRequests = requests.filter(r => r.status === "PENDING").length;
-  const approvedRequests = requests.filter(r => r.status === "APPROVED").length;
-  const rejectedRequests = requests.filter(r => r.status === "REJECTED").length;
-  const releasedRequests = requests.filter(r => r.status === "RELEASED").length;
+  const pendingRequests = requests.filter(r => r.status === "pending").length;
+  const approvedRequests = requests.filter(r => r.status === "accepted").length;
+  const rejectedRequests = requests.filter(r => r.status === "declined").length;
 
-  // No longer need columns definition since we're using a custom table
-  
   const filteredRequests = requests.filter(r => {
     // Handle the tab filtering
     if (search === "pending") {
-      return r.status === "PENDING";
+      return r.status === "pending";
     } else if (search === "approved") {
-      return r.status === "APPROVED";
+      return r.status === "accepted";
     } else if (search === "rejected") {
-      return r.status === "REJECTED";
+      return r.status === "declined";
     }
     
     // Default: show all requests
@@ -266,22 +236,22 @@ export default function ResidentRequest() {
                         </div>
                       </td>
                       <td className="py-4 px-6 hidden sm:table-cell">
-                        {request.status === "PENDING" && (
+                        {request.status === "pending" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
                             PENDING
                           </span>
                         )}
-                        {request.status === "APPROVED" && (
+                        {request.status === "accepted" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                             APPROVED
                           </span>
                         )}
-                        {request.status === "REJECTED" && (
+                        {request.status === "declined" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                             REJECTED
                           </span>
                         )}
-                        {request.status === "RELEASED" && (
+                        {request.status === "completed" && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                             RELEASED
                           </span>
@@ -329,22 +299,22 @@ export default function ResidentRequest() {
                 
                 {/* Status Badge */}
                 <div>
-                  {viewRequest.status === "PENDING" && (
+                  {viewRequest.status === "pending" && (
                     <div className="px-4 py-1.5 rounded-full bg-amber-100 text-amber-800 text-sm font-medium">
                       PENDING
                     </div>
                   )}
-                  {viewRequest.status === "APPROVED" && (
+                  {viewRequest.status === "accepted" && (
                     <div className="px-4 py-1.5 rounded-full bg-green-100 text-green-800 text-sm font-medium">
                       APPROVED
                     </div>
                   )}
-                  {viewRequest.status === "REJECTED" && (
+                  {viewRequest.status === "declined" && (
                     <div className="px-4 py-1.5 rounded-full bg-red-100 text-red-800 text-sm font-medium">
                       REJECTED
                     </div>
                   )}
-                  {viewRequest.status === "RELEASED" && (
+                  {viewRequest.status === "completed" && (
                     <div className="px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
                       RELEASED
                     </div>
@@ -403,13 +373,13 @@ export default function ResidentRequest() {
                     {/* Processing Step (Always shown but styled differently based on status) */}
                     <div className="flex items-start">
                       <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10 
-                        ${viewRequest.status === "PENDING" ? "bg-amber-500" : "bg-blue-500"}`}>
+                        ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
                         <ClockCircleOutlined className="text-white" />
                       </div>
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-800">Processing</p>
                         <p className="text-xs text-gray-500">
-                          {viewRequest.status === "PENDING" 
+                          {viewRequest.status === "pending" 
                             ? "Your request is being processed" 
                             : "Your request has been processed"}
                         </p>
@@ -417,11 +387,11 @@ export default function ResidentRequest() {
                     </div>
                     
                     {/* Approved/Rejected Step (Shown when not pending) */}
-                    {viewRequest.status !== "PENDING" && (
+                    {viewRequest.status !== "pending" && (
                       <div className="flex items-start">
                         <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10
-                          ${viewRequest.status === "APPROVED" || viewRequest.status === "RELEASED" ? "bg-green-500" : "bg-red-500"}`}>
-                          {viewRequest.status === "APPROVED" || viewRequest.status === "RELEASED" ? (
+                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-green-500" : "bg-red-500"}`}>
+                          {viewRequest.status === "accepted" || viewRequest.status === "completed" ? (
                             <CheckCircleOutlined className="text-white" />
                           ) : (
                             <CloseCircleOutlined className="text-white" />
@@ -429,7 +399,7 @@ export default function ResidentRequest() {
                         </div>
                         <div className="ml-4">
                           <p className="text-sm font-medium text-gray-800">
-                            {viewRequest.status === "APPROVED" || viewRequest.status === "RELEASED" ? "Approved" : "Rejected"}
+                            {viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}
                           </p>
                           <p className="text-xs text-gray-500">
                             {viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}
@@ -439,7 +409,7 @@ export default function ResidentRequest() {
                     )}
                     
                     {/* Released Step (Shown only for released docs) */}
-                    {viewRequest.status === "RELEASED" && (
+                    {viewRequest.status === "completed" && (
                       <div className="flex items-start">
                         <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
                           <CheckCircleOutlined className="text-white" />
@@ -514,20 +484,22 @@ export default function ResidentRequest() {
               try {
                 setCreating(true);
                 const token = localStorage.getItem("token");
-                
                 if (!token) {
                   message.error("You are not logged in. Please log in first.");
                   setCreating(false);
                   return;
                 }
-                
-                // The backend will determine the resident ID from the authenticated user
+                // Add residentId and requestedBy to the request body
+                const payload = {
+                  ...values,
+                  residentId: resident?._id,
+                  requestedBy: resident?._id
+                };
                 await axios.post(
                   `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-                  values,
+                  payload,
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
-                
                 message.success("Document request submitted successfully!");
                 setCreateOpen(false);
                 createForm.resetFields();

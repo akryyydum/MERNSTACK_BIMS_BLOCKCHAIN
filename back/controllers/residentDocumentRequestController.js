@@ -26,34 +26,33 @@ exports.list = async (req, res) => {
   }
 };
 
-exports.create = async (req, res) => {
-  try {
-    const { documentType, purpose } = req.body;
-    
-    // Find the resident ID associated with the current user
-    const resident = await Resident.findOne({ user: req.user.id });
-    
-    if (!resident) {
-      return res.status(404).json({ message: "Resident profile not found" });
+exports.createRequest = async (req, res) => {
+    try {
+        const { residentId, requestedBy, documentType, purpose } = req.body;
+        if (!residentId || !requestedBy || !documentType || !purpose) {
+            return res.status(400).json({ message: 'All fields are required.' });
+        }
+        // Check if residentId and requestedBy exist
+        const residentDoc = await Resident.findById(residentId);
+        const requesterDoc = await Resident.findById(requestedBy);
+        if (!residentDoc || !requesterDoc) {
+            return res.status(400).json({ message: 'Resident or requester not found.' });
+        }
+        const request = new DocumentRequest({
+            residentId,
+            requestedBy,
+            documentType,
+            purpose,
+            status: 'pending', // <-- lowercase
+            requestedAt: new Date(),
+            updatedAt: new Date()
+        });
+        await request.save();
+        res.status(201).json(request);
+    } catch (err) {
+        console.error('Error creating document request:', err);
+        res.status(500).json({ message: err.message });
     }
-    
-    // Create a new document request
-    const newRequest = new DocumentRequest({
-      residentId: resident._id,
-      requestedBy: resident._id,
-      documentType,
-      purpose,
-      status: "PENDING",
-      requestedAt: new Date()
-    });
-    
-    await newRequest.save();
-    
-    res.status(201).json(newRequest);
-  } catch (error) {
-    console.error("Error creating document request:", error);
-    res.status(500).json({ message: "Server error" });
-  }
 };
 
 exports.getById = async (req, res) => {

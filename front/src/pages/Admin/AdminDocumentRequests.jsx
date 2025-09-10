@@ -55,16 +55,16 @@ export default function AdminDocumentRequests() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResidents(res.data);
-    } catch (err) {
+    } catch {
       message.error("Failed to load residents");
     }
   };
 
   const totalRequests = requests.length;
-  const pendingRequests = requests.filter(r => r.status === "PENDING").length;
-  const approvedRequests = requests.filter(r => r.status === "APPROVED").length;
-  const rejectedRequests = requests.filter(r => r.status === "REJECTED").length;
-  const releasedRequests = requests.filter(r => r.status === "RELEASED").length;
+  const pendingRequests = requests.filter(r => r.status === "pending").length;
+  const approvedRequests = requests.filter(r => r.status === "accepted").length;
+  const rejectedRequests = requests.filter(r => r.status === "declined").length;
+  const releasedRequests = requests.filter(r => r.status === "completed").length;
 
   const columns = [
     {
@@ -101,10 +101,10 @@ export default function AdminDocumentRequests() {
       key: "status",
       render: v => {
         let color = "default";
-        if (v === "PENDING") color = "orange";
-        else if (v === "APPROVED") color = "green";
-        else if (v === "REJECTED") color = "red";
-        else if (v === "RELEASED") color = "blue";
+        if (v === "pending") color = "orange";
+        else if (v === "accepted") color = "green";
+        else if (v === "declined") color = "red";
+        else if (v === "completed") color = "blue";
         return <Tag color={color} className="capitalize">{v}</Tag>;
       },
     },
@@ -121,6 +121,15 @@ export default function AdminDocumentRequests() {
         <div className="flex gap-2">
           <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
           <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
+          {r.status === "pending" && (
+            <>
+              <Button size="small" type="primary" onClick={() => handleAction(r._id, 'accept')}>Accept</Button>
+              <Button size="small" danger onClick={() => handleAction(r._id, 'decline')}>Decline</Button>
+            </>
+          )}
+          {r.status === "accepted" && (
+            <Button size="small" type="default" onClick={() => handleAction(r._id, 'complete')}>Mark as Completed</Button>
+          )}
         </div>
       ),
     }
@@ -188,9 +197,24 @@ const handlePrint = async (record) => {
   }
 };
 
+const handleAction = async (id, action) => {
+  try {
+    const token = localStorage.getItem("token");
+    await axios.patch(
+      `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${id}/${action}`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setRequests(requests => requests.map(r => r._id === id ? { ...r, status: action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'completed' } : r));
+    message.success(`Request ${action === 'accept' ? 'approved' : action === 'decline' ? 'declined' : 'completed'}!`);
+  } catch {
+    message.error("Action failed");
+  }
+};
+
   return (
     <AdminLayout>
-     <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
+    <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         {/* Navbar */}
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
