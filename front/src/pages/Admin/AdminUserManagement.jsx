@@ -634,8 +634,64 @@ export default function AdminUserManagement() {
           </Form>
         </Modal>
 
-        {/* Removed Add Resident modal and related code */}
-        {/* Removed Edit modal remains unchanged */}
+        {/* ADD THIS: Edit User Modal */}
+        <Modal
+          title="Edit User"
+          open={editOpen}
+          onOk={submitEdit}
+          confirmLoading={savingEdit}
+          onCancel={() => { setEditOpen(false); setEditingUser(null); }}
+          okText="Save"
+          width={window.innerWidth < 600 ? "95vw" : 520}
+          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+        >
+          <Form form={editForm} layout="vertical">
+            <Form.Item
+              name="fullName"
+              label="Full name"
+              rules={[{ required: true, message: "Full name is required" }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="role"
+              label="Role"
+              rules={[{ required: true, message: "Role is required" }]}
+            >
+              <Select
+                options={[
+                  { value: "admin", label: "Admin" },
+                  { value: "official", label: "Official" },
+                  { value: "resident", label: "Resident" },
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name={["contact", "email"]}
+              label="Email"
+              rules={[{ type: "email", message: "Invalid email" }]}
+            >
+              <Input type="email" />
+            </Form.Item>
+
+            <Form.Item
+              name={["contact", "mobile"]}
+              label="Mobile"
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item name="isVerified" label="Verified" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+
+            <Form.Item name="isActive" label="Active" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </Form>
+        </Modal>
       </div>
     </AdminLayout>
   );

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Tabs, InputNumber } from "antd";
+import React, { useEffect, useState, useMemo } from "react";
+import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Tabs, InputNumber, DatePicker, Checkbox } from "antd";
+import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
@@ -189,9 +190,18 @@ const sampleHouseholds = [
   }
 ];
 
+const ADDRESS_DEFAULTS = {
+  barangay: "La Torre North",
+  municipality: "Bayombong",
+  province: "Nueva Vizcaya",
+  zipCode: "3700",
+};
+
+const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
+
 export default function HouseholdManagement() {
   const [loading, setLoading] = useState(false);
-  const [households, setHouseholds] = useState(sampleHouseholds);
+  const [households, setHouseholds] = useState([]);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [addForm] = Form.useForm();
@@ -202,110 +212,206 @@ export default function HouseholdManagement() {
   const [selectedHousehold, setSelectedHousehold] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewHousehold, setViewHousehold] = useState(null);
-  const [residents, setResidents] = useState(sampleResidents);
+  const [residents, setResidents] = useState([]);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payForm] = Form.useForm();
+  const [payLoading, setPayLoading] = useState(false);
+  const [paySummary, setPaySummary] = useState(null);
+  const [payHousehold, setPayHousehold] = useState(null);
+
+  // NEW: Only me toggles
+  const [addOnlyMe, setAddOnlyMe] = useState(false);
+  const [editOnlyMe, setEditOnlyMe] = useState(false);
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   useEffect(() => {
-    // For demonstration purposes, we're using the hardcoded data
-    // No need to fetch from API during initial development
-    setLoading(false);
+    fetchResidents();
+    fetchHouseholds();
   }, []);
 
-  // These functions are kept for future API implementation
-  const fetchHouseholds = async () => {
-    // Using hardcoded data for now
-    setHouseholds(sampleHouseholds);
-  };
+  const authHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
 
   const fetchResidents = async () => {
-    // Using hardcoded data for now
-    setResidents(sampleResidents);
+    try {
+      const res = await axios.get(`${API_BASE}/api/admin/residents`, { headers: authHeaders() });
+      setResidents(res.data || []);
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to load residents");
+    }
+  };
+
+  const fetchHouseholds = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
+      setHouseholds(res.data || []);
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to load households");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGasSummary = async (householdId, monthStr) => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/gas`, {
+        headers: authHeaders(),
+        params: { month: monthStr },
+      });
+      setPaySummary(res.data);
+      // Prefill form with totals
+      payForm.setFieldsValue({
+        month: dayjs(`${monthStr}-01`),
+        totalCharge: Number(res.data.totalCharge || 0),
+        amount: Number(res.data.balance || res.data.totalCharge || 0),
+        method: undefined,
+        reference: undefined,
+      });
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to load gas summary");
+    }
+  };
+
+  const openPayGas = async (household) => {
+    const monthStr = dayjs().format("YYYY-MM");
+    setPayHousehold(household);
+    setPayOpen(true);
+    await fetchGasSummary(household._id, monthStr);
+  };
+
+  const onPayMonthChange = async (date) => {
+    const monthStr = dayjs(date).format("YYYY-MM");
+    if (payHousehold?._id) {
+      await fetchGasSummary(payHousehold._id, monthStr);
+    }
+  };
+
+  const submitPayGas = async () => {
+    try {
+      setPayLoading(true);
+      const values = await payForm.validateFields();
+      const payload = {
+        month: dayjs(values.month).format("YYYY-MM"),
+        amount: Number(values.amount),
+        totalCharge: Number(values.totalCharge),
+        method: values.method,
+        reference: values.reference,
+      };
+      const res = await axios.post(
+        `${API_BASE}/api/admin/households/${payHousehold._id}/gas/pay`,
+        payload,
+        { headers: authHeaders() }
+      );
+      message.success(res.data.status === "paid" ? "Gas fee fully paid!" : "Partial payment recorded!");
+      setPayOpen(false);
+      setPaySummary(null);
+      setPayHousehold(null);
+      payForm.resetFields();
+      // Refresh households to reflect latest snapshot (balance/last payment)
+      fetchHouseholds();
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to record payment");
+    } finally {
+      setPayLoading(false);
+    }
   };
 
   // Add Household
   const handleAddHousehold = async () => {
     try {
       setCreating(true);
+
+      // Ensure members follow "Only me" logic at submit time
+      if (addOnlyMe) {
+        const head = addForm.getFieldValue("headOfHousehold");
+        addForm.setFieldsValue({ members: head ? [head] : [] });
+      }
+
       const values = await addForm.validateFields();
-      // Inject fixed address fields
-      const address = {
-        ...values.address,
-        barangay: "La Torre North",
-        municipality: "Bayombong",
-        province: "Nueva Vizcaya",
-        zipCode: "3700",
+      const payload = {
+        headOfHousehold: values.headOfHousehold,
+        members: values.members,
+        address: {
+          street: values.address?.street,
+          purok: values.address?.purok,
+        },
       };
-      // Create new household with a mock ID
-      const newHousehold = {
-        _id: `h${households.length + 1}`,
-        ...values,
-        address
-      };
-      setHouseholds([...households, newHousehold]);
+      await axios.post(`${API_BASE}/api/admin/households`, payload, { headers: authHeaders() });
       message.success("Household added!");
       setAddOpen(false);
       addForm.resetFields();
+      setAddOnlyMe(false); // reset toggle
+      fetchHouseholds();
     } catch (err) {
-      message.error("Failed to add household");
-      console.error(err);
+      message.error(err?.response?.data?.message || "Failed to add household");
+    } finally {
+      setCreating(false);
     }
-    setCreating(false);
   };
 
   // Edit Household
   const openEdit = (household) => {
     setSelectedHousehold(household);
-    // Remove barangay, municipality, province, zipCode from form fields
     const { barangay, municipality, province, zipCode, ...addressRest } = household.address || {};
     editForm.setFieldsValue({
-      ...household,
+      householdId: household.householdId,
+      headOfHousehold: household.headOfHousehold?._id || household.headOfHousehold,
+      members: household.members?.map(m => (m._id || m)),
       address: addressRest,
-      members: household.members?.map(m => m._id || m),
     });
+
+    // NEW: Initialize "Only me" in Edit if members is exactly [head]
+    const headId = household.headOfHousehold?._id || household.headOfHousehold;
+    const memberIds = (household.members || []).map(m => m._id || m).map(String);
+    const isOnlyMe = headId && memberIds.length === 1 && String(memberIds[0]) === String(headId);
+    setEditOnlyMe(!!isOnlyMe);
+
     setEditOpen(true);
   };
 
   const handleEditHousehold = async () => {
     try {
       setEditing(true);
+
+      // Ensure members follow "Only me" logic at submit time
+      if (editOnlyMe) {
+        const head = editForm.getFieldValue("headOfHousehold");
+        editForm.setFieldsValue({ members: head ? [head] : [] });
+      }
+
       const values = await editForm.validateFields();
-      // Inject fixed address fields
-      const address = {
-        ...values.address,
-        barangay: "La Torre North",
-        municipality: "Bayombong",
-        province: "Nueva Vizcaya",
-        zipCode: "3700",
+      const payload = {
+        headOfHousehold: values.headOfHousehold,
+        members: values.members,
+        address: {
+          street: values.address?.street,
+          purok: values.address?.purok,
+        },
       };
-      // Update household in the state
-      const updatedHouseholds = households.map(h =>
-        h._id === selectedHousehold._id
-          ? { ...h, ...values, address }
-          : h
-      );
-      setHouseholds(updatedHouseholds);
+      await axios.patch(`${API_BASE}/api/admin/households/${selectedHousehold._id}`, payload, { headers: authHeaders() });
       message.success("Household updated!");
       setEditOpen(false);
+      fetchHouseholds();
     } catch (err) {
-      message.error("Failed to update household");
-      console.error(err);
+      message.error(err?.response?.data?.message || "Failed to update household");
+    } finally {
+      setEditing(false);
     }
-    setEditing(false);
   };
 
   // Delete Household
   const handleDelete = async (id) => {
     try {
-      // Remove household from state
-      const filteredHouseholds = households.filter(h => h._id !== id);
-      setHouseholds(filteredHouseholds);
+      await axios.delete(`${API_BASE}/api/admin/households/${id}`, { headers: authHeaders() });
       message.success("Household deleted!");
+      fetchHouseholds();
     } catch (err) {
-      message.error("Failed to delete household");
-      console.error(err);
+      message.error(err?.response?.data?.message || "Failed to delete household");
     }
   };
 
@@ -332,6 +438,8 @@ export default function HouseholdManagement() {
   const singleMemberHouseholds = households.filter(h => h.members?.length === 1).length;
   const familyHouseholds = households.filter(h => h.members?.length > 1).length;
 
+  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
+
   const columns = [
     {
       title: "Household ID",
@@ -342,11 +450,15 @@ export default function HouseholdManagement() {
       title: "Head of Household",
       key: "headOfHousehold",
       render: (_, record) => {
-        const headMember = record.headOfHousehold ? 
-          (residents.find(r => r._id === record.headOfHousehold) || {}) : {};
-        return [headMember.firstName, headMember.middleName, headMember.lastName]
-          .filter(Boolean)
-          .join(" ") || "Not specified";
+        const head = record.headOfHousehold;
+        if (!head) return "Not specified";
+        // If populated object, use it directly
+        if (typeof head === "object") {
+          return fullName(head) || "Not specified";
+        }
+        // Otherwise resolve by ID from residents list
+        const found = residents.find(r => r._id === head);
+        return fullName(found) || "Not specified";
       },
     },
     {
@@ -370,6 +482,7 @@ export default function HouseholdManagement() {
       key: "actions",
       render: (_, r) => (
         <div className="flex gap-2">
+          <Button type="primary" size="small" onClick={() => openPayGas(r)}>Pay Gas</Button>
           <Button size="small" onClick={() => openView(r)}>View</Button>
           <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
           <Popconfirm
@@ -385,6 +498,13 @@ export default function HouseholdManagement() {
     },
   ];
 
+  // Get resident options for select inputs
+  const residentOptions = residents.map(r => ({
+    label: `${r.firstName} ${r.middleName || ''} ${r.lastName}`,
+    value: r._id,
+  }));
+
+  // Filtered for table search
   const filteredHouseholds = households.filter(h =>
     [
       h.householdId,
@@ -400,11 +520,79 @@ export default function HouseholdManagement() {
       .includes(search.toLowerCase())
   );
 
-  // Get resident options for select inputs
-  const residentOptions = residents.map(r => ({
-    label: `${r.firstName} ${r.middleName || ''} ${r.lastName}`,
-    value: r._id,
-  }));
+  // Compute assigned resident IDs across all households
+  const assignedResidentIds = useMemo(() => {
+    const set = new Set();
+    households.forEach(h => {
+      const headId = h.headOfHousehold?._id || h.headOfHousehold;
+      if (headId) set.add(String(headId));
+      (h.members || []).forEach(m => {
+        const id = m?._id || m;
+        if (id) set.add(String(id));
+      });
+    });
+    return set;
+  }, [households]);
+
+  // Residents available for ADD (exclude anyone already assigned)
+  const availableResidentsForAdd = useMemo(
+    () => residents.filter(r => !assignedResidentIds.has(String(r._id))),
+    [residents, assignedResidentIds]
+  );
+
+  // Watch head selections
+  const addHeadValue = Form.useWatch("headOfHousehold", addForm);
+  const addHeadOptions = useMemo(
+    () => availableResidentsForAdd.map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+    [availableResidentsForAdd]
+  );
+  const addMemberOptions = useMemo(
+    () =>
+      availableResidentsForAdd
+        .filter(r => String(r._id) !== String(addHeadValue || "")) // exclude selected head
+        .map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+    [availableResidentsForAdd, addHeadValue]
+  );
+
+  // For EDIT: allow current household members/head, but exclude those assigned in other households
+  const assignedByOthersIds = useMemo(() => {
+    const set = new Set();
+    households
+      .filter(h => !selectedHousehold || String(h._id) !== String(selectedHousehold._id))
+      .forEach(h => {
+        const headId = h.headOfHousehold?._id || h.headOfHousehold;
+        if (headId) set.add(String(headId));
+        (h.members || []).forEach(m => {
+          const id = m?._id || m;
+          if (id) set.add(String(id));
+        });
+      });
+    return set;
+  }, [households, selectedHousehold]);
+
+  const availableResidentsForEdit = useMemo(() => {
+    // include anyone not assigned elsewhere OR already in this household
+    const currentIds = new Set(
+      (selectedHousehold?.members || []).map(m => String(m?._id || m))
+    );
+    if (selectedHousehold?.headOfHousehold) {
+      currentIds.add(String(selectedHousehold.headOfHousehold?._id || selectedHousehold.headOfHousehold));
+    }
+    return residents.filter(r => !assignedByOthersIds.has(String(r._id)) || currentIds.has(String(r._id)));
+  }, [residents, assignedByOthersIds, selectedHousehold]);
+
+  const editHeadValue = Form.useWatch("headOfHousehold", editForm);
+  const editHeadOptions = useMemo(
+    () => availableResidentsForEdit.map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+    [availableResidentsForEdit]
+  );
+  const editMemberOptions = useMemo(
+    () =>
+      availableResidentsForEdit
+        .filter(r => String(r._id) !== String(editHeadValue || "")) // exclude selected head
+        .map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+    [availableResidentsForEdit, editHeadValue]
+  );
 
   return (
     <AdminLayout title="Admin">
@@ -525,7 +713,13 @@ export default function HouseholdManagement() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="primary" onClick={() => setAddOpen(true)}>
+              <Button
+                type="primary"
+                onClick={() => {
+                  addForm.resetFields();
+                  setAddOpen(true);
+                }}
+              >
                 Add Household
               </Button>
             </div>
@@ -545,31 +739,45 @@ export default function HouseholdManagement() {
         <Modal
           title="Add Household"
           open={addOpen}
-          onCancel={() => setAddOpen(false)}
+          onCancel={() => { setAddOpen(false); setAddOnlyMe(false); }}
           onOk={handleAddHousehold}
           confirmLoading={creating}
           okText="Add"
           width={600}
         >
           <Form form={addForm} layout="vertical">
-
+            {/* Head of Household (only unassigned residents) */}
             <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true }]}>
               <Select
-                options={residentOptions}
+                options={addHeadOptions}
                 showSearch
                 optionFilterProp="label"
                 placeholder="Select head of household"
               />
             </Form.Item>
+
+            {/* NEW: Only me toggle */}
+            <Form.Item>
+              <Checkbox
+                checked={addOnlyMe}
+                onChange={(e) => setAddOnlyMe(e.target.checked)}
+              >
+                No additional members
+              </Checkbox>
+            </Form.Item>
+
+            {/* Members (exclude already assigned and the selected head) */}
             <Form.Item name="members" label="Household Members" rules={[{ required: true }]}>
               <Select
                 mode="multiple"
-                options={residentOptions}
+                options={addMemberOptions}
                 showSearch
                 optionFilterProp="label"
                 placeholder="Select household members"
+                disabled={addOnlyMe}
               />
             </Form.Item>
+
             <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
               <Input />
             </Form.Item>
@@ -584,40 +792,54 @@ export default function HouseholdManagement() {
                 ]}
               />
             </Form.Item>
-            {/* Barangay, Municipality, Province, and ZIP Code are auto-filled */}
           </Form>
         </Modal>
+
         {/* Edit Household Modal */}
         <Modal
           title="Edit Household"
           open={editOpen}
-          onCancel={() => setEditOpen(false)}
+          onCancel={() => { setEditOpen(false); setEditOnlyMe(false); }}
           onOk={handleEditHousehold}
           confirmLoading={editing}
           okText="Save"
           width={600}
         >
           <Form form={editForm} layout="vertical">
-            <Form.Item name="householdId" label="Household ID" rules={[{ required: true }]}>
-              <Input />
+            <Form.Item label="Household ID" name="householdId">
+              <Input disabled />
             </Form.Item>
+
             <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true }]}>
               <Select
-                options={residentOptions}
+                options={editHeadOptions}
                 showSearch
                 optionFilterProp="label"
                 placeholder="Select head of household"
               />
             </Form.Item>
+
+            {/* NEW: Only me toggle (Edit) */}
+            <Form.Item>
+              <Checkbox
+                checked={editOnlyMe}
+                onChange={(e) => setEditOnlyMe(e.target.checked)}
+              >
+                Only me (no additional members)
+              </Checkbox>
+            </Form.Item>
+
             <Form.Item name="members" label="Household Members" rules={[{ required: true }]}>
               <Select
                 mode="multiple"
-                options={residentOptions}
+                options={editMemberOptions}
                 showSearch
                 optionFilterProp="label"
                 placeholder="Select household members"
+                disabled={editOnlyMe}
               />
             </Form.Item>
+
             <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
               <Input />
             </Form.Item>
@@ -632,7 +854,6 @@ export default function HouseholdManagement() {
                 ]}
               />
             </Form.Item>
-            {/* Barangay, Municipality, Province, and ZIP Code are auto-filled */}
           </Form>
         </Modal>
         {/* View Household Modal */}
@@ -648,11 +869,11 @@ export default function HouseholdManagement() {
               <Descriptions.Item label="Household ID">{viewHousehold.householdId}</Descriptions.Item>
               <Descriptions.Item label="Head of Household">
                 {(() => {
-                  const headMember = viewHousehold.headOfHousehold ? 
-                    (residents.find(r => r._id === viewHousehold.headOfHousehold) || {}) : {};
-                  return [headMember.firstName, headMember.middleName, headMember.lastName]
-                    .filter(Boolean)
-                    .join(" ") || "Not specified";
+                  const head = viewHousehold.headOfHousehold;
+                  if (!head) return "Not specified";
+                  if (typeof head === "object") return fullName(head) || "Not specified";
+                  const found = residents.find(r => r._id === head);
+                  return fullName(found) || "Not specified";
                 })()}
               </Descriptions.Item>
               <Descriptions.Item label="Number of Members">
@@ -660,14 +881,14 @@ export default function HouseholdManagement() {
               </Descriptions.Item>
               <Descriptions.Item label="Members">
                 <ul className="list-disc pl-5">
-                  {viewHousehold.members?.map(memberId => {
-                    const member = residents.find(r => r._id === memberId) || {};
+                  {(viewHousehold.members || []).map(m => {
+                    const id = m?._id || m;
+                    const mObj = (typeof m === "object" ? m : residents.find(r => r._id === id)) || {};
+                    const headId = viewHousehold.headOfHousehold?._id || viewHousehold.headOfHousehold;
                     return (
-                      <li key={memberId}>
-                        {[member.firstName, member.middleName, member.lastName]
-                          .filter(Boolean)
-                          .join(" ") || "Unknown Member"}
-                        {member._id === viewHousehold.headOfHousehold && (
+                      <li key={id}>
+                        {fullName(mObj) || "Unknown Member"}
+                        {id === headId && (
                           <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                             Head of Household
                           </span>
@@ -689,6 +910,77 @@ export default function HouseholdManagement() {
               <Descriptions.Item label="Purok">{viewHousehold.address?.purok}</Descriptions.Item>
             </Descriptions>
           )}
+        </Modal>
+
+        {/* Pay Gas Modal */}
+        <Modal
+          title={`Pay Gas Fees${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
+          open={payOpen}
+          onCancel={() => { setPayOpen(false); setPayHousehold(null); setPaySummary(null); }}
+          onOk={submitPayGas}
+          okText="Pay"
+          confirmLoading={payLoading}
+          width={520}
+        >
+          <Form form={payForm} layout="vertical">
+            <Form.Item
+              name="month"
+              label="Month"
+              rules={[{ required: true, message: "Select month" }]}
+            >
+              <DatePicker picker="month" className="w-full" onChange={onPayMonthChange} />
+            </Form.Item>
+            <Form.Item
+              name="totalCharge"
+              label="Total Charge for Month"
+              rules={[{ required: true, message: "Enter total charge" }]}
+            >
+              <InputNumber className="w-full" min={0} step={50} />
+            </Form.Item>
+            <Form.Item
+              name="amount"
+              label="Amount to Pay"
+              rules={[
+                { required: true, message: "Enter amount to pay" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const total = Number(getFieldValue("totalCharge") || 0);
+                    if (value === undefined) return Promise.reject();
+                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                    if (Number(value) > total + 1e-6) {
+                      return Promise.reject(new Error("Amount cannot exceed total charge"));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}
+            >
+              <InputNumber className="w-full" min={0} step={50} />
+            </Form.Item>
+            <Form.Item name="method" label="Payment Method">
+              <Select
+                allowClear
+                options={[
+                  { value: "cash", label: "Cash" },
+                  { value: "gcash", label: "GCash" },
+                  { value: "bank", label: "Bank Transfer" },
+                  { value: "other", label: "Other" },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="reference" label="Reference No. (optional)">
+              <Input />
+            </Form.Item>
+
+            {paySummary && (
+              <div className="p-2 rounded border border-slate-200 bg-slate-50 text-sm">
+                <div>Paid so far: ₱{Number(paySummary.amountPaid || 0).toFixed(2)}</div>
+                <div>Balance: ₱{Number(paySummary.balance || 0).toFixed(2)}</div>
+                <div>Status: {paySummary.status}</div>
+              </div>
+            )}
+          </Form>
         </Modal>
       </div>
     </AdminLayout>

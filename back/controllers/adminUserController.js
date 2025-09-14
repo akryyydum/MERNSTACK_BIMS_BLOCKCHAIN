@@ -40,13 +40,67 @@ exports.list = async (req, res) => {
 // POST /api/admin/users
 exports.create = async (req, res) => {
   try {
-    const { username, password, fullName, contact = {}, role } = req.body;
+    const { username, password, fullName, contact = {}, role, residentId } = req.body;
 
-    // Disallow admin creation of resident accounts
+    // Allow admins to create resident accounts by selecting an unlinked resident
     if (role === "resident") {
-      return res.status(400).json({ message: "Resident accounts can only be created via self-registration" });
+      if (!username || !password || !residentId) {
+        return res.status(400).json({ message: "username, password and residentId are required" });
+      }
+
+      const resident = await Resident.findOne({
+        _id: residentId,
+        $or: [{ user: null }, { user: { $exists: false } }],
+      });
+      if (!resident) {
+        return res.status(400).json({ message: "Resident not found or already linked to a user" });
+      }
+
+      const email = String(resident.contact?.email || "").toLowerCase().trim();
+      if (!email) {
+        return res.status(400).json({ message: "Resident record has no email" });
+      }
+
+      // Ensure username and email are unique
+      const exists = await User.findOne({
+        $or: [{ username }, { "contact.email": email }],
+      });
+      if (exists) {
+        return res.status(400).json({ message: "Username or email already exists" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const computedFullName = [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+        .filter(Boolean)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const user = await User.create({
+        username,
+        passwordHash,
+        role: "resident",
+        fullName: computedFullName || fullName || "Resident",
+        contact: { email, mobile: resident.contact?.mobile || "" },
+        isVerified: true,
+        isActive: true,
+      });
+
+      await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id } });
+
+      return res.status(201).json({
+        _id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        contact: user.contact,
+        isActive: user.isActive,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+      });
     }
 
+    // Admin/Official creation (unchanged)
     if (!username || !password || !fullName || !contact.email || !contact.mobile || !role) {
       return res.status(400).json({ message: "username, password, fullName, contact.email, contact.mobile, role are required" });
     }
