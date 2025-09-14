@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { UserOutlined,UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined
-    ,SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined
+import { UserOutlined, UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined,
+    SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined
  } from "@ant-design/icons";
 import AdminResidentManagement from "./AdminResidentManagement"; // add this import
 
@@ -9,6 +9,7 @@ const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
   { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
   { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
+  { to: "/admin/households", label: "Household Management", icon: <HomeOutlined /> },
   { to: "/admin/officials", label: "Officials Management", icon: <UserOutlined /> },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
