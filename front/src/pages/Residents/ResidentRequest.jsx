@@ -76,7 +76,7 @@ export default function ResidentRequest() {
   const totalRequests = requests.length;
   const pendingRequests = requests.filter(r => r.status === "pending").length;
   const approvedRequests = requests.filter(r => r.status === "accepted").length;
-  const rejectedRequests = requests.filter(r => r.status === "declined").length;
+  const rejectedRequests = requests.filter(r => r.status === "declined" || r.status === "rejected").length;
 
   const filteredRequests = requests.filter(r => {
     // Handle the tab filtering
@@ -85,7 +85,7 @@ export default function ResidentRequest() {
     } else if (search === "approved") {
       return r.status === "accepted";
     } else if (search === "rejected") {
-      return r.status === "declined";
+      return r.status === "declined" || r.status === "rejected";
     }
     
     // Default: show all requests
@@ -246,7 +246,7 @@ export default function ResidentRequest() {
                             APPROVED
                           </span>
                         )}
-                        {request.status === "declined" && (
+                        {(request.status === "declined" || request.status === "rejected") && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                             REJECTED
                           </span>
@@ -309,7 +309,7 @@ export default function ResidentRequest() {
                       APPROVED
                     </div>
                   )}
-                  {viewRequest.status === "declined" && (
+                  {(viewRequest.status === "declined" || viewRequest.status === "rejected") && (
                     <div className="px-4 py-1.5 rounded-full bg-red-100 text-red-800 text-sm font-medium">
                       REJECTED
                     </div>

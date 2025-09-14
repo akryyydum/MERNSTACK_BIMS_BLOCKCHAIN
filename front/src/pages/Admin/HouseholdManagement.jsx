@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions } from "antd";
+import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Tabs, InputNumber } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, DollarOutlined, FireOutlined, ReconciliationOutlined } from "@ant-design/icons";
 import axios from "axios";
 
 // Hardcoded sample data for development
@@ -95,6 +95,40 @@ const sampleResidents = [
   }
 ];
 
+// Sample Gas Fee Data
+const sampleGasFees = [
+  {
+    _id: "gf1",
+    householdId: "h1",
+    month: "September 2025",
+    totalCharge: 850.00,
+    amountPaid: 500.00,
+    balance: 350.00,
+    lastUpdated: "2025-09-10T08:30:00Z",
+    status: "partial", // fully-paid, partial, unpaid
+  },
+  {
+    _id: "gf2",
+    householdId: "h2",
+    month: "September 2025",
+    totalCharge: 1200.00,
+    amountPaid: 1200.00,
+    balance: 0.00,
+    lastUpdated: "2025-09-12T14:15:00Z",
+    status: "fully-paid",
+  },
+  {
+    _id: "gf3",
+    householdId: "h3",
+    month: "September 2025",
+    totalCharge: 650.00,
+    amountPaid: 0.00,
+    balance: 650.00,
+    lastUpdated: "2025-09-05T10:45:00Z",
+    status: "unpaid",
+  }
+];
+
 const sampleHouseholds = [
   {
     _id: "h1",
@@ -109,6 +143,11 @@ const sampleHouseholds = [
       purok: "Purok 1",
       zipCode: "3700"
     },
+    gasFee: {
+      currentMonthCharge: 850.00,
+      balance: 350.00,
+      lastPaymentDate: "2025-09-10",
+    }
   },
   {
     _id: "h2",
@@ -123,6 +162,11 @@ const sampleHouseholds = [
       purok: "Purok 3",
       zipCode: "3700"
     },
+    gasFee: {
+      currentMonthCharge: 1200.00,
+      balance: 0.00,
+      lastPaymentDate: "2025-09-12",
+    }
   },
   {
     _id: "h3",
@@ -137,6 +181,11 @@ const sampleHouseholds = [
       purok: "Purok 4",
       zipCode: "3700"
     },
+    gasFee: {
+      currentMonthCharge: 650.00,
+      balance: 650.00,
+      lastPaymentDate: null,
+    }
   }
 ];
 
