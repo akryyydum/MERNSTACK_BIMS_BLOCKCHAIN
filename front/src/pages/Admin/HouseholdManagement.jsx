@@ -109,7 +109,6 @@ const sampleHouseholds = [
       purok: "Purok 1",
       zipCode: "3700"
     },
-    blockchain: { hash: "0xabc123def456" }
   },
   {
     _id: "h2",
@@ -124,7 +123,6 @@ const sampleHouseholds = [
       purok: "Purok 3",
       zipCode: "3700"
     },
-    blockchain: { hash: "0xghi789jkl012" }
   },
   {
     _id: "h3",
@@ -139,7 +137,6 @@ const sampleHouseholds = [
       purok: "Purok 4",
       zipCode: "3700"
     },
-    blockchain: { hash: "0xmno345pqr678" }
   }
 ];
 
@@ -196,8 +193,7 @@ export default function HouseholdManagement() {
       const newHousehold = {
         _id: `h${households.length + 1}`,
         ...values,
-        address,
-        blockchain: { hash: `0x${Math.random().toString(16).slice(2, 14)}` }
+        address
       };
       setHouseholds([...households, newHousehold]);
       message.success("Household added!");
@@ -319,12 +315,6 @@ export default function HouseholdManagement() {
       title: "Purok",
       dataIndex: ["address", "purok"],
       key: "purok",
-    },
-    {
-      title: "Blockchain Hash",
-      dataIndex: ["blockchain", "hash"],
-      key: "blockchainHash",
-      render: (_, r) => r.blockchain?.hash || "-",
     },
     {
       title: "Actions",
@@ -648,7 +638,6 @@ export default function HouseholdManagement() {
                 ].filter(Boolean).join(", ")}
               </Descriptions.Item>
               <Descriptions.Item label="Purok">{viewHousehold.address?.purok}</Descriptions.Item>
-              <Descriptions.Item label="Blockchain Hash">{viewHousehold.blockchain?.hash || "-"}</Descriptions.Item>
             </Descriptions>
           )}
         </Modal>
