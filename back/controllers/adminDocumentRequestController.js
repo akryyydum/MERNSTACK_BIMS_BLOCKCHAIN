@@ -2,16 +2,16 @@ const DocumentRequest = require('../models/document.model');
 const sendEmail = require('../utils/sendEmail');
 
 exports.list = async (req, res) => {
-    try {
-        const docs = await DocumentRequest.find()
-        .populate("residentId")
-        .populate("requestedBy")
-        .sort({ createdAt: -1 });
-        res.json(docs);
-    } catch (error) {
-        console.error("Error fetching document requests:", error);
-        res.status(500).json({ message: "Failed to load document requests." });
-    }
+  try {
+    const docs = await DocumentRequest.find()
+      .populate("residentId")
+      .populate("requestedBy")
+      .sort({ requestedAt: -1 }); // sort by requestedAt (createdAt not present)
+    res.json(docs);
+  } catch (error) {
+    console.error("Error fetching document requests:", error);
+    res.status(500).json({ message: "Failed to load document requests." });
+  }
 };
 
 exports.approve = async (req, res) => {
@@ -95,17 +95,16 @@ exports.declineRequest = async (req, res) => {
 };
 
 exports.completeRequest = async (req, res) => {
-    try {
-        const request = await DocumentRequest.findById(req.params.id);
-        if (!request) return res.status(404).json({ message: 'Request not found' });
-        request.status = 'completed';
-        await request.save();
-        // Notify resident
-        if (request.residentId && request.residentId.email) {
-            await sendEmail(request.residentId.email, 'Document Request Completed', 'Your document request has been completed.');
-        }
-        res.json(request);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+  try {
+    const request = await DocumentRequest.findById(req.params.id).populate('residentId');
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    request.status = 'completed';
+    await request.save();
+    if (request.residentId?.contact?.email) {
+      await sendEmail(request.residentId.contact.email, 'Document Request Completed', 'Your document request has been completed.');
     }
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

@@ -26,6 +26,7 @@ export default function ResidentRequest() {
   const [resident, setResident] = useState(null);
 
   const [createForm] = Form.useForm();
+  const selectedDocType = Form.useWatch("documentType", createForm);
 
 
   useEffect(() => {
@@ -347,6 +348,13 @@ export default function ResidentRequest() {
                   <p className="text-sm font-medium text-gray-500">LAST UPDATED</p>
                   <p className="mt-1">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                 </div>
+                
+                {viewRequest.documentType === "Business Clearance" && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">BUSINESS NAME</p>
+                    <p className="mt-1">{viewRequest.businessName || "-"}</p>
+                  </div>
+                )}
               </div>
               
               {/* Status Timeline */}
@@ -480,6 +488,11 @@ export default function ResidentRequest() {
             form={createForm} 
             layout="vertical" 
             className="space-y-4"
+            onValuesChange={(changed, values) => {
+              if ("documentType" in changed && changed.documentType !== "Business Clearance") {
+                createForm.setFieldsValue({ businessName: undefined });
+              }
+            }}
             onFinish={async (values) => {
               try {
                 setCreating(true);
@@ -533,6 +546,16 @@ export default function ResidentRequest() {
                 ]}
               />
             </Form.Item>
+
+            {selectedDocType === "Business Clearance" && (
+              <Form.Item
+                name="businessName"
+                label={<span className="text-gray-700 font-medium">Business Name</span>}
+                rules={[{ required: true, message: 'Please enter your business name' }]}
+              >
+                <Input placeholder="Enter registered business name" />
+              </Form.Item>
+            )}
             
             <Form.Item 
               name="purpose" 

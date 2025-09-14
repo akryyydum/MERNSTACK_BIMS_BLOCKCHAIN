@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form } from "antd";
+import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form, Popconfirm } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
@@ -8,6 +8,8 @@ import axios from "axios";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
+import dayjs from "dayjs";
+import { DatePicker } from "antd";
 
 export default function AdminDocumentRequests() {
 
@@ -21,6 +23,12 @@ export default function AdminDocumentRequests() {
   const [residents, setResidents] = useState([]);
 
   const [createForm] = Form.useForm();
+  const selectedCreateDocType = Form.useWatch("documentType", createForm); // NEW
+
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportForm] = Form.useForm();
+  const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
 
   const userProfile =JSON.parse(localStorage.getItem("userProfile")) || {};
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
@@ -30,16 +38,23 @@ export default function AdminDocumentRequests() {
     fetchResidents();
   }, []);
 
+  // Helper: newest first
+  const sortByNewest = (arr) =>
+    [...arr].sort(
+      (a, b) =>
+        new Date(b.requestedAt || b.updatedAt || b.createdAt || 0) -
+        new Date(a.requestedAt || a.updatedAt || a.createdAt || 0)
+    );
+
   const fetchRequests = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-      });
-      setRequests(res.data);
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setRequests(sortByNewest(res.data)); // sort here
     } catch (error) {
       console.error("Error fetching document requests:", error);
       message.error("Failed to load document requests.");
@@ -65,6 +80,20 @@ export default function AdminDocumentRequests() {
   const approvedRequests = requests.filter(r => r.status === "accepted").length;
   const rejectedRequests = requests.filter(r => r.status === "declined").length;
   const releasedRequests = requests.filter(r => r.status === "completed").length;
+
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setRequests(prev => prev.filter(r => r._id !== id));
+      message.success("Request deleted.");
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to delete request");
+    }
+  };
 
   const columns = [
     {
@@ -113,6 +142,10 @@ export default function AdminDocumentRequests() {
       dataIndex: "requestedAt",
       key: "requestedAt",
       render: v => (v ? new Date(v).toLocaleString() : ""),
+      sorter: (a, b) =>
+        new Date(a.requestedAt || 0) - new Date(b.requestedAt || 0),
+      defaultSortOrder: "descend",
+      sortDirections: ["descend", "ascend"],
     },
     {
       title: "Actions",
@@ -130,25 +163,35 @@ export default function AdminDocumentRequests() {
           {r.status === "accepted" && (
             <Button size="small" type="default" onClick={() => handleAction(r._id, 'complete')}>Mark as Completed</Button>
           )}
+          <Popconfirm
+            title="Delete this request?"
+            description="This action cannot be undone."
+            okText="Delete"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(r._id)}
+          >
+            <Button size="small" danger>Delete</Button>
+          </Popconfirm>
         </div>
       ),
     }
   ];
 
-  const filteredRequests = requests.filter(r =>
-  [
-    r.residentId?.firstName,
-    r.residentId?.middleName,
-    r.residentId?.lastName,
-    r.residentId?.suffix,
-    r.documentType,
-    r.purpose,
-    r.status,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(search.toLowerCase())
+  const sortedRequests = sortByNewest(requests);
+  const filteredRequests = sortedRequests.filter(r =>
+    [
+      r.residentId?.firstName,
+      r.residentId?.middleName,
+      r.residentId?.lastName,
+      r.residentId?.suffix,
+      r.documentType,
+      r.purpose,
+      r.status,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase())
 );
 
    const openView = (request) => {
@@ -161,36 +204,172 @@ export default function AdminDocumentRequests() {
   return await response.arrayBuffer();
 }
 
-const handlePrint = async (record) => {
-  const fullName = record.residentId
-    ? [record.residentId.firstName, record.residentId.middleName, record.residentId.lastName, record.residentId.suffix]
-        .filter(Boolean)
-        .join(" ")
-    : "-";
+//eto mga files
+const TEMPLATE_MAP = {
+  "Barangay Certificate": "/BARANGAY CERTIFICATE.docx",
+  "Indigency": "/INDIGENCY.docx",
+  "Barangay Clearance": "/BARANGAY CLEARANCE.docx",
+  "Residency": "/CERTIFICATE OF RESIDENCY.docx",
+  "Business Clearance": "/BUSINESS CLEARANCE.docx",
+};
 
-  const data = {
+function getTemplatePath(docType) {
+  return TEMPLATE_MAP[docType];
+}
+
+function ordinalSuffix(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+// Derive pronouns from resident sex/gender
+function resolveGender(resident) {
+  const g = (resident?.sex || resident?.gender || resident?.genderIdentity || "").toString().toLowerCase();
+  if (g.startsWith("m")) return "male";
+  if (g.startsWith("f")) return "female";
+  return "unknown";
+}
+
+function getPronouns(resident) {
+  const g = resolveGender(resident);
+  if (g === "female") {
+    return { subject: "she", object: "her", possessive: "her", reflexive: "herself", honorific: "Ms." };
+  }
+  if (g === "male") {
+    return { subject: "he", object: "him", possessive: "his", reflexive: "himself", honorific: "Mr." };
+  }
+  return { subject: "they", object: "them", possessive: "their", reflexive: "themselves", honorific: "" };
+}
+
+function capFirst(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function buildTemplateData(docType, record) {
+  const r = record.residentId || {};
+  const fullName = [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ") || "-";
+  const requestedAt = record.requestedAt ? new Date(record.requestedAt) : new Date();
+
+  const dayNum = requestedAt.getDate();
+  const ord = ordinalSuffix(dayNum);
+  const dayOrdinalMixed = `${pad2(dayNum)}${ord}`;   // e.g., 02nd
+  const monthLong = requestedAt.toLocaleString("en-US", { month: "long" });
+  const yearStr = String(requestedAt.getFullYear());
+
+  const barangay = r.address?.barangay || "Barangay La Torre North";
+  const municipality = r.address?.municipality || "Bayombong";
+  const province = r.address?.province || "Nueva Vizcaya";
+  const locationLine = [barangay, municipality, province].filter(Boolean).join(", ");
+
+  const p = getPronouns(r);
+
+  const common = {
     name: fullName,
-    civilStatus: record.residentId?.civilStatus || "-",
-    purok: record.residentId?.address?.purok || "-",
-    docType: record.documentType || "-",
+    civilStatus: r.civilStatus || "-",
+    purok: r.address?.purok || "-",
     purpose: record.purpose || "-",
+    docType: record.documentType || "-",
+    // date tokens
+    day: dayNum,
+    dayOrdinal: dayOrdinalMixed,
+    month: monthLong,
+    year: yearStr,
+    issuedLine: `ISSUED this ${dayOrdinalMixed} day of ${monthLong}, ${yearStr} at ${locationLine}.`,
+    location: locationLine,
+
+    // lowercase pronouns for inline usage
+    heShe: p.subject,
+    himHer: p.object,
+    hisHer: p.possessive,
+    himselfHerself: p.reflexive,
+    honorific: p.honorific,
+
+    // uppercase token names but values stay lowercase (per your requirement)
+    HE_SHE: p.subject,
+    HIM_HER: p.object,
+    HIS_HER: p.possessive,
+    HIMSELF_HERSELF: p.reflexive,
+    HONORIFIC: p.honorific,
+
+    // Capitalized versions for sentence starts (use these right after a period)
+    He_She: capFirst(p.subject),
+    Him_Her: capFirst(p.object),
+    His_Her: capFirst(p.possessive),
+    Himself_Herself: capFirst(p.reflexive),
+    Honorific: p.honorific, // usually already capitalized (Mr./Ms.)
   };
 
-  try {
-    // 1. Load the template
-    const content = await loadFile("/BARANGAY CLEARANCE.docx"); // adjust filename as needed
-    const zip = new PizZip(content);
+  switch (docType) {
+    case "Business Clearance":
+      return { ...common, businessName: record.businessName || "-" };
+    default:
+      return common;
+  }
+}
 
-    // 2. Render the template
+// Keys to skip when uppercasing
+const PRONOUN_KEYS = new Set([
+  "heShe","himHer","hisHer","himselfHerself","honorific",
+  "HE_SHE","HIM_HER","HIS_HER","HIMSELF_HERSELF","HONORIFIC",
+  "He_She","Him_Her","His_Her","Himself_Herself","Honorific",
+  "dayOrdinalMixed","issuedLineMixed" // keep these mixed-case overrides
+]);
+
+// Uppercase all string values recursively, except keys in PRONOUN_KEYS
+function toUpperDeep(value, skipKeys = PRONOUN_KEYS) {
+  if (value == null) return value;
+  if (typeof value === "string") return value.toUpperCase();
+  if (Array.isArray(value)) return value.map(v => toUpperDeep(v, skipKeys));
+  if (typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = skipKeys.has(k) ? v : toUpperDeep(v, skipKeys);
+    }
+    return out;
+  }
+  return value;
+}
+
+const handlePrint = async (record) => {
+  const templatePath = getTemplatePath(record.documentType);
+  if (!templatePath) {
+    message.error(`No template mapped for "${record.documentType}".`);
+    return;
+  }
+  if (record.documentType === "Business Clearance" && !record.businessName) {
+    message.error("Business name is required to print Business Clearance.");
+    return;
+  }
+
+  const raw = buildTemplateData(record.documentType, record);
+  const data = toUpperDeep(raw); // pronoun keys are preserved by PRONOUN_KEYS
+
+  // Keep mixed-case ordinal/issued line if you use them
+  data.dayOrdinalMixed = raw.dayOrdinal;
+  data.issuedLineMixed = raw.issuedLine;
+
+  try {
+    const content = await loadFile(templatePath);
+    const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
     doc.render(data);
-
-    // 3. Export modified file
+    const safeName = (data.name || "RESIDENT").replace(/\s+/g, "_");
     const out = doc.getZip().generate({
       type: "blob",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
-    saveAs(out, `document-request-${fullName.replace(/\s+/g, "_")}.docx`);
+    saveAs(out, `${record.documentType.replace(/\s+/g, "_")}-${safeName}.docx`);
   } catch (err) {
     console.error("Error generating document:", err);
     message.error("Failed to generate document.");
@@ -205,10 +384,61 @@ const handleAction = async (id, action) => {
       {},
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    setRequests(requests => requests.map(r => r._id === id ? { ...r, status: action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'completed' } : r));
+    setRequests(prev =>
+      sortByNewest(
+        prev.map(r =>
+          r._id === id
+            ? { ...r, status: action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'completed' }
+            : r
+        )
+      )
+    );
     message.success(`Request ${action === 'accept' ? 'approved' : action === 'decline' ? 'declined' : 'completed'}!`);
   } catch {
     message.error("Action failed");
+  }
+};
+
+const handleExport = async () => {
+  try {
+    const { rangeType, period } = await exportForm.validateFields();
+    const { start, end } = getRange(rangeType, period);
+
+    const filtered = requests.filter(r => {
+      const t = dayjs(r.requestedAt).valueOf();
+      return t >= start.valueOf() && t <= end.valueOf();
+    });
+
+    if (!filtered.length) {
+      message.warning("No requests found for the selected period.");
+      return;
+    }
+
+    const rows = filtered.map(r => ({
+      Resident: formatResidentName(r.residentId),
+      CivilStatus: r.residentId?.civilStatus || "-",
+      Purok: r.residentId?.address?.purok || "-",
+      DocumentType: r.documentType,
+      Purpose: r.purpose || "",
+      Status: r.status,
+      BusinessName: r.documentType === "Business Clearance" ? (r.businessName || "") : "",
+      RequestedAt: r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
+      UpdatedAt: r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
+    }));
+
+    const csv = toCsv(rows);
+    const filenameBase =
+      rangeType === "day"
+        ? dayjs(period).format("YYYYMMDD")
+        : rangeType === "week"
+        ? `W${dayjs(period).format("GGGG-ww")}` // ISO week label
+        : dayjs(period).format("YYYYMM");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    saveAs(blob, `DocumentRequests-${rangeType}-${filenameBase}.csv`);
+    message.success("Export generated.");
+    setExportOpen(false);
+  } catch (e) {
+    // validation or other errors
   }
 };
 
@@ -334,6 +564,15 @@ const handleAction = async (id, action) => {
               <Button type="primary" onClick={() => setCreateOpen(true)}>
                 Create Request Document
               </Button>
+              <Button
+                onClick={() => {
+                  setExportOpen(true);
+                  // initialize default export values
+                  exportForm.setFieldsValue({ rangeType: "month", period: dayjs() });
+                }}
+              >
+                Export
+              </Button>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -370,6 +609,9 @@ const handleAction = async (id, action) => {
               </Descriptions.Item>
               <Descriptions.Item label="Document Type">{viewRequest.documentType}</Descriptions.Item>
               <Descriptions.Item label="Purpose">{viewRequest.purpose}</Descriptions.Item>
+              {viewRequest.documentType === "Business Clearance" && (
+                <Descriptions.Item label="Business Name">{viewRequest.businessName || "-"}</Descriptions.Item>
+              )}
               <Descriptions.Item label="Status">{viewRequest.status}</Descriptions.Item>
               <Descriptions.Item label="Requested At">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Updated At">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : ""}</Descriptions.Item>
@@ -444,16 +686,57 @@ const handleAction = async (id, action) => {
             <Form.Item name="documentType" label="Document Type" rules={[{ required: true }]}>
               <Select
                 options={[
-                  { value: "Barangay Certificate", label: "Barangay Certificate" },
                   { value: "Indigency", label: "Indigency" },
                   { value: "Barangay Clearance", label: "Barangay Clearance" },
-                  { value: "Residency", label: "Residency" },
                   { value: "Business Clearance", label: "Business Clearance" },
                 ]}
               />
             </Form.Item>
+
+            {selectedCreateDocType === "Business Clearance" && (
+              <Form.Item
+                name="businessName"
+                label="Business Name"
+                rules={[{ required: true, message: "Please enter business name" }]}
+              >
+                <Input placeholder="Enter registered business name" />
+              </Form.Item>
+            )}
+
             <Form.Item name="purpose" label="Purpose" rules={[{ required: true }]}>
               <Input />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Export Modal */}
+        <Modal
+          title="Export Document Requests"
+          open={exportOpen}
+          onCancel={() => setExportOpen(false)}
+          onOk={handleExport}
+          okText="Export"
+          width={420}
+        >
+          <Form form={exportForm} layout="vertical" initialValues={{ rangeType: "month", period: dayjs() }}>
+            <Form.Item name="rangeType" label="Range Type" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: "month", label: "Month" },
+                  { value: "week", label: "Week" },
+                  { value: "day", label: "Day" },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item
+              name="period"
+              label={exportRangeType === "day" ? "Select Day" : exportRangeType === "week" ? "Select Week" : "Select Month"}
+              rules={[{ required: true, message: "Please select a period" }]}
+            >
+              <DatePicker
+                className="w-full"
+                picker={exportRangeType === "day" ? "date" : exportRangeType}
+              />
             </Form.Item>
           </Form>
         </Modal>
