@@ -1,4 +1,5 @@
 const User = require("../models/user.model");
+const Resident = require("../models/resident.model");
 const bcrypt = require("bcryptjs");
 
 // GET /api/admin/users
@@ -40,6 +41,12 @@ exports.list = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { username, password, fullName, contact = {}, role } = req.body;
+
+    // Disallow admin creation of resident accounts
+    if (role === "resident") {
+      return res.status(400).json({ message: "Resident accounts can only be created via self-registration" });
+    }
+
     if (!username || !password || !fullName || !contact.email || !contact.mobile || !role) {
       return res.status(400).json({ message: "username, password, fullName, contact.email, contact.mobile, role are required" });
     }
@@ -48,7 +55,7 @@ exports.create = async (req, res) => {
     }
 
     const exists = await User.findOne({
-      $or: [{ username }, { "contact.email": contact.email }],
+      $or: [{ username }, { "contact.email": String(contact.email).toLowerCase().trim() }],
     });
     if (exists) return res.status(400).json({ message: "Username or email already exists" });
 
@@ -58,7 +65,7 @@ exports.create = async (req, res) => {
       passwordHash,
       role,
       fullName,
-      contact: { email: contact.email.toLowerCase().trim(), mobile: contact.mobile },
+      contact: { email: String(contact.email).toLowerCase().trim(), mobile: contact.mobile },
       isVerified: true,
       isActive: true,
     });

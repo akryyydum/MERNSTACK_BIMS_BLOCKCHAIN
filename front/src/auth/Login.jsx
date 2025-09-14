@@ -419,32 +419,32 @@ const Login = () => {
                     name="firstName"
                     rules={[
                       { required: true, message: 'First name is required' },
-                      { pattern: /^[A-Za-z ]+$/, message: 'First name must contain only letters and spaces' }
+                      { pattern: /^[A-Za-z\s-]+$/, message: 'First name may contain letters, spaces, and hyphens (-)' }
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" placeholder="e.g., Juan" />
+                    <Input size="middle" placeholder="e.g., Juan-Carlos" />
                   </Form.Item>
                   <Form.Item
                     label="Middle Name"
                     name="middleName"
                     rules={[
-                      { pattern: /^[A-Za-z ]*$/, message: 'Middle name must contain only letters and spaces' }
+                      { pattern: /^[A-Za-z\s-]*$/, message: 'Middle name may contain letters, spaces, and hyphens (-)' }
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" placeholder="e.g., Santos" />
+                    <Input size="middle" placeholder="e.g., Santos-De" />
                   </Form.Item>
                   <Form.Item
                     label="Last Name"
                     name="lastName"
                     rules={[
                       { required: true, message: 'Last name is required' },
-                      { pattern: /^[A-Za-z ]+$/, message: 'Last name must contain only letters and spaces' }
+                      { pattern: /^[A-Za-z\s-]+$/, message: 'Last name may contain letters, spaces, and hyphens (-)' }
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" placeholder="e.g., Dela Cruz" />
+                    <Input size="middle" placeholder="e.g., Dela-Cruz" />
                   </Form.Item>
                   <Form.Item label="Suffix" name="suffix" className="mb-2">
                     <Input size="middle" placeholder="e.g., Jr., Sr., III" />
@@ -491,11 +491,11 @@ const Login = () => {
                   name="religion"
                   rules={[
                     { required: true, message: 'Religion is required' },
-                    { pattern: /^[A-Za-z ]+$/, message: 'Religion must contain only letters and spaces' }
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
                   ]}
                   className="mb-2"
                 >
-                  <Input size="middle" placeholder="e.g., Roman Catholic" />
+                  <Input size="middle" placeholder="e.g., Roman-Catholic" />
                 </Form.Item>
               </>
             )}
@@ -510,11 +510,11 @@ const Login = () => {
                     name={["address", "street"]} 
                     rules={[
                       { required: true, message: 'Street is required' },
-                      { pattern: /^[A-Za-z ]+$/, message: 'Street must contain only letters and spaces' }
+                      { pattern: /^[A-Za-z\s-]+$/, message: 'Street may contain letters, spaces, and hyphens (-)' }
                     ]} 
                     className="mb-1 flex-1"
                   >
-                    <Input size="middle" placeholder="e.g., Rizal Street" />
+                    <Input size="middle" placeholder="e.g., Rizal-Ext" />
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

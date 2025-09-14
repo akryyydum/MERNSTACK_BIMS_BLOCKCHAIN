@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, DatePicker, Steps } from "antd";
+import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
@@ -21,10 +21,11 @@ export default function AdminUserManagement() {
   const [createForm] = Form.useForm();
   const [creating, setCreating] = useState(false);
 
-  const [createResidentOpen, setCreateResidentOpen] = useState(false);
-  const [residentForm] = Form.useForm();
-  const [creatingResident, setCreatingResident] = useState(false);
-  const [residentStep, setResidentStep] = useState(1); // +
+  // Remove resident creation state
+  // const [createResidentOpen, setCreateResidentOpen] = useState(false);
+  // const [residentForm] = Form.useForm();
+  // const [creatingResident, setCreatingResident] = useState(false);
+  // const [residentStep, setResidentStep] = useState(1);
 
   const [editOpen, setEditOpen] = useState(false);              // + add
   const [editForm] = Form.useForm();                            // + add
@@ -130,19 +131,65 @@ export default function AdminUserManagement() {
     }
   };
 
+  // Unlinked residents to attach when role === 'resident'
+  const [unlinkedResidents, setUnlinkedResidents] = useState([]);
+  const [loadingUnlinked, setLoadingUnlinked] = useState(false);
+
+  const fetchUnlinkedResidents = async () => {
+    setLoadingUnlinked(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/residents?unlinked=true`, {
+        headers: authHeaders,
+      });
+      if (!res.ok) throw new Error("Failed to load residents without account");
+      const data = await res.json();
+      setUnlinkedResidents(data || []);
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setLoadingUnlinked(false);
+    }
+  };
+
   const openCreate = () => {
     createForm.resetFields();
+    createForm.setFieldsValue({ role: "official" });
     setCreateOpen(true);
   };
+
+  const roleValue = Form.useWatch("role", createForm);
 
   const submitCreate = async () => {
     try {
       const values = await createForm.validateFields();
       setCreating(true);
+
+      // Build payload conditionally
+      let payload;
+      if (values.role === "resident") {
+        payload = {
+          role: "resident",
+          username: values.username,
+          password: values.password,
+          residentId: values.residentId,
+        };
+      } else {
+        payload = {
+          role: values.role,
+          fullName: values.fullName,
+          username: values.username,
+          password: values.password,
+          contact: {
+            email: values.contact.email,
+            mobile: values.contact.mobile,
+          },
+        };
+      }
+
       const res = await fetch(`${API_BASE}/api/admin/users`, {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -152,61 +199,10 @@ export default function AdminUserManagement() {
       setCreateOpen(false);
       fetchUsers();
     } catch (e) {
-      if (e?.errorFields) return; // form validation error
-      message.error(e.message);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const openCreateResident = () => { // +
-    residentForm.resetFields();
-    setResidentStep(1);
-    setCreateResidentOpen(true);
-  };
-
-  const handleNextResident = async () => {                      // +
-    try {
-      await residentForm.validateFields(residentStepFields[residentStep]);
-      setResidentStep((s) => Math.min(3, s + 1));
-    } catch (_) {
-      // validation errors shown by antd
-    }
-  };
-
-  const handlePrevResident = () => setResidentStep((s) => Math.max(1, s - 1)); // +
-
-  const submitCreateResident = async () => {
-    try {
-      // Validate all before submit
-      await residentForm.validateFields([
-        ...residentStepFields[1],
-        ...residentStepFields[2],
-        ...residentStepFields[3],
-      ]);
-      const values = residentForm.getFieldsValue(true);
-      const payload = {
-        ...values,
-        dateOfBirth: values.dateOfBirth?.toISOString?.() ?? values.dateOfBirth,
-      };
-      setCreatingResident(true);
-      const res = await fetch(`${API_BASE}/api/admin/residents`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to create resident");
-      }
-      message.success("Resident created");
-      setCreateResidentOpen(false);
-      fetchUsers();
-    } catch (e) {
       if (e?.errorFields) return;
       message.error(e.message);
     } finally {
-      setCreatingResident(false);
+      setCreating(false);
     }
   };
 
@@ -295,7 +291,7 @@ export default function AdminUserManagement() {
           options={[
             { value: "admin", label: "Admin" },
             { value: "official", label: "Official" },
-            { value: "resident", label: "Resident", disabled: true }, // prevent demoting to resident via UI
+            { value: "resident", label: "Resident", disabled: true }, // keep disabled here
           ]}
         />
       ),
@@ -494,7 +490,7 @@ export default function AdminUserManagement() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={openCreateResident}>Add Resident</Button>
+            {/* Removed Add Resident */}
             <Button type="primary" onClick={openCreate}>Create User</Button>
           </div>
         </div>
@@ -528,8 +524,19 @@ export default function AdminUserManagement() {
           okText="Create"
           width={window.innerWidth < 600 ? "95vw" : 520}
           bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+          afterOpenChange={(open) => {
+            if (open && createForm.getFieldValue("role") === "resident") {
+              fetchUnlinkedResidents();
+            }
+          }}
         >
-          <Form form={createForm} layout="vertical">
+          <Form
+            form={createForm}
+            layout="vertical"
+            onValuesChange={(changed) => {
+              if (changed.role === "resident") fetchUnlinkedResidents();
+            }}
+          >
             <Form.Item
               name="role"
               label="Role"
@@ -538,19 +545,25 @@ export default function AdminUserManagement() {
             >
               <Select
                 options={[
-
                   { value: "official", label: "Official" },
                   { value: "admin", label: "Admin" },
+                  { value: "resident", label: "Resident" },
                 ]}
               />
             </Form.Item>
-            <Form.Item
-              name="fullName"
-              label="Full name"
-              rules={[{ required: true, message: "Full name is required" }]}
-            >
-              <Input />
-            </Form.Item>
+
+            {roleValue !== "resident" && (
+              <>
+                <Form.Item
+                  name="fullName"
+                  label="Full name"
+                  rules={[{ required: true, message: "Full name is required" }]}
+                >
+                  <Input />
+                </Form.Item>
+              </>
+            )}
+
             <Form.Item
               name="username"
               label="Username"
@@ -558,23 +571,7 @@ export default function AdminUserManagement() {
             >
               <Input autoComplete="off" />
             </Form.Item>
-            <Form.Item
-              name={["contact", "email"]}
-              label="Email"
-              rules={[
-                { required: true, message: "Email is required" },
-                { type: "email", message: "Invalid email" },
-              ]}
-            >
-              <Input type="email" />
-            </Form.Item>
-            <Form.Item
-              name={["contact", "mobile"]}
-              label="Mobile"
-              rules={[{ required: true, message: "Mobile is required" }]}
-            >
-              <Input />
-            </Form.Item>
+
             <Form.Item
               name="password"
               label="Temporary password"
@@ -582,225 +579,63 @@ export default function AdminUserManagement() {
             >
               <Input.Password autoComplete="new-password" />
             </Form.Item>
-          </Form>
-        </Modal>
 
-        {/* Add Resident modal (now multi-step) */}
-        <Modal
-          title="Add Resident"
-          open={createResidentOpen}
-          onCancel={() => setCreateResidentOpen(false)}
-          width={window.innerWidth < 600 ? "98vw" : 800}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
-          footer={[
-            <Button key="cancel" onClick={() => setCreateResidentOpen(false)} disabled={creatingResident}>Cancel</Button>,
-            residentStep > 1 && (
-              <Button key="back" onClick={handlePrevResident} disabled={creatingResident}>
-                Back
-              </Button>
-            ),
-            residentStep < 3 && (
-              <Button key="next" type="primary" onClick={handleNextResident} disabled={creatingResident}>
-                Next
-              </Button>
-            ),
-            residentStep === 3 && (
-              <Button key="create" type="primary" loading={creatingResident} onClick={submitCreateResident}>
-                Create
-              </Button>
-            ),
-          ]}
-        >
-          <Steps
-            size="small"
-            current={residentStep - 1}
-            className="mb-4"
-            items={[
-              { title: "Account" },
-              { title: "Identity" },
-              { title: "Address & Details" },
-            ]}
-          />
-
-          <Form form={residentForm} layout="vertical">
-            {residentStep === 1 && (
+            {roleValue === "resident" ? (
               <>
                 <Form.Item
-                  name="username"
-                  label="Username"
-                  rules={[{ required: true, message: "Username is required" }]}
+                  name="residentId"
+                  label="Select Resident (no account yet)"
+                  rules={[{ required: true, message: "Please select a resident" }]}
+                  extra="List shows residents without a linked user account."
                 >
-                  <Input autoComplete="off" />
+                  <Select
+                    loading={loadingUnlinked}
+                    placeholder="Choose resident"
+                    showSearch
+                    optionFilterProp="label"
+                    options={unlinkedResidents.map(r => ({
+                      value: r._id,
+                      label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""} • ${r.address?.purok || ""}`,
+                    }))}
+                  />
                 </Form.Item>
-                <Form.Item
-                  name="password"
-                  label="Temporary password"
-                  rules={[{ required: true, message: "Password is required" }, { min: 6 }]}
-                >
-                  <Input.Password autoComplete="new-password" />
-                </Form.Item>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Form.Item
-                    name={["contact", "email"]}
-                    label="Email"
-                    rules={[{ required: true }, { type: "email" }]}
-                  >
-                    <Input type="email" />
-                  </Form.Item>
-                  <Form.Item
-                    name={["contact", "mobile"]}
-                    label="Mobile"
-                    rules={[{ required: true }]}
-                  >
-                    <Input />
-                  </Form.Item>
-                </div>
+                {/* Optional preview */}
+                {(() => {
+                  const rid = createForm.getFieldValue("residentId");
+                  const sel = unlinkedResidents.find(r => r._id === rid);
+                  return sel ? (
+                    <div className="text-xs text-gray-600">
+                      Email: {sel.contact?.email || "-"} • Mobile: {sel.contact?.mobile || "-"}
+                    </div>
+                  ) : null;
+                })()}
               </>
-            )}
-
-            {residentStep === 2 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Form.Item name="firstName" label="First name" rules={[{ required: true }]}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="middleName" label="Middle name">
-                  <Input />
-                </Form.Item>
-                <Form.Item name="lastName" label="Last name" rules={[{ required: true }]}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="suffix" label="Suffix">
-                  <Input />
-                </Form.Item>
-                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-                  <DatePicker className="w-full" />
-                </Form.Item>
-                <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
-                  <Select
-                    options={[
-                      { value: "male", label: "Male" },
-                      { value: "female", label: "Female" },
-                      { value: "other", label: "Other" },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
-                  <Select
-                    options={[
-                      { value: "single", label: "Single" },
-                      { value: "married", label: "Married" },
-                      { value: "widowed", label: "Widowed" },
-                      { value: "separated", label: "Separated" },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item name="religion" label="Religion">
-                  <Input />
-                </Form.Item>
-              </div>
-            )}
-
-            {residentStep === 3 && (
+            ) : (
               <>
-                <div className="mb-3">
-                  <Form.Item 
-                    name={["address", "street"]} 
-                    label="Street" 
-                    rules={[
-                      { required: true, message: 'Street is required' },
-                      { pattern: /^[A-Za-z ]+$/, message: 'Street must contain only letters and spaces' }
-                    ]} 
-                    className="flex-1"
-                  >
-                    <Input />
-                  </Form.Item>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
-                    <Select
-                      options={[
-                        { value: "Purok 1", label: "Purok 1" },
-                        { value: "Purok 2", label: "Purok 2" },
-                        { value: "Purok 3", label: "Purok 3" },
-                        { value: "Purok 4", label: "Purok 4" },
-                        { value: "Purok 5", label: "Purok 5" },
-                      ]}
-                    />
-                  </Form.Item>
-                  <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-                    <Input />
-                  </Form.Item>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-                    <Input />
-                  </Form.Item>
-                </div>
+                <Form.Item
+                  name={["contact", "email"]}
+                  label="Email"
+                  rules={[
+                    { required: true, message: "Email is required" },
+                    { type: "email", message: "Invalid email" },
+                  ]}
+                >
+                  <Input type="email" />
+                </Form.Item>
+                <Form.Item
+                  name={["contact", "mobile"]}
+                  label="Mobile"
+                  rules={[{ required: true, message: "Mobile is required" }]}
+                >
+                  <Input />
+                </Form.Item>
               </>
             )}
           </Form>
         </Modal>
 
-        <Modal
-          title="Edit User"
-          open={editOpen}
-          onCancel={() => setEditOpen(false)}
-          onOk={submitEdit}
-          okText="Save"
-          confirmLoading={savingEdit}
-          destroyOnClose
-          width={window.innerWidth < 600 ? "95vw" : 520}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
-        >
-          <Form form={editForm} layout="vertical">
-            <Form.Item name="fullName" label="Full name" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "admin", label: "Admin" },
-                  { value: "official", label: "Official" },
-                  { value: "resident", label: "Resident", disabled: true }, // keep resident immutable here
-                ]}
-              />
-            </Form.Item>
-            <Form.Item label="Email" name={["contact", "email"]} rules={[{ required: true }, { type: "email" }]}>
-              <Input type="email" />
-            </Form.Item>
-            <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <div className="grid grid-cols-2 gap-3">
-              <Form.Item name="isVerified" label="Verified" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item name="isActive" label="Active" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </div>
-          </Form>
-        </Modal>
-
-        {/* ...existing Create User and Add Resident modals... */}
+        {/* Removed Add Resident modal and related code */}
+        {/* Removed Edit modal remains unchanged */}
       </div>
     </AdminLayout>
   );

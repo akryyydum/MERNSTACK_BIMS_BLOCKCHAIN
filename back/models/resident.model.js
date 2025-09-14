@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const residentSchema = new mongoose.Schema({
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // link to User
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false }, // was required: true
     firstName: { type: String, required: true },
     middleName: { type: String, required: false },
     lastName: { type: String, required: true },
@@ -40,6 +40,10 @@ status: { type: String, enum: ['verified', 'rejected', 'pending'], default: 'pen
 createdAt: { type: Date, default: Date.now },
 updatedAt: { type: Date, default: Date.now },
 });
-residentSchema.index({ user: 1 }, { unique: true });
+// Ensure uniqueness only when user is set
+residentSchema.index(
+  { user: 1 },
+  { unique: true, partialFilterExpression: { user: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Resident', residentSchema);

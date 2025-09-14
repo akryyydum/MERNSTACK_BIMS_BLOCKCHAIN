@@ -1,19 +1,28 @@
 const User = require('../models/user.model');
-const Resident = require('../models/resident.model'); // add
+const Resident = require('../models/resident.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+
+function normalize(str) {
+  return String(str || '').trim();
+}
+
+// Helper to match date-only (ignore timezones)
+function sameDay(d1, d2) {
+  const a = new Date(d1), b = new Date(d2);
+  return a.getFullYear() === b.getFullYear() &&
+         a.getMonth() === b.getMonth() &&
+         a.getDate() === b.getDate();
+}
 
 async function register(req, res) {
   try {
     const {
       username,
       password,
-      fullName,
-      contact = {},
-      role,
-      // Resident fields
+      // identifying info to match an existing resident
       firstName,
       middleName,
       lastName,
@@ -27,72 +36,68 @@ async function register(req, res) {
       citizenship,
       occupation,
       education,
+      contact = {},
     } = req.body;
 
-    // Basic user validation
-    if (!username || !password || !fullName || !contact.email) {
-      return res.status(400).json({ message: 'username, password, fullName, and contact.email are required' });
+    // Minimal required for account + matching
+    if (!username || !password) {
+      return res.status(400).json({ message: 'username and password are required' });
+    }
+    if (!firstName || !lastName || !dateOfBirth || !contact.email) {
+      return res.status(400).json({ message: 'firstName, lastName, dateOfBirth, and contact.email are required to match your resident record' });
     }
 
-    // Basic resident validation (ensure required Resident fields exist)
-    const missingResident =
-      !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
-      !address?.street || !address?.purok ||
-      !address?.barangay || !address?.municipality || !address?.province ||
-      !citizenship || !occupation || !education || !contact.mobile;
-
-    if (missingResident) {
-      return res.status(400).json({ message: 'Missing required resident fields' });
-    }
-
-    // Uniqueness check
+    // Ensure username/email uniqueness
     const existingUser = await User.findOne({
-      $or: [{ username }, { 'contact.email': contact.email }]
+      $or: [{ username: normalize(username) }, { 'contact.email': normalize(contact.email).toLowerCase() }]
     });
     if (existingUser) {
       return res.status(400).json({ message: 'Username or email already exists' });
     }
 
-    // Create User
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Find existing Resident without a linked user that matches provided info
+    const email = normalize(contact.email).toLowerCase();
 
-    const user = await new User({
-      username,
-      passwordHash,
-      role: role || 'resident',
-      fullName,
-      contact: { mobile: contact.mobile, email: contact.email },
-      isVerified: true // Ensure user is verified instantly for immediate login
-    }).save();
+    // Fetch potential matches by email (primary) and lastName to narrow
+    const candidates = await Resident.find({
+      $and: [
+        { $or: [{ user: { $exists: false } }, { user: null }] },
+        { 'contact.email': email },
+        { lastName: new RegExp(`^${normalize(lastName)}$`, 'i') }
+      ]
+    }).lean();
 
-    try {
-      // Create Resident linked to the user
-      await Resident.create({
-        user: user._id,
-        firstName,
-        middleName,
-        lastName,
-        suffix,
-        dateOfBirth,     // accepts ISO string or Date
-        birthPlace,
-        gender,
-        civilStatus,
-        religion,
-        address,
-        citizenship,
-        occupation,
-        education,
-        contact: {
-          mobile: contact.mobile,
-          email: contact.email
-        },
-        status: 'pending'
-      });
-    } catch (residentErr) {
-      // Rollback user if resident creation fails
-      await User.deleteOne({ _id: user._id });
-      return res.status(400).json({ message: residentErr.message || 'Failed to create resident record' });
+    const resident = candidates.find(r =>
+      new RegExp(`^${normalize(firstName)}$`, 'i').test(r.firstName || '') &&
+      (!middleName || new RegExp(`^${normalize(middleName)}$`, 'i').test(r.middleName || '')) &&
+      (!suffix || new RegExp(`^${normalize(suffix)}$`, 'i').test(r.suffix || '')) &&
+      (r.dateOfBirth && sameDay(r.dateOfBirth, dateOfBirth))
+    );
+
+    if (!resident) {
+      return res.status(400).json({ message: 'No matching resident record found or an account already exists' });
     }
+
+    // Compute full name from resident
+    const fullName = [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+      .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username: normalize(username),
+      passwordHash,
+      role: 'resident',
+      fullName: fullName || 'Resident',
+      contact: {
+        email: email,
+        mobile: resident.contact?.mobile || normalize(contact.mobile || '')
+      },
+      isVerified: true,   // account is usable, but dashboard access still gated by resident.status in login()
+      isActive: true,
+    });
+
+    // Link resident to user and keep resident status as-is (pending/verified)
+    await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id } });
 
     res.status(201).json({ message: 'Registration successful! You can log in immediately.' });
   } catch (err) {

@@ -6,9 +6,7 @@ const Resident = require("../models/resident.model");
 exports.create = async (req, res) => {
   try {
     const {
-      username,
-      password,
-      // resident fields
+      // user fields intentionally NOT required here
       firstName,
       middleName,
       lastName,
@@ -23,68 +21,45 @@ exports.create = async (req, res) => {
       occupation,
       education,
       contact = {},
+      idFiles,
+      status, // optional, default to 'verified' for admin-created
     } = req.body;
 
-    // Validate required fields
-    if (!username || !password) {
-      return res.status(400).json({ message: "username and password are required" });
-    }
+    // Validate required resident fields only
     const requiredResidentMissing =
       !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
-      !address?.street || !address?.purok || !address?.barangay || 
+      !address?.street || !address?.purok || !address?.barangay ||
       !address?.municipality || !address?.province ||
       !citizenship || !occupation || !education || !contact?.email || !contact?.mobile;
+
     if (requiredResidentMissing) {
       return res.status(400).json({ message: "Missing required resident fields" });
     }
 
-    // Uniqueness
-    const exists = await User.findOne({
-      $or: [{ username }, { "contact.email": contact.email }],
-    });
-    if (exists) return res.status(400).json({ message: "Username or email already exists" });
+    // Normalize types
+    const dob = typeof dateOfBirth === "string" ? new Date(dateOfBirth) : dateOfBirth;
 
-    // Build full name for User
-    const fullName = [firstName, middleName, lastName, suffix].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-
-    // Create User
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      username,
-      passwordHash,
-      role: "resident",
-      fullName,
+    // Create Resident only (no User, no username/password)
+    const resident = await Resident.create({
+      firstName,
+      middleName,
+      lastName,
+      suffix,
+      dateOfBirth: dob,
+      birthPlace,
+      gender,
+      civilStatus,
+      religion,
+      address,
+      citizenship,
+      occupation,
+      education,
       contact: { email: String(contact.email).toLowerCase().trim(), mobile: contact.mobile },
-      isVerified: true,  // admin-created
-      isActive: true,
+      idFiles,
+      status: status || "verified", // admin-created records default to verified
     });
 
-    try {
-      // Create Resident linked to User
-      await Resident.create({
-        user: user._id,
-        firstName,
-        middleName,
-        lastName,
-        suffix,
-        dateOfBirth,
-        birthPlace,
-        gender,
-        civilStatus,
-        religion,
-        address,
-        citizenship,
-        occupation,
-        education,
-        contact: { email: contact.email, mobile: contact.mobile },
-        status: "verified",
-      });
-    } catch (residentErr) {
-      await User.deleteOne({ _id: user._id }); // rollback user
-      return res.status(400).json({ message: residentErr.message || "Failed to create resident document" });
-    }
-
-    res.status(201).json({ message: "Resident created", id: user._id });
+    res.status(201).json({ message: "Resident created", resident });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -93,7 +68,11 @@ exports.create = async (req, res) => {
 // GET /api/admin/residents
 exports.list = async (req, res) => {
   try {
-    const residents = await Resident.find().populate("user", "username fullName contact");
+    const filter = {};
+    if (String(req.query.unlinked) === "true") {
+      filter.$or = [{ user: { $exists: false } }, { user: null }];
+    }
+    const residents = await Resident.find(filter).populate("user", "username fullName contact");
     res.json(residents);
   } catch (err) {
     res.status(500).json({ message: err.message });

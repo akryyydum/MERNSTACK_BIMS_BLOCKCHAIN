@@ -1,11 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions } from "antd";
+import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions, Steps } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
+
+// Set your fixed location defaults here
+const ADDRESS_DEFAULTS = {
+  barangay: "La Torre North",
+  municipality: "Bayombong",
+  province: "Nueva Vizcaya",
+  zipCode: "3700",
+};
+
+// NEW: Consistent API base
+const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
 export default function AdminResidentManagement() {
   const [loading, setLoading] = useState(false);
@@ -20,6 +31,8 @@ export default function AdminResidentManagement() {
   const [selectedResident, setSelectedResident] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewResident, setViewResident] = useState(null);
+  const [addStep, setAddStep] = useState(0);
+  const [editStep, setEditStep] = useState(0);
 
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -34,12 +47,8 @@ export default function AdminResidentManagement() {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000"}/api/admin/residents`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `${API_BASE}/api/admin/residents`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setResidents(res.data);
     } catch (err) {
@@ -55,16 +64,12 @@ export default function AdminResidentManagement() {
       const values = await addForm.validateFields();
       const token = localStorage.getItem("token");
       await axios.post(
-        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000/api/admin/residents"}`,
+        `${API_BASE}/api/admin/residents`,
         {
           ...values,
           dateOfBirth: values.dateOfBirth.format("YYYY-MM-DD"),
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success("Resident added!");
       setAddOpen(false);
@@ -81,8 +86,11 @@ export default function AdminResidentManagement() {
     setSelectedResident(resident);
     editForm.setFieldsValue({
       ...resident,
+      // Force default, keep other address fields (like street/purok) intact
+      address: { ...(resident.address || {}), ...ADDRESS_DEFAULTS },
       dateOfBirth: resident.dateOfBirth ? dayjs(resident.dateOfBirth) : null,
     });
+    setEditStep(0);
     setEditOpen(true);
   };
 
@@ -92,16 +100,12 @@ export default function AdminResidentManagement() {
       const values = await editForm.validateFields();
       const token = localStorage.getItem("token");
       await axios.patch(
-        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000/api/admin/residents"}/${selectedResident._id}`,
+        `${API_BASE}/api/admin/residents/${selectedResident._id}`,
         {
           ...values,
           dateOfBirth: values.dateOfBirth.format("YYYY-MM-DD"),
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success("Resident updated!");
       setEditOpen(false);
@@ -117,12 +121,8 @@ export default function AdminResidentManagement() {
     try {
       const token = localStorage.getItem("token");
       await axios.delete(
-        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000/api/admin/residents"}/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `${API_BASE}/api/admin/residents/${id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success("Resident deleted!");
       fetchResidents();
@@ -136,13 +136,9 @@ export default function AdminResidentManagement() {
     try {
       const token = localStorage.getItem("token");
       await axios.patch(
-        `${import.meta?.env?.VITE_API_URL || "http://localhost:4000/api/admin/residents"}/${id}/verify`,
+        `${API_BASE}/api/admin/residents/${id}/verify`,
         { status: next ? "verified" : "unverified" },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success(next ? "Resident verified!" : "Resident unverified!");
       fetchResidents();
@@ -244,6 +240,48 @@ export default function AdminResidentManagement() {
     setViewResident(resident);
     setViewOpen(true);
   };
+
+  const stepItems = [
+    {
+      key: "personal",
+      title: "Personal",
+      fields: [
+        "firstName",
+        "middleName",
+        "lastName",
+        "suffix",
+        "dateOfBirth",
+        "birthPlace",
+        "gender",
+        "civilStatus",
+      ],
+    },
+    {
+      key: "address",
+      title: "Address",
+      fields: [
+        ["address", "street"],
+        ["address", "purok"],
+        ["address", "barangay"],
+        ["address", "municipality"],
+        ["address", "province"],
+        ["address", "zipCode"],
+      ],
+    },
+    {
+      key: "other",
+      title: "Other & Contact",
+      fields: [
+        "citizenship",
+        "occupation",
+        "education",
+        ["contact", "mobile"],
+        ["contact", "email"],
+      ],
+    },
+  ];
+
+  const validateStep = (form, step) => form.validateFields(stepItems[step].fields);
 
   return (
     <AdminLayout title="Admin">
@@ -365,7 +403,17 @@ export default function AdminResidentManagement() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="primary" onClick={() => setAddOpen(true)}>
+              <Button
+                type="primary"
+                onClick={() => {
+                  setAddStep(0);
+                  // Apply the defaults each time Add is opened
+                  addForm.setFieldsValue({
+                    address: { ...(addForm.getFieldValue("address") || {}), ...ADDRESS_DEFAULTS },
+                  });
+                  setAddOpen(true);
+                }}
+              >
                 Add Resident
               </Button>
             </div>
@@ -385,188 +433,277 @@ export default function AdminResidentManagement() {
         <Modal
           title="Add Resident"
           open={addOpen}
-          onCancel={() => setAddOpen(false)}
-          onOk={handleAddResident}
-          confirmLoading={creating}
-          okText="Add"
+          onCancel={() => { setAddOpen(false); setAddStep(0); }}
           width={600}
+          footer={[
+            <Button key="cancel" onClick={() => { setAddOpen(false); setAddStep(0); }}>
+              Cancel
+            </Button>,
+            addStep > 0 && (
+              <Button key="prev" onClick={() => setAddStep(s => s - 1)}>
+                Previous
+              </Button>
+            ),
+            addStep < stepItems.length - 1 ? (
+              <Button
+                key="next"
+                type="primary"
+                onClick={async () => {
+                  try {
+                    await validateStep(addForm, addStep);
+                    setAddStep(s => s + 1);
+                  } catch {}
+                }}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button
+                key="submit"
+                type="primary"
+                loading={creating}
+                onClick={handleAddResident}
+              >
+                Add
+              </Button>
+            ),
+          ]}
         >
+          <Steps
+            size="small"
+            current={addStep}
+            items={stepItems.map(s => ({ title: s.title }))}
+            className="mb-4"
+          />
           <Form form={addForm} layout="vertical">
-            <Form.Item name="username" label="Username" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="password" label="Password" rules={[{ required: true, min: 6 }]}>
-              <Input.Password />
-            </Form.Item>
-            <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="middleName" label="Middle Name">
-              <Input />
-            </Form.Item>
-            <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="suffix" label="Suffix">
-              <Input />
-            </Form.Item>
-            <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-              <DatePicker className="w-full" />
-            </Form.Item>
-            <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "male", label: "Male" },
-                  { value: "female", label: "Female" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "single", label: "Single" },
-                  { value: "married", label: "Married" },
-                  { value: "widowed", label: "Widowed" },
-                  { value: "separated", label: "Separated" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "Purok 1", label: "Purok 1" },
-                  { value: "Purok 2", label: "Purok 2" },
-                  { value: "Purok 3", label: "Purok 3" },
-                  { value: "Purok 4", label: "Purok 4" },
-                  { value: "Purok 5", label: "Purok 5" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-              <Input />
-            </Form.Item>
-            <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["contact", "email"]} label="Email" rules={[{ required: true, type: "email" }]}>
-              <Input />
-            </Form.Item>
+            {/* Step 1 - Personal */}
+            <div style={{ display: addStep === 0 ? "block" : "none" }}>
+              <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="middleName" label="Middle Name">
+                <Input />
+              </Form.Item>
+              <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="suffix" label="Suffix">
+                <Input />
+              </Form.Item>
+              <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                <DatePicker className="w-full" />
+              </Form.Item>
+              <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "single", label: "Single" },
+                    { value: "married", label: "Married" },
+                    { value: "widowed", label: "Widowed" },
+                    { value: "separated", label: "Separated" },
+                  ]}
+                />
+              </Form.Item>
+            </div>
+
+            {/* Step 2 - Address */}
+            <div style={{ display: addStep === 1 ? "block" : "none" }}>
+              <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "Purok 1", label: "Purok 1" },
+                    { value: "Purok 2", label: "Purok 2" },
+                    { value: "Purok 3", label: "Purok 3" },
+                    { value: "Purok 4", label: "Purok 4" },
+                    { value: "Purok 5", label: "Purok 5" },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name={["address", "zipCode"]} label="ZIP Code">
+                <Input disabled />
+              </Form.Item>
+            </div>
+
+            {/* Step 3 - Other & Contact */}
+            <div style={{ display: addStep === 2 ? "block" : "none" }}>
+              <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="education" label="Education" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name={["contact", "email"]} label="Email" rules={[{ required: true, type: "email" }]}>
+                <Input />
+              </Form.Item>
+            </div>
           </Form>
         </Modal>
+
         {/* Edit Resident Modal */}
         <Modal
           title="Edit Resident"
           open={editOpen}
-          onCancel={() => setEditOpen(false)}
-          onOk={handleEditResident}
-          confirmLoading={editing}
-          okText="Save"
+          onCancel={() => { setEditOpen(false); setEditStep(0); }}
           width={600}
+          footer={[
+            <Button key="cancel" onClick={() => { setEditOpen(false); setEditStep(0); }}>
+              Cancel
+            </Button>,
+            editStep > 0 && (
+              <Button key="prev" onClick={() => setEditStep(s => s - 1)}>
+                Previous
+              </Button>
+            ),
+            editStep < stepItems.length - 1 ? (
+              <Button
+                key="next"
+                type="primary"
+                onClick={async () => {
+                  try {
+                    await validateStep(editForm, editStep);
+                    setEditStep(s => s + 1);
+                  } catch {}
+                }}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button
+                key="submit"
+                type="primary"
+                loading={editing}
+                onClick={handleEditResident}
+              >
+                Save
+              </Button>
+            ),
+          ]}
         >
+          <Steps
+            size="small"
+            current={editStep}
+            items={stepItems.map(s => ({ title: s.title }))}
+            className="mb-4"
+          />
           <Form form={editForm} layout="vertical">
-            <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="middleName" label="Middle Name">
-              <Input />
-            </Form.Item>
-            <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="suffix" label="Suffix">
-              <Input />
-            </Form.Item>
-            <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-              <DatePicker className="w-full" />
-            </Form.Item>
-            <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "male", label: "Male" },
-                  { value: "female", label: "Female" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "single", label: "Single" },
-                  { value: "married", label: "Married" },
-                  { value: "widowed", label: "Widowed" },
-                  { value: "separated", label: "Separated" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: "Purok 1", label: "Purok 1" },
-                  { value: "Purok 2", label: "Purok 2" },
-                  { value: "Purok 3", label: "Purok 3" },
-                  { value: "Purok 4", label: "Purok 4" },
-                  { value: "Purok 5", label: "Purok 5" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-              <Input />
-            </Form.Item>
-            <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name={["contact", "email"]} label="Email" rules={[{ required: true, type: "email" }]}>
-              <Input />
-            </Form.Item>
+            {/* Step 1 - Personal */}
+            <div style={{ display: editStep === 0 ? "block" : "none" }}>
+              <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="middleName" label="Middle Name">
+                <Input />
+              </Form.Item>
+              <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="suffix" label="Suffix">
+                <Input />
+              </Form.Item>
+              <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                <DatePicker className="w-full" />
+              </Form.Item>
+              <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "single", label: "Single" },
+                    { value: "married", label: "Married" },
+                    { value: "widowed", label: "Widowed" },
+                    { value: "separated", label: "Separated" },
+                  ]}
+                />
+              </Form.Item>
+            </div>
+
+            {/* Step 2 - Address */}
+            <div style={{ display: editStep === 1 ? "block" : "none" }}>
+              <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "Purok 1", label: "Purok 1" },
+                    { value: "Purok 2", label: "Purok 2" },
+                    { value: "Purok 3", label: "Purok 3" },
+                    { value: "Purok 4", label: "Purok 4" },
+                    { value: "Purok 5", label: "Purok 5" },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
+                <Input disabled />
+              </Form.Item>
+              <Form.Item name={["address", "zipCode"]} label="ZIP Code">
+                <Input disabled />
+              </Form.Item>
+            </div>
+
+            {/* Step 3 - Other & Contact */}
+            <div style={{ display: editStep === 2 ? "block" : "none" }}>
+              <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="education" label="Education" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name={["contact", "email"]} label="Email" rules={[{ required: true, type: "email" }]}>
+                <Input />
+              </Form.Item>
+            </div>
           </Form>
         </Modal>
         {/* View Resident Modal */}
@@ -582,7 +719,7 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Full Name">
                 {[viewResident.firstName, viewResident.middleName, viewResident.lastName, viewResident.suffix].filter(Boolean).join(" ")}
               </Descriptions.Item>
-              <Descriptions.Item label="Username">{viewResident.username}</Descriptions.Item>
+              <Descriptions.Item label="Username">{viewResident.user?.username || "-"}</Descriptions.Item>
               <Descriptions.Item label="Gender">{viewResident.gender}</Descriptions.Item>
               <Descriptions.Item label="Date of Birth">{viewResident.dateOfBirth ? new Date(viewResident.dateOfBirth).toLocaleDateString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Civil Status">{viewResident.civilStatus}</Descriptions.Item>
