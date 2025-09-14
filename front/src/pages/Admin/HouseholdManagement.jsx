@@ -218,6 +218,7 @@ export default function HouseholdManagement() {
   const [payLoading, setPayLoading] = useState(false);
   const [paySummary, setPaySummary] = useState(null);
   const [payHousehold, setPayHousehold] = useState(null);
+  const [payType, setPayType] = useState("garbage"); // "garbage" | "electric"
 
   // NEW: Only me toggles
   const [addOnlyMe, setAddOnlyMe] = useState(false);
@@ -257,14 +258,13 @@ export default function HouseholdManagement() {
     }
   };
 
-  const fetchGasSummary = async (householdId, monthStr) => {
+  const fetchFeeSummary = async (householdId, monthStr, type) => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/gas`, {
+      const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/${type}`, {
         headers: authHeaders(),
         params: { month: monthStr },
       });
       setPaySummary(res.data);
-      // Prefill form with totals
       payForm.setFieldsValue({
         month: dayjs(`${monthStr}-01`),
         totalCharge: Number(res.data.totalCharge || 0),
@@ -273,25 +273,26 @@ export default function HouseholdManagement() {
         reference: undefined,
       });
     } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to load gas summary");
+      message.error(err?.response?.data?.message || `Failed to load ${type} summary`);
     }
   };
 
-  const openPayGas = async (household) => {
+  const openPayFee = async (household, type) => {
     const monthStr = dayjs().format("YYYY-MM");
     setPayHousehold(household);
+    setPayType(type);
     setPayOpen(true);
-    await fetchGasSummary(household._id, monthStr);
+    await fetchFeeSummary(household._id, monthStr, type);
   };
 
   const onPayMonthChange = async (date) => {
     const monthStr = dayjs(date).format("YYYY-MM");
     if (payHousehold?._id) {
-      await fetchGasSummary(payHousehold._id, monthStr);
+      await fetchFeeSummary(payHousehold._id, monthStr, payType);
     }
   };
 
-  const submitPayGas = async () => {
+  const submitPayFee = async () => {
     try {
       setPayLoading(true);
       const values = await payForm.validateFields();
@@ -303,16 +304,15 @@ export default function HouseholdManagement() {
         reference: values.reference,
       };
       const res = await axios.post(
-        `${API_BASE}/api/admin/households/${payHousehold._id}/gas/pay`,
+        `${API_BASE}/api/admin/households/${payHousehold._id}/${payType}/pay`,
         payload,
         { headers: authHeaders() }
       );
-      message.success(res.data.status === "paid" ? "Gas fee fully paid!" : "Partial payment recorded!");
+      message.success(res.data.status === "paid" ? `${payType === "garbage" ? "Garbage" : "Electric"} fee fully paid!` : "Partial payment recorded!");
       setPayOpen(false);
       setPaySummary(null);
       setPayHousehold(null);
       payForm.resetFields();
-      // Refresh households to reflect latest snapshot (balance/last payment)
       fetchHouseholds();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to record payment");
@@ -482,7 +482,8 @@ export default function HouseholdManagement() {
       key: "actions",
       render: (_, r) => (
         <div className="flex gap-2">
-          <Button type="primary" size="small" onClick={() => openPayGas(r)}>Pay Gas</Button>
+          <Button type="primary" size="small" onClick={() => openPayFee(r, "garbage")}>Pay Garbage</Button>
+          <Button type="primary" size="small" onClick={() => openPayFee(r, "electric")}>Pay Electric</Button>
           <Button size="small" onClick={() => openView(r)}>View</Button>
           <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
           <Popconfirm
@@ -912,17 +913,20 @@ export default function HouseholdManagement() {
           )}
         </Modal>
 
-        {/* Pay Gas Modal */}
+        {/* Pay Utility Modal */}
         <Modal
-          title={`Pay Gas Fees${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
+          title={`Pay ${payType === "garbage" ? "Garbage" : "Electric"} Fees${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
           open={payOpen}
           onCancel={() => { setPayOpen(false); setPayHousehold(null); setPaySummary(null); }}
-          onOk={submitPayGas}
+          onOk={submitPayFee}
           okText="Pay"
           confirmLoading={payLoading}
           width={520}
         >
           <Form form={payForm} layout="vertical">
+            <Form.Item label="Fee Type">
+              <Input disabled value={payType === "garbage" ? "Garbage" : "Electric"} />
+            </Form.Item>
             <Form.Item
               name="month"
               label="Month"

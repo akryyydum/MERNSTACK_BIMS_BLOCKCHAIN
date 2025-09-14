@@ -1,7 +1,8 @@
 const Household = require("../models/household.model");
 const Resident = require("../models/resident.model");
 const Counter = require("../models/counter.model");
-const GasPayment = require("../models/gasPayment.model");
+// const GasPayment = require("../models/gasPayment.model");
+const UtilityPayment = require("../models/utilityPayment.model");
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -144,101 +145,136 @@ exports.remove = async (req, res) => {
   }
 };
 
-// GET /api/admin/households/:id/gas?month=YYYY-MM
-exports.gasSummary = async (req, res) => {
+// Helper to normalize month to "YYYY-MM"
+function monthKey(d) {
+  const dt = d ? new Date(d) : new Date();
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Generic summary fetcher
+async function getUtilitySummary(householdId, type, month) {
+  const hh = await Household.findById(householdId).lean();
+  if (!hh) return { error: "Household not found", status: 404 };
+
+  const m = (month || monthKey()).trim();
+  let summary = await UtilityPayment.findOne({ household: householdId, type, month: m }).lean();
+  if (!summary) {
+    const snap = type === "garbage" ? hh.garbageFee : hh.electricFee;
+    const totalCharge = Number(snap?.currentMonthCharge || 0);
+    summary = {
+      household: householdId,
+      type,
+      month: m,
+      totalCharge,
+      amountPaid: 0,
+      balance: totalCharge,
+      status: totalCharge > 0 ? "unpaid" : "unpaid",
+      payments: [],
+    };
+  }
+  return { summary, status: 200 };
+}
+
+// Generic payer
+async function payUtility(householdId, type, { month, amount, totalCharge, method, reference }) {
+  if (amount === undefined || Number(amount) <= 0) {
+    return { error: "amount must be greater than 0", status: 400 };
+  }
+
+  const hh = await Household.findById(householdId);
+  if (!hh) return { error: "Household not found", status: 404 };
+
+  const m = (month || monthKey()).trim();
+
+  // Upsert summary for month
+  let summary = await UtilityPayment.findOne({ household: householdId, type, month: m });
+  if (!summary) {
+    summary = new UtilityPayment({
+      household: householdId,
+      type,
+      month: m,
+      totalCharge: Number(totalCharge || (type === "garbage" ? hh?.garbageFee?.currentMonthCharge : hh?.electricFee?.currentMonthCharge) || 0),
+      amountPaid: 0,
+      balance: 0,
+      status: "unpaid",
+      payments: [],
+    });
+  }
+
+  if (totalCharge !== undefined) {
+    summary.totalCharge = Number(totalCharge);
+  }
+
+  summary.payments.push({
+    amount: Number(amount),
+    method,
+    reference,
+    paidAt: new Date(),
+  });
+
+  summary.amountPaid = (Number(summary.amountPaid) || 0) + Number(amount);
+  const computedBalance = Math.max(Number(summary.totalCharge) - Number(summary.amountPaid), 0);
+  summary.balance = computedBalance;
+  summary.status =
+    Number(summary.totalCharge) > 0
+      ? computedBalance <= 0
+        ? "paid"
+        : "partial"
+      : "unpaid";
+
+  await summary.save();
+
+  // Mirror to Household snapshot
+  const snap = {
+    currentMonthCharge: Number(summary.totalCharge),
+    balance: Number(summary.balance),
+    lastPaymentDate: new Date(),
+  };
+  if (type === "garbage") hh.garbageFee = snap;
+  else hh.electricFee = snap;
+  await hh.save();
+
+  return { summary, status: 201 };
+}
+
+// GET /api/admin/households/:id/garbage?month=YYYY-MM
+exports.garbageSummary = async (req, res) => {
   try {
-    const { id } = req.params;
-    const month = (req.query.month || new Date().toISOString().slice(0, 7)).trim(); // YYYY-MM
-
-    const household = await Household.findById(id).lean();
-    if (!household) return res.status(404).json({ message: "Household not found" });
-
-    let summary = await GasPayment.findOne({ household: id, month }).lean();
-    if (!summary) {
-      // Initialize from household.gasFee if available
-      const totalCharge = Number(household?.gasFee?.currentMonthCharge || 0);
-      summary = {
-        household: id,
-        month,
-        totalCharge,
-        amountPaid: 0,
-        balance: totalCharge,
-        status: totalCharge > 0 ? "unpaid" : "unpaid",
-        payments: [],
-      };
-    }
-    res.json(summary);
+    const { summary, error, status } = await getUtilitySummary(req.params.id, "garbage", req.query.month);
+    if (error) return res.status(status).json({ message: error });
+    res.status(200).json(summary);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// POST /api/admin/households/:id/gas/pay
-// body: { month: "YYYY-MM", amount, totalCharge?, method?, reference? }
-exports.payGas = async (req, res) => {
+// POST /api/admin/households/:id/garbage/pay
+exports.payGarbage = async (req, res) => {
   try {
-    const { id } = req.params;
-    const {
-      month = new Date().toISOString().slice(0, 7),
-      amount,
-      totalCharge,
-      method,
-      reference,
-    } = req.body;
+    const { summary, error, status } = await payUtility(req.params.id, "garbage", req.body || {});
+    if (error) return res.status(status).json({ message: error });
+    res.status(201).json(summary);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
-    if (amount === undefined || Number(amount) <= 0) {
-      return res.status(400).json({ message: "amount must be greater than 0" });
-    }
+// GET /api/admin/households/:id/electric?month=YYYY-MM
+exports.electricSummary = async (req, res) => {
+  try {
+    const { summary, error, status } = await getUtilitySummary(req.params.id, "electric", req.query.month);
+    if (error) return res.status(status).json({ message: error });
+    res.status(200).json(summary);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
-    const household = await Household.findById(id);
-    if (!household) return res.status(404).json({ message: "Household not found" });
-
-    // Upsert summary for month
-    let summary = await GasPayment.findOne({ household: id, month });
-    if (!summary) {
-      summary = new GasPayment({
-        household: id,
-        month,
-        totalCharge: Number(totalCharge || household?.gasFee?.currentMonthCharge || 0),
-        amountPaid: 0,
-        balance: 0,
-        status: "unpaid",
-        payments: [],
-      });
-    }
-
-    // Optionally update totalCharge if provided
-    if (totalCharge !== undefined) {
-      summary.totalCharge = Number(totalCharge);
-    }
-
-    summary.payments.push({
-      amount: Number(amount),
-      method,
-      reference,
-      paidAt: new Date(),
-    });
-
-    summary.amountPaid = (Number(summary.amountPaid) || 0) + Number(amount);
-    const computedBalance = Math.max(Number(summary.totalCharge) - Number(summary.amountPaid), 0);
-    summary.balance = computedBalance;
-    summary.status =
-      Number(summary.totalCharge) > 0
-        ? computedBalance <= 0
-          ? "paid"
-          : "partial"
-        : "unpaid";
-
-    await summary.save();
-
-    // Mirror to Household.gasFee (latest snapshot)
-    household.gasFee = {
-      currentMonthCharge: Number(summary.totalCharge),
-      balance: Number(summary.balance),
-      lastPaymentDate: new Date(),
-    };
-    await household.save();
-
+// POST /api/admin/households/:id/electric/pay
+exports.payElectric = async (req, res) => {
+  try {
+    const { summary, error, status } = await payUtility(req.params.id, "electric", req.body || {});
+    if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -9,7 +9,11 @@ router.get("/", adminHouseholdCtrl.list);
 router.post("/", adminHouseholdCtrl.create);
 router.patch("/:id", adminHouseholdCtrl.update);
 router.delete("/:id", adminHouseholdCtrl.remove);
-router.get("/:id/gas", adminHouseholdCtrl.gasSummary);
-router.post("/:id/gas/pay", adminHouseholdCtrl.payGas);
+
+// Utility fees
+router.get("/:id/garbage", adminHouseholdCtrl.garbageSummary);
+router.post("/:id/garbage/pay", adminHouseholdCtrl.payGarbage);
+router.get("/:id/electric", adminHouseholdCtrl.electricSummary);
+router.post("/:id/electric/pay", adminHouseholdCtrl.payElectric);
 
 module.exports = router;

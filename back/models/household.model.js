@@ -12,7 +12,7 @@ const AddressSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const GasFeeSchema = new mongoose.Schema(
+const GarbageFeeSchema = new mongoose.Schema(
   {
     currentMonthCharge: { type: Number, default: 0 },
     balance: { type: Number, default: 0 },
@@ -27,7 +27,8 @@ const HouseholdSchema = new mongoose.Schema(
     headOfHousehold: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true }],
     address: { type: AddressSchema, required: true },
-    gasFee: { type: GasFeeSchema, default: {} },
+    garbageFee: { type: GarbageFeeSchema, default: {} },
+    electricFee: { type: GarbageFeeSchema, default: {} },
   },
   { timestamps: true }
 );
