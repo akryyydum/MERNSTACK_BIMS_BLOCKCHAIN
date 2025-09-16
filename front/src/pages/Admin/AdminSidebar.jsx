@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined, UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined,
     SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined
  } from "@ant-design/icons";
-import AdminResidentManagement from "./AdminResidentManagement"; // add this import
+import AdminResidentManagement from "./AdminResidentManagement";
 
 const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
@@ -17,6 +17,7 @@ const defaultMenu = [
   { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },
   { to: "/admin/analytics", label: "Analytics", icon: <BarChartOutlined /> },
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
+  { to: "/admin/publicdocuments", label: "Public Documents", icon: <UserOutlined /> },
 ];
 
 export default function AdminSidebar({
