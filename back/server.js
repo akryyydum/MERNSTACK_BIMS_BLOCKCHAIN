@@ -18,6 +18,8 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/authRoutes'));
 const adminUserRoutes = require("./routes/adminUserRoutes");
 app.use("/api/admin/users", adminUserRoutes);
+const adminOfficialManagementRoutes = require("./routes/adminOfficialManagementRoutes");
+app.use("/api/admin/officials", adminOfficialManagementRoutes);
 const adminResidentRoutes = require("./routes/adminResidentRoutes");
 app.use("/api/admin/residents", adminResidentRoutes);
 const adminDocumentRequestRoutes = require('./routes/adminDocumentRequest');

@@ -10,7 +10,7 @@ const defaultMenu = [
   { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
   { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
   { to: "/admin/households", label: "Household Management", icon: <HomeOutlined /> },
-  { to: "/admin/officials", label: "Officials Management", icon: <UserOutlined /> },
+  { to: "/admin/official-management", label: "Officials Management", icon: <UserOutlined /> },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
 
