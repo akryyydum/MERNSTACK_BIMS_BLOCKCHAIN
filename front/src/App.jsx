@@ -16,6 +16,8 @@ import AdminDocumentRequests from "./pages/Admin/AdminDocumentRequests";
 import HouseholdManagement from "./pages/Admin/HouseholdManagement";
 import AdminPublicDocuments from "./pages/Admin/AdminPublicDocuments";
 import AdminOfficialManagement from "./pages/Admin/AdminOfficialManagement";
+import AdminReportsComplaints from "./pages/Admin/AdminReportsComplaints";
+
 function App() {
   const [count, setCount] = useState(0)
 
@@ -34,6 +36,7 @@ function App() {
           <Route path="/admin/residents" element={<AdminResidentManagement />} />
           <Route path="/admin/households" element={<HouseholdManagement />} />
           <Route path="/admin/document-requests" element={<AdminDocumentRequests />} />
+          <Route path="/admin/reports-complaints" element={<AdminReportsComplaints />} />
           <Route path="/admin/publicdocuments" element={<AdminPublicDocuments />} />
           <Route path="/admin/official-management" element={<AdminOfficialManagement />} />
         </Route>
