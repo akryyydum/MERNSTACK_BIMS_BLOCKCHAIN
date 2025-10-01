@@ -6,6 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
+import * as XLSX from "xlsx";
 
 // Set your fixed location defaults here
 const ADDRESS_DEFAULTS = {
@@ -33,6 +34,10 @@ export default function AdminResidentManagement() {
   const [viewResident, setViewResident] = useState(null);
   const [addStep, setAddStep] = useState(0);
   const [editStep, setEditStep] = useState(0);
+
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportForm] = Form.useForm();
 
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -147,12 +152,88 @@ export default function AdminResidentManagement() {
     }
   };
 
+  // Export to Excel
+  const handleExport = async () => {
+    try {
+      const { purokFilter } = await exportForm.validateFields();
+      
+      // Filter residents by purok
+      let filtered = residents;
+      if (purokFilter !== "all") {
+        filtered = residents.filter(r => r.address?.purok === purokFilter);
+      }
+
+      if (!filtered.length) {
+        message.warning("No residents found for the selected purok.");
+        return;
+      }
+
+      // Prepare data for Excel
+      const excelData = filtered.map(r => ({
+        "Full Name": [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" "),
+        "Gender": r.gender || "",
+        "Date of Birth": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString() : "",
+        "Birth Place": r.birthPlace || "",
+        "Civil Status": r.civilStatus || "",
+        "Citizenship": r.citizenship || "",
+        "Occupation": r.occupation || "",
+        "Education": r.education || "",
+        "Mobile": r.contact?.mobile || "",
+        "Email": r.contact?.email || "",
+        "Street": r.address?.street || "",
+        "Purok": r.address?.purok || "",
+        "Barangay": r.address?.barangay || "",
+        "Municipality": r.address?.municipality || "",
+        "Province": r.address?.province || "",
+        "ZIP Code": r.address?.zipCode || "",
+        "Status": r.status || "",
+        "Blockchain Hash": r.blockchain?.hash || "",
+        "Created At": r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Auto-fit columns
+      const colWidths = Object.keys(excelData[0] || {}).map(key => ({
+        wch: Math.max(key.length, 15)
+      }));
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook
+      const sheetName = purokFilter === "all" ? "All_Puroks" : `Purok_${purokFilter.replace(" ", "_")}`;
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+      // Generate filename
+      const timestamp = dayjs().format("YYYYMMDD_HHmmss");
+      const filename = `Residents_${sheetName}_${timestamp}.xlsx`;
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+      
+      message.success("Excel file exported successfully!");
+      setExportOpen(false);
+      exportForm.resetFields();
+    } catch (error) {
+      console.error("Export error:", error);
+      message.error("Failed to export data");
+    }
+  };
+
   // Statistics
   const totalResidents = residents.length;
   const maleResidents = residents.filter(r => r.gender === "male").length;
   const femaleResidents = residents.filter(r => r.gender === "female").length;
   const activeResidents = residents.filter(r => r.status === "verified").length;
   const inactiveResidents = residents.filter(r => r.status !== "verified").length;
+
+  // Purok statistics
+  const purok1Count = residents.filter(r => r.address?.purok === "Purok 1").length;
+  const purok2Count = residents.filter(r => r.address?.purok === "Purok 2").length;
+  const purok3Count = residents.filter(r => r.address?.purok === "Purok 3").length;
+  const purok4Count = residents.filter(r => r.address?.purok === "Purok 4").length;
+  const purok5Count = residents.filter(r => r.address?.purok === "Purok 5").length;
 
   const columns = [
     {
@@ -383,7 +464,70 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardContent>
               </Card>
-              {/* Add more cards as needed */}
+            </div>
+
+            {/* Purok Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
+              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok1Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok1Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 2</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok2Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok2Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 3</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok3Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok3Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 4</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok4Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok4Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 5</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok5Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok5Count}</div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -416,6 +560,14 @@ export default function AdminResidentManagement() {
               >
                 Add Resident
               </Button>
+              <Button
+                onClick={() => {
+                  exportForm.setFieldsValue({ purokFilter: "all" });
+                  setExportOpen(true);
+                }}
+              >
+                Export Excel
+              </Button>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -429,6 +581,46 @@ export default function AdminResidentManagement() {
             />
           </div>
         </div>
+
+        {/* Export Modal */}
+        <Modal
+          title="Export Residents to Excel"
+          open={exportOpen}
+          onCancel={() => { setExportOpen(false); exportForm.resetFields(); }}
+          onOk={handleExport}
+          okText="Export"
+          width={400}
+        >
+          <Form form={exportForm} layout="vertical" initialValues={{ purokFilter: "all" }}>
+            <Form.Item 
+              name="purokFilter" 
+              label="Select Purok" 
+              rules={[{ required: true, message: "Please select a purok" }]}
+            >
+              <Select
+                placeholder="Choose purok to export"
+                options={[
+                  { value: "all", label: "All Puroks" },
+                  { value: "Purok 1", label: "Purok 1" },
+                  { value: "Purok 2", label: "Purok 2" },
+                  { value: "Purok 3", label: "Purok 3" },
+                  { value: "Purok 4", label: "Purok 4" },
+                  { value: "Purok 5", label: "Purok 5" },
+                ]}
+              />
+            </Form.Item>
+            <div className="text-sm text-gray-500 mt-2">
+              <p><strong>Export includes:</strong></p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Personal information (name, gender, birth date)</li>
+                <li>Contact details (mobile, email)</li>
+                <li>Address information</li>
+                <li>Status and blockchain data</li>
+              </ul>
+            </div>
+          </Form>
+        </Modal>
+
         {/* Add Resident Modal */}
         <Modal
           title="Add Resident"

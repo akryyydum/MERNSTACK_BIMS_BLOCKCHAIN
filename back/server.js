@@ -29,6 +29,8 @@ const adminHouseholdRoutes = require("./routes/adminHouseholdRoutes");
 app.use("/api/admin/households", adminHouseholdRoutes);
 const adminComplaintRoutes = require("./routes/adminComplaintRoutes");
 app.use("/api/admin/complaints", adminComplaintRoutes);
+const adminFinancialRoutes = require("./routes/adminFinancialRoutes");
+app.use("/api/admin/financial", adminFinancialRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

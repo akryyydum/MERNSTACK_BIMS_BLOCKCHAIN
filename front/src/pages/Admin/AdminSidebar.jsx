@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined, UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined,
-    SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined, ExclamationCircleOutlined
+    SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined, ExclamationCircleOutlined,
+    DollarOutlined
  } from "@ant-design/icons";
 import AdminResidentManagement from "./AdminResidentManagement";
 
@@ -13,6 +14,7 @@ const defaultMenu = [
   { to: "/admin/official-management", label: "Officials Management", icon: <UserOutlined /> },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined /> },
+  { to: "/admin/financial-reports", label: "Financial Reports", icon: <DollarOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
 
   { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },

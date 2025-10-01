@@ -10,13 +10,14 @@ import ResidentDashboard from "./pages/Residents/ResidentDashboard";
 import ResidentRequest from "./pages/Residents/ResidentRequest";
 import ResidentPayment from "./pages/Residents/ResidentPayment";
 import SplashRedirect from "./routes/SplashRedirect";
-import AdminUserManagement from "./pages/Admin/AdminUserManagement"; // add
+import AdminUserManagement from "./pages/Admin/AdminUserManagement";
 import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
 import AdminDocumentRequests from "./pages/Admin/AdminDocumentRequests";
 import HouseholdManagement from "./pages/Admin/HouseholdManagement";
 import AdminPublicDocuments from "./pages/Admin/AdminPublicDocuments";
 import AdminOfficialManagement from "./pages/Admin/AdminOfficialManagement";
 import AdminReportsComplaints from "./pages/Admin/AdminReportsComplaints";
+import AdminFinancialReports from "./pages/Admin/AdminFinancialReports";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -32,11 +33,12 @@ function App() {
         {/* Admin only */}
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/user-management" element={<AdminUserManagement />} /> {/* add */}
+          <Route path="/admin/user-management" element={<AdminUserManagement />} />
           <Route path="/admin/residents" element={<AdminResidentManagement />} />
           <Route path="/admin/households" element={<HouseholdManagement />} />
           <Route path="/admin/document-requests" element={<AdminDocumentRequests />} />
           <Route path="/admin/reports-complaints" element={<AdminReportsComplaints />} />
+          <Route path="/admin/financial-reports" element={<AdminFinancialReports />} />
           <Route path="/admin/publicdocuments" element={<AdminPublicDocuments />} />
           <Route path="/admin/official-management" element={<AdminOfficialManagement />} />
         </Route>
