@@ -1,37 +1,39 @@
-const express = require('express');
-const crypto = require('crypto');
-const multer = require('multer');
-const Document = require('../models/publicdocs.model');
-const fabricService = require('../services/fabricService');
-
+const express = require("express");
 const router = express.Router();
+const path = require("path");
+const multer = require("multer");
+const {
+  listAdmin,
+  create,
+  remove,
+  download,
+  preview,
+} = require("../controllers/adminPublicDocumentsController");
+const { auth, authorizeRoles } = require("../middleware/authMiddleware");
 
-router.post('/upload', multer().single('file'), async (req, res) => {
-    try{
-        const fiileBuffer = require('fs').readFileSync(req.file.path);
-        const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+const uploadDir = path.join(__dirname, "..", "uploads", "publicdocs");
+require("fs").mkdirSync(uploadDir, { recursive: true });
 
-        const newDoc = new Document({
-            title: req.body.title,
-            filename: req.file.originalname,
-            uri: req.file.path,
-            hash: hash,
-        }); 
-
-        await newDoc.save();
-
-        await fabricService.storeDocument(newDoc._id.toString(), newDoc.title, newDoc.hash, newDoc.uri);
-
-        res.status(201).json({ message: 'Document uploaded successfully in blockchain!', document: newDoc });
-    } catch (error) {
-        console.error('Error uploading document:', error);
-        res.status(500).json({ message: 'Error uploading document', error: error.message });
-    }
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) =>
+    cb(
+      null,
+      Date.now() +
+        "-" +
+        Math.random().toString(36).slice(2, 8) +
+        path.extname(file.originalname)
+    ),
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-router.get('/', async (req, res) => {
-    const docs = await Document.find();
-    res.json(docs);
-});
+router.get("/", auth, authorizeRoles("admin"), listAdmin);
+router.post("/", auth, authorizeRoles("admin"), upload.single("file"), create);
+router.delete("/:id", auth, authorizeRoles("admin"), remove);
+router.get("/:id/download", auth, authorizeRoles("admin"), download);
+router.get("/:id/preview", auth, authorizeRoles("admin"), preview);
 
 module.exports = router;

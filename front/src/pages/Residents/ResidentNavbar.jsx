@@ -103,6 +103,9 @@ const ResidentNavbar = () => {
           <Menu.Item key="/resident/payments" icon={<DollarOutlined />}>
             <NavLink to="/resident/payments" className="no-underline hover:no-underline">Payments</NavLink>
           </Menu.Item>
+          <Menu.Item key="/resident/public-documents" icon={<FileTextOutlined />}>
+            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">Public Docs</NavLink>
+          </Menu.Item>
         </Menu>
       </div>
 

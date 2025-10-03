@@ -18,7 +18,7 @@ import AdminPublicDocuments from "./pages/Admin/AdminPublicDocuments";
 import AdminOfficialManagement from "./pages/Admin/AdminOfficialManagement";
 import AdminReportsComplaints from "./pages/Admin/AdminReportsComplaints";
 import AdminFinancialReports from "./pages/Admin/AdminFinancialReports";
-
+import AdminBlockchainNetwork from "./pages/Admin/AdminBlockchainNetwork";
 function App() {
   const [count, setCount] = useState(0)
 
@@ -40,6 +40,7 @@ function App() {
           <Route path="/admin/reports-complaints" element={<AdminReportsComplaints />} />
           <Route path="/admin/financial-reports" element={<AdminFinancialReports />} />
           <Route path="/admin/publicdocuments" element={<AdminPublicDocuments />} />
+          <Route path="/admin/blockchain" element={<AdminBlockchainNetwork />} />
           <Route path="/admin/official-management" element={<AdminOfficialManagement />} />
         </Route>
 

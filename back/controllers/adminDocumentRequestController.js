@@ -61,23 +61,44 @@ exports.delete = async (req, res) => {
 };
 
 exports.create = async (req, res) => {
-    try {
-        const doc = await DocumentRequest.create(req.body);
-        const contract = await getContract();
-        await contract.submitTransaction(
-            "createRequest",
-        doc._id.toString(),
-        doc.residentId.toString(),
-        doc.requestedBy.toString(),
-        doc.documentType,
-        doc.purpose || "",
-        doc.status
-        );
-        res.status(201).json(doc);
-    } catch (error) {
-        console.error("Error creating document request:", error);
-        res.status(500).json({ message: "Failed to create document request." });
-    }
+  try {
+    const doc = await DocumentRequest.create(req.body);
+
+    const contract = await getContract();
+    const txn = contract.createTransaction("createRequest");
+
+    // Submit to blockchain
+    const result = await txn.submit(
+      doc._id.toString(),
+      doc.residentId.toString(),
+      doc.requestedBy.toString(),
+      doc.documentType,
+      doc.purpose || "",
+      doc.status
+    );
+
+    const txId = txn.getTransactionId();
+
+    const crypto = require("crypto");
+    const hash = crypto.createHash("sha256")
+      .update(JSON.stringify(doc.toObject()))
+      .digest("hex");
+
+    doc.blockchain = {
+      hash,
+      lastTxId: txId,
+      issuedBy: req.user?._id?.toString() || "system",
+      issuedTo: doc.residentId.toString(),
+      issuedAt: new Date()
+    };
+
+    await doc.save();
+
+    res.status(201).json(doc);
+  } catch (error) {
+    console.error("Error creating document request:", error);
+    res.status(500).json({ message: "Failed to create document request." });
+  }
 };
 
 exports.acceptRequest = async (req, res) => {

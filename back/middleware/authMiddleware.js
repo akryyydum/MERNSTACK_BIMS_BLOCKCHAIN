@@ -19,3 +19,26 @@ exports.authorize = (...roles) => {
         next();
     };
 };
+
+function authorizeRoles(...allowed) {
+  return (req, _res, next) => {
+    if (!req.user) {
+      return _res.status(401).json({ message: "Not authenticated" });
+    }
+    if (!allowed.includes(req.user.role)) {
+      return _res.status(403).json({ message: "Forbidden" });
+    }
+    next();
+  };
+}
+
+function protect(req, res, next) {
+  return exports.auth(req, res, next);
+}
+
+module.exports = {
+  auth: exports.auth,
+  authorize: exports.authorize,
+  authorizeRoles,
+  protect, // alias so existing code using protect works
+};

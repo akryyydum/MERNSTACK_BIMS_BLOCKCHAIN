@@ -13,10 +13,9 @@ const defaultMenu = [
   { to: "/admin/households", label: "Household Management", icon: <HomeOutlined /> },
   { to: "/admin/official-management", label: "Officials Management", icon: <UserOutlined /> },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
+  { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
   { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined /> },
   { to: "/admin/financial-reports", label: "Financial Reports", icon: <DollarOutlined /> },
-  { to: "/admin/blockchain", label: "Blockchain Network", icon:<BlockOutlined /> },
-
   { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },
   { to: "/admin/analytics", label: "Analytics", icon: <BarChartOutlined /> },
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },

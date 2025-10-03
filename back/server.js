@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+
 const cors = require('cors');
 
 dotenv.config();
@@ -31,6 +32,10 @@ const adminComplaintRoutes = require("./routes/adminComplaintRoutes");
 app.use("/api/admin/complaints", adminComplaintRoutes);
 const adminFinancialRoutes = require("./routes/adminFinancialRoutes");
 app.use("/api/admin/financial", adminFinancialRoutes);
+const adminPublicDocumentRoutes = require("./routes/adminPublicDocumentRoutes");
+app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
+const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
+app.use("/api/resident/public-documents", residentPublicDocumentRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
