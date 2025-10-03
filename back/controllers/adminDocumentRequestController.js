@@ -1,6 +1,6 @@
 const DocumentRequest = require('../models/document.model');
 const sendEmail = require('../utils/sendEmail');
-
+const { getContract } = require('../utils/fabricClient');
 exports.list = async (req, res) => {
   try {
     const docs = await DocumentRequest.find()
@@ -63,6 +63,16 @@ exports.delete = async (req, res) => {
 exports.create = async (req, res) => {
     try {
         const doc = await DocumentRequest.create(req.body);
+        const contract = await getContract();
+        await contract.submitTransaction(
+            "createRequest",
+        doc._id.toString(),
+        doc.residentId.toString(),
+        doc.requestedBy.toString(),
+        doc.documentType,
+        doc.purpose || "",
+        doc.status
+        );
         res.status(201).json(doc);
     } catch (error) {
         console.error("Error creating document request:", error);
