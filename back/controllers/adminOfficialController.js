@@ -18,7 +18,7 @@ exports.list = async (req, res) => {
 // Create a new official (accept flat fields, like resident controller)
 exports.create = async (req, res) => {
   try {
-    const { username, password, fullName, email, mobile } = req.body;
+    const { username, password, fullName, email, mobile, position } = req.body;
     if (!username || !password || !fullName || !email || !mobile) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -34,7 +34,8 @@ exports.create = async (req, res) => {
       username,
       passwordHash,
       role: "official",
-      fullName,
+  fullName,
+  position: position?.trim(),
       contact: {
         email: String(email).toLowerCase().trim(),
         mobile,
@@ -46,7 +47,8 @@ exports.create = async (req, res) => {
       _id: user._id,
       username: user.username,
       fullName: user.fullName,
-      role: user.role,
+  role: user.role,
+  position: user.position,
       contact: user.contact,
       isActive: user.isActive,
       isVerified: user.isVerified,
@@ -62,9 +64,10 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullName, email, mobile, isActive } = req.body;
+  const { fullName, email, mobile, isActive, position } = req.body;
     const update = {};
     if (fullName) update.fullName = String(fullName).trim();
+  if (position !== undefined) update.position = String(position).trim();
     if (typeof isActive === "boolean") update.isActive = isActive;
     if (email !== undefined) update["contact.email"] = String(email).toLowerCase().trim();
     if (mobile !== undefined) update["contact.mobile"] = mobile;

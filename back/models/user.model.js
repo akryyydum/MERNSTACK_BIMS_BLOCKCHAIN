@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema({
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'official', 'resident'], default: 'resident' },
     fullName: { type: String, required: true },
+    // Position/title for officials (ignored for other roles)
+    position: { type: String },
     contact: {
         mobile: { type: String, required: true },
         email: { type: String, required: true, lowercase: true, trim: true }

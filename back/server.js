@@ -1,19 +1,47 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
-
 const cors = require('cors');
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
+// Basic request logger for debugging network issues
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Development-friendly CORS (allow explicit origins + any localhost port)
+const explicitOrigins = [
+  process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+  'http://localhost:3000'
+].filter(Boolean);
+const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 app.use(cors({
-  origin: [process.env.FRONTEND_ORIGIN || 'http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // same-origin / curl / postman
+    if (explicitOrigins.includes(origin) || localhostRegex.test(origin)) return callback(null, true);
+    console.warn('[CORS] Blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
 }));
 
-app.use(express.json());
+
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/health', (req, res) => {
+  const state = require('mongoose').connection.readyState; // 0=disconnected,1=connected,2=connecting,3=disconnecting
+  res.json({ status: 'ok', dbState: state });
+});
+// Root route for clarity
+app.get('/', (_req, res) => {
+  res.json({ message: 'API running', health: '/health' });
+});
 
 app.use('/api/auth', require('./routes/authRoutes'));
 const adminUserRoutes = require("./routes/adminUserRoutes");
@@ -37,5 +65,28 @@ app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
 app.use("/api/resident/public-documents", residentPublicDocumentRoutes);
 
+// Fallback 404 (after all routes)
+app.use((req, res, next) => {
+  if (res.headersSent) return next();
+  res.status(404).json({ message: 'Route not found' });
+});
+
+// Error handler
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  console.error('[SERVER] Unhandled error:', err.message);
+  if (res.headersSent) return;
+  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
+});
+
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Start only after DB connects
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
+  })
+  .catch(err => {
+    console.error('[Server] Failed to start due to DB error:', err.message);
+    process.exit(1);
+  });

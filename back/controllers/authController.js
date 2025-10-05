@@ -109,6 +109,7 @@ async function register(req, res) {
 async function login(req, res) {
   try {
     const { usernameOrEmail, password } = req.body;
+    console.log('[AUTH] Incoming login attempt', { usernameOrEmail, hasPassword: !!password });
 
     // Find user by either username or email
     const user = await User.findOne({
@@ -148,8 +149,10 @@ async function login(req, res) {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
+    console.log('[AUTH] Login success', { userId: user._id.toString(), role: user.role });
     res.json({ token, role: user.role, isVerified, userData });
   } catch (err) {
+    console.error('[AUTH] Login error', err);
     res.status(500).json({ message: err.message });
   }
 }
