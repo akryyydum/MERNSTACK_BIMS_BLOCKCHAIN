@@ -30,8 +30,8 @@ const defaultMenu = [
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
   { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined /> },
   { to: "/admin/financial-reports", label: "Financial Reports", icon: <DollarOutlined /> },
-  { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
   { to: "/admin/publicdocuments", label: "Public Documents", icon: <UserOutlined /> },
+  { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
 ];
 
 export default function AdminSidebar({

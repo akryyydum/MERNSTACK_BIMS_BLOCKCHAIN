@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Card, Row, Col, Statistic, Tabs } from "antd";
+import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Row, Col, Tabs } from "antd";
 import { AdminLayout } from "./AdminSidebar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, DollarSign, TrendingUp, TrendingDown, PieChart } from "lucide-react";
 import { UserOutlined, SyncOutlined, FileTextOutlined, BarChartOutlined } from "@ant-design/icons";
 import axios from "axios";
@@ -367,31 +368,104 @@ export default function AdminFinancialReports() {
   );
 
   return (
-    <AdminLayout title="Financial Reports">
-      <div className="space-y-6 px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Financial & Resource Allocation Reports</h1>
-            <p className="text-gray-600 mt-1">Comprehensive financial tracking with blockchain integration</p>
-          </div>
-          <div className="flex items-center gap-3 bg-white p-4 rounded-lg shadow">
-            <UserOutlined className="text-2xl text-blue-600" />
+    <AdminLayout>
+      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
+        {/* Navbar */}
+        <div>
+          <nav className="px-5 h-20 flex items-center justify-between p-15">
             <div>
-              <div className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</div>
-              <div className="text-xs text-gray-500">{username}</div>
+              <span className="text-2xl md:text-4xl font-bold text-gray-800">
+                Financial Reports
+              </span>
+            </div>
+            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
+              <UserOutlined className="text-2xl text-blue-600" />
+              <div className="flex flex-col items-start">
+                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
+                <span className="text-xs text-gray-500">{username}</span>
+              </div>
+            </div>
+          </nav>
+
+          {/* Statistics Section */}
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Revenue
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <TrendingUp className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-green-600">
+                    ₱{totalRevenue.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Expenses
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <TrendingDown className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-red-600">
+                    ₱{totalExpenses.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Net Income
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <DollarSign className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ₱{netIncome.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Allocations
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <PieChart className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-yellow-600">
+                    ₱{totalAllocations.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
 
-        {/* Date Range and Controls */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+        {/* Controls Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
               <RangePicker
                 value={dateRange}
                 onChange={setDateRange}
                 format="YYYY-MM-DD"
+                className="min-w-[200px]"
               />
               <Select
                 placeholder="Filter by type"
@@ -416,7 +490,7 @@ export default function AdminFinancialReports() {
                 <Select.Option value="allocation">Allocation</Select.Option>
               </Select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 icon={<SyncOutlined />} 
                 loading={syncing}
@@ -440,102 +514,73 @@ export default function AdminFinancialReports() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <Row gutter={16}>
-          <Col span={6}>
-            <Card className="shadow-md">
-              <Statistic
-                title="Total Revenue"
-                value={totalRevenue}
-                precision={2}
-                prefix="₱"
-                valueStyle={{ color: '#10B981' }}
-              />
+        {/* Charts Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="bg-slate-50 rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">Revenue by Type</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 300 }}>
+                {dashboardData.revenues?.length > 0 ? (
+                  <Pie data={revenueChartData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">No revenue data available</div>
+                )}
+              </CardContent>
             </Card>
-          </Col>
-          <Col span={6}>
-            <Card className="shadow-md">
-              <Statistic
-                title="Total Expenses"
-                value={totalExpenses}
-                precision={2}
-                prefix="₱"
-                valueStyle={{ color: '#EF4444' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card className="shadow-md">
-              <Statistic
-                title="Net Income"
-                value={netIncome}
-                precision={2}
-                prefix="₱"
-                valueStyle={{ color: netIncome >= 0 ? '#10B981' : '#EF4444' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card className="shadow-md">
-              <Statistic
-                title="Total Allocations"
-                value={totalAllocations}
-                precision={2}
-                prefix="₱"
-                valueStyle={{ color: '#F59E0B' }}
-              />
-            </Card>
-          </Col>
-        </Row>
 
-        {/* Charts */}
-        <Row gutter={16}>
-          <Col span={12}>
-            <Card title="Revenue by Type" className="shadow-md">
-              {dashboardData.revenues?.length > 0 ? (
-                <Pie data={revenueChartData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
-              ) : (
-                <div className="text-center text-gray-500 py-8">No revenue data available</div>
-              )}
+            <Card className="bg-slate-50 rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">Monthly Trends</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 300 }}>
+                {dashboardData.monthlyTrends?.length > 0 ? (
+                  <Line data={monthlyTrendData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">No trend data available</div>
+                )}
+              </CardContent>
             </Card>
-          </Col>
-          <Col span={12}>
-            <Card title="Monthly Trends" className="shadow-md">
-              {dashboardData.monthlyTrends?.length > 0 ? (
-                <Line data={monthlyTrendData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
-              ) : (
-                <div className="text-center text-gray-500 py-8">No trend data available</div>
-              )}
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Transactions Table */}
-        <Card title="Financial Transactions" className="shadow-md">
-          <div className="mb-4 flex justify-between items-center">
-            <Input.Search
-              placeholder="Search transactions..."
-              allowClear
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 300 }}
-            />
-            <Button
-              loading={exporting}
-              onClick={handleExportData}
-            >
-              Export to Excel
-            </Button>
           </div>
-          <Table
-            columns={columns}
-            dataSource={filteredTransactions}
-            rowKey="_id"
-            loading={loading}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 1200 }}
-          />
-        </Card>
+        </div>
+
+        {/* Transactions Table Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <Card className="bg-slate-50 rounded-2xl shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold text-black">Financial Transactions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <Input.Search
+                  placeholder="Search transactions..."
+                  allowClear
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="min-w-[180px] max-w-xs"
+                />
+                <Button
+                  loading={exporting}
+                  onClick={handleExportData}
+                >
+                  Export to Excel
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
+                <Table
+                  columns={columns}
+                  dataSource={filteredTransactions}
+                  rowKey="_id"
+                  loading={loading}
+                  pagination={{ pageSize: 10 }}
+                  scroll={{ x: 1200 }}
+                  size="small"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Create Transaction Modal */}
         <Modal

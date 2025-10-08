@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AdminLayout } from './AdminSidebar';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowUpRight } from "lucide-react";
 import {
-  Card,
   Typography,
   Row,
   Col,
-  Statistic,
   Table,
   Tag,
   Progress,
@@ -52,6 +52,10 @@ export default function AdminDashboard() {
   const [financialTotal, setFinancialTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Get user info from localStorage
+  const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+  const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   // Fetch all dashboard data
   useEffect(() => {
@@ -177,163 +181,307 @@ export default function AdminDashboard() {
   })), [complaints]);
 
   return (
-    <AdminLayout title="Admin">
-      <Space direction="vertical" size={24} style={{ width: '100%' }}>
-        <Title level={3} style={{ margin: 0 }}>Barangay Management System Dashboard</Title>
+    <AdminLayout>
+      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
+        {/* Navbar */}
+        <div>
+          <nav className="px-5 h-20 flex items-center justify-between p-15">
+            <div>
+              <span className="text-2xl md:text-4xl font-bold text-gray-800">
+                Dashboard
+              </span>
+            </div>
+            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
+              <UserOutlined className="text-2xl text-blue-600" />
+              <div className="flex flex-col items-start">
+                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
+                <span className="text-xs text-gray-500">{username}</span>
+              </div>
+            </div>
+          </nav>
 
-        {/* Statistic Cards */}
-        <Row gutter={[16, 16]}>
-          <Col xs={12} md={6}>
-            <Card loading={loading}>
-              <Statistic title="Total Residents" value={totalResidents} prefix={<TeamOutlined />} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card loading={loading}>
-              <Statistic title="Active Officials" value={activeOfficials} prefix={<UserOutlined />} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card loading={loading}>
-              <Statistic title="Pending Document Requests" value={pendingDocRequests} prefix={<FileProtectOutlined />} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card loading={loading}>
-              <Statistic title="Total Financial Transactions" value={financialTotal} prefix={<DollarCircleOutlined />} />
-            </Card>
-          </Col>
-        </Row>
+          {/* Statistics Section */}
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Residents
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <TeamOutlined className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {loading ? <Spin size="small" /> : totalResidents}
+                  </div>
+                </CardContent>
+              </Card>
 
-        <Row gutter={[16, 16]}>
-          {/* Population Breakdown */}
-          <Col xs={24} md={6}>
-            <Card title="Population Breakdown" bodyStyle={{ height: 280 }} loading={loading}>
-              {populationData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={populationData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                      {populationData.map((entry, index) => (
-                        <Cell key={`pop-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Active Officials
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <UserOutlined className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {loading ? <Spin size="small" /> : activeOfficials}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Pending Requests
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <FileProtectOutlined className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {loading ? <Spin size="small" /> : pendingDocRequests}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Financial Transactions
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <DollarCircleOutlined className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {loading ? <Spin size="small" /> : financialTotal}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts and Analytics Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+            {/* Population Breakdown */}
+            <Card className="bg-slate-50 rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">Population Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 280 }}>
+                {loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Spin />
+                  </div>
+                ) : populationData.length ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="80%">
+                      <PieChart>
+                        <Pie data={populationData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                          {populationData.map((entry, index) => (
+                            <Cell key={`pop-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Space size={12} wrap>
+                      {populationData.map((p, i) => (
+                        <Space key={p.name} size={4}>
+                          <span style={{ display: 'inline-block', width: 10, height: 10, background: COLORS[i], borderRadius: 2 }} />
+                          <span className="text-sm">{p.name} ({populationTotal ? Math.round((p.value / populationTotal) * 100) : 0}%)</span>
+                        </Space>
                       ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <Spin />
-              )}
-              <Divider style={{ margin: '8px 0' }} />
-              <Space size={12} wrap>
-                {populationData.map((p, i) => (
-                  <Space key={p.name} size={4}>
-                    <span style={{ display: 'inline-block', width: 10, height: 10, background: COLORS[i], borderRadius: 2 }} />
-                    <Text>{p.name} ({populationTotal ? Math.round((p.value / populationTotal) * 100) : 0}%)</Text>
-                  </Space>
-                ))}
-              </Space>
+                    </Space>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">No data available</div>
+                )}
+              </CardContent>
             </Card>
-          </Col>
 
-          {/* Monthly Requests Trend */}
-          <Col xs={24} md={6}>
-            <Card title="Monthly Requests Trend" bodyStyle={{ height: 280 }} loading={loading}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={requestTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" fontSize={12} />
-                  <YAxis fontSize={12} allowDecimals={false} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#1677FF" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
+            {/* Monthly Requests Trend */}
+            <Card className="bg-slate-50 rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">Monthly Requests Trend</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 280 }}>
+                {loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Spin />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={requestTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" fontSize={12} />
+                      <YAxis fontSize={12} allowDecimals={false} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="value" stroke="#1677FF" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
             </Card>
-          </Col>
 
-          {/* Financial Flow */}
-          <Col xs={24} md={6}>
-            <Card title="Financial Flow" bodyStyle={{ height: 280 }} loading={loading}>
-              {financialFlowData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={financialFlowData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                      {financialFlowData.map((entry, index) => (
-                        <Cell key={`fin-${index}`} fill={COLORS[(index + 1) % COLORS.length]} />
+            {/* Financial Flow */}
+            <Card className="bg-slate-50 rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">Financial Flow</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 280 }}>
+                {loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Spin />
+                  </div>
+                ) : financialFlowData.length ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="80%">
+                      <PieChart>
+                        <Pie data={financialFlowData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                          {financialFlowData.map((entry, index) => (
+                            <Cell key={`fin-${index}`} fill={COLORS[(index + 1) % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Space size={12} wrap>
+                      {financialFlowData.map((p, i) => (
+                        <Space key={p.name} size={4}>
+                          <span style={{ display: 'inline-block', width: 10, height: 10, background: COLORS[(i + 1) % COLORS.length], borderRadius: 2 }} />
+                          <span className="text-sm">{p.name}</span>
+                        </Space>
                       ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <Spin />
-              )}
-              <Divider style={{ margin: '8px 0' }} />
-              <Space size={12} wrap>
-                {financialFlowData.map((p, i) => (
-                  <Space key={p.name} size={4}>
-                    <span style={{ display: 'inline-block', width: 10, height: 10, background: COLORS[(i + 1) % COLORS.length], borderRadius: 2 }} />
-                    <Text>{p.name}</Text>
+                    </Space>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">No data available</div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Blockchain Status */}
+            <Card className="bg-slate-50 rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">Blockchain Network Status</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 280 }}>
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  <div className="text-sm font-medium">All 4 peers active</div>
+                  <Space wrap>
+                    <Tag color="green">Peer 1</Tag>
+                    <Tag color="green">Peer 2</Tag>
+                    <Tag color="green">Peer 3</Tag>
+                    <Tag color="green">Peer 4</Tag>
                   </Space>
-                ))}
-              </Space>
-            </Card>
-          </Col>
-
-          {/* Blockchain Status */}
-          <Col xs={24} md={6}>
-            <Card title="Blockchain Network Status" bodyStyle={{ height: 280 }}>
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                <Text>All 4 peers active</Text>
-                <Space wrap>
-                  <Tag color="green">Peer 1</Tag>
-                  <Tag color="green">Peer 2</Tag>
-                  <Tag color="green">Peer 3</Tag>
-                  <Tag color="green">Peer 4</Tag>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <div>Last block height: 1289</div>
+                    <div>Latency: 120ms</div>
+                    <div>Chaincode: barangaycc@1.0</div>
+                  </div>
                 </Space>
-                <Divider style={{ margin: '8px 0' }} />
-                <Text type="secondary" style={{ fontSize: 12 }}>Last block height: 1289</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>Latency: 120ms</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>Chaincode: barangaycc@1.0</Text>
-              </Space>
+              </CardContent>
             </Card>
-          </Col>
-        </Row>
+          </div>
+        </div>
 
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={10}>
-            <Card title="Recent Document Requests" extra={<ThunderboltOutlined />} loading={loading}>
-              <Table size="small" pagination={false} columns={docRequestColumns} dataSource={docRequestData} rowKey="key" />
+        {/* Tables Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            <Card className="bg-slate-50 rounded-2xl shadow-md lg:col-span-1 xl:col-span-1">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black flex items-center gap-2">
+                  <ThunderboltOutlined />
+                  Recent Document Requests
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Spin />
+                  </div>
+                ) : (
+                  <Table 
+                    size="small" 
+                    pagination={false} 
+                    columns={docRequestColumns} 
+                    dataSource={docRequestData} 
+                    rowKey="key"
+                    className="text-sm"
+                  />
+                )}
+              </CardContent>
             </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card title="Recent Complaints" extra={<FileProtectOutlined />} loading={loading}>
-              <Table size="small" pagination={false} columns={complaintColumns} dataSource={complaintData} rowKey="key" locale={{ emptyText: 'No complaints' }} />
+
+            <Card className="bg-slate-50 rounded-2xl shadow-md lg:col-span-1 xl:col-span-1">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black flex items-center gap-2">
+                  <FileProtectOutlined />
+                  Recent Complaints
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Spin />
+                  </div>
+                ) : (
+                  <Table 
+                    size="small" 
+                    pagination={false} 
+                    columns={complaintColumns} 
+                    dataSource={complaintData} 
+                    rowKey="key" 
+                    locale={{ emptyText: 'No complaints' }}
+                    className="text-sm"
+                  />
+                )}
+              </CardContent>
             </Card>
-          </Col>
-          <Col xs={24} md={6}>
-            <Card title="System Resource Monitor">
-              <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                <div>
-                  <Text>CPU</Text>
-                  <Progress percent={20} size="small" status="active" />
-                </div>
-                <div>
-                  <Text>Memory</Text>
-                  <Progress percent={60} size="small" status="active" strokeColor="#13C2C2" />
-                </div>
-                <div>
-                  <Text>Disk</Text>
-                  <Progress percent={30} size="small" status="exception" />
-                </div>
-                <Divider style={{ margin: '8px 0' }} />
-                <Space>
-                  <CloudServerOutlined /> <Text type="secondary">Uptime: 4d 12h</Text>
+
+            <Card className="bg-slate-50 rounded-2xl shadow-md lg:col-span-2 xl:col-span-1">
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-black">System Resource Monitor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  <div>
+                    <div className="text-sm font-medium mb-2">CPU</div>
+                    <Progress percent={20} size="small" status="active" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium mb-2">Memory</div>
+                    <Progress percent={60} size="small" status="active" strokeColor="#13C2C2" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium mb-2">Disk</div>
+                    <Progress percent={30} size="small" status="exception" />
+                  </div>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Space>
+                    <CloudServerOutlined /> 
+                    <span className="text-xs text-gray-500">Uptime: 4d 12h</span>
+                  </Space>
                 </Space>
-              </Space>
+              </CardContent>
             </Card>
-          </Col>
-        </Row>
-      </Space>
+          </div>
+        </div>
+      </div>
     </AdminLayout>
   );
 }
