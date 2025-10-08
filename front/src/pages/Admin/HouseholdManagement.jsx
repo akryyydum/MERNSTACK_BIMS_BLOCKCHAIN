@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Tabs, InputNumber, DatePicker, Checkbox } from "antd";
-import dayjs from "dayjs";
+import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Checkbox } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, DollarOutlined, FireOutlined, ReconciliationOutlined } from "@ant-design/icons";
+import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 
 // Hardcoded sample data for development
@@ -96,40 +95,6 @@ const sampleResidents = [
   }
 ];
 
-// Sample Gas Fee Data
-const sampleGasFees = [
-  {
-    _id: "gf1",
-    householdId: "h1",
-    month: "September 2025",
-    totalCharge: 850.00,
-    amountPaid: 500.00,
-    balance: 350.00,
-    lastUpdated: "2025-09-10T08:30:00Z",
-    status: "partial", // fully-paid, partial, unpaid
-  },
-  {
-    _id: "gf2",
-    householdId: "h2",
-    month: "September 2025",
-    totalCharge: 1200.00,
-    amountPaid: 1200.00,
-    balance: 0.00,
-    lastUpdated: "2025-09-12T14:15:00Z",
-    status: "fully-paid",
-  },
-  {
-    _id: "gf3",
-    householdId: "h3",
-    month: "September 2025",
-    totalCharge: 650.00,
-    amountPaid: 0.00,
-    balance: 650.00,
-    lastUpdated: "2025-09-05T10:45:00Z",
-    status: "unpaid",
-  }
-];
-
 const sampleHouseholds = [
   {
     _id: "h1",
@@ -143,11 +108,6 @@ const sampleHouseholds = [
       province: "Nueva Vizcaya",
       purok: "Purok 1",
       zipCode: "3700"
-    },
-    gasFee: {
-      currentMonthCharge: 850.00,
-      balance: 350.00,
-      lastPaymentDate: "2025-09-10",
     }
   },
   {
@@ -162,11 +122,6 @@ const sampleHouseholds = [
       province: "Nueva Vizcaya",
       purok: "Purok 3",
       zipCode: "3700"
-    },
-    gasFee: {
-      currentMonthCharge: 1200.00,
-      balance: 0.00,
-      lastPaymentDate: "2025-09-12",
     }
   },
   {
@@ -181,11 +136,6 @@ const sampleHouseholds = [
       province: "Nueva Vizcaya",
       purok: "Purok 4",
       zipCode: "3700"
-    },
-    gasFee: {
-      currentMonthCharge: 650.00,
-      balance: 650.00,
-      lastPaymentDate: null,
     }
   }
 ];
@@ -213,12 +163,6 @@ export default function HouseholdManagement() {
   const [viewOpen, setViewOpen] = useState(false);
   const [viewHousehold, setViewHousehold] = useState(null);
   const [residents, setResidents] = useState([]);
-  const [payOpen, setPayOpen] = useState(false);
-  const [payForm] = Form.useForm();
-  const [payLoading, setPayLoading] = useState(false);
-  const [paySummary, setPaySummary] = useState(null);
-  const [payHousehold, setPayHousehold] = useState(null);
-  const [payType, setPayType] = useState("garbage"); // "garbage" | "electric"
 
   // NEW: Only me toggles
   const [addOnlyMe, setAddOnlyMe] = useState(false);
@@ -255,69 +199,6 @@ export default function HouseholdManagement() {
       message.error(err?.response?.data?.message || "Failed to load households");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchFeeSummary = async (householdId, monthStr, type) => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/${type}`, {
-        headers: authHeaders(),
-        params: { month: monthStr },
-      });
-      setPaySummary(res.data);
-      payForm.setFieldsValue({
-        month: dayjs(`${monthStr}-01`),
-        totalCharge: Number(res.data.totalCharge || 0),
-        amount: Number(res.data.balance || res.data.totalCharge || 0),
-        method: undefined,
-        reference: undefined,
-      });
-    } catch (err) {
-      message.error(err?.response?.data?.message || `Failed to load ${type} summary`);
-    }
-  };
-
-  const openPayFee = async (household, type) => {
-    const monthStr = dayjs().format("YYYY-MM");
-    setPayHousehold(household);
-    setPayType(type);
-    setPayOpen(true);
-    await fetchFeeSummary(household._id, monthStr, type);
-  };
-
-  const onPayMonthChange = async (date) => {
-    const monthStr = dayjs(date).format("YYYY-MM");
-    if (payHousehold?._id) {
-      await fetchFeeSummary(payHousehold._id, monthStr, payType);
-    }
-  };
-
-  const submitPayFee = async () => {
-    try {
-      setPayLoading(true);
-      const values = await payForm.validateFields();
-      const payload = {
-        month: dayjs(values.month).format("YYYY-MM"),
-        amount: Number(values.amount),
-        totalCharge: Number(values.totalCharge),
-        method: values.method,
-        reference: values.reference,
-      };
-      const res = await axios.post(
-        `${API_BASE}/api/admin/households/${payHousehold._id}/${payType}/pay`,
-        payload,
-        { headers: authHeaders() }
-      );
-      message.success(res.data.status === "paid" ? `${payType === "garbage" ? "Garbage" : "Electric"} fee fully paid!` : "Partial payment recorded!");
-      setPayOpen(false);
-      setPaySummary(null);
-      setPayHousehold(null);
-      payForm.resetFields();
-      fetchHouseholds();
-    } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to record payment");
-    } finally {
-      setPayLoading(false);
     }
   };
 
@@ -482,8 +363,6 @@ export default function HouseholdManagement() {
       key: "actions",
       render: (_, r) => (
         <div className="flex gap-2">
-          <Button type="primary" size="small" onClick={() => openPayFee(r, "garbage")}>Pay Garbage</Button>
-          <Button type="primary" size="small" onClick={() => openPayFee(r, "electric")}>Pay Electric</Button>
           <Button size="small" onClick={() => openView(r)}>View</Button>
           <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
           <Popconfirm
@@ -911,80 +790,6 @@ export default function HouseholdManagement() {
               <Descriptions.Item label="Purok">{viewHousehold.address?.purok}</Descriptions.Item>
             </Descriptions>
           )}
-        </Modal>
-
-        {/* Pay Utility Modal */}
-        <Modal
-          title={`Pay ${payType === "garbage" ? "Garbage" : "Electric"} Fees${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
-          open={payOpen}
-          onCancel={() => { setPayOpen(false); setPayHousehold(null); setPaySummary(null); }}
-          onOk={submitPayFee}
-          okText="Pay"
-          confirmLoading={payLoading}
-          width={520}
-        >
-          <Form form={payForm} layout="vertical">
-            <Form.Item label="Fee Type">
-              <Input disabled value={payType === "garbage" ? "Garbage" : "Electric"} />
-            </Form.Item>
-            <Form.Item
-              name="month"
-              label="Month"
-              rules={[{ required: true, message: "Select month" }]}
-            >
-              <DatePicker picker="month" className="w-full" onChange={onPayMonthChange} />
-            </Form.Item>
-            <Form.Item
-              name="totalCharge"
-              label="Total Charge for Month"
-              rules={[{ required: true, message: "Enter total charge" }]}
-            >
-              <InputNumber className="w-full" min={0} step={50} />
-            </Form.Item>
-            <Form.Item
-              name="amount"
-              label="Amount to Pay"
-              rules={[
-                { required: true, message: "Enter amount to pay" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    const total = Number(getFieldValue("totalCharge") || 0);
-                    if (value === undefined) return Promise.reject();
-                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
-                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
-                    if (Number(value) > total + 1e-6) {
-                      return Promise.reject(new Error("Amount cannot exceed total charge"));
-                    }
-                    return Promise.resolve();
-                  },
-                }),
-              ]}
-            >
-              <InputNumber className="w-full" min={0} step={50} />
-            </Form.Item>
-            <Form.Item name="method" label="Payment Method">
-              <Select
-                allowClear
-                options={[
-                  { value: "cash", label: "Cash" },
-                  { value: "gcash", label: "GCash" },
-                  { value: "bank", label: "Bank Transfer" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="reference" label="Reference No. (optional)">
-              <Input />
-            </Form.Item>
-
-            {paySummary && (
-              <div className="p-2 rounded border border-slate-200 bg-slate-50 text-sm">
-                <div>Paid so far: ₱{Number(paySummary.amountPaid || 0).toFixed(2)}</div>
-                <div>Balance: ₱{Number(paySummary.balance || 0).toFixed(2)}</div>
-                <div>Status: {paySummary.status}</div>
-              </div>
-            )}
-          </Form>
         </Modal>
       </div>
     </AdminLayout>

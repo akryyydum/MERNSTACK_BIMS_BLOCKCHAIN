@@ -2,22 +2,34 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined, UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined,
     SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined, ExclamationCircleOutlined,
-    DollarOutlined
+    DollarOutlined, DeleteOutlined, BulbOutlined, DownOutlined, RightOutlined
  } from "@ant-design/icons";
 import AdminResidentManagement from "./AdminResidentManagement";
 
 const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
-  { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
-  { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
-  { to: "/admin/households", label: "Household Management", icon: <HomeOutlined /> },
-  { to: "/admin/official-management", label: "Officials Management", icon: <UserOutlined /> },
+  { 
+    to: "/admin/user-management", 
+    label: "User Management", 
+    icon: <UsergroupAddOutlined />,
+    subItems: [
+      { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
+      { 
+        to: "/admin/households", 
+        label: "Household Management", 
+        icon: <HomeOutlined />,
+        subItems: [
+          { to: "/admin/garbage-fees", label: "Garbage Fees", icon: <DeleteOutlined /> },
+          { to: "/admin/streetlight-fees", label: "Street Light Fees", icon: <BulbOutlined /> },
+        ]
+      },
+      { to: "/admin/official-management", label: "Officials Management", icon: <UserOutlined /> },
+    ]
+  },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
   { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined /> },
   { to: "/admin/financial-reports", label: "Financial Reports", icon: <DollarOutlined /> },
-  { to: "/admin/monitor", label: "System Monitor", icon: <MonitorOutlined /> },
-  { to: "/admin/analytics", label: "Analytics", icon: <BarChartOutlined /> },
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
   { to: "/admin/publicdocuments", label: "Public Documents", icon: <UserOutlined /> },
 ];
@@ -33,15 +45,55 @@ export default function AdminSidebar({
   const items = useMemo(() => menuItems ?? defaultMenu, [menuItems]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState({});
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
     if (saved) setCollapsed(saved === "1");
-  }, []);
+    
+    // Initialize expanded state for items with subItems (including nested)
+    const initialExpanded = {};
+    const initializeExpandedState = (menuItems) => {
+      menuItems.forEach(item => {
+        if (item.subItems) {
+          initialExpanded[item.to] = false;
+          // Recursively handle nested sub-items
+          initializeExpandedState(item.subItems);
+        }
+      });
+    };
+    initializeExpandedState(items);
+    
+    // Load saved expanded state from localStorage
+    const savedExpanded = localStorage.getItem("adminSidebarExpanded");
+    if (savedExpanded) {
+      try {
+        const parsedExpanded = JSON.parse(savedExpanded);
+        setExpandedItems({ ...initialExpanded, ...parsedExpanded });
+      } catch (e) {
+        setExpandedItems(initialExpanded);
+      }
+    } else {
+      setExpandedItems(initialExpanded);
+    }
+  }, [items]);
+
   const toggleCollapse = () => {
     const next = !collapsed;
     setCollapsed(next);
     localStorage.setItem("adminSidebarCollapsed", next ? "1" : "0");
+  };
+
+  const toggleSubMenu = (itemTo) => {
+    setExpandedItems(prev => {
+      const newState = {
+        ...prev,
+        [itemTo]: !prev[itemTo]
+      };
+      // Persist expanded state to localStorage
+      localStorage.setItem("adminSidebarExpanded", JSON.stringify(newState));
+      return newState;
+    });
   };
 
   const handleLogout = () => {
@@ -137,23 +189,176 @@ export default function AdminSidebar({
         {/* Menu */}
         <nav className="px-2 md:px-3 space-y-1 overflow-y-auto">
           {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                [
-                  "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                  isActive ? "bg-slate-100 text-black" : "text-slate-200 hover:bg-slate-300 hover:text-white",
-                ].join(" ")
-              }
-              onClick={() => {
-                setMobileOpen(false);
-                onNavigate?.(item.to);
-              }}
-            >
-              <span className="text-slate-900 group-hover:text-slate-900">{item.icon}</span>
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </NavLink>
+            <div key={item.to}>
+              {item.subItems ? (
+                // Parent item with sub-items
+                <div>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) =>
+                      [
+                        "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                        isActive ? "bg-slate-100 text-black" : "text-slate-700 hover:bg-slate-300 hover:text-black",
+                      ].join(" ")
+                    }
+                    onClick={() => {
+                      setMobileOpen(false);
+                      onNavigate?.(item.to);
+                    }}
+                  >
+                    <span className="text-slate-900 group-hover:text-slate-900">{item.icon}</span>
+                    {!collapsed && (
+                      <>
+                        <span className="truncate flex-1">{item.label}</span>
+                        <button
+                          className="ml-auto p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-md transition-all duration-200 flex items-center justify-center"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSubMenu(item.to);
+                          }}
+                        >
+                          <span 
+                            className={`inline-block transition-transform duration-300 ease-in-out ${
+                              expandedItems[item.to] ? 'rotate-180' : 'rotate-0'
+                            }`}
+                            style={{ fontSize: '10px' }}
+                          >
+                            <DownOutlined />
+                          </span>
+                        </button>
+                      </>
+                    )}
+                  </NavLink>
+                  
+                  {/* Sub-items */}
+                  {!collapsed && expandedItems[item.to] && (
+                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-300 pl-3 py-1">
+                      {item.subItems.map((subItem) => (
+                        <div key={subItem.to}>
+                          {subItem.subItems ? (
+                            // Nested sub-item with its own sub-items
+                            <div>
+                              <NavLink
+                                to={subItem.to}
+                                className={({ isActive }) =>
+                                  [
+                                    "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative",
+                                    isActive ? "bg-slate-100 text-black" : "text-slate-600 hover:bg-slate-300 hover:text-black",
+                                  ].join(" ")
+                                }
+                                onClick={() => {
+                                  setMobileOpen(false);
+                                  onNavigate?.(subItem.to);
+                                }}
+                              >
+                                <span className="text-slate-700 group-hover:text-slate-900 text-xs">{subItem.icon}</span>
+                                <span className="truncate text-sm flex-1">{subItem.label}</span>
+                                <button
+                                  className="ml-auto p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-md transition-all duration-200 flex items-center justify-center"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    toggleSubMenu(subItem.to);
+                                  }}
+                                >
+                                  <span 
+                                    className={`inline-block transition-transform duration-300 ease-in-out ${
+                                      expandedItems[subItem.to] ? 'rotate-180' : 'rotate-0'
+                                    }`}
+                                    style={{ fontSize: '8px' }}
+                                  >
+                                    <DownOutlined />
+                                  </span>
+                                </button>
+                              </NavLink>
+                              
+                              {/* Nested sub-items */}
+                              {expandedItems[subItem.to] && (
+                                <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-200 pl-3 py-1">
+                                  {subItem.subItems.map((nestedItem) => (
+                                    <NavLink
+                                      key={nestedItem.to}
+                                      to={nestedItem.to}
+                                        className={({ isActive }) =>
+                                          [
+                                            "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative",
+                                            isActive 
+                                              ? "bg-slate-100 text-black" 
+                                              : "text-slate-500 hover:bg-slate-300 hover:text-black",
+                                          ].join(" ")
+                                        }
+                                        onClick={() => {
+                                          setMobileOpen(false);
+                                          // Keep both parent and sub-item expanded
+                                          setExpandedItems(prev => ({
+                                            ...prev,
+                                            [item.to]: true,
+                                            [subItem.to]: true
+                                          }));
+                                          onNavigate?.(nestedItem.to);
+                                        }}
+                                      >
+                                        <span className="text-slate-600 group-hover:text-slate-900 text-xs">{nestedItem.icon}</span>
+                                        <span className="truncate text-xs">{nestedItem.label}</span>
+                                      </NavLink>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            // Regular sub-item
+                            <NavLink
+                              to={subItem.to}
+                              className={({ isActive }) =>
+                                [
+                                  "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative",
+                                  isActive 
+                                    ? "bg-slate-100 text-black" 
+                                    : "text-slate-600 hover:bg-slate-300 hover:text-black",
+                                ].join(" ")
+                              }
+                              onClick={() => {
+                                setMobileOpen(false);
+                                const parentItem = items.find(i => i.subItems?.some(sub => sub.to === subItem.to));
+                                if (parentItem) {
+                                  setExpandedItems(prev => ({
+                                    ...prev,
+                                    [parentItem.to]: true
+                                  }));
+                                }
+                                onNavigate?.(subItem.to);
+                              }}
+                            >
+                              <span className="text-slate-700 group-hover:text-slate-900 text-xs">{subItem.icon}</span>
+                              <span className="truncate text-sm">{subItem.label}</span>
+                            </NavLink>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Regular menu item
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    [
+                      "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                      isActive ? "bg-slate-100 text-black" : "text-slate-200 hover:bg-slate-300 hover:text-white",
+                    ].join(" ")
+                  }
+                  onClick={() => {
+                    setMobileOpen(false);
+                    onNavigate?.(item.to);
+                  }}
+                >
+                  <span className="text-slate-900 group-hover:text-slate-900">{item.icon}</span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </NavLink>
+              )}
+            </div>
           ))}
         </nav>
 

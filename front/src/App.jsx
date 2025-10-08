@@ -14,6 +14,8 @@ import AdminUserManagement from "./pages/Admin/AdminUserManagement";
 import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
 import AdminDocumentRequests from "./pages/Admin/AdminDocumentRequests";
 import HouseholdManagement from "./pages/Admin/HouseholdManagement";
+import AdminGarbageFees from "./pages/Admin/AdminGarbageFees";
+import AdminStreetLightFees from "./pages/Admin/AdminStreetLightFees";
 import AdminPublicDocuments from "./pages/Admin/AdminPublicDocuments";
 import AdminOfficialManagement from "./pages/Admin/AdminOfficialManagement";
 import AdminReportsComplaints from "./pages/Admin/AdminReportsComplaints";
@@ -37,6 +39,8 @@ function App() {
           <Route path="/admin/user-management" element={<AdminUserManagement />} />
           <Route path="/admin/residents" element={<AdminResidentManagement />} />
           <Route path="/admin/households" element={<HouseholdManagement />} />
+          <Route path="/admin/garbage-fees" element={<AdminGarbageFees />} />
+          <Route path="/admin/streetlight-fees" element={<AdminStreetLightFees />} />
           <Route path="/admin/document-requests" element={<AdminDocumentRequests />} />
           <Route path="/admin/reports-complaints" element={<AdminReportsComplaints />} />
           <Route path="/admin/financial-reports" element={<AdminFinancialReports />} />
