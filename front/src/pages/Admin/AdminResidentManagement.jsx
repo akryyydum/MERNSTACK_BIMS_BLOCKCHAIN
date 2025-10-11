@@ -16,6 +16,49 @@ const ADDRESS_DEFAULTS = {
   zipCode: "3700",
 };
 
+// Occupation options
+const OCCUPATION_OPTIONS = [
+  { value: "Student", label: "Student" },
+  { value: "Teacher", label: "Teacher" },
+  { value: "Doctor", label: "Doctor" },
+  { value: "Nurse", label: "Nurse" },
+  { value: "Engineer", label: "Engineer" },
+  { value: "Lawyer", label: "Lawyer" },
+  { value: "Police Officer", label: "Police Officer" },
+  { value: "Military", label: "Military" },
+  { value: "Government Employee", label: "Government Employee" },
+  { value: "Business Owner", label: "Business Owner" },
+  { value: "Farmer", label: "Farmer" },
+  { value: "Driver", label: "Driver" },
+  { value: "Mechanic", label: "Mechanic" },
+  { value: "Carpenter", label: "Carpenter" },
+  { value: "Electrician", label: "Electrician" },
+  { value: "Plumber", label: "Plumber" },
+  { value: "Construction Worker", label: "Construction Worker" },
+  { value: "Security Guard", label: "Security Guard" },
+  { value: "Salesperson", label: "Salesperson" },
+  { value: "Cashier", label: "Cashier" },
+  { value: "Cook", label: "Cook" },
+  { value: "Housewife", label: "Housewife" },
+  { value: "Retired", label: "Retired" },
+  { value: "Unemployed", label: "Unemployed" },
+  { value: "Self-Employed", label: "Self-Employed" },
+  { value: "Freelancer", label: "Freelancer" },
+  { value: "Other", label: "Other" }
+];
+
+// Education options (from Login.jsx)
+const EDUCATION_OPTIONS = [
+  { value: "Elementary", label: "Elementary" },
+  { value: "High School", label: "High School" },
+  { value: "Senior High School", label: "Senior High School" },
+  { value: "Vocational", label: "Vocational" },
+  { value: "College", label: "College" },
+  { value: "Post Graduate", label: "Post Graduate" },
+  { value: "Doctorate", label: "Doctorate" },
+  { value: "None", label: "None" }
+];
+
 // NEW: Consistent API base
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -568,6 +611,7 @@ export default function AdminResidentManagement() {
                   // Apply the defaults each time Add is opened
                   addForm.setFieldsValue({
                     address: { ...(addForm.getFieldValue("address") || {}), ...ADDRESS_DEFAULTS },
+                    citizenship: "Filipino",
                   });
                   setAddOpen(true);
                 }}
@@ -762,13 +806,16 @@ export default function AdminResidentManagement() {
             {/* Step 3 - Other & Contact */}
             <div style={{ display: addStep === 2 ? "block" : "none" }}>
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-                <Input />
+                <Input disabled />
               </Form.Item>
               <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input />
+                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
               </Form.Item>
               <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-                <Input />
+                <Select 
+                  options={EDUCATION_OPTIONS}
+                  placeholder="Select education level"
+                />
               </Form.Item>
               <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
                 <Input />
@@ -901,13 +948,16 @@ export default function AdminResidentManagement() {
             {/* Step 3 - Other & Contact */}
             <div style={{ display: editStep === 2 ? "block" : "none" }}>
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-                <Input />
+                <Input disabled />
               </Form.Item>
               <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input />
+                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
               </Form.Item>
               <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-                <Input />
+                <Select 
+                  options={EDUCATION_OPTIONS}
+                  placeholder="Select education level"
+                />
               </Form.Item>
               <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
                 <Input />

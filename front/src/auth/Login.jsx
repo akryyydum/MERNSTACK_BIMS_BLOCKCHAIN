@@ -344,17 +344,6 @@ const Login = () => {
       </svg>
     </div>
   </button>
-
-
-  {/* Forgot Password Link */}
-  <div className="flex justify-between mt-4">
-    <a
-      href="/forgot-password"
-      className="text-sm text-gray-500 hover:underline"
-    >
-      Forgot Password?
-    </a>
-  </div>
 </div>
 
           </Form>
