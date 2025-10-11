@@ -44,6 +44,21 @@ export default function AdminResidentManagement() {
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   useEffect(() => {
+    // Check authentication before fetching
+    const token = localStorage.getItem("token");
+    const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+    
+    console.log("Auth check:", {
+      token: token ? "Present" : "Missing",
+      userProfile,
+      role: userProfile.role
+    });
+    
+    if (!token) {
+      message.error("No authentication token found. Please login again.");
+      return;
+    }
+    
     fetchResidents();
   }, []);
 
@@ -51,13 +66,19 @@ export default function AdminResidentManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
+      console.log("API_BASE:", API_BASE);
+      console.log("Token:", token ? "Present" : "Missing");
+      
       const res = await axios.get(
         `${API_BASE}/api/admin/residents`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResidents(res.data);
     } catch (err) {
-      // handle error
+      console.error("Fetch residents error:", err);
+      console.error("Error response:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+      message.error(err.response?.data?.message || "Failed to fetch residents");
     }
     setLoading(false);
   };
@@ -187,7 +208,6 @@ export default function AdminResidentManagement() {
         "Province": r.address?.province || "",
         "ZIP Code": r.address?.zipCode || "",
         "Status": r.status || "",
-        "Blockchain Hash": r.blockchain?.hash || "",
         "Created At": r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
       }));
 
@@ -255,13 +275,6 @@ export default function AdminResidentManagement() {
     { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
     { title: "Occupation", dataIndex: "occupation", key: "occupation" },
     { title: "Education", dataIndex: "education", key: "education" },
-   
-    {
-      title: "Blockchain Hash",
-      dataIndex: ["blockchain", "hash"],
-      key: "blockchainHash",
-      render: (_, r) => r.blockchain?.hash || "-",
-    },
      {
       title: "Status",
       dataIndex: "status",
@@ -577,7 +590,13 @@ export default function AdminResidentManagement() {
               loading={loading}
               dataSource={filteredResidents}
               columns={columns}
-              pagination={{ pageSize: 10 }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: false,
+                showQuickJumper: false,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                simple: false,
+              }}
               scroll={{ x: 800 }}
             />
           </div>
@@ -933,7 +952,7 @@ export default function AdminResidentManagement() {
               </Descriptions.Item>
               <Descriptions.Item label="Purok">{viewResident.address?.purok}</Descriptions.Item>
               <Descriptions.Item label="Status">{viewResident.status}</Descriptions.Item>
-              <Descriptions.Item label="Blockchain Hash">{viewResident.blockchain?.hash || "-"}</Descriptions.Item>
+
             </Descriptions>
           )}
         </Modal>

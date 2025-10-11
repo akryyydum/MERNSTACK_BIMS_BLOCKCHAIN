@@ -70,13 +70,24 @@ exports.create = async (req, res) => {
 // GET /api/admin/residents
 exports.list = async (req, res) => {
   try {
+    console.log("Admin residents list request:", {
+      user: req.user,
+      query: req.query,
+      headers: {
+        authorization: req.headers.authorization ? "Present" : "Missing"
+      }
+    });
+    
     const filter = {};
     if (String(req.query.unlinked) === "true") {
       filter.$or = [{ user: { $exists: false } }, { user: null }];
     }
     const residents = await Resident.find(filter).populate("user", "username fullName contact");
+    
+    console.log(`Found ${residents.length} residents`);
     res.json(residents);
   } catch (err) {
+    console.error("Error in residents list:", err);
     res.status(500).json({ message: err.message });
   }
 };

@@ -1,11 +1,27 @@
 const jwt = require('jsonwebtoken');
 
 exports.auth = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'No token provided' });
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+    
+    console.log("Auth middleware check:", {
+        authHeader: authHeader ? "Present" : "Missing",
+        token: token ? "Present" : "Missing",
+        url: req.originalUrl,
+        method: req.method
+    });
+    
+    if (!token) {
+        console.log("No token provided");
+        return res.status(401).json({ message: 'No token provided' });
+    }
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-        if (err) return res.status(403).json({ message: 'Invalid token' });
+        if (err) {
+            console.log("Token verification failed:", err.message);
+            return res.status(403).json({ message: 'Invalid token' });
+        }
+        console.log("Token verified successfully for user:", decoded);
         req.user = decoded; 
         next();
     });
@@ -13,9 +29,17 @@ exports.auth = (req, res, next) => {
 
 exports.authorize = (...roles) => {
     return (req, res, next) => {
+        console.log("Authorization check:", {
+            userRole: req.user?.role,
+            requiredRoles: roles,
+            authorized: roles.includes(req.user?.role)
+        });
+        
         if (!roles.includes(req.user.role)) {
+            console.log("Access denied - insufficient role");
             return res.status(403).json({ message: 'Access denied' });
         }
+        console.log("Authorization successful");
         next();
     };
 };
