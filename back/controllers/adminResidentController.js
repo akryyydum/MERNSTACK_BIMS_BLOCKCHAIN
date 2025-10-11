@@ -16,6 +16,7 @@ exports.create = async (req, res) => {
       gender,
       civilStatus,
       religion,
+      ethnicity,
       address,
       citizenship,
       occupation,
@@ -28,7 +29,7 @@ exports.create = async (req, res) => {
     // Validate required resident fields only
     const requiredResidentMissing =
       !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
-      !address?.street || !address?.purok || !address?.barangay ||
+      !ethnicity || !address?.purok || !address?.barangay ||
       !address?.municipality || !address?.province ||
       !citizenship || !occupation || !education || !contact?.email || !contact?.mobile;
 
@@ -50,6 +51,7 @@ exports.create = async (req, res) => {
       gender,
       civilStatus,
       religion,
+      ethnicity,
       address,
       citizenship,
       occupation,

@@ -91,7 +91,7 @@ export default function AdminResidentManagement() {
     setSelectedResident(resident);
     editForm.setFieldsValue({
       ...resident,
-      // Force default, keep other address fields (like street/purok) intact
+      // Force default, keep other address fields (like purok) intact
       address: { ...(resident.address || {}), ...ADDRESS_DEFAULTS },
       dateOfBirth: resident.dateOfBirth ? dayjs(resident.dateOfBirth) : null,
     });
@@ -175,12 +175,12 @@ export default function AdminResidentManagement() {
         "Date of Birth": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString() : "",
         "Birth Place": r.birthPlace || "",
         "Civil Status": r.civilStatus || "",
+        "Ethnicity": r.ethnicity || "",
         "Citizenship": r.citizenship || "",
         "Occupation": r.occupation || "",
         "Education": r.education || "",
         "Mobile": r.contact?.mobile || "",
         "Email": r.contact?.email || "",
-        "Street": r.address?.street || "",
         "Purok": r.address?.purok || "",
         "Barangay": r.address?.barangay || "",
         "Municipality": r.address?.municipality || "",
@@ -250,8 +250,9 @@ export default function AdminResidentManagement() {
     { title: "Mobile", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
     { title: "Email", dataIndex: ["contact", "email"], key: "email", render: (_, r) => r.contact?.email },
     { title: "Address", key: "address", render: (_, r) =>
-        `${r.address?.street || ""}, ${r.address?.barangay || ""}, ${r.address?.municipality || ""}, ${r.address?.province || ""}` },
+        `${r.address?.barangay || ""}, ${r.address?.municipality || ""}, ${r.address?.province || ""}` },
     { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
+    { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
     { title: "Occupation", dataIndex: "occupation", key: "occupation" },
     { title: "Education", dataIndex: "education", key: "education" },
    
@@ -303,11 +304,11 @@ export default function AdminResidentManagement() {
       r.suffix,
       r.contact?.email,
       r.contact?.mobile,
-      r.address?.street,
       r.address?.barangay,
       r.address?.municipality,
       r.address?.province,
       r.citizenship,
+      r.ethnicity,
       r.occupation,
       r.education,
     ]
@@ -335,13 +336,13 @@ export default function AdminResidentManagement() {
         "birthPlace",
         "gender",
         "civilStatus",
+        "ethnicity",
       ],
     },
     {
       key: "address",
       title: "Address",
       fields: [
-        ["address", "street"],
         ["address", "purok"],
         ["address", "barangay"],
         ["address", "municipality"],
@@ -707,13 +708,13 @@ export default function AdminResidentManagement() {
                   ]}
                 />
               </Form.Item>
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+              </Form.Item>
             </div>
 
             {/* Step 2 - Address */}
             <div style={{ display: addStep === 1 ? "block" : "none" }}>
-              <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
               <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
                 <Select
                   options={[
@@ -846,13 +847,13 @@ export default function AdminResidentManagement() {
                   ]}
                 />
               </Form.Item>
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+              </Form.Item>
             </div>
 
             {/* Step 2 - Address */}
             <div style={{ display: editStep === 1 ? "block" : "none" }}>
-              <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
               <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
                 <Select
                   options={[
@@ -916,6 +917,7 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Date of Birth">{viewResident.dateOfBirth ? new Date(viewResident.dateOfBirth).toLocaleDateString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Civil Status">{viewResident.civilStatus}</Descriptions.Item>
               <Descriptions.Item label="Birth Place">{viewResident.birthPlace}</Descriptions.Item>
+              <Descriptions.Item label="Ethnicity">{viewResident.ethnicity}</Descriptions.Item>
               <Descriptions.Item label="Citizenship">{viewResident.citizenship}</Descriptions.Item>
               <Descriptions.Item label="Occupation">{viewResident.occupation}</Descriptions.Item>
               <Descriptions.Item label="Education">{viewResident.education}</Descriptions.Item>
@@ -923,7 +925,6 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
               <Descriptions.Item label="Address">
                 {[
-                  viewResident.address?.street,
                   viewResident.address?.barangay,
                   viewResident.address?.municipality,
                   viewResident.address?.province,

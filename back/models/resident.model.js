@@ -11,8 +11,8 @@ const residentSchema = new mongoose.Schema({
     gender: { type: String, enum: ['male', 'female', 'other'], required: true },
     civilStatus: { type: String, enum: ['single', 'married', 'widowed', 'separated'], required: true },
     religion: { type: String, required: false },
+    ethnicity: { type: String, required: true },
     address: {
-        street: { type: String, required: true },
         purok: { type: String, required: true, enum: ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5'] },
         barangay: { type: String, required: true },
         municipality: { type: String, required: true },

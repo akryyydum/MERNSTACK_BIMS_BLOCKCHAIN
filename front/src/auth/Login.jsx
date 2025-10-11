@@ -13,10 +13,10 @@ const Login = () => {
 
   const stepFieldNames = {
     1: [
-      "firstName","middleName","lastName","dateOfBirth","birthPlace","gender","civilStatus","religion"
+      "firstName","middleName","lastName","dateOfBirth","birthPlace","gender","civilStatus","religion","ethnicity"
     ],
     2: [
-      ["address","street"],["address","purok"],
+      ["address","purok"],
       ["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
       "citizenship","occupation","education",["contact","mobile"],["contact","email"]
     ],
@@ -183,8 +183,8 @@ const Login = () => {
         gender: values.gender,
         civilStatus: values.civilStatus,
         religion: values.religion,
+        ethnicity: values.ethnicity,
         address: {
-          street: values?.address?.street,
           purok: values?.address?.purok,
           barangay: values?.address?.barangay,
           municipality: values?.address?.municipality,
@@ -497,6 +497,17 @@ const Login = () => {
                 >
                   <Input size="middle" placeholder="e.g., Roman-Catholic" />
                 </Form.Item>
+                <Form.Item
+                  label="Ethnicity"
+                  name="ethnicity"
+                  rules={[
+                    { required: true, message: 'Ethnicity is required' },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'Ethnicity may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                  className="mb-2"
+                >
+                  <Input size="middle" placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                </Form.Item>
               </>
             )}
 
@@ -504,19 +515,6 @@ const Login = () => {
             {step === 2 && (
               <>
                 <h3 className="text-sm font-semibold mb-2">Address</h3>
-                <div className="flex gap-2 mb-2">
-                  <Form.Item 
-                    label="Street" 
-                    name={["address", "street"]} 
-                    rules={[
-                      { required: true, message: 'Street is required' },
-                      { pattern: /^[A-Za-z\s-]+$/, message: 'Street may contain letters, spaces, and hyphens (-)' }
-                    ]} 
-                    className="mb-1 flex-1"
-                  >
-                    <Input size="middle" placeholder="e.g., Rizal-Ext" />
-                  </Form.Item>
-                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Form.Item label="Purok" name={["address", "purok"]} rules={[{ required: true }]} className="mb-2">
                     <Select
@@ -676,11 +674,11 @@ const Login = () => {
                     <Descriptions.Item label="Birth Place" span={1}>{regForm.getFieldValue('birthPlace')}</Descriptions.Item>
                     <Descriptions.Item label="Gender" span={1}>{regForm.getFieldValue('gender')}</Descriptions.Item>
                     <Descriptions.Item label="Civil Status" span={1}>{regForm.getFieldValue('civilStatus')}</Descriptions.Item>
-                    <Descriptions.Item label="Religion" span={2}>{regForm.getFieldValue('religion')}</Descriptions.Item>
+                    <Descriptions.Item label="Religion" span={1}>{regForm.getFieldValue('religion')}</Descriptions.Item>
+                    <Descriptions.Item label="Ethnicity" span={1}>{regForm.getFieldValue('ethnicity')}</Descriptions.Item>
                   </Descriptions>
                   
                   <Descriptions title="Address Information" bordered column={2} className="mb-4" size="middle">
-                    <Descriptions.Item label="Street" span={1}>{regForm.getFieldValue(['address', 'street'])}</Descriptions.Item>
                     <Descriptions.Item label="Purok" span={2}>{regForm.getFieldValue(['address', 'purok'])}</Descriptions.Item>
                     <Descriptions.Item label="Barangay" span={2}>{regForm.getFieldValue(['address', 'barangay'])}</Descriptions.Item>
                     <Descriptions.Item label="Municipality" span={2}>{regForm.getFieldValue(['address', 'municipality'])}</Descriptions.Item>

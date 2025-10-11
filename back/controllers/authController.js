@@ -22,7 +22,7 @@ async function register(req, res) {
     const {
       username,
       password,
-      // identifying info to match an existing resident
+      // identifying info to match an existing resident OR create new one
       firstName,
       middleName,
       lastName,
@@ -32,6 +32,7 @@ async function register(req, res) {
       gender,
       civilStatus,
       religion,
+      ethnicity,
       address,
       citizenship,
       occupation,
@@ -39,12 +40,19 @@ async function register(req, res) {
       contact = {},
     } = req.body;
 
-    // Minimal required for account + matching
+    // Minimal required for account + resident creation
     if (!username || !password) {
       return res.status(400).json({ message: 'username and password are required' });
     }
-    if (!firstName || !lastName || !dateOfBirth || !contact.email) {
-      return res.status(400).json({ message: 'firstName, lastName, dateOfBirth, and contact.email are required to match your resident record' });
+    if (!firstName || !lastName || !dateOfBirth || !contact.email || !ethnicity) {
+      return res.status(400).json({ message: 'firstName, lastName, dateOfBirth, contact.email, and ethnicity are required' });
+    }
+
+    // Validate required resident fields
+    if (!birthPlace || !gender || !civilStatus || !address?.purok || !address?.barangay || 
+        !address?.municipality || !address?.province || !citizenship || !occupation || 
+        !education || !contact?.mobile) {
+      return res.status(400).json({ message: 'All resident fields are required' });
     }
 
     // Ensure username/email uniqueness
@@ -55,34 +63,20 @@ async function register(req, res) {
       return res.status(400).json({ message: 'Username or email already exists' });
     }
 
-    // Find existing Resident without a linked user that matches provided info
+    // Check if resident with same email already exists
     const email = normalize(contact.email).toLowerCase();
-
-    // Fetch potential matches by email (primary) and lastName to narrow
-    const candidates = await Resident.find({
-      $and: [
-        { $or: [{ user: { $exists: false } }, { user: null }] },
-        { 'contact.email': email },
-        { lastName: new RegExp(`^${normalize(lastName)}$`, 'i') }
-      ]
-    }).lean();
-
-    const resident = candidates.find(r =>
-      new RegExp(`^${normalize(firstName)}$`, 'i').test(r.firstName || '') &&
-      (!middleName || new RegExp(`^${normalize(middleName)}$`, 'i').test(r.middleName || '')) &&
-      (!suffix || new RegExp(`^${normalize(suffix)}$`, 'i').test(r.suffix || '')) &&
-      (r.dateOfBirth && sameDay(r.dateOfBirth, dateOfBirth))
-    );
-
-    if (!resident) {
-      return res.status(400).json({ message: 'No matching resident record found or an account already exists' });
+    const existingResident = await Resident.findOne({ 'contact.email': email });
+    if (existingResident) {
+      return res.status(400).json({ message: 'A resident with this email already exists' });
     }
 
-    // Compute full name from resident
-    const fullName = [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+    // Compute full name
+    const fullName = [firstName, middleName, lastName, suffix]
       .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 
     const passwordHash = await bcrypt.hash(password, 10);
+    
+    // Create User first
     const user = await User.create({
       username: normalize(username),
       passwordHash,
@@ -90,14 +84,35 @@ async function register(req, res) {
       fullName: fullName || 'Resident',
       contact: {
         email: email,
-        mobile: resident.contact?.mobile || normalize(contact.mobile || '')
+        mobile: normalize(contact.mobile || '')
       },
-      isVerified: true,   // account is usable, but dashboard access still gated by resident.status in login()
+      isVerified: true,
       isActive: true,
     });
 
-    // Link resident to user and keep resident status as-is (pending/verified)
-    await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id } });
+    // Create Resident record linked to the user
+    const resident = await Resident.create({
+      user: user._id,
+      firstName,
+      middleName,
+      lastName,
+      suffix,
+      dateOfBirth: new Date(dateOfBirth),
+      birthPlace,
+      gender,
+      civilStatus,
+      religion,
+      ethnicity,
+      address,
+      citizenship,
+      occupation,
+      education,
+      contact: {
+        email: email,
+        mobile: normalize(contact.mobile)
+      },
+      status: 'pending', // new registrations start as pending
+    });
 
     res.status(201).json({ message: 'Registration successful! You can log in immediately.' });
   } catch (err) {
