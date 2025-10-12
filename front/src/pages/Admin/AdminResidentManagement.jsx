@@ -312,8 +312,7 @@ export default function AdminResidentManagement() {
     { title: "Civil Status", dataIndex: "civilStatus", key: "civilStatus" },
     { title: "Mobile", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
     { title: "Email", dataIndex: ["contact", "email"], key: "email", render: (_, r) => r.contact?.email },
-    { title: "Address", key: "address", render: (_, r) =>
-        `${r.address?.barangay || ""}, ${r.address?.municipality || ""}, ${r.address?.province || ""}` },
+    { title: "Purok", key: "purok", render: (_, r) => r.address?.purok ? r.address.purok.replace("Purok ", "") : "" },
     { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
     { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
     { title: "Occupation", dataIndex: "occupation", key: "occupation" },
