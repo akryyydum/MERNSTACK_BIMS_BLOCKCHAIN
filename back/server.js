@@ -56,12 +56,6 @@ const residentDocumentRequestRoutes = require("./routes/residentDocumentRequestR
 app.use("/api/document-requests", residentDocumentRequestRoutes);
 const adminHouseholdRoutes = require("./routes/adminHouseholdRoutes");
 app.use("/api/admin/households", adminHouseholdRoutes);
-const adminComplaintRoutes = require("./routes/adminComplaintRoutes");
-app.use("/api/admin/complaints", adminComplaintRoutes);
-const adminFinancialRoutes = require("./routes/adminFinancialRoutes");
-app.use("/api/admin/financial", adminFinancialRoutes);
-const adminGarbageRoutes = require("./routes/adminGarbageRoutes");
-app.use("/api/admin", adminGarbageRoutes); // We'll fix this route setup in adminGarbageRoutes.js
 const adminPublicDocumentRoutes = require("./routes/adminPublicDocumentRoutes");
 app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
