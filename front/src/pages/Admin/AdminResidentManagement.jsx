@@ -817,10 +817,10 @@ export default function AdminResidentManagement() {
                   placeholder="Select education level"
                 />
               </Form.Item>
-              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
+              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
                 <Input />
               </Form.Item>
-              <Form.Item name={["contact", "email"]} label="Email" rules={[{ required: true, type: "email" }]}>
+              <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email" }]}>
                 <Input />
               </Form.Item>
             </div>
@@ -959,10 +959,10 @@ export default function AdminResidentManagement() {
                   placeholder="Select education level"
                 />
               </Form.Item>
-              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ required: true }]}>
+              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
                 <Input />
               </Form.Item>
-              <Form.Item name={["contact", "email"]} label="Email" rules={[{ required: true, type: "email" }]}>
+              <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email" }]}>
                 <Input />
               </Form.Item>
             </div>

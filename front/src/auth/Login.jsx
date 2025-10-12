@@ -394,7 +394,10 @@ const Login = () => {
             onValuesChange={(changed, all) => {
               // If the user updates the Address & Contact email, sync it to the Account step
               if (changed?.contact?.email !== undefined) {
-                regForm.setFieldsValue({ accountEmail: changed.contact.email });
+                // Only sync if email has a value
+                if (changed.contact.email) {
+                  regForm.setFieldsValue({ accountEmail: changed.contact.email });
+                }
               }
             }}
           >
@@ -558,10 +561,10 @@ const Login = () => {
 
                 <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ type: "string" }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., 09123456789" />
                   </Form.Item>
-                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ required: true, type: "email" }]} className="mb-2">
+                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ type: "email" }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., juan.delacruz@email.com" />
                   </Form.Item>
                 </div>

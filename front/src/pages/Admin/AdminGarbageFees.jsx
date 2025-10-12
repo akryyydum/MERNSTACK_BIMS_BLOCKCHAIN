@@ -106,13 +106,23 @@ export default function AdminGarbageFees() {
         payload,
         { headers: authHeaders() }
       );
-      message.success(res.data.status === "paid" ? "Garbage fee fully paid!" : "Partial payment recorded!");
+      
+      if (res.data.status === "paid") {
+        message.success("Garbage fee fully paid!");
+      } else {
+        message.success("Partial payment recorded!");
+      }
+      
+      // Reset form and state
       setPayOpen(false);
       setPaySummary(null);
       setPayHousehold(null);
       payForm.resetFields();
+      
+      // Refresh all data
       fetchHouseholds();
       fetchGarbagePayments();
+      fetchStatistics(); // Also refresh statistics
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to record payment");
     } finally {
@@ -125,15 +135,44 @@ export default function AdminGarbageFees() {
     setViewOpen(true);
   };
 
-  // Calculate statistics
-  const totalHouseholds = households.length;
-  const monthlyRate = 150; // Standard garbage fee
-  const totalExpectedRevenue = totalHouseholds * monthlyRate;
+  // Stat state
+  const [stats, setStats] = useState({
+    totalHouseholds: 0,
+    monthlyRate: 150,
+    totalCollected: 0,
+    totalOutstanding: 0,
+    collectionRate: 0
+  });
   
-  // Mock calculations for demo (replace with real data when backend is ready)
-  const totalCollected = households.reduce((sum, h) => sum + (h.garbageFee?.amountPaid || 0), 0);
-  const totalOutstanding = totalExpectedRevenue - totalCollected;
-  const collectionRate = totalExpectedRevenue > 0 ? ((totalCollected / totalExpectedRevenue) * 100).toFixed(1) : 0;
+  // Fetch statistics
+  const fetchStatistics = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/admin/garbage-statistics`, { headers: authHeaders() });
+      setStats(res.data);
+    } catch (err) {
+      console.error("Error fetching statistics:", err);
+      // Fallback to calculated stats if API fails
+      const totalHouseholds = households.length;
+      const monthlyRate = 150;
+      const totalExpectedRevenue = totalHouseholds * monthlyRate;
+      const totalCollected = households.reduce((sum, h) => sum + (h.garbageFee?.amountPaid || 0), 0);
+      const totalOutstanding = totalExpectedRevenue - totalCollected;
+      const collectionRate = totalExpectedRevenue > 0 ? ((totalCollected / totalExpectedRevenue) * 100).toFixed(1) : 0;
+      
+      setStats({
+        totalHouseholds,
+        monthlyRate,
+        expectedRevenue: totalExpectedRevenue,
+        totalCollected,
+        totalOutstanding,
+        collectionRate
+      });
+    }
+  };
+  
+  useEffect(() => {
+    fetchStatistics();
+  }, [households]);
 
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
 
@@ -164,17 +203,16 @@ export default function AdminGarbageFees() {
     {
       title: "Current Month Fee",
       key: "currentFee",
-      render: () => `₱${monthlyRate.toFixed(2)}`,
+      render: () => `₱${stats.monthlyRate ? stats.monthlyRate.toFixed(2) : "150.00"}`,
     },
     {
       title: "Payment Status",
       key: "paymentStatus",
       render: (_, record) => {
-        // Mock status for demo
-        const balance = record.garbageFee?.balance || monthlyRate;
-        if (balance === 0) {
+        const status = record.garbageFee?.status || 'unpaid';
+        if (status === 'paid') {
           return <Tag color="green">Paid</Tag>;
-        } else if (balance < monthlyRate) {
+        } else if (status === 'partial') {
           return <Tag color="orange">Partial</Tag>;
         } else {
           return <Tag color="red">Unpaid</Tag>;
@@ -185,7 +223,7 @@ export default function AdminGarbageFees() {
       title: "Balance",
       key: "balance",
       render: (_, record) => {
-        const balance = record.garbageFee?.balance || monthlyRate;
+        const balance = record.garbageFee?.balance || stats.monthlyRate || 150;
         return `₱${balance.toFixed(2)}`;
       },
     },
@@ -244,12 +282,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {totalHouseholds}
+                    {stats.totalHouseholds}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {totalHouseholds}
+                    {stats.totalHouseholds}
                   </div>
                 </CardContent>
               </Card>
@@ -260,12 +298,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{monthlyRate}
+                    ₱{stats.monthlyRate}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{monthlyRate}
+                    ₱{stats.monthlyRate}
                   </div>
                 </CardContent>
               </Card>
@@ -276,12 +314,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{totalCollected.toFixed(2)}
+                    ₱{(stats.totalCollected || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{totalCollected.toFixed(2)}
+                    ₱{(stats.totalCollected || 0).toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
@@ -292,12 +330,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{totalOutstanding.toFixed(2)}
+                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{totalOutstanding.toFixed(2)}
+                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
@@ -308,12 +346,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {collectionRate}%
+                    {stats.collectionRate || 0}%
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {collectionRate}%
+                    {stats.collectionRate || 0}%
                   </div>
                 </CardContent>
               </Card>
@@ -338,7 +376,7 @@ export default function AdminGarbageFees() {
             </div>
             <div className="flex flex-wrap gap-2">
               <span className="text-sm text-gray-600 self-center">
-                Collection Rate: {collectionRate}%
+                Collection Rate: {stats.collectionRate || 0}%
               </span>
             </div>
           </div>

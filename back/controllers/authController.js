@@ -44,30 +44,36 @@ async function register(req, res) {
     if (!username || !password) {
       return res.status(400).json({ message: 'username and password are required' });
     }
-    if (!firstName || !lastName || !dateOfBirth || !contact.email || !ethnicity) {
-      return res.status(400).json({ message: 'firstName, lastName, dateOfBirth, contact.email, and ethnicity are required' });
+    if (!firstName || !lastName || !dateOfBirth || !ethnicity) {
+      return res.status(400).json({ message: 'firstName, lastName, dateOfBirth, and ethnicity are required' });
     }
 
     // Validate required resident fields
     if (!birthPlace || !gender || !civilStatus || !address?.purok || !address?.barangay || 
         !address?.municipality || !address?.province || !citizenship || !occupation || 
-        !education || !contact?.mobile) {
+        !education) {
       return res.status(400).json({ message: 'All resident fields are required' });
     }
 
-    // Ensure username/email uniqueness
-    const existingUser = await User.findOne({
-      $or: [{ username: normalize(username) }, { 'contact.email': normalize(contact.email).toLowerCase() }]
-    });
+    // Ensure username uniqueness
+    const existingUser = await User.findOne({ username: normalize(username) });
     if (existingUser) {
-      return res.status(400).json({ message: 'Username or email already exists' });
+      return res.status(400).json({ message: 'Username already exists' });
     }
 
-    // Check if resident with same email already exists
-    const email = normalize(contact.email).toLowerCase();
-    const existingResident = await Resident.findOne({ 'contact.email': email });
-    if (existingResident) {
-      return res.status(400).json({ message: 'A resident with this email already exists' });
+    // Only check email uniqueness if email is provided
+    const email = contact.email ? normalize(contact.email).toLowerCase() : '';
+    if (email) {
+      const existingUserWithEmail = await User.findOne({ 'contact.email': email });
+      if (existingUserWithEmail) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+
+      // Check if resident with same email already exists
+      const existingResident = await Resident.findOne({ 'contact.email': email });
+      if (existingResident) {
+        return res.status(400).json({ message: 'A resident with this email already exists' });
+      }
     }
 
     // Compute full name
@@ -83,8 +89,8 @@ async function register(req, res) {
       role: 'resident',
       fullName: fullName || 'Resident',
       contact: {
-        email: email,
-        mobile: normalize(contact.mobile || '')
+        email: email || undefined,
+        mobile: normalize(contact.mobile || '') || undefined
       },
       isVerified: true,
       isActive: true,
@@ -108,8 +114,8 @@ async function register(req, res) {
       occupation,
       education,
       contact: {
-        email: email,
-        mobile: normalize(contact.mobile)
+        email: email || undefined,
+        mobile: normalize(contact.mobile || '') || undefined
       },
       status: 'pending', // new registrations start as pending
     });
@@ -126,13 +132,22 @@ async function login(req, res) {
     const { usernameOrEmail, password } = req.body;
     console.log('[AUTH] Incoming login attempt', { usernameOrEmail, hasPassword: !!password });
 
-    // Find user by either username or email
-    const user = await User.findOne({
-      $or: [
-        { username: usernameOrEmail },
-        { 'contact.email': usernameOrEmail }
-      ]
-    });
+    // Find user by either username or email (if provided)
+    let query;
+    
+    // Only search by email if it looks like an email (contains @)
+    if (usernameOrEmail.includes('@')) {
+      query = {
+        $or: [
+          { username: usernameOrEmail },
+          { 'contact.email': usernameOrEmail }
+        ]
+      };
+    } else {
+      query = { username: usernameOrEmail };
+    }
+    
+    const user = await User.findOne(query);
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });

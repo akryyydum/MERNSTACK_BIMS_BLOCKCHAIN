@@ -6,147 +6,6 @@ import { ArrowUpRight } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 
-// Hardcoded sample data for development
-const sampleResidents = [
-  {
-    _id: "r1",
-    firstName: "Juan",
-    middleName: "Dela",
-    lastName: "Cruz",
-    gender: "male",
-    dateOfBirth: "1985-05-15",
-    contact: { mobile: "09123456789", email: "juan@example.com" },
-    address: {
-      street: "123 Main St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 1"
-    },
-    status: "verified"
-  },
-  {
-    _id: "r2",
-    firstName: "Maria",
-    middleName: "Santos",
-    lastName: "Garcia",
-    gender: "female",
-    dateOfBirth: "1990-08-20",
-    contact: { mobile: "09876543210", email: "maria@example.com" },
-    address: {
-      street: "456 Oak Ave.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 2"
-    },
-    status: "verified"
-  },
-  {
-    _id: "r3",
-    firstName: "Pedro",
-    middleName: "Reyes",
-    lastName: "Santos",
-    gender: "male",
-    dateOfBirth: "1982-03-10",
-    contact: { mobile: "09567891234", email: "pedro@example.com" },
-    address: {
-      street: "789 Elm St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 3"
-    },
-    status: "verified"
-  },
-  {
-    _id: "r4",
-    firstName: "Rosa",
-    middleName: "Cruz",
-    lastName: "Reyes",
-    gender: "female",
-    dateOfBirth: "1995-11-05",
-    contact: { mobile: "09234567891", email: "rosa@example.com" },
-    address: {
-      street: "101 Pine St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 2"
-    },
-    status: "verified"
-  },
-  {
-    _id: "r5",
-    firstName: "Antonio",
-    middleName: "Gonzales",
-    lastName: "Martinez",
-    gender: "male",
-    dateOfBirth: "1978-07-22",
-    contact: { mobile: "09345678912", email: "antonio@example.com" },
-    address: {
-      street: "202 Cedar St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 4"
-    },
-    status: "verified"
-  }
-];
-
-const sampleHouseholds = [
-  {
-    _id: "h1",
-    householdId: "HH-2023-001",
-    headOfHousehold: "r1",
-    members: ["r1", "r2"],
-    address: {
-      street: "123 Main St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 1",
-      zipCode: "3700"
-    }
-  },
-  {
-    _id: "h2",
-    householdId: "HH-2023-002",
-    headOfHousehold: "r3",
-    members: ["r3", "r4"],
-    address: {
-      street: "789 Elm St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 3",
-      zipCode: "3700"
-    }
-  },
-  {
-    _id: "h3",
-    householdId: "HH-2023-003",
-    headOfHousehold: "r5",
-    members: ["r5"],
-    address: {
-      street: "202 Cedar St.",
-      barangay: "La Torre North",
-      municipality: "Bayombong",
-      province: "Nueva Vizcaya",
-      purok: "Purok 4",
-      zipCode: "3700"
-    }
-  }
-];
-
-const ADDRESS_DEFAULTS = {
-  barangay: "La Torre North",
-  municipality: "Bayombong",
-  province: "Nueva Vizcaya",
-  zipCode: "3700",
-};
-
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
 export default function HouseholdManagement() {
@@ -320,6 +179,40 @@ export default function HouseholdManagement() {
   const familyHouseholds = households.filter(h => h.members?.length > 1).length;
 
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
+
+  // Function to render household members
+  const renderHouseholdMembers = (record) => {
+    // Get members excluding head
+    const headId = record.headOfHousehold?._id || record.headOfHousehold;
+    const membersList = (record.members || []).filter(m => {
+      const memberId = m?._id || m;
+      return String(memberId) !== String(headId);
+    });
+    
+    if (membersList.length === 0) {
+      return (
+        <div className="p-2 italic text-gray-500">No additional members in this household</div>
+      );
+    }
+
+    return (
+      <div className="p-2 bg-gray-50 rounded">
+        <div className="font-medium mb-2 text-gray-700">Household Members:</div>
+        <ul className="list-disc pl-5">
+          {membersList.map(m => {
+            const memberId = m?._id || m;
+            // Get resident details
+            const memberObj = typeof m === "object" ? m : residents.find(r => r._id === memberId);
+            return (
+              <li key={memberId} className="py-1">
+                {fullName(memberObj) || "Unknown Member"}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
 
   const columns = [
     {
@@ -612,6 +505,11 @@ export default function HouseholdManagement() {
               columns={columns}
               pagination={{ pageSize: 10 }}
               scroll={{ x: 800 }}
+              expandable={{
+                expandedRowRender: record => renderHouseholdMembers(record),
+                rowExpandable: record => record.members?.length > 0,
+                expandRowByClick: true,
+              }}
             />
           </div>
         </div>
