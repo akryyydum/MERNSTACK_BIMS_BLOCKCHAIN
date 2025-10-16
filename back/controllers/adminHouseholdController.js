@@ -32,7 +32,6 @@ exports.list = async (req, res) => {
       const rx = new RegExp(search, "i");
       q.$or = [
         { householdId: rx },
-        { "address.street": rx },
         { "address.purok": rx },
         { "address.barangay": rx },
         { "address.municipality": rx },
@@ -53,7 +52,7 @@ exports.create = async (req, res) => {
   try {
     const { headOfHousehold, members = [], address = {}, hasBusiness, businessType } = req.body;
 
-    if (!headOfHousehold || !members?.length || !address.street || !address.purok) {
+    if (!headOfHousehold || !members?.length || !address.purok) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
