@@ -34,10 +34,9 @@ async function register(req, res) {
       religion,
       ethnicity,
       address,
-      citizenship,
-      occupation,
-      education,
-      contact = {},
+  citizenship,
+  occupation,
+  contact = {},
     } = req.body;
 
     // Minimal required for account + resident creation
@@ -50,8 +49,7 @@ async function register(req, res) {
 
     // Validate required resident fields
     if (!birthPlace || !gender || !civilStatus || !address?.purok || !address?.barangay || 
-        !address?.municipality || !address?.province || !citizenship || !occupation || 
-        !education) {
+        !address?.municipality || !address?.province || !citizenship || !occupation) {
       return res.status(400).json({ message: 'All resident fields are required' });
     }
 
@@ -111,8 +109,7 @@ async function register(req, res) {
       ethnicity,
       address,
       citizenship,
-      occupation,
-      education,
+  occupation,
       contact: {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined

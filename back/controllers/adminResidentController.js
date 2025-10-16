@@ -20,7 +20,7 @@ exports.create = async (req, res) => {
       address,
       citizenship,
       occupation,
-      education,
+  // ...existing code...
       contact = {},
       idFiles,
       status, // optional, default to 'verified' for admin-created
@@ -31,7 +31,7 @@ exports.create = async (req, res) => {
       !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
       !ethnicity || !address?.purok || !address?.barangay ||
       !address?.municipality || !address?.province ||
-      !citizenship || !occupation || !education || !contact?.email || !contact?.mobile;
+  !citizenship || !occupation;
 
     if (requiredResidentMissing) {
       return res.status(400).json({ message: "Missing required resident fields" });
@@ -55,7 +55,7 @@ exports.create = async (req, res) => {
       address,
       citizenship,
       occupation,
-      education,
+  // ...existing code...
       contact: { email: String(contact.email).toLowerCase().trim(), mobile: contact.mobile },
       idFiles,
       status: status || "verified", // admin-created records default to verified
@@ -63,7 +63,13 @@ exports.create = async (req, res) => {
 
     res.status(201).json({ message: "Resident created", resident });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    // Log full error to backend console for debugging
+    console.error('Resident creation error:', err);
+    // Send more detailed error info to frontend
+    res.status(500).json({
+      message: err.message || 'Internal server error',
+      error: err.stack || err
+    });
   }
 };
 

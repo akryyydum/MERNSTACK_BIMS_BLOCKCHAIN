@@ -21,7 +21,6 @@ const residentSchema = new mongoose.Schema({
     },
     citizenship: { type: String, required: true },
     occupation: { type: String, required: true },
-    education: { type: String, required: true },
     contact: {
         mobile: { type: String, required: false },
         email: { type: String, required: false }

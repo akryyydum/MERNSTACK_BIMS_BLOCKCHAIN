@@ -18,7 +18,7 @@ const Login = () => {
     2: [
       ["address","purok"],
       ["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
-      "citizenship","occupation","education",["contact","mobile"],["contact","email"]
+  "citizenship","occupation",["contact","mobile"],["contact","email"]
     ],
     3: [
       "username",
@@ -197,7 +197,7 @@ const Login = () => {
         },
         citizenship: values.citizenship,
         occupation: values.occupation,
-        education: values.education,
+  // ...existing code...
         role: "resident",
       };
 
@@ -534,28 +534,12 @@ const Login = () => {
                   </Form.Item>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <Form.Item label="Citizenship" name="citizenship" rules={[{ required: true }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., Filipino" />
                   </Form.Item>
                   <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., Teacher" />
-                  </Form.Item>
-                  <Form.Item label="Education" name="education" rules={[{ required: true }]} className="mb-2">
-                    <Select
-                      options={[
-                        { value: "Elementary", label: "Elementary" },
-                        { value: "High School", label: "High School" },
-                        { value: "Senior High School", label: "Senior High School" },
-                        { value: "Vocational", label: "Vocational" },
-                        { value: "College", label: "College" },
-                        { value: "Post Graduate", label: "Post Graduate" },
-                        { value: "Doctorate", label: "Doctorate" },
-                        { value: "None", label: "None" }
-                      ]}
-                      size="middle"
-                      placeholder="Select education level"
-                    />
                   </Form.Item>
                 </div>
 
@@ -681,7 +665,7 @@ const Login = () => {
                   <Descriptions title="Other Information" bordered column={2} className="mb-4" size="middle">
                     <Descriptions.Item label="Citizenship" span={1}>{regForm.getFieldValue('citizenship')}</Descriptions.Item>
                     <Descriptions.Item label="Occupation" span={1}>{regForm.getFieldValue('occupation')}</Descriptions.Item>
-                    <Descriptions.Item label="Education" span={2}>{regForm.getFieldValue('education')}</Descriptions.Item>
+                    {/* ...existing code... */}
                     <Descriptions.Item label="Mobile" span={2}>{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>
                     <Descriptions.Item label="Email" span={2}>{regForm.getFieldValue(['contact', 'email'])}</Descriptions.Item>
                     <Descriptions.Item label="Username" span={2}>{regForm.getFieldValue('username')}</Descriptions.Item>

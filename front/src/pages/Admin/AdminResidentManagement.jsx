@@ -47,18 +47,6 @@ const OCCUPATION_OPTIONS = [
   { value: "Other", label: "Other" }
 ];
 
-// Education options (from Login.jsx)
-const EDUCATION_OPTIONS = [
-  { value: "Elementary", label: "Elementary" },
-  { value: "High School", label: "High School" },
-  { value: "Senior High School", label: "Senior High School" },
-  { value: "Vocational", label: "Vocational" },
-  { value: "College", label: "College" },
-  { value: "Post Graduate", label: "Post Graduate" },
-  { value: "Doctorate", label: "Doctorate" },
-  { value: "None", label: "None" }
-];
-
 // NEW: Consistent API base
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -242,7 +230,6 @@ export default function AdminResidentManagement() {
         "Ethnicity": r.ethnicity || "",
         "Citizenship": r.citizenship || "",
         "Occupation": r.occupation || "",
-        "Education": r.education || "",
         "Mobile": r.contact?.mobile || "",
         "Email": r.contact?.email || "",
         "Purok": r.address?.purok || "",
@@ -316,7 +303,7 @@ export default function AdminResidentManagement() {
     { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
     { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
     { title: "Occupation", dataIndex: "occupation", key: "occupation" },
-    { title: "Education", dataIndex: "education", key: "education" },
+  // ...existing code...
      {
       title: "Status",
       dataIndex: "status",
@@ -365,7 +352,6 @@ export default function AdminResidentManagement() {
       r.citizenship,
       r.ethnicity,
       r.occupation,
-      r.education,
     ]
       .filter(Boolean)
       .join(" ")
@@ -411,7 +397,6 @@ export default function AdminResidentManagement() {
       fields: [
         "citizenship",
         "occupation",
-        "education",
         ["contact", "mobile"],
         ["contact", "email"],
       ],
@@ -689,7 +674,8 @@ export default function AdminResidentManagement() {
           title="Add Resident"
           open={addOpen}
           onCancel={() => { setAddOpen(false); setAddStep(0); }}
-          width={600}
+          width={900}
+          bodyStyle={{ padding: '24px 48px' }}
           footer={[
             <Button key="cancel" onClick={() => { setAddOpen(false); setAddStep(0); }}>
               Cancel
@@ -728,51 +714,83 @@ export default function AdminResidentManagement() {
             size="small"
             current={addStep}
             items={stepItems.map(s => ({ title: s.title }))}
-            className="mb-4"
+            className="mb-2"
           />
-          <Form form={addForm} layout="vertical">
+          <Form form={addForm} layout="vertical" className="compact-form">
+            <style jsx="true">{`
+              .compact-form .ant-form-item {
+                margin-bottom: 8px;
+              }
+              .compact-form .ant-form-item-label {
+                padding-bottom: 4px;
+              }
+              .compact-form .ant-form-item-explain {
+                min-height: 18px;
+              }
+              .form-row {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 0;
+              }
+              .form-row .ant-form-item {
+                flex: 1;
+              }
+            `}</style>
+            
             {/* Step 1 - Personal */}
             <div style={{ display: addStep === 0 ? "block" : "none" }}>
-              <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name="middleName" label="Middle Name">
-                <Input />
-              </Form.Item>
-              <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name="suffix" label="Suffix">
-                <Input />
-              </Form.Item>
-              <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-                <DatePicker className="w-full" />
-              </Form.Item>
+              <div className="form-row">
+                <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name="middleName" label="Middle Name">
+                  <Input />
+                </Form.Item>
+                <Form.Item name="suffix" label="Suffix">
+                  <Input />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                  <DatePicker className="w-full" />
+                </Form.Item>
+                <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </Form.Item>
+              </div>
+              
               <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
-              <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
-                <Select
-                  options={[
-                    { value: "male", label: "Male" },
-                    { value: "female", label: "Female" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
-                <Select
-                  options={[
-                    { value: "single", label: "Single" },
-                    { value: "married", label: "Married" },
-                    { value: "widowed", label: "Widowed" },
-                    { value: "separated", label: "Separated" },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
-              </Form.Item>
+              
+              <div className="form-row">
+                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: "single", label: "Single" },
+                      { value: "married", label: "Married" },
+                      { value: "widowed", label: "Widowed" },
+                      { value: "separated", label: "Separated" },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+                  <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                </Form.Item>
+              </div>
             </div>
 
             {/* Step 2 - Address */}
@@ -788,18 +806,24 @@ export default function AdminResidentManagement() {
                   ]}
                 />
               </Form.Item>
-              <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-                <Input disabled />
-              </Form.Item>
-              <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-                <Input disabled />
-              </Form.Item>
-              <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-                <Input disabled />
-              </Form.Item>
-              <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-                <Input disabled />
-              </Form.Item>
+              
+              <div className="form-row">
+                <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
+                  <Input disabled />
+                </Form.Item>
+                <Form.Item name={["address", "zipCode"]} label="ZIP Code">
+                  <Input disabled />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
+                  <Input disabled />
+                </Form.Item>
+                <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
+                  <Input disabled />
+                </Form.Item>
+              </div>
             </div>
 
             {/* Step 3 - Other & Contact */}
@@ -807,21 +831,21 @@ export default function AdminResidentManagement() {
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
                 <Input disabled />
               </Form.Item>
-              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
-              </Form.Item>
-              <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-                <Select 
-                  options={EDUCATION_OPTIONS}
-                  placeholder="Select education level"
-                />
-              </Form.Item>
-              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email" }]}>
-                <Input />
-              </Form.Item>
+              
+              <div className="form-row">
+                <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                  <Input placeholder="e.g., Teacher, Engineer, Farmer" />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
+                  <Input />
+                </Form.Item>
+              </div>
             </div>
           </Form>
         </Modal>
@@ -831,7 +855,8 @@ export default function AdminResidentManagement() {
           title="Edit Resident"
           open={editOpen}
           onCancel={() => { setEditOpen(false); setEditStep(0); }}
-          width={600}
+          width={900}
+          bodyStyle={{ padding: '24px 48px' }}
           footer={[
             <Button key="cancel" onClick={() => { setEditOpen(false); setEditStep(0); }}>
               Cancel
@@ -870,53 +895,85 @@ export default function AdminResidentManagement() {
             size="small"
             current={editStep}
             items={stepItems.map(s => ({ title: s.title }))}
-            className="mb-4"
+            className="mb-2"
           />
-          <Form form={editForm} layout="vertical">
+          <Form form={editForm} layout="vertical" className="compact-form">
+            <style jsx="true">{`
+              .compact-form .ant-form-item {
+                margin-bottom: 8px;
+              }
+              .compact-form .ant-form-item-label {
+                padding-bottom: 4px;
+              }
+              .compact-form .ant-form-item-explain {
+                min-height: 18px;
+              }
+              .form-row {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 0;
+              }
+              .form-row .ant-form-item {
+                flex: 1;
+              }
+            `}</style>
+            
             {/* Step 1 - Personal */}
             <div style={{ display: editStep === 0 ? "block" : "none" }}>
-              <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name="middleName" label="Middle Name">
-                <Input />
-              </Form.Item>
-              <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name="suffix" label="Suffix">
-                <Input />
-              </Form.Item>
-              <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-                <DatePicker className="w-full" />
-              </Form.Item>
+              <div className="form-row">
+                <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name="middleName" label="Middle Name">
+                  <Input />
+                </Form.Item>
+                <Form.Item name="suffix" label="Suffix">
+                  <Input />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                  <DatePicker className="w-full" />
+                </Form.Item>
+                <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: "male", label: "Male" },
+                      { value: "female", label: "Female" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </Form.Item>
+              </div>
+              
               <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
-              <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
-                <Select
-                  options={[
-                    { value: "male", label: "Male" },
-                    { value: "female", label: "Female" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
-                <Select
-                  options={[
-                    { value: "single", label: "Single" },
-                    { value: "married", label: "Married" },
-                    { value: "widowed", label: "Widowed" },
-                    { value: "separated", label: "Separated" },
-                  ]}
-                />
-              </Form.Item>
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
-              </Form.Item>
+              
+              <div className="form-row">
+                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: "single", label: "Single" },
+                      { value: "married", label: "Married" },
+                      { value: "widowed", label: "Widowed" },
+                      { value: "separated", label: "Separated" },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+                  <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                </Form.Item>
+              </div>
             </div>
-
+            
             {/* Step 2 - Address */}
             <div style={{ display: editStep === 1 ? "block" : "none" }}>
               <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
@@ -930,18 +987,24 @@ export default function AdminResidentManagement() {
                   ]}
                 />
               </Form.Item>
-              <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-                <Input disabled />
-              </Form.Item>
-              <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-                <Input disabled />
-              </Form.Item>
-              <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-                <Input disabled />
-              </Form.Item>
-              <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-                <Input disabled />
-              </Form.Item>
+              
+              <div className="form-row">
+                <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
+                  <Input disabled />
+                </Form.Item>
+                <Form.Item name={["address", "zipCode"]} label="ZIP Code">
+                  <Input disabled />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
+                  <Input disabled />
+                </Form.Item>
+                <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
+                  <Input disabled />
+                </Form.Item>
+              </div>
             </div>
 
             {/* Step 3 - Other & Contact */}
@@ -949,21 +1012,21 @@ export default function AdminResidentManagement() {
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
                 <Input disabled />
               </Form.Item>
-              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
-              </Form.Item>
-              <Form.Item name="education" label="Education" rules={[{ required: true }]}>
-                <Select 
-                  options={EDUCATION_OPTIONS}
-                  placeholder="Select education level"
-                />
-              </Form.Item>
-              <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email" }]}>
-                <Input />
-              </Form.Item>
+              
+              <div className="form-row">
+                <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                  <Input placeholder="e.g., Teacher, Engineer, Farmer" />
+                </Form.Item>
+              </div>
+              
+              <div className="form-row">
+                <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
+                  <Input />
+                </Form.Item>
+              </div>
             </div>
           </Form>
         </Modal>
@@ -988,7 +1051,7 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Ethnicity">{viewResident.ethnicity}</Descriptions.Item>
               <Descriptions.Item label="Citizenship">{viewResident.citizenship}</Descriptions.Item>
               <Descriptions.Item label="Occupation">{viewResident.occupation}</Descriptions.Item>
-              <Descriptions.Item label="Education">{viewResident.education}</Descriptions.Item>
+              // ...existing code...
               <Descriptions.Item label="Mobile">{viewResident.contact?.mobile}</Descriptions.Item>
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
               <Descriptions.Item label="Address">
