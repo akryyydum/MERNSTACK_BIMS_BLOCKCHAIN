@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, DeleteOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import axios from "axios";
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
@@ -379,7 +379,7 @@ export default function AdminGarbageFees() {
       title: "Address",
       key: "address",
       render: (_, r) =>
-        `${r.address?.street || ""}, ${r.address?.purok || ""}`,
+        r.address?.purok || "",
     },
     {
       title: "Business",
@@ -648,19 +648,17 @@ export default function AdminGarbageFees() {
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <div className="flex flex-wrap gap-2">
               <Input.Search
-                allowClear
-                placeholder="Search households"
-                onSearch={v => setSearch(v.trim())}
+                placeholder="Search households..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                enterButton
-                className="min-w-[180px] max-w-xs"
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: 300 }}
+                allowClear
               />
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
               >
-                Add Payment
+                + Add Payment
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -680,7 +678,16 @@ export default function AdminGarbageFees() {
               loading={loading || refreshing}
               dataSource={filteredHouseholds}
               columns={columns}
-              pagination={{ pageSize: 10 }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} of ${total} households`,
+                pageSizeOptions: ['5', '10', '20', '50', '100'],
+                defaultPageSize: 10,
+                size: 'default'
+              }}
               scroll={{ x: 800 }}
             />
           </div>

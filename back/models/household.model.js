@@ -31,6 +31,7 @@ const HouseholdSchema = new mongoose.Schema(
     businessType: { type: String }, // Optional field to describe the business
     garbageFee: { type: GarbageFeeSchema, default: {} },
     electricFee: { type: GarbageFeeSchema, default: {} },
+    streetlightFee: { type: GarbageFeeSchema, default: {} },
   },
   { timestamps: true }
 );

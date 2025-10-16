@@ -67,10 +67,15 @@ const { auth, authorize } = require("./middleware/authMiddleware");
 app.get("/api/admin/garbage-payments", auth, authorize("admin"), adminHouseholdController.listGarbagePayments);
 app.get("/api/admin/garbage-statistics", auth, authorize("admin"), adminHouseholdController.getGarbageStatistics);
 
+// Additional admin routes for streetlight management
+app.get("/api/admin/streetlight-payments", auth, authorize("admin"), adminHouseholdController.listStreetlightPayments);
+app.get("/api/admin/streetlight-statistics", auth, authorize("admin"), adminHouseholdController.getStreetlightStatistics);
+
 // Resident-accessible routes for their own payment data
 app.get("/api/resident/household", auth, adminHouseholdController.getResidentHousehold);
 app.get("/api/resident/payments", auth, adminHouseholdController.getResidentPayments);
 app.get("/api/resident/household/:id/garbage", auth, adminHouseholdController.garbageSummary);
+app.get("/api/resident/household/:id/streetlight", auth, adminHouseholdController.streetlightSummary);
 
 // Fallback 404 (after all routes)
 app.use((req, res, next) => {

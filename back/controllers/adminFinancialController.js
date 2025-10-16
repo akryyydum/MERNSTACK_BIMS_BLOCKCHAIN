@@ -141,6 +141,7 @@ exports.createTransaction = async (req, res) => {
     const count = await FinancialTransaction.countDocuments({});
     const prefix = type === 'document_fee' ? 'DOC' : 
                    type === 'garbage_fee' ? 'GRB' : 
+                   type === 'streetlight_fee' ? 'STL' :
                    type === 'electric_fee' ? 'ELC' : 
                    type === 'permit_fee' ? 'PRM' : 'TXN';
     const transactionId = `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(6, '0')}`;

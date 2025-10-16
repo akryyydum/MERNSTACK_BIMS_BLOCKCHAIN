@@ -51,7 +51,7 @@ exports.list = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { headOfHousehold, members = [], address = {}, gasFee, hasBusiness, businessType } = req.body;
+    const { headOfHousehold, members = [], address = {}, hasBusiness, businessType } = req.body;
 
     if (!headOfHousehold || !members?.length || !address.street || !address.purok) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -84,7 +84,9 @@ exports.create = async (req, res) => {
       headOfHousehold,
       members: uniqueMembers,
       address: finalAddress,
-      gasFee: gasFee || {},
+      garbageFee: {},
+      electricFee: {},
+      streetlightFee: {},
       hasBusiness: hasBusiness || false,
       businessType: businessType || null,
     });
@@ -162,6 +164,11 @@ function calculateGarbageFee(household) {
   return household.hasBusiness ? businessRate : baseRate;
 }
 
+// Helper function to calculate streetlight fee (fixed rate for all households)
+function calculateStreetlightFee() {
+  return 10; // PHP 10 per month for all households (120 yearly)
+}
+
 // Generic summary fetcher
 async function getUtilitySummary(householdId, type, month) {
   const hh = await Household.findById(householdId).lean();
@@ -170,11 +177,13 @@ async function getUtilitySummary(householdId, type, month) {
   const m = (month || monthKey()).trim();
   let summary = await UtilityPayment.findOne({ household: householdId, type, month: m }).lean();
   if (!summary) {
-    const snap = type === "garbage" ? hh.garbageFee : hh.electricFee;
+    const snap = type === "garbage" ? hh.garbageFee : type === "streetlight" ? hh.streetlightFee : hh.electricFee;
     let totalCharge;
     
     if (type === "garbage") {
       totalCharge = calculateGarbageFee(hh);
+    } else if (type === "streetlight") {
+      totalCharge = calculateStreetlightFee();
     } else {
       totalCharge = Number(snap?.currentMonthCharge || 0);
     }
@@ -216,6 +225,8 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
     let defaultCharge;
     if (type === "garbage") {
       defaultCharge = calculateGarbageFee(hh);
+    } else if (type === "streetlight") {
+      defaultCharge = calculateStreetlightFee();
     } else {
       defaultCharge = hh?.electricFee?.currentMonthCharge || 0;
     }
@@ -262,6 +273,7 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
     lastPaymentDate: new Date(),
   };
   if (type === "garbage") hh.garbageFee = snap;
+  else if (type === "streetlight") hh.streetlightFee = snap;
   else hh.electricFee = snap;
   await hh.save();
 
@@ -305,6 +317,28 @@ exports.electricSummary = async (req, res) => {
 exports.payElectric = async (req, res) => {
   try {
     const { summary, error, status } = await payUtility(req.params.id, "electric", req.body || {});
+    if (error) return res.status(status).json({ message: error });
+    res.status(201).json(summary);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/admin/households/:id/streetlight?month=YYYY-MM
+exports.streetlightSummary = async (req, res) => {
+  try {
+    const { summary, error, status } = await getUtilitySummary(req.params.id, "streetlight", req.query.month);
+    if (error) return res.status(status).json({ message: error });
+    res.status(200).json(summary);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/admin/households/:id/streetlight/pay
+exports.payStreetlight = async (req, res) => {
+  try {
+    const { summary, error, status } = await payUtility(req.params.id, "streetlight", req.body || {});
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
@@ -375,6 +409,66 @@ exports.getGarbageStatistics = async (req, res) => {
   }
 };
 
+// GET /api/admin/streetlight-payments - List all streetlight payments
+exports.listStreetlightPayments = async (req, res) => {
+  try {
+    const { householdId } = req.query;
+    const filter = { type: "streetlight" };
+    
+    // If householdId is provided, filter by specific household
+    if (householdId) {
+      filter.household = householdId;
+    }
+    
+    const payments = await UtilityPayment.find(filter)
+      .populate("household", "householdId address headOfHousehold")
+      .sort({ month: -1, createdAt: -1 })
+      .lean();
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/admin/streetlight-statistics - Get streetlight payment statistics
+exports.getStreetlightStatistics = async (req, res) => {
+  try {
+    const currentMonth = monthKey();
+    
+    // Get all households
+    const households = await Household.find({}).lean();
+    const totalHouseholds = households.length;
+    
+    // Calculate expected revenue (fixed rate of PHP 10 per household)
+    const expectedRevenue = totalHouseholds * calculateStreetlightFee();
+    
+    // Get current month payments
+    const currentMonthPayments = await UtilityPayment.find({ 
+      type: "streetlight", 
+      month: currentMonth 
+    }).lean();
+    
+    // Calculate statistics
+    const totalCollected = currentMonthPayments.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
+    const totalOutstanding = expectedRevenue - totalCollected;
+    const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100) : 0;
+    
+    // Fixed monthly rate for all households
+    const monthlyRate = calculateStreetlightFee();
+    
+    res.json({
+      totalHouseholds,
+      monthlyRate,
+      expectedRevenue,
+      totalCollected,
+      totalOutstanding,
+      collectionRate: parseFloat(collectionRate.toFixed(1))
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // DELETE /api/admin/households/:id/garbage/payments - Delete all garbage payments for a household
 exports.deleteGarbagePayments = async (req, res) => {
   try {
@@ -402,6 +496,40 @@ exports.deleteGarbagePayments = async (req, res) => {
     
     res.json({ 
       message: `Deleted ${result.deletedCount} garbage payment records for household ${household.householdId}`,
+      deletedCount: result.deletedCount
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// DELETE /api/admin/households/:id/streetlight/payments - Delete all streetlight payments for a household
+exports.deleteStreetlightPayments = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify household exists
+    const household = await Household.findById(id);
+    if (!household) {
+      return res.status(404).json({ message: "Household not found" });
+    }
+    
+    // Delete all streetlight payment records for this household
+    const result = await UtilityPayment.deleteMany({ 
+      household: id, 
+      type: "streetlight" 
+    });
+    
+    // Reset household streetlight fee to default
+    household.streetlightFee = {
+      currentMonthCharge: 0,
+      balance: 0,
+      lastPaymentDate: null
+    };
+    await household.save();
+    
+    res.json({ 
+      message: `Deleted ${result.deletedCount} streetlight payment records for household ${household.householdId}`,
       deletedCount: result.deletedCount
     });
   } catch (err) {
@@ -473,7 +601,7 @@ exports.getResidentPayments = async (req, res) => {
     // Get all payments for this household
     const payments = await UtilityPayment.find({ 
       household: household._id,
-      type: "garbage"
+      type: { $in: ["garbage", "streetlight"] }
     })
     .populate('household', 'householdId hasBusiness')
     .sort({ month: -1 })

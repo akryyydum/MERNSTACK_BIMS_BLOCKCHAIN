@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, BulbOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined } from "@ant-design/icons";
 import axios from "axios";
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
@@ -12,15 +12,63 @@ const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 export default function AdminStreetLightFees() {
   const [loading, setLoading] = useState(false);
   const [households, setHouseholds] = useState([]);
-  const [streetLightPayments, setStreetLightPayments] = useState([]);
+  const [streetlightPayments, setStreetlightPayments] = useState([]);
   const [search, setSearch] = useState("");
   const [payOpen, setPayOpen] = useState(false);
+  // State to store payment status for each household
+  const [householdPaymentStatuses, setHouseholdPaymentStatuses] = useState({});
+  // Precompute payment status for each household for the current year
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      const currentYear = dayjs().year();
+      const statuses = {};
+      for (const household of households) {
+        let allPaid = true;
+        let anyPaid = false;
+        for (let month = 1; month <= 12; month++) {
+          const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+          try {
+            const res = await axios.get(`${API_BASE}/api/admin/households/${household._id}/streetlight`, {
+              headers: authHeaders(),
+              params: { month: monthStr },
+            });
+            if (res.data.status !== 'paid') allPaid = false;
+            if (res.data.status === 'paid' || res.data.status === 'partial') anyPaid = true;
+          } catch {
+            allPaid = false;
+          }
+        }
+        if (allPaid) statuses[household._id] = 'paid';
+        else if (anyPaid) statuses[household._id] = 'partial';
+        else statuses[household._id] = 'unpaid';
+      }
+      setHouseholdPaymentStatuses(statuses);
+    };
+    if (households.length > 0) fetchStatuses();
+  }, [households]);
   const [payForm] = Form.useForm();
   const [payLoading, setPayLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [paySummary, setPaySummary] = useState(null);
   const [payHousehold, setPayHousehold] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewHousehold, setViewHousehold] = useState(null);
+  
+  // State for general add payment modal
+  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [addPaymentForm] = Form.useForm();
+  const [selectedHouseholdForPayment, setSelectedHouseholdForPayment] = useState(null);
+  const [showMemberSelection, setShowMemberSelection] = useState(false);
+  const [searchType, setSearchType] = useState('household'); // 'household' or 'member'
+  
+  // State for payment history modal
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyHousehold, setHistoryHousehold] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  
+  // State for multiple month payments
+  const [selectedMonths, setSelectedMonths] = useState([]);
+  const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -28,7 +76,7 @@ export default function AdminStreetLightFees() {
 
   useEffect(() => {
     fetchHouseholds();
-    fetchStreetLightPayments();
+    fetchStreetlightPayments();
   }, []);
 
   const authHeaders = () => ({
@@ -47,76 +95,175 @@ export default function AdminStreetLightFees() {
     }
   };
 
-  const fetchStreetLightPayments = async () => {
+  const fetchStreetlightPayments = async () => {
     try {
       const res = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, { headers: authHeaders() });
-      setStreetLightPayments(res.data || []);
+      setStreetlightPayments(res.data || []);
     } catch (err) {
-      console.error("Error fetching street light payments:", err);
-      // Don't show error for now as this endpoint might not exist yet
+      console.error("Error fetching streetlight payments:", err);
+      message.warning("Could not load payment history. Table may not show updated payment status.");
     }
   };
 
-  const fetchFeeSummary = async (householdId, monthStr) => {
+  // Fetch payment status for all months in current year
+  const fetchYearlyPaymentStatus = async (householdId) => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/streetlight`, {
-        headers: authHeaders(),
-        params: { month: monthStr },
-      });
-      setPaySummary(res.data);
-      payForm.setFieldsValue({
-        month: dayjs(`${monthStr}-01`),
-        totalCharge: Number(res.data.totalCharge || 0),
-        amount: Number(res.data.balance || res.data.totalCharge || 0),
-        method: undefined,
-        reference: undefined,
-      });
+      const currentYear = dayjs().year();
+      const monthStatuses = {};
+      
+      // Check payment status for each month of the current year
+      for (let month = 1; month <= 12; month++) {
+        const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+        try {
+          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/streetlight`, {
+            headers: authHeaders(),
+            params: { month: monthStr },
+          });
+          monthStatuses[monthStr] = {
+            ...res.data,
+            isPaid: res.data.status === 'paid'
+          };
+        } catch (err) {
+          // If no payment record exists, consider it unpaid
+          const defaultFee = 10; // Fixed fee for streetlight
+          monthStatuses[monthStr] = {
+            month: monthStr,
+            totalCharge: defaultFee,
+            amountPaid: 0,
+            balance: defaultFee,
+            status: 'unpaid',
+            isPaid: false
+          };
+        }
+      }
+      
+      setMonthPaymentStatus(monthStatuses);
+      return monthStatuses;
     } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to load street light fee summary");
+      console.error("Error fetching yearly payment status:", err);
+      message.error("Failed to load payment status for the year");
+      return {};
     }
   };
 
   const openPayFee = async (household) => {
-    const monthStr = dayjs().format("YYYY-MM");
     setPayHousehold(household);
     setPayOpen(true);
-    await fetchFeeSummary(household._id, monthStr);
-  };
-
-  const onPayMonthChange = async (date) => {
-    const monthStr = dayjs(date).format("YYYY-MM");
-    if (payHousehold?._id) {
-      await fetchFeeSummary(payHousehold._id, monthStr);
-    }
+    
+    // Fetch payment status for all months in the current year
+    const yearlyStatus = await fetchYearlyPaymentStatus(household._id);
+    
+    // Find unpaid months and set as initial selection
+    const unpaidMonths = Object.keys(yearlyStatus).filter(month => !yearlyStatus[month].isPaid);
+    const initialMonths = unpaidMonths.slice(0, 1); // Start with current month if unpaid
+    setSelectedMonths(initialMonths);
+    
+    // Calculate initial totals
+    const defaultFee = 10; // Fixed fee for streetlight
+    const totalCharge = initialMonths.length * defaultFee;
+    
+    payForm.setFieldsValue({
+      selectedMonths: initialMonths,
+      totalCharge: totalCharge,
+      amount: totalCharge,
+      method: undefined,
+      reference: undefined,
+    });
   };
 
   const submitPayFee = async () => {
     try {
       setPayLoading(true);
       const values = await payForm.validateFields();
-      const payload = {
-        month: dayjs(values.month).format("YYYY-MM"),
-        amount: Number(values.amount),
-        totalCharge: Number(values.totalCharge),
-        method: values.method,
-        reference: values.reference,
-      };
-      const res = await axios.post(
-        `${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`,
-        payload,
-        { headers: authHeaders() }
-      );
-      message.success(res.data.status === "paid" ? "Street light fee fully paid!" : "Partial payment recorded!");
+      if (!selectedMonths || selectedMonths.length === 0) {
+        message.error("Please select at least one month to pay");
+        setPayLoading(false);
+        return;
+      }
+      const fee = 10;
+      const amount = Number(values.amount);
+      if (!amount || amount <= 0) {
+        message.error("Amount must be greater than 0");
+        setPayLoading(false);
+        return;
+      }
+      // Process payment for each selected month
+      const paymentPromises = selectedMonths.map(monthKey => {
+        // Always send all required fields, and ensure month is a string
+        const payload = {
+          month: String(monthKey),
+          amount: amount / selectedMonths.length,
+          totalCharge: fee,
+          method: values.method || "cash",
+          reference: values.reference || "",
+        };
+        return axios.post(
+          `${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`,
+          payload,
+          { headers: authHeaders() }
+        ).catch(error => {
+          // Log backend error for debugging
+          console.error("Streetlight payment error:", error?.response?.data || error);
+          throw error;
+        });
+      });
+      // Wait for all payments to complete
+      await Promise.all(paymentPromises);
+      // Show success message
+      const paidMonths = selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      message.success(`Payment recorded for ${selectedMonths.length} month(s): ${paidMonths}`);
+      // Reset form and state
       setPayOpen(false);
       setPaySummary(null);
       setPayHousehold(null);
+      setSelectedMonths([]);
+      setMonthPaymentStatus({});
       payForm.resetFields();
-      fetchHouseholds();
-      fetchStreetLightPayments();
+      // Show refreshing indicator and refresh all data
+      setRefreshing(true);
+      try {
+        await Promise.all([
+          fetchHouseholds(),
+          fetchStreetlightPayments(),
+          fetchStatistics()
+        ]);
+        message.success("Payment recorded and table updated successfully!");
+      } catch (refreshError) {
+        console.error("Error refreshing data:", refreshError);
+        message.warning("Payment recorded but there was an issue refreshing the display. Please refresh the page.");
+      } finally {
+        setRefreshing(false);
+      }
     } catch (err) {
+      // Show backend error message if available
       message.error(err?.response?.data?.message || "Failed to record payment");
     } finally {
       setPayLoading(false);
+    }
+  };
+
+  const deleteHouseholdPayments = async (household) => {
+    try {
+      setRefreshing(true);
+      
+      const res = await axios.delete(`${API_BASE}/api/admin/households/${household._id}/streetlight/payments`, {
+        headers: authHeaders()
+      });
+      
+      message.success(`${res.data.deletedCount} payment records deleted for ${household.householdId}. Reset to unpaid status.`);
+      
+      // Refresh all data
+      await Promise.all([
+        fetchHouseholds(),
+        fetchStreetlightPayments(),
+        fetchStatistics()
+      ]);
+      
+    } catch (err) {
+      console.error("Error deleting payments:", err);
+      message.error(err?.response?.data?.message || "Failed to delete payment records");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -125,17 +272,90 @@ export default function AdminStreetLightFees() {
     setViewOpen(true);
   };
 
-  // Calculate statistics
-  const totalHouseholds = households.length;
-  const monthlyRate = 200; // Standard street light fee
-  const totalExpectedRevenue = totalHouseholds * monthlyRate;
+  const openPaymentHistory = async (household) => {
+    try {
+      setHistoryHousehold(household);
+      setHistoryOpen(true);
+      
+      // Fetch payment history for this household
+      const res = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, {
+        headers: authHeaders(),
+        params: { householdId: household._id }
+      });
+      
+      // Filter payments for this specific household
+      const householdPayments = res.data.filter(payment => 
+        payment.household._id === household._id || payment.household === household._id
+      );
+      
+      setHistoryData(householdPayments);
+    } catch (err) {
+      console.error("Error fetching payment history:", err);
+      message.error("Failed to load payment history");
+    }
+  };
+
+  // Stat state
+  const [stats, setStats] = useState({
+    totalHouseholds: 0,
+    monthlyRate: 10,
+    totalCollected: 0,
+    totalOutstanding: 0,
+    collectionRate: 0
+  });
   
-  // Mock calculations for demo (replace with real data when backend is ready)
-  const totalCollected = households.reduce((sum, h) => sum + (h.streetLightFee?.amountPaid || 0), 0);
-  const totalOutstanding = totalExpectedRevenue - totalCollected;
-  const collectionRate = totalExpectedRevenue > 0 ? ((totalCollected / totalExpectedRevenue) * 100).toFixed(1) : 0;
+  // Fetch statistics
+  const fetchStatistics = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/admin/streetlight-statistics`, { headers: authHeaders() });
+      setStats(res.data);
+    } catch (err) {
+      console.error("Error fetching statistics:", err);
+      // Fallback to calculated stats if API fails
+      const totalHouseholds = households.length;
+      const expectedRevenue = totalHouseholds * 10; // Fixed rate of 10 per household
+      const totalCollected = households.reduce((sum, h) => sum + (h.streetlightFee?.amountPaid || 0), 0);
+      const totalOutstanding = expectedRevenue - totalCollected;
+      const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100).toFixed(1) : 0;
+      
+      setStats({
+        totalHouseholds,
+        monthlyRate: 10,
+        expectedRevenue,
+        totalCollected,
+        totalOutstanding,
+        collectionRate
+      });
+    }
+  };
+  
+  useEffect(() => {
+    fetchStatistics();
+  }, [households]);
 
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
+
+  // Get all members with their household info for searching
+  const getAllMembersWithHousehold = () => {
+    const membersWithHousehold = [];
+    
+    households.forEach(household => {
+      if (household.members && Array.isArray(household.members)) {
+        household.members.forEach(member => {
+          membersWithHousehold.push({
+            id: member._id,
+            name: fullName(member),
+            member: member,
+            household: household,
+            isHead: member._id === household.headOfHousehold._id,
+            searchText: `${fullName(member)} ${household.householdId} ${household.address?.street} ${household.address?.purok}`.toLowerCase()
+          });
+        });
+      }
+    });
+    
+    return membersWithHousehold;
+  };
 
   const columns = [
     {
@@ -159,62 +379,111 @@ export default function AdminStreetLightFees() {
       title: "Address",
       key: "address",
       render: (_, r) =>
-        `${r.address?.street || ""}, ${r.address?.purok || ""}`,
+        r.address?.purok || "",
     },
     {
-      title: "Current Month Fee",
-      key: "currentFee",
-      render: () => `₱${monthlyRate.toFixed(2)}`,
+      title: "Monthly Fee",
+      key: "monthlyFee",
+      render: () => "₱10.00", // Fixed fee for streetlight
     },
     {
       title: "Payment Status",
       key: "paymentStatus",
       render: (_, record) => {
-        // Mock status for demo
-        const balance = record.streetLightFee?.balance || monthlyRate;
-        if (balance === 0) {
-          return <Tag color="green">Paid</Tag>;
-        } else if (balance < monthlyRate) {
-          return <Tag color="orange">Partial</Tag>;
-        } else {
-          return <Tag color="red">Unpaid</Tag>;
-        }
+        const status = householdPaymentStatuses[record._id];
+        if (!status) return <Tag color="default">Loading...</Tag>;
+        if (status === 'paid') return <Tag color="green">Fully Paid</Tag>;
+        if (status === 'partial') return <Tag color="orange">Partially Paid</Tag>;
+        return <Tag color="red">Unpaid</Tag>;
       },
     },
     {
       title: "Balance",
       key: "balance",
       render: (_, record) => {
-        const balance = record.streetLightFee?.balance || monthlyRate;
-        return `₱${balance.toFixed(2)}`;
+        // Calculate total unpaid balance for current year
+        const defaultFee = 10;
+        const currentYear = dayjs().year();
+        let totalBalance = 0;
+        let totalPaid = 0;
+        let lastPaymentDate = null;
+        const isSameHousehold = (a, b) => {
+          if (!a || !b) return false;
+          return String(a) === String(b);
+        };
+        for (let month = 1; month <= 12; month++) {
+          const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+          const monthPayment = streetlightPayments.find(payment =>
+            (isSameHousehold(payment.household?._id, record._id) || isSameHousehold(payment.household, record._id)) && payment.month === monthStr
+          );
+          if (monthPayment) {
+            totalBalance += Number(monthPayment.balance || 0);
+            totalPaid += Number(monthPayment.amountPaid || 0);
+            if (monthPayment.payments && monthPayment.payments.length > 0) {
+              const latestPayment = monthPayment.payments[monthPayment.payments.length - 1];
+              if (!lastPaymentDate || new Date(latestPayment.paidAt) > new Date(lastPaymentDate)) {
+                lastPaymentDate = latestPayment.paidAt;
+              }
+            }
+          } else {
+            totalBalance += defaultFee;
+          }
+        }
+        return (
+          <div>
+            <div className="font-semibold">₱{totalBalance.toFixed(2)}</div>
+            {totalPaid > 0 && (
+              <div className="text-xs text-gray-500">Paid: ₱{totalPaid.toFixed(2)}</div>
+            )}
+            {lastPaymentDate && (
+              <div className="text-xs text-gray-400">Last: {dayjs(lastPaymentDate).format('MM/DD/YY')}</div>
+            )}
+          </div>
+        );
       },
     },
     {
       title: "Actions",
       key: "actions",
-      render: (_, r) => (
-        <div className="flex gap-2">
-          <Button size="small" onClick={() => openView(r)}>View</Button>
-          <Button type="primary" size="small" onClick={() => openPayFee(r)}>
-            Record Payment
-          </Button>
-        </div>
-      ),
+      render: (_, r) => {
+        const isSameHousehold = (a, b) => {
+          if (!a || !b) return false;
+          return String(a) === String(b);
+        };
+        const hasPayments = streetlightPayments.some(payment => isSameHousehold(payment.household?._id, r._id) || isSameHousehold(payment.household, r._id));
+        return (
+          <div className="flex gap-1 flex-wrap">
+            <Button size="small" onClick={() => openView(r)}>View</Button>
+            <Button size="small" onClick={() => openPaymentHistory(r)}>History</Button>
+            {hasPayments && (
+              <Popconfirm
+                title="Delete Payment Records"
+                description={`Delete ALL payment records for ${r.householdId}? This will reset them to unpaid status.`}
+                onConfirm={() => deleteHouseholdPayments(r)}
+                okText="Yes, Delete"
+                cancelText="Cancel"
+                okType="danger"
+              >
+                <Button size="small" danger title="Delete all payment records for this household">Reset</Button>
+              </Popconfirm>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
-  const filteredHouseholds = households.filter(h =>
-    [
-      h.householdId,
-      h.address?.street,
-      h.address?.purok,
-      fullName(h.headOfHousehold),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const filteredHouseholds = useMemo(() => {
+    if (!search) return households;
+    const term = search.toLowerCase();
+    return households.filter((h) => {
+      const householdId = h.householdId?.toLowerCase() || "";
+      const headName = fullName(h.headOfHousehold)?.toLowerCase() || "";
+      const street = h.address?.street?.toLowerCase() || "";
+      const purok = h.address?.purok?.toLowerCase() || "";
+      return householdId.includes(term) || headName.includes(term) || street.includes(term) || purok.includes(term);
+    });
+  }, [households, search]);
 
   return (
     <AdminLayout title="Admin">
@@ -223,7 +492,7 @@ export default function AdminStreetLightFees() {
           <nav className="px-5 h-20 flex items-center justify-between p-15">
             <div>
               <span className="text-2xl md:text-4xl font-bold text-gray-800">
-                Street Light Fees Management
+                Streetlight Fees Management
               </span>
             </div>
             <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
@@ -244,12 +513,12 @@ export default function AdminStreetLightFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {totalHouseholds}
+                    {stats.totalHouseholds}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {totalHouseholds}
+                    {stats.totalHouseholds}
                   </div>
                 </CardContent>
               </Card>
@@ -260,12 +529,12 @@ export default function AdminStreetLightFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{monthlyRate}
+                    ₱{stats.monthlyRate}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{monthlyRate}
+                    ₱{stats.monthlyRate}
                   </div>
                 </CardContent>
               </Card>
@@ -276,12 +545,12 @@ export default function AdminStreetLightFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{totalCollected.toFixed(2)}
+                    ₱{(stats.totalCollected || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{totalCollected.toFixed(2)}
+                    ₱{(stats.totalCollected || 0).toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
@@ -292,12 +561,12 @@ export default function AdminStreetLightFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{totalOutstanding.toFixed(2)}
+                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{totalOutstanding.toFixed(2)}
+                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
@@ -308,12 +577,12 @@ export default function AdminStreetLightFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {collectionRate}%
+                    {stats.collectionRate || 0}%
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {collectionRate}%
+                    {stats.collectionRate || 0}%
                   </div>
                 </CardContent>
               </Card>
@@ -327,81 +596,392 @@ export default function AdminStreetLightFees() {
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <div className="flex flex-wrap gap-2">
               <Input.Search
-                allowClear
-                placeholder="Search households"
-                onSearch={v => setSearch(v.trim())}
+                placeholder="Search households..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                enterButton
-                className="min-w-[180px] max-w-xs"
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: 300 }}
+                allowClear
               />
+              <Button 
+                type="primary" 
+                onClick={() => setAddPaymentOpen(true)}
+              >
+                + Add Payment
+              </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm text-gray-600 self-center">
-                Collection Rate: {collectionRate}%
-              </span>
-            </div>
+            <Button onClick={() => { fetchHouseholds(); fetchStreetlightPayments(); fetchStatistics(); }}>
+              Refresh
+            </Button>
           </div>
-          <div className="overflow-x-auto">
-            <Table
-              rowKey="_id"
-              loading={loading}
-              dataSource={filteredHouseholds}
-              columns={columns}
-              pagination={{ pageSize: 10 }}
+
+          <Table
+            columns={columns}
+            dataSource={filteredHouseholds}
+            rowKey="_id"
+            loading={loading || refreshing}
+            pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} of ${total} households`,
+                pageSizeOptions: ['5', '10', '20', '50', '100'],
+                defaultPageSize: 10,
+                size: 'default'
+              }}
               scroll={{ x: 800 }}
-            />
-          </div>
+          />
         </div>
 
-        {/* Pay Street Light Fee Modal */}
+        {/* Add Payment Modal */}
         <Modal
-          title={`Record Street Light Fee Payment${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
+          title={
+            <div>
+              {searchType === 'household' ? 'Add Streetlight Fee Payment' : 'Add Payment by Member'}
+              {!showMemberSelection && (
+                <div className="flex gap-2 mt-2">
+                </div>
+              )}
+            </div>
+          }
+          open={addPaymentOpen}
+          onCancel={() => {
+            setAddPaymentOpen(false);
+            setShowMemberSelection(false);
+            setSelectedHouseholdForPayment(null);
+            setSearchType('household');
+            addPaymentForm.resetFields();
+          }}
+          footer={[
+            <Button key="cancel" onClick={() => {
+              setAddPaymentOpen(false);
+              setShowMemberSelection(false);
+              setSelectedHouseholdForPayment(null);
+              setSearchType('household');
+              addPaymentForm.resetFields();
+            }}>
+              Cancel
+            </Button>,
+            ...(showMemberSelection ? [
+              <Button key="back" onClick={() => {
+                setShowMemberSelection(false);
+                setSelectedHouseholdForPayment(null);
+              }}>
+                ← Back
+              </Button>
+            ] : []),
+            <Button key="submit" type="primary" onClick={async () => {
+              try {
+                const values = await addPaymentForm.validateFields();
+                
+                if (searchType === 'member') {
+                  // Member search: directly proceed to payment
+                  const allMembers = getAllMembersWithHousehold();
+                  const selectedMemberData = allMembers.find(m => m.id === values.memberId);
+                  
+                  if (selectedMemberData) {
+                    setAddPaymentOpen(false);
+                    addPaymentForm.resetFields();
+                    setSearchType('household');
+                    
+                    // Open payment modal with member info
+                    const householdWithPayingMember = {
+                      ...selectedMemberData.household,
+                      payingMember: selectedMemberData.member
+                    };
+                    openPayFee(householdWithPayingMember);
+                  }
+                } else if (!showMemberSelection) {
+                  // Household search: show member selection
+                  const selectedHousehold = households.find(h => h._id === values.householdId);
+                  if (selectedHousehold) {
+                    setSelectedHouseholdForPayment(selectedHousehold);
+                    setShowMemberSelection(true);
+                    addPaymentForm.setFieldValue('payingMemberId', selectedHousehold.headOfHousehold._id);
+                  }
+                } else {
+                  // Member selection: proceed to payment
+                  const payingMemberId = values.payingMemberId;
+                  const payingMember = selectedHouseholdForPayment.members.find(m => m._id === payingMemberId);
+                  
+                  setAddPaymentOpen(false);
+                  setShowMemberSelection(false);
+                  addPaymentForm.resetFields();
+                  
+                  const householdWithPayingMember = {
+                    ...selectedHouseholdForPayment,
+                    payingMember: payingMember
+                  };
+                  openPayFee(householdWithPayingMember);
+                  setSelectedHouseholdForPayment(null);
+                }
+              } catch (err) {
+                console.error("Form validation failed:", err);
+              }
+            }}>
+              {showMemberSelection ? 'Continue to Payment' : 
+               searchType === 'member' ? 'Continue to Payment' : 
+               'Select Member'}
+            </Button>
+          ]}
+          width={600}
+        >
+          <Form form={addPaymentForm} layout="vertical">
+            {!showMemberSelection ? (
+              <div className="space-y-4">
+                {/* Search Type Selection */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm font-medium mb-3">How would you like to search?</div>
+                  <div className="flex gap-4">
+                    <Button 
+                      type={searchType === 'household' ? 'primary' : 'default'}
+                      onClick={() => {
+                        setSearchType('household');
+                        addPaymentForm.resetFields();
+                      }}
+                    >
+                      🏠 Search by Household
+                    </Button>
+                    <Button 
+                      type={searchType === 'member' ? 'primary' : 'default'}
+                      onClick={() => {
+                        setSearchType('member');
+                        addPaymentForm.resetFields();
+                      }}
+                    >
+                      👤 Search by Member Name
+                    </Button>
+                  </div>
+                </div>
+                {searchType === 'household' ? (
+                  <Form.Item
+                    name="householdId"
+                    label="Select Household"
+                    rules={[{ required: true, message: "Please select a household" }]}
+                  >
+                    <Select
+                      showSearch
+                      placeholder="Search by household ID, head of household, or address"
+                      optionFilterProp="children"
+                      filterOption={(input, option) =>
+                        option?.children?.toLowerCase().includes(input.toLowerCase())
+                      }
+                    >
+                      {households.map(household => (
+                        <Select.Option key={household._id} value={household._id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {household.householdId} - {fullName(household.headOfHousehold)}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {household.address?.street}, {household.address?.purok}
+                            </span>
+                          </div>
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                ) : (
+                  <Form.Item
+                    name="memberId"
+                    label="Search by Member Name"
+                    rules={[{ required: true, message: "Please select a household member" }]}
+                  >
+                    <Select
+                      showSearch
+                      placeholder="Type member name to search..."
+                      optionFilterProp="children"
+                      filterOption={(input, option) => {
+                        const memberData = getAllMembersWithHousehold().find(m => m.id === option?.value);
+                        return memberData?.searchText?.includes(input.toLowerCase()) || false;
+                      }}
+                    >
+                      {getAllMembersWithHousehold().map(memberData => (
+                        <Select.Option key={memberData.id} value={memberData.id}>
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{memberData.name}</span>
+                              {memberData.isHead && (
+                                <Tag color="blue" size="small">Head of Household</Tag>
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              Household: {memberData.household.householdId} | {memberData.household.address?.street}, {memberData.household.address?.purok}
+                            </span>
+                          </div>
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                )}
+                <div className="text-xs text-gray-500">
+                  💡 {searchType === 'household' 
+                    ? "Select a household, then choose which member is making the payment" 
+                    : "Search by member name to quickly find their household and proceed to payment"}
+                </div>
+              </div>
+            ) : (
+              // Step 2: Member Selection
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800">Selected Household</h4>
+                  <p className="text-blue-700">
+                    {selectedHouseholdForPayment?.householdId} - {fullName(selectedHouseholdForPayment?.headOfHousehold)}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    {selectedHouseholdForPayment?.address?.street}, {selectedHouseholdForPayment?.address?.purok}
+                  </p>
+                </div>
+                
+                <Form.Item
+                  name="payingMemberId"
+                  label="Who is making the payment?"
+                  rules={[{ required: true, message: "Please select who is making the payment" }]}
+                >
+                  <Select placeholder="Select household member">
+                    {selectedHouseholdForPayment?.members?.map(member => (
+                      <Select.Option key={member._id} value={member._id}>
+                        <div className="flex items-center gap-2">
+                          <span>{fullName(member)}</span>
+                          {member._id === selectedHouseholdForPayment.headOfHousehold._id && (
+                            <Tag color="blue" size="small">Head of Household</Tag>
+                          )}
+                        </div>
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                
+                <div className="text-xs text-gray-500">
+                  💡 Any household member can make streetlight fee payments on behalf of the household.
+                </div>
+              </div>
+            )}
+          </Form>
+        </Modal>
+
+        {/* Pay Streetlight Fee Modal */}
+        <Modal
+          title={
+            <div>
+              {`Record Streetlight Fee Payment${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
+              {payHousehold?.payingMember && (
+                <div className="text-sm text-gray-600 font-normal mt-1">
+                  Payment by: {fullName(payHousehold.payingMember)}
+                  {payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Head of Household</span>
+                  }
+                </div>
+              )}
+            </div>
+          }
           open={payOpen}
-          onCancel={() => { setPayOpen(false); setPayHousehold(null); setPaySummary(null); }}
+          onCancel={() => { 
+            setPayOpen(false); 
+            setPayHousehold(null); 
+            setPaySummary(null); 
+            setSelectedMonths([]);
+            setMonthPaymentStatus({});
+            payForm.resetFields();
+          }}
           onOk={submitPayFee}
           okText="Record Payment"
           confirmLoading={payLoading}
-          width={520}
+          width={720}
         >
           <Form form={payForm} layout="vertical">
             <Form.Item label="Fee Type">
-              <Input disabled value="Street Light Maintenance Fee" />
+              <Input disabled value="Streetlight Maintenance Fee" />
             </Form.Item>
+            <div className="space-y-3 p-4 bg-gray-50 rounded-lg mb-4">
+              <div className="text-sm font-semibold text-gray-700">Fee Information</div>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Monthly Rate:</span> ₱10.00 (fixed for all households)
+              </div>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Annual Rate:</span> ₱120.00
+              </div>
+              <div className="text-xs text-gray-500">
+                💡 Streetlight fees are the same for all households regardless of business status
+              </div>
+            </div>
+            {/* Month Selection - Consistent with Garbage Fees */}
             <Form.Item
-              name="month"
-              label="Month"
-              rules={[{ required: true, message: "Select month" }]}
+              name="selectedMonths"
+              label="Select Months to Pay (Current Year Only)"
+              rules={[{ required: true, message: "Select at least one month" }]}
             >
-              <DatePicker picker="month" className="w-full" onChange={onPayMonthChange} />
+              <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                {Object.keys(monthPaymentStatus)
+                  .sort()
+                  .map(monthKey => {
+                    const monthData = monthPaymentStatus[monthKey];
+                    const isPaid = monthData?.isPaid;
+                    const monthName = dayjs(`${monthKey}-01`).format("MMM YYYY");
+                    const balance = monthData?.balance || 0;
+                    return (
+                      <div
+                        key={monthKey}
+                        className={`p-2 border rounded ${
+                          isPaid 
+                            ? 'bg-green-50 border-green-200 text-green-700' 
+                            : selectedMonths.includes(monthKey)
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-white border-gray-200'
+                        }`}
+                      >
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            disabled={isPaid}
+                            checked={selectedMonths.includes(monthKey)}
+                            onChange={(e) => {
+                              const newSelectedMonths = e.target.checked
+                                ? [...selectedMonths, monthKey]
+                                : selectedMonths.filter(m => m !== monthKey);
+                              setSelectedMonths(newSelectedMonths);
+                              payForm.setFieldValue("selectedMonths", newSelectedMonths);
+                              // Update total charge calculation
+                              const fee = 10;
+                              const totalCharge = newSelectedMonths.length * fee;
+                              payForm.setFieldValue("totalCharge", totalCharge);
+                              payForm.setFieldValue("amount", totalCharge);
+                            }}
+                            className="mr-2"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-xs">{monthName}</div>
+                            {isPaid ? (
+                              <div className="text-xs text-green-600">✓ Paid</div>
+                            ) : (
+                              <div className="text-xs text-gray-500">₱{balance.toFixed(0)}</div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+              {selectedMonths.length > 0 && (
+                <div className="mt-2 text-sm text-blue-600">
+                  Selected: {selectedMonths.length} month(s)
+                </div>
+              )}
             </Form.Item>
             <Form.Item
               name="totalCharge"
-              label="Total Charge for Month"
-              rules={[{ required: true, message: "Enter total charge" }]}
+              label={`Total Charge (${selectedMonths.length} month${selectedMonths.length !== 1 ? 's' : ''})`}
+              rules={[{ required: true, message: "Total charge calculated automatically" }]}
             >
-              <InputNumber className="w-full" min={0} step={50} />
+              <InputNumber className="w-full" disabled />
             </Form.Item>
             <Form.Item
               name="amount"
               label="Amount to Pay"
-              rules={[
-                { required: true, message: "Enter amount to pay" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    const total = Number(getFieldValue("totalCharge") || 0);
-                    if (value === undefined) return Promise.reject();
-                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
-                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
-                    if (Number(value) > total + 1e-6) {
-                      return Promise.reject(new Error("Amount cannot exceed total charge"));
-                    }
-                    return Promise.resolve();
-                  },
-                }),
-              ]}
+              rules={[{ required: true, message: "Enter amount to pay" }]}
             >
-              <InputNumber className="w-full" min={0} step={50} />
+              <InputNumber className="w-full" min={0} step={10} />
             </Form.Item>
             <Form.Item name="method" label="Payment Method">
               <Select
@@ -417,58 +997,152 @@ export default function AdminStreetLightFees() {
             <Form.Item name="reference" label="Reference No. (optional)">
               <Input />
             </Form.Item>
-
-            {paySummary && (
-              <div className="p-2 rounded border border-slate-200 bg-slate-50 text-sm">
-                <div>Paid so far: ₱{Number(paySummary.amountPaid || 0).toFixed(2)}</div>
-                <div>Balance: ₱{Number(paySummary.balance || 0).toFixed(2)}</div>
-                <div>Status: {paySummary.status}</div>
+            {selectedMonths.length > 0 && (
+              <div className="p-3 rounded border border-blue-200 bg-blue-50 text-sm">
+                <div className="font-semibold text-blue-800 mb-2">Payment Summary:</div>
+                <div className="space-y-1">
+                  <div>Selected Months: {selectedMonths.length}</div>
+                  <div>Fee per Month: ₱10.00</div>
+                  <div>Total Amount: ₱{(selectedMonths.length * 10).toFixed(2)}</div>
+                  <div className="text-xs text-blue-600 mt-2">
+                    {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                  </div>
+                </div>
               </div>
             )}
           </Form>
         </Modal>
 
-        {/* View Household Details Modal */}
+        {/* View Household Modal */}
         <Modal
-          title="Household Details"
+          title={`Household Details${viewHousehold ? ` — ${viewHousehold.householdId}` : ""}`}
           open={viewOpen}
-          onCancel={() => setViewOpen(false)}
+          onCancel={() => {
+            setViewOpen(false);
+            setViewHousehold(null);
+          }}
           footer={null}
-          width={700}
+          width={600}
         >
           {viewHousehold && (
-            <Descriptions bordered column={1} size="middle">
-              <Descriptions.Item label="Household ID">{viewHousehold.householdId}</Descriptions.Item>
+            <Descriptions column={1} bordered>
+              <Descriptions.Item label="Household ID">
+                {viewHousehold.householdId}
+              </Descriptions.Item>
               <Descriptions.Item label="Head of Household">
-                {fullName(viewHousehold.headOfHousehold) || "Not specified"}
+                {fullName(viewHousehold.headOfHousehold)}
               </Descriptions.Item>
               <Descriptions.Item label="Address">
-                {[
-                  viewHousehold.address?.street,
-                  viewHousehold.address?.purok,
-                  viewHousehold.address?.barangay,
-                  viewHousehold.address?.municipality,
-                ].filter(Boolean).join(", ")}
+                {`${viewHousehold.address?.street || ""}, ${viewHousehold.address?.purok || ""}, ${viewHousehold.address?.barangay || ""}`}
               </Descriptions.Item>
-              <Descriptions.Item label="Members Count">
-                {viewHousehold.members?.length || 0}
+              <Descriptions.Item label="Monthly Fee">
+                ₱10.00 (fixed rate)
               </Descriptions.Item>
-              <Descriptions.Item label="Current Street Light Fee">
-                ₱{monthlyRate.toFixed(2)}/month
+              <Descriptions.Item label="Current Balance">
+                ₱{Number(viewHousehold.streetlightFee?.balance || 10).toFixed(2)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Last Payment">
+                {viewHousehold.streetlightFee?.lastPaymentDate 
+                  ? dayjs(viewHousehold.streetlightFee.lastPaymentDate).format("MM/DD/YYYY")
+                  : "No payments recorded"
+                }
               </Descriptions.Item>
               <Descriptions.Item label="Payment Status">
                 {(() => {
-                  const balance = viewHousehold.streetLightFee?.balance || monthlyRate;
-                  if (balance === 0) {
-                    return <Tag color="green">Fully Paid</Tag>;
-                  } else if (balance < monthlyRate) {
-                    return <Tag color="orange">Partially Paid</Tag>;
-                  } else {
-                    return <Tag color="red">Unpaid</Tag>;
+                  // Use the same logic as the main table for payment status
+                  const currentYear = dayjs().year();
+                  let allPaid = true;
+                  let anyPaid = false;
+                  for (let month = 1; month <= 12; month++) {
+                    const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+                    const monthPayment = streetlightPayments.find(payment => {
+                      const h1 = payment.household?._id || payment.household;
+                      const h2 = viewHousehold._id;
+                      return String(h1) === String(h2) && payment.month === monthStr;
+                    });
+                    if (!monthPayment || monthPayment.status !== 'paid') allPaid = false;
+                    if (monthPayment && (monthPayment.status === 'paid' || monthPayment.status === 'partial')) anyPaid = true;
                   }
+                  if (allPaid) return <Tag color="green">Fully Paid</Tag>;
+                  if (anyPaid) return <Tag color="orange">Partially Paid</Tag>;
+                  return <Tag color="red">Unpaid</Tag>;
                 })()}
               </Descriptions.Item>
             </Descriptions>
+          )}
+        </Modal>
+
+        {/* Payment History Modal */}
+        <Modal
+          title={`Payment History${historyHousehold ? ` — ${historyHousehold.householdId}` : ""}`}
+          open={historyOpen}
+          onCancel={() => {
+            setHistoryOpen(false);
+            setHistoryHousehold(null);
+            setHistoryData([]);
+          }}
+          footer={null}
+          width={800}
+        >
+          {historyHousehold && (
+            <div>
+              <div className="mb-4">
+                <strong>Household:</strong> {historyHousehold.householdId} - {fullName(historyHousehold.headOfHousehold)}
+              </div>
+              
+              {historyData.length > 0 ? (
+                <Table
+                  dataSource={historyData}
+                  pagination={false}
+                  size="small"
+                  columns={[
+                    {
+                      title: "Month",
+                      dataIndex: "month",
+                      key: "month",
+                      render: (month) => dayjs(`${month}-01`).format("MMMM YYYY")
+                    },
+                    {
+                      title: "Total Charge",
+                      dataIndex: "totalCharge",
+                      key: "totalCharge",
+                      render: (amount) => `₱${Number(amount || 0).toFixed(2)}`
+                    },
+                    {
+                      title: "Amount Paid",
+                      dataIndex: "amountPaid",
+                      key: "amountPaid",
+                      render: (amount) => `₱${Number(amount || 0).toFixed(2)}`
+                    },
+                    {
+                      title: "Balance",
+                      dataIndex: "balance",
+                      key: "balance",
+                      render: (amount) => `₱${Number(amount || 0).toFixed(2)}`
+                    },
+                    {
+                      title: "Status",
+                      dataIndex: "status",
+                      key: "status",
+                      render: (status) => {
+                        const color = status === 'paid' ? 'green' : status === 'partial' ? 'orange' : 'red';
+                        return <Tag color={color}>{status?.toUpperCase()}</Tag>;
+                      }
+                    },
+                    {
+                      title: "Last Payment",
+                      dataIndex: "updatedAt",
+                      key: "updatedAt",
+                      render: (date) => dayjs(date).format("MM/DD/YYYY")
+                    }
+                  ]}
+                />
+              ) : (
+                <div className="text-center text-gray-500 py-8">
+                  No payment history found for this household.
+                </div>
+              )}
+            </div>
           )}
         </Modal>
       </div>
