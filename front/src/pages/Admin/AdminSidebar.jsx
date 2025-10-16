@@ -9,26 +9,24 @@ import AdminResidentManagement from "./AdminResidentManagement";
 const defaultMenu = [
   { to: "/admin-dashboard", label: "Dashboard", icon: <DashboardOutlined /> },
   { 
-    to: "/admin/user-management", 
-    label: "User Management", 
-    icon: <UsergroupAddOutlined />,
+    to: "/admin/management", 
+    label: "Management", 
+    icon: <SettingOutlined />,
     subItems: [
+      { to: "/admin/user-management", label: "User Management", icon: <UsergroupAddOutlined /> },
       { to: "/admin/residents", label: "Residents Management", icon: <UserOutlined /> },
-      { 
-        to: "/admin/households", 
-        label: "Household Management", 
-        icon: <HomeOutlined />,
-        subItems: [
-          { to: "/admin/garbage-fees", label: "Garbage Fees", icon: <DeleteOutlined /> },
-          { to: "/admin/streetlight-fees", label: "Street Light Fees", icon: <BulbOutlined /> },
-        ]
-      },
+      { to: "/admin/households", label: "Household Management", icon: <HomeOutlined /> },
       { to: "/admin/official-management", label: "Officials Management", icon: <UserOutlined /> },
     ]
   },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
-  { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined /> },
+  { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />,
+    subItems: [
+      { to: "/admin/garbage-fees", label: "Garbage Fees", icon: <DeleteOutlined /> },
+      { to: "/admin/streetlight-fees", label: "Street Light Fees", icon: <BulbOutlined /> },
+    ]
+  },
   { to: "/admin/financial-reports", label: "Financial Reports", icon: <DollarOutlined /> },
   { to: "/admin/publicdocuments", label: "Public Documents", icon: <UserOutlined /> },
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
