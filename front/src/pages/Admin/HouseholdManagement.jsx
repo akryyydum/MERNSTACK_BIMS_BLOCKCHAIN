@@ -80,6 +80,8 @@ export default function HouseholdManagement() {
           street: values.address?.street,
           purok: values.address?.purok,
         },
+        hasBusiness: values.hasBusiness || false,
+        businessType: values.businessType || null,
       };
       await axios.post(`${API_BASE}/api/admin/households`, payload, { headers: authHeaders() });
       message.success("Household added!");
@@ -103,6 +105,8 @@ export default function HouseholdManagement() {
       headOfHousehold: household.headOfHousehold?._id || household.headOfHousehold,
       members: household.members?.map(m => (m._id || m)),
       address: addressRest,
+      hasBusiness: household.hasBusiness || false,
+      businessType: household.businessType || null,
     });
 
     // NEW: Initialize "Only me" in Edit if members is exactly [head]
@@ -132,6 +136,8 @@ export default function HouseholdManagement() {
           street: values.address?.street,
           purok: values.address?.purok,
         },
+        hasBusiness: values.hasBusiness || false,
+        businessType: values.businessType || null,
       };
       await axios.patch(`${API_BASE}/api/admin/households/${selectedHousehold._id}`, payload, { headers: authHeaders() });
       message.success("Household updated!");
@@ -250,6 +256,23 @@ export default function HouseholdManagement() {
       title: "Purok",
       dataIndex: ["address", "purok"],
       key: "purok",
+    },
+    {
+      title: "Business Status",
+      key: "businessStatus",
+      render: (_, record) => {
+        if (record.hasBusiness) {
+          return (
+            <div className="flex flex-col">
+              <span className="text-green-600 font-medium">With Business</span>
+              {record.businessType && (
+                <span className="text-gray-500 text-xs">{record.businessType}</span>
+              )}
+            </div>
+          );
+        }
+        return <span className="text-gray-500">No Business</span>;
+      },
     },
     {
       title: "Actions",
@@ -570,6 +593,27 @@ export default function HouseholdManagement() {
                 ]}
               />
             </Form.Item>
+
+            {/* Business Status Fields */}
+            <Form.Item name="hasBusiness" label="Business Status" valuePropName="checked">
+              <Checkbox>This household has a business</Checkbox>
+            </Form.Item>
+
+            <Form.Item
+              name="businessType"
+              label="Business Type"
+              rules={[
+                {
+                  required: Form.useWatch('hasBusiness', addForm),
+                  message: 'Please specify the business type'
+                }
+              ]}
+            >
+              <Input
+                placeholder="e.g., Sari-sari store, Restaurant, etc."
+                disabled={!Form.useWatch('hasBusiness', addForm)}
+              />
+            </Form.Item>
           </Form>
         </Modal>
 
@@ -632,6 +676,27 @@ export default function HouseholdManagement() {
                 ]}
               />
             </Form.Item>
+
+            {/* Business Status Fields */}
+            <Form.Item name="hasBusiness" label="Business Status" valuePropName="checked">
+              <Checkbox>This household has a business</Checkbox>
+            </Form.Item>
+
+            <Form.Item
+              name="businessType"
+              label="Business Type"
+              rules={[
+                {
+                  required: Form.useWatch('hasBusiness', editForm),
+                  message: 'Please specify the business type'
+                }
+              ]}
+            >
+              <Input
+                placeholder="e.g., Sari-sari store, Restaurant, etc."
+                disabled={!Form.useWatch('hasBusiness', editForm)}
+              />
+            </Form.Item>
           </Form>
         </Modal>
         {/* View Household Modal */}
@@ -686,6 +751,20 @@ export default function HouseholdManagement() {
                 ].filter(Boolean).join(", ")}
               </Descriptions.Item>
               <Descriptions.Item label="Purok">{viewHousehold.address?.purok}</Descriptions.Item>
+              <Descriptions.Item label="Business Status">
+                {viewHousehold.hasBusiness ? (
+                  <div>
+                    <span className="text-green-600 font-medium">Has Business</span>
+                    {viewHousehold.businessType && (
+                      <div className="text-gray-600 mt-1">
+                        Type: {viewHousehold.businessType}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-gray-500">No Business</span>
+                )}
+              </Descriptions.Item>
             </Descriptions>
           )}
         </Modal>

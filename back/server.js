@@ -61,6 +61,17 @@ app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
 app.use("/api/resident/public-documents", residentPublicDocumentRoutes);
 
+// Additional admin routes for garbage management
+const adminHouseholdController = require("./controllers/adminHouseholdController");
+const { auth, authorize } = require("./middleware/authMiddleware");
+app.get("/api/admin/garbage-payments", auth, authorize("admin"), adminHouseholdController.listGarbagePayments);
+app.get("/api/admin/garbage-statistics", auth, authorize("admin"), adminHouseholdController.getGarbageStatistics);
+
+// Resident-accessible routes for their own payment data
+app.get("/api/resident/household", auth, adminHouseholdController.getResidentHousehold);
+app.get("/api/resident/payments", auth, adminHouseholdController.getResidentPayments);
+app.get("/api/resident/household/:id/garbage", auth, adminHouseholdController.garbageSummary);
+
 // Fallback 404 (after all routes)
 app.use((req, res, next) => {
   if (res.headersSent) return next();

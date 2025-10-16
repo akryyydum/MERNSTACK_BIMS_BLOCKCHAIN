@@ -27,6 +27,8 @@ const HouseholdSchema = new mongoose.Schema(
     headOfHousehold: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true }],
     address: { type: AddressSchema, required: true },
+    hasBusiness: { type: Boolean, default: false }, // New field for business status
+    businessType: { type: String }, // Optional field to describe the business
     garbageFee: { type: GarbageFeeSchema, default: {} },
     electricFee: { type: GarbageFeeSchema, default: {} },
   },

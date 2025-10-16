@@ -41,6 +41,7 @@ exports.list = async (req, res) => {
     }
     const items = await Household.find(q)
       .populate("headOfHousehold", "firstName middleName lastName")
+      .populate("members", "firstName middleName lastName")
       .lean();
     res.json(items);
   } catch (err) {
@@ -50,7 +51,7 @@ exports.list = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { headOfHousehold, members = [], address = {}, gasFee } = req.body;
+    const { headOfHousehold, members = [], address = {}, gasFee, hasBusiness, businessType } = req.body;
 
     if (!headOfHousehold || !members?.length || !address.street || !address.purok) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -84,6 +85,8 @@ exports.create = async (req, res) => {
       members: uniqueMembers,
       address: finalAddress,
       gasFee: gasFee || {},
+      hasBusiness: hasBusiness || false,
+      businessType: businessType || null,
     });
 
     res.status(201).json(created);
@@ -151,6 +154,14 @@ function monthKey(d) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Helper function to calculate garbage fee based on business status
+function calculateGarbageFee(household) {
+  const baseRate = 35; // PHP 35 for households without business
+  const businessRate = 50; // PHP 50 for households with business
+  
+  return household.hasBusiness ? businessRate : baseRate;
+}
+
 // Generic summary fetcher
 async function getUtilitySummary(householdId, type, month) {
   const hh = await Household.findById(householdId).lean();
@@ -160,7 +171,14 @@ async function getUtilitySummary(householdId, type, month) {
   let summary = await UtilityPayment.findOne({ household: householdId, type, month: m }).lean();
   if (!summary) {
     const snap = type === "garbage" ? hh.garbageFee : hh.electricFee;
-    const totalCharge = Number(snap?.currentMonthCharge || 0);
+    let totalCharge;
+    
+    if (type === "garbage") {
+      totalCharge = calculateGarbageFee(hh);
+    } else {
+      totalCharge = Number(snap?.currentMonthCharge || 0);
+    }
+    
     summary = {
       household: householdId,
       type,
@@ -176,7 +194,7 @@ async function getUtilitySummary(householdId, type, month) {
 }
 
 // Generic payer
-async function payUtility(householdId, type, { month, amount, totalCharge, method, reference }) {
+async function payUtility(householdId, type, { month, amount, totalCharge, method, reference, hasBusiness }) {
   if (amount === undefined || Number(amount) <= 0) {
     return { error: "amount must be greater than 0", status: 400 };
   }
@@ -184,16 +202,29 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
   const hh = await Household.findById(householdId);
   if (!hh) return { error: "Household not found", status: 404 };
 
+  // Update business status if provided (for garbage payments)
+  if (type === "garbage" && hasBusiness !== undefined) {
+    hh.hasBusiness = Boolean(hasBusiness);
+    await hh.save();
+  }
+
   const m = (month || monthKey()).trim();
 
   // Upsert summary for month
   let summary = await UtilityPayment.findOne({ household: householdId, type, month: m });
   if (!summary) {
+    let defaultCharge;
+    if (type === "garbage") {
+      defaultCharge = calculateGarbageFee(hh);
+    } else {
+      defaultCharge = hh?.electricFee?.currentMonthCharge || 0;
+    }
+    
     summary = new UtilityPayment({
       household: householdId,
       type,
       month: m,
-      totalCharge: Number(totalCharge || (type === "garbage" ? hh?.garbageFee?.currentMonthCharge : hh?.electricFee?.currentMonthCharge) || 0),
+      totalCharge: Number(totalCharge || defaultCharge),
       amountPaid: 0,
       balance: 0,
       status: "unpaid",
@@ -277,6 +308,181 @@ exports.payElectric = async (req, res) => {
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/admin/garbage-payments - List all garbage payments
+exports.listGarbagePayments = async (req, res) => {
+  try {
+    const { householdId } = req.query;
+    const filter = { type: "garbage" };
+    
+    // If householdId is provided, filter by specific household
+    if (householdId) {
+      filter.household = householdId;
+    }
+    
+    const payments = await UtilityPayment.find(filter)
+      .populate("household", "householdId address headOfHousehold")
+      .sort({ month: -1, createdAt: -1 })
+      .lean();
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/admin/garbage-statistics - Get garbage payment statistics
+exports.getGarbageStatistics = async (req, res) => {
+  try {
+    const currentMonth = monthKey();
+    
+    // Get all households
+    const households = await Household.find({}).lean();
+    const totalHouseholds = households.length;
+    
+    // Calculate expected revenue based on business status
+    let expectedRevenue = 0;
+    households.forEach(household => {
+      expectedRevenue += calculateGarbageFee(household);
+    });
+    
+    // Get current month payments
+    const currentMonthPayments = await UtilityPayment.find({ 
+      type: "garbage", 
+      month: currentMonth 
+    }).lean();
+    
+    // Calculate statistics
+    const totalCollected = currentMonthPayments.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
+    const totalOutstanding = expectedRevenue - totalCollected;
+    const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100) : 0;
+    
+    // Calculate average monthly rate for display
+    const avgMonthlyRate = totalHouseholds > 0 ? expectedRevenue / totalHouseholds : 35;
+    
+    res.json({
+      totalHouseholds,
+      monthlyRate: parseFloat(avgMonthlyRate.toFixed(2)),
+      expectedRevenue,
+      totalCollected,
+      totalOutstanding,
+      collectionRate: parseFloat(collectionRate.toFixed(1))
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// DELETE /api/admin/households/:id/garbage/payments - Delete all garbage payments for a household
+exports.deleteGarbagePayments = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify household exists
+    const household = await Household.findById(id);
+    if (!household) {
+      return res.status(404).json({ message: "Household not found" });
+    }
+    
+    // Delete all garbage payment records for this household
+    const result = await UtilityPayment.deleteMany({ 
+      household: id, 
+      type: "garbage" 
+    });
+    
+    // Reset household garbage fee to default
+    household.garbageFee = {
+      currentMonthCharge: 0,
+      balance: 0,
+      lastPaymentDate: null
+    };
+    await household.save();
+    
+    res.json({ 
+      message: `Deleted ${result.deletedCount} garbage payment records for household ${household.householdId}`,
+      deletedCount: result.deletedCount
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Resident-accessible functions
+exports.getResidentHousehold = async (req, res) => {
+  try {
+    console.log("getResidentHousehold - req.user:", req.user);
+    const residentId = req.user.id || req.user._id || req.user.userId; // Try different possible ID fields
+    console.log("Looking for household with resident ID:", residentId);
+    
+    if (!residentId) {
+      console.log("No resident ID found in token");
+      return res.status(400).json({ message: "No resident ID found in authentication token" });
+    }
+    
+    // Find household where the resident is either head or member
+    const household = await Household.findOne({
+      $or: [
+        { headOfHousehold: residentId },
+        { members: residentId }
+      ]
+    })
+    .populate("headOfHousehold", "firstName middleName lastName")
+    .populate("members", "firstName middleName lastName")
+    .lean();
+    
+    console.log("Found household:", household ? household.householdId : "Not found");
+    
+    if (!household) {
+      return res.status(404).json({ message: "No household found for this resident" });
+    }
+    
+    res.json(household);
+  } catch (err) {
+    console.error("Error in getResidentHousehold:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getResidentPayments = async (req, res) => {
+  try {
+    console.log("getResidentPayments - req.user:", req.user);
+    const residentId = req.user.id || req.user._id || req.user.userId; // Try different possible ID fields
+    console.log("Looking for payments with resident ID:", residentId);
+    
+    if (!residentId) {
+      console.log("No resident ID found in token");
+      return res.status(400).json({ message: "No resident ID found in authentication token" });
+    }
+    
+    // Find household for this resident
+    const household = await Household.findOne({
+      $or: [
+        { headOfHousehold: residentId },
+        { members: residentId }
+      ]
+    }).lean();
+    
+    console.log("Found household for payments:", household ? household.householdId : "Not found");
+    
+    if (!household) {
+      return res.status(404).json({ message: "No household found for this resident" });
+    }
+    
+    // Get all payments for this household
+    const payments = await UtilityPayment.find({ 
+      household: household._id,
+      type: "garbage"
+    })
+    .populate('household', 'householdId hasBusiness')
+    .sort({ month: -1 })
+    .lean();
+    
+    console.log(`Found ${payments.length} payments for household ${household.householdId}`);
+    res.json(payments);
+  } catch (err) {
+    console.error("Error in getResidentPayments:", err);
     res.status(500).json({ message: err.message });
   }
 };

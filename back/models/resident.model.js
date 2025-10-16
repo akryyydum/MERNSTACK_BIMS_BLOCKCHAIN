@@ -23,8 +23,8 @@ const residentSchema = new mongoose.Schema({
     occupation: { type: String, required: true },
     education: { type: String, required: true },
     contact: {
-        mobile: { type: String, required: true },
-        email: { type: String, required: true }
+        mobile: { type: String, required: false },
+        email: { type: String, required: false }
     },
 
 idFiles: [{ type: String, required: false }],  

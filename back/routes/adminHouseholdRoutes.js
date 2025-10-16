@@ -13,6 +13,7 @@ router.delete("/:id", adminHouseholdCtrl.remove);
 // Utility fees
 router.get("/:id/garbage", adminHouseholdCtrl.garbageSummary);
 router.post("/:id/garbage/pay", adminHouseholdCtrl.payGarbage);
+router.delete("/:id/garbage/payments", adminHouseholdCtrl.deleteGarbagePayments);
 router.get("/:id/electric", adminHouseholdCtrl.electricSummary);
 router.post("/:id/electric/pay", adminHouseholdCtrl.payElectric);
 

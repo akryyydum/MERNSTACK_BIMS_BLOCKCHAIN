@@ -23,15 +23,23 @@ export default function ResidentDashboard() {
   const [resident, setResident] = useState(null);
   const [payments, setPayments] = useState([]);
 
-  const userProfile = JSON.parse(localStorage.getItem("userProfile")) || {};
-  const username = userProfile.username || localStorage.getItem("username") || "Resident";
+  const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+  const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+  const residentData = Object.keys(userData).length > 0 ? userData : userProfile;
+  const username = residentData.username || localStorage.getItem("username") || "Resident";
 
   useEffect(() => {
     // Fetch requests and resident info on component mount
     fetchRequests();
     // Get resident info from localStorage
-    const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    setResident(userProfile);
+    console.log("=== DASHBOARD DEBUG ===");
+    console.log("userData from localStorage:", localStorage.getItem("userData"));
+    console.log("userProfile from localStorage:", localStorage.getItem("userProfile"));
+    console.log("username from localStorage:", localStorage.getItem("username"));
+    console.log("token from localStorage:", localStorage.getItem("token"));
+    console.log("Using residentData:", residentData);
+    console.log("========================");
+    setResident(residentData);
     // Generate mock payment data
     generateMockPayments();
   }, []);
@@ -111,10 +119,7 @@ export default function ResidentDashboard() {
       );
       setRequests(res.data);
       
-      // If we have requests with resident information, update the resident state
-      if (res.data && res.data.length > 0 && res.data[0].residentId) {
-        setResident(res.data[0].residentId);
-      }
+      // Note: Do not overwrite resident data from localStorage with document request data
     } catch (error) {
       console.error("Error fetching document requests:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {

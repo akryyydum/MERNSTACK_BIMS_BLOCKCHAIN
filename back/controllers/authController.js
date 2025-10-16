@@ -159,7 +159,10 @@ async function login(req, res) {
     }
 
     let isVerified = true;
-    let userData = { username: user.username };
+    let userData = { 
+      _id: user._id,
+      username: user.username 
+    };
     if (user.role === 'resident') {
       // Check if resident info exists and is verified
       const resident = await require('../models/resident.model').findOne({ user: user._id });
@@ -169,6 +172,7 @@ async function login(req, res) {
       if (resident) {
         userData.firstName = resident.firstName;
         userData.lastName = resident.lastName;
+        userData.residentId = resident._id; // Add resident ID as well
       }
     } else {
       userData.firstName = user.fullName ? user.fullName.split(' ')[0] : '';
