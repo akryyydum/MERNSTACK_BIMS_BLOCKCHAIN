@@ -242,12 +242,6 @@ export default function HouseholdManagement() {
       },
     },
     {
-      title: "Address",
-      key: "address",
-      render: (_, r) =>
-        `${r.address?.street || ""}, ${r.address?.barangay || ""}, ${r.address?.municipality || ""}, ${r.address?.province || ""}`,
-    },
-    {
       title: "Members Count",
       key: "membersCount",
       render: (_, record) => record.members?.length || 0,
@@ -579,9 +573,6 @@ export default function HouseholdManagement() {
               />
             </Form.Item>
 
-            <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
             <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
               <Select
                 options={[
@@ -662,9 +653,6 @@ export default function HouseholdManagement() {
               />
             </Form.Item>
 
-            <Form.Item name={["address", "street"]} label="Street" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
             <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
               <Select
                 options={[

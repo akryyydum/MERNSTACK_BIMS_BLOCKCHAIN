@@ -299,9 +299,11 @@ export default function AdminGarbageFees() {
     totalOutstanding: 0,
     collectionRate: 0
   });
+   const [statsRefreshing, setStatsRefreshing] = useState(false);
   
   // Fetch statistics
   const fetchStatistics = async () => {
+    setStatsRefreshing(true);
     try {
       const res = await axios.get(`${API_BASE}/api/admin/garbage-statistics`, { headers: authHeaders() });
       setStats(res.data);
@@ -317,7 +319,6 @@ export default function AdminGarbageFees() {
       const totalCollected = households.reduce((sum, h) => sum + (h.garbageFee?.amountPaid || 0), 0);
       const totalOutstanding = expectedRevenue - totalCollected;
       const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100).toFixed(1) : 0;
-      
       setStats({
         totalHouseholds,
         monthlyRate: avgMonthlyRate,
@@ -327,6 +328,7 @@ export default function AdminGarbageFees() {
         collectionRate
       });
     }
+    setStatsRefreshing(false);
   };
   
   useEffect(() => {
@@ -662,14 +664,13 @@ export default function AdminGarbageFees() {
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
-              <span className="text-sm text-gray-600 self-center">
-                Collection Rate: {stats.collectionRate || 0}%
-              </span>
-              {refreshing && (
-                <span className="text-sm text-blue-600 self-center">
-                  🔄 Updating payment data...
-                </span>
-              )}
+                <Button
+                  loading={statsRefreshing}
+                  onClick={fetchStatistics}
+                  size="small"
+                >
+                  Refresh
+                </Button>
             </div>
           </div>
           <div className="overflow-x-auto">

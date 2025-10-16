@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const AddressSchema = new mongoose.Schema(
   {
-    street: { type: String, required: true },
     purok: { type: String, required: true, enum: ['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5'] },
     barangay: { type: String, required: true },
     municipality: { type: String, required: true },
