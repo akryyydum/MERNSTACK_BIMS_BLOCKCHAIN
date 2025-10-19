@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { Tabs, Table, Pagination } from "antd";
 import {
   AlertTriangle,
   CalendarDays,
@@ -166,6 +167,8 @@ export default function ResidentPayment() {
   const [payments, setPayments] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -235,6 +238,17 @@ export default function ResidentPayment() {
     if (activeTab === "all") return payments;
     return payments.filter((payment) => payment.status === activeTab);
   }, [payments, activeTab]);
+
+  const paginatedPayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredPayments.slice(startIndex, endIndex);
+  }, [filteredPayments, currentPage, pageSize]);
+
+  // Reset to first page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const monthlyOverview = useMemo(() => {
     const map = new Map();
@@ -349,18 +363,10 @@ export default function ResidentPayment() {
     );
   };
 
-  const tabItems = [
-    { key: "all", label: `All (${statusCounts.all})` },
-    { key: "pending", label: `Pending (${statusCounts.pending})` },
-    { key: "overdue", label: `Overdue (${statusCounts.overdue})` },
-    { key: "paid", label: `Paid (${statusCounts.paid})` },
-    { key: "upcoming", label: `Upcoming (${statusCounts.upcoming})` },
-  ];
-
   return (
     <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
         <Card className="w-full">
           <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -491,143 +497,189 @@ export default function ResidentPayment() {
           </CardContent>
         </Card>
 
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">Monthly Overview</CardTitle>
-            <CardDescription>Monitor billing status for each month across your fees.</CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Month
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Garbage Fee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Streetlight Fee
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {monthlyOverview.map((month) => (
-                  <tr key={month.monthKey} className="transition-colors hover:bg-slate-50">
-                    <td className="px-6 py-4 text-slate-700">{month.label}</td>
-                    <td className="px-6 py-4">
-                      {renderOverviewCell(month.garbage, month.garbageStatus)}
-                    </td>
-                    <td className="px-6 py-4">
-                      {renderOverviewCell(month.streetlight, month.streetlightStatus)}
-                    </td>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-slate-900">Monthly Overview</CardTitle>
+              <CardDescription>Monitor billing status for each month across your fees.</CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Month
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Garbage Fee
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Streetlight Fee
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {monthlyOverview.map((month) => (
+                    <tr key={month.monthKey} className="transition-colors hover:bg-slate-50">
+                      <td className="px-6 py-4 text-slate-700">{month.label}</td>
+                      <td className="px-6 py-4">
+                        {renderOverviewCell(month.garbage, month.garbageStatus)}
+                      </td>
+                      <td className="px-6 py-4">
+                        {renderOverviewCell(month.streetlight, month.streetlightStatus)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
 
-        <Card className="w-full">
-          <CardHeader className="space-y-4">
-            <div>
+          <Card className="w-full">
+            <CardHeader>
               <CardTitle className="text-lg font-semibold text-slate-900">Payment History</CardTitle>
               <CardDescription>Review individual charges and their payment status.</CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {tabItems.map((tab) => (
-                <Button
-                  key={tab.key}
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={activeTab === tab.key ? "bg-slate-100 text-slate-900" : ""}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  {tab.label}
-                </Button>
-              ))}
-            </div>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Period
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Charge
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Paid
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Balance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {loading ? (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                        Loading payments...
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredPayments.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-16 text-center">
-                      <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-                        <DollarSign className="h-8 w-8 text-slate-400" />
-                        <p className="font-medium text-slate-600">No payment records found</p>
-                        <p className="text-xs">
-                          You currently have no records that match this filter.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPayments.map((payment) => (
-                    <tr key={payment.id} className="transition-colors hover:bg-slate-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100">
-                            <DollarSign className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <p className="font-medium text-slate-900">{payment.description}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-700">{payment.type}</td>
-                      <td className="px-6 py-4 text-slate-700">{payment.period}</td>
-                      <td className="px-6 py-4 text-slate-700">₱{payment.amount.toFixed(2)}</td>
-                      <td className="px-6 py-4 text-slate-700">₱{payment.amountPaid.toFixed(2)}</td>
-                      <td className="px-6 py-4 text-slate-700">₱{payment.balance.toFixed(2)}</td>
-                      <td className="px-6 py-4 text-slate-700">
-                        {new Date(payment.dueDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">{renderStatus(payment.status)}</td>
+            </CardHeader>
+            <CardContent>
+              <Tabs 
+                defaultActiveKey="all"
+                className="mb-6"
+                type="card"
+                items={[
+                  {
+                    key: 'all',
+                    label: `All (${statusCounts.all})`,
+                    children: null,
+                  },
+                  {
+                    key: 'pending',
+                    label: `Pending (${statusCounts.pending})`,
+                    children: null,
+                  },
+                  {
+                    key: 'overdue',
+                    label: `Overdue (${statusCounts.overdue})`,
+                    children: null,
+                  },
+                  {
+                    key: 'paid',
+                    label: `Paid (${statusCounts.paid})`,
+                    children: null,
+                  },
+                  {
+                    key: 'upcoming',
+                    label: `Upcoming (${statusCounts.upcoming})`,
+                    children: null,
+                  },
+                ]}
+                onChange={(key) => {
+                  setActiveTab(key);
+                }}
+              />
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Description
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Charge
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Balance
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Status
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-4 text-center text-slate-500">
+                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : filteredPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-4 text-center text-slate-500">
+                          No payments found
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedPayments.map((payment) => (
+                        <tr key={payment.id} className="transition-colors hover:bg-slate-50">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center">
+                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                <DollarSign className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-800">{payment.type}</p>
+                                <p className="text-xs text-slate-500">{payment.period}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">{payment.type}</td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-slate-700">₱{payment.amount.toFixed(2)}</p>
+                              <p className="text-xs text-slate-500">Paid: ₱{payment.amountPaid.toFixed(2)}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">₱{payment.balance.toFixed(2)}</td>
+                          <td className="px-6 py-4">
+                            {payment.status === 'paid' && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">
+                                PAID
+                              </span>
+                            )}
+                            {payment.status === 'pending' && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                                PENDING
+                              </span>
+                            )}
+                            {payment.status === 'overdue' && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                                OVERDUE
+                              </span>
+                            )}
+                            {payment.status === 'upcoming' && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                UPCOMING
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              {filteredPayments.length > 0 && (
+                <div className="mt-4 flex items-center justify-end">
+                  <Pagination
+                    current={currentPage}
+                    pageSize={pageSize}
+                    total={filteredPayments.length}
+                    showSizeChanger={false}
+                    showQuickJumper={false}
+                    onChange={(page) => {
+                      setCurrentPage(page);
+                    }}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );
