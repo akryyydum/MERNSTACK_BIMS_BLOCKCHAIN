@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
+import PaymentStatusAlert from './PaymentStatusAlert';
 import { Card, Typography, Button, message } from "antd";
 import { 
   FileTextOutlined, 
@@ -22,6 +23,8 @@ export default function ResidentDashboard() {
   const [requests, setRequests] = useState([]);
   const [resident, setResident] = useState(null);
   const [payments, setPayments] = useState([]);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
 
   const userData = JSON.parse(localStorage.getItem("userData") || "{}");
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -31,6 +34,7 @@ export default function ResidentDashboard() {
   useEffect(() => {
     // Fetch requests and resident info on component mount
     fetchRequests();
+    checkPaymentStatus();
     // Get resident info from localStorage
     console.log("=== DASHBOARD DEBUG ===");
     console.log("userData from localStorage:", localStorage.getItem("userData"));
@@ -43,6 +47,52 @@ export default function ResidentDashboard() {
     // Generate mock payment data
     generateMockPayments();
   }, []);
+
+  // Check payment status to determine if user can request documents
+  const checkPaymentStatus = async () => {
+    setCheckingPayment(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.log("No token found");
+        return;
+      }
+
+      console.log("Making payment status request...");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests/payment-status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log("Payment status response:", res.data);
+      setPaymentStatus(res.data);
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        message.error("Authentication error. Please log in again.");
+      } else if (error.response?.status === 400) {
+        console.log("Bad request - possibly no household associated with resident");
+        // Set a default status that allows document requests for now
+        setPaymentStatus({
+          canRequestDocuments: true,
+          message: "Payment status not available - proceeding with document requests",
+          paymentStatus: null
+        });
+      } else {
+        console.log("Payment status check failed, allowing document requests by default");
+        // Don't show error to user, just allow document requests
+        setPaymentStatus({
+          canRequestDocuments: true,
+          message: "Payment validation unavailable",
+          paymentStatus: null
+        });
+      }
+    }
+    setCheckingPayment(false);
+  };
+
+  const handleGoToPayments = () => {
+    navigate('/resident/payments');
+  };
   
   // Generate mock payment data based on current date
   const generateMockPayments = () => {
@@ -163,7 +213,128 @@ export default function ResidentDashboard() {
               </p>
             </div>
           </div>
-          
+
+          {/* Outstanding Payments Alert Card */}
+          {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
+            <div className="outstanding-payments-alert bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-500 rounded-lg p-6 mb-8 shadow-md">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                    <ExclamationCircleOutlined className="text-red-600 text-xl" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold text-red-900">Payment Required</h3>
+                    <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                      Action Needed
+                    </span>
+                  </div>
+                  <p className="text-red-800 mb-4">
+                    You have outstanding fees that must be settled before you can request official documents from the barangay.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    {/* Garbage Fee */}
+                    {paymentStatus.paymentStatus?.garbageFee && !paymentStatus.paymentStatus.garbageFee.paid && (
+                      <div className="bg-white rounded-lg p-4 border border-red-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium text-gray-900">Garbage Fee</h4>
+                            <p className="text-sm text-gray-600">Current Month</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-red-600">
+                              ₱{Number(paymentStatus.paymentStatus.garbageFee.balance || 0).toFixed(2)}
+                            </p>
+                            <span className="text-xs text-red-500 font-medium">UNPAID</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Streetlight Fee */}
+                    {paymentStatus.paymentStatus?.streetlightFee && !paymentStatus.paymentStatus.streetlightFee.paid && (
+                      <div className="bg-white rounded-lg p-4 border border-red-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium text-gray-900">Streetlight Fee</h4>
+                            <p className="text-sm text-gray-600">Current Month</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-red-600">
+                              ₱{Number(paymentStatus.paymentStatus.streetlightFee.balance || 0).toFixed(2)}
+                            </p>
+                            <span className="text-xs text-red-500 font-medium">UNPAID</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      size="large"
+                      onClick={() => {
+                        const alertElement = document.querySelector('.outstanding-payments-alert');
+                        if (alertElement) {
+                          alertElement.style.display = 'none';
+                        }
+                      }}
+                      className="text-gray-600 hover:text-gray-800"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payments Up to Date Alert Card */}
+          {paymentStatus && paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-lg p-6 mb-8 shadow-md">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircleOutlined className="text-green-600 text-xl" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold text-green-900">All Payments Up to Date</h3>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                      Good Standing
+                    </span>
+                  </div>
+                  <p className="text-green-800 mb-4">
+                    Great! Your garbage and streetlight fees are current. You can now request official documents from the barangay.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button 
+                      type="primary" 
+                      size="large"
+                      onClick={() => navigate('/resident/requests')}
+                      className="bg-green-600 hover:bg-green-700 border-green-600 flex items-center gap-2"
+                      icon={<FileTextOutlined />}
+                    >
+                      Request Document
+                    </Button>
+                    <Button 
+                      size="large"
+                      onClick={handleGoToPayments}
+                      className="text-gray-600 hover:text-gray-800 flex items-center gap-2"
+                      icon={<DollarOutlined />}
+                    >
+                      View Payment History
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* User Profile Summary */}
           <div className="bg-blue-50 rounded-lg p-6 mb-8 border border-blue-100">
             <div className="flex flex-col md:flex-row justify-between gap-6">
@@ -232,10 +403,22 @@ export default function ResidentDashboard() {
                     <Button 
                       type="primary" 
                       size="small" 
-                      className="bg-green-500 hover:bg-green-600 border-green-600"
-                      onClick={() => navigate('/resident/requests')}
+                      className={`border-green-600 ${
+                        paymentStatus?.canRequestDocuments !== false 
+                          ? "bg-green-500 hover:bg-green-600" 
+                          : "bg-gray-400 hover:bg-gray-500"
+                      }`}
+                      onClick={() => {
+                        if (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus) {
+                          message.warning("Please settle your outstanding payments before requesting documents");
+                          navigate('/resident/payments');
+                        } else {
+                          navigate('/resident/requests');
+                        }
+                      }}
+                      disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
                     >
-                      Request Document
+                      {(paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus) ? "Payments Required" : "Request Document"}
                     </Button>
                   </div>
                 </div>
