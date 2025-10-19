@@ -3,6 +3,7 @@ const Resident = require("../models/resident.model");
 const Counter = require("../models/counter.model");
 // const GasPayment = require("../models/gasPayment.model");
 const UtilityPayment = require("../models/utilityPayment.model");
+const FinancialTransaction = require("../models/financialTransaction.model");
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -202,7 +203,7 @@ async function getUtilitySummary(householdId, type, month) {
 }
 
 // Generic payer
-async function payUtility(householdId, type, { month, amount, totalCharge, method, reference, hasBusiness }) {
+async function payUtility(householdId, type, { month, amount, totalCharge, method, reference, hasBusiness }, user) {
   if (amount === undefined || Number(amount) <= 0) {
     return { error: "amount must be greater than 0", status: 400 };
   }
@@ -246,12 +247,13 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
     summary.totalCharge = Number(totalCharge);
   }
 
-  summary.payments.push({
+  const paymentRecord = {
     amount: Number(amount),
     method,
     reference,
     paidAt: new Date(),
-  });
+  };
+  summary.payments.push(paymentRecord);
 
   summary.amountPaid = (Number(summary.amountPaid) || 0) + Number(amount);
   const computedBalance = Math.max(Number(summary.totalCharge) - Number(summary.amountPaid), 0);
@@ -276,6 +278,31 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
   else hh.electricFee = snap;
   await hh.save();
 
+  const transactionTypeMap = {
+    garbage: "garbage_fee",
+    electric: "electric_fee",
+    streetlight: "streetlight_fee",
+  };
+
+  try {
+    await FinancialTransaction.create({
+      type: transactionTypeMap[type] || "other",
+      category: "revenue",
+      description: `${type.charAt(0).toUpperCase() + type.slice(1)} fee payment for ${hh.householdId} (${m})`,
+      amount: Number(amount),
+      residentId: hh.headOfHousehold,
+      householdId: hh._id,
+      paymentMethod: method || "cash",
+      referenceNumber: reference,
+      status: "completed",
+      transactionDate: paymentRecord.paidAt,
+      createdBy: user?.id || user?._id,
+      updatedBy: user?.id || user?._id,
+    });
+  } catch (err) {
+    console.error("Failed to log financial transaction:", err);
+  }
+
   return { summary, status: 201 };
 }
 
@@ -293,7 +320,7 @@ exports.garbageSummary = async (req, res) => {
 // POST /api/admin/households/:id/garbage/pay
 exports.payGarbage = async (req, res) => {
   try {
-    const { summary, error, status } = await payUtility(req.params.id, "garbage", req.body || {});
+    const { summary, error, status } = await payUtility(req.params.id, "garbage", req.body || {}, req.user);
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
@@ -315,7 +342,7 @@ exports.electricSummary = async (req, res) => {
 // POST /api/admin/households/:id/electric/pay
 exports.payElectric = async (req, res) => {
   try {
-    const { summary, error, status } = await payUtility(req.params.id, "electric", req.body || {});
+    const { summary, error, status } = await payUtility(req.params.id, "electric", req.body || {}, req.user);
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
@@ -337,7 +364,7 @@ exports.streetlightSummary = async (req, res) => {
 // POST /api/admin/households/:id/streetlight/pay
 exports.payStreetlight = async (req, res) => {
   try {
-    const { summary, error, status } = await payUtility(req.params.id, "streetlight", req.body || {});
+    const { summary, error, status } = await payUtility(req.params.id, "streetlight", req.body || {}, req.user);
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {

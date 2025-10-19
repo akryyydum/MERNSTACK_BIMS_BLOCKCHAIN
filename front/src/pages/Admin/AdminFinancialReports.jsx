@@ -286,18 +286,34 @@ export default function AdminFinancialReports() {
     }
   };
 
-  // Calculate summary statistics
-  const totalRevenue = dashboardData.revenues?.reduce((sum, r) => sum + r.total, 0) || 0;
-  const totalExpenses = dashboardData.expenses?.reduce((sum, e) => sum + e.total, 0) || 0;
-  const totalAllocations = dashboardData.allocations?.reduce((sum, a) => sum + a.total, 0) || 0;
-  const netIncome = totalRevenue - totalExpenses;
+  const statistics = dashboardData.statistics || {};
+  const revenues = Array.isArray(dashboardData.revenues) ? dashboardData.revenues : statistics.revenues || [];
+  const expenses = Array.isArray(dashboardData.expenses) ? dashboardData.expenses : statistics.expenses || [];
+  const allocations = Array.isArray(dashboardData.allocations) ? dashboardData.allocations : statistics.allocations || [];
+  const monthlyTrends = Array.isArray(dashboardData.monthlyTrends) ? dashboardData.monthlyTrends : statistics.monthlyTrends || [];
+
+  const totalRevenue = revenues.length
+    ? revenues.reduce((sum, r) => sum + Number(r.total || 0), 0)
+    : Number(statistics.totalRevenue ?? statistics.totalIncome ?? 0);
+
+  const totalExpenses = expenses.length
+    ? expenses.reduce((sum, e) => sum + Number(e.total || 0), 0)
+    : Number(statistics.totalExpenses ?? statistics.expenseTotal ?? 0);
+
+  const totalAllocations = allocations.length
+    ? allocations.reduce((sum, a) => sum + Number(a.total || 0), 0)
+    : Number(statistics.totalAllocations ?? statistics.allocationTotal ?? 0);
+
+  const netIncome = Number(
+    statistics.netIncome ?? statistics.balance ?? (totalRevenue - totalExpenses)
+  );
 
   // Chart data
   const revenueChartData = {
-    labels: dashboardData.revenues?.map(r => r._id.replace('_', ' ').toUpperCase()) || [],
+    labels: revenues.map(r => (r._id ? String(r._id).replace(/_/g, ' ').toUpperCase() : '')),
     datasets: [{
       label: 'Revenue by Type',
-      data: dashboardData.revenues?.map(r => r.total) || [],
+      data: revenues.map(r => Number(r.total || 0)),
       backgroundColor: [
         '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
       ]
@@ -305,18 +321,25 @@ export default function AdminFinancialReports() {
   };
 
   const monthlyTrendData = {
-    labels: dashboardData.monthlyTrends?.map(m => `${m._id.year}-${String(m._id.month).padStart(2, '0')}`) || [],
+    labels: monthlyTrends.map(m => {
+      const id = m?._id || {};
+      return `${id.year ?? '----'}-${String(id.month ?? 1).padStart(2, '0')}`;
+    }),
     datasets: [
       {
         label: 'Revenue',
-        data: dashboardData.monthlyTrends?.filter(m => m._id.category === 'revenue').map(m => m.total) || [],
+        data: monthlyTrends
+          .filter(m => m._id?.category === 'revenue')
+          .map(m => Number(m.total || 0)),
         borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         tension: 0.4
       },
       {
         label: 'Expenses',
-        data: dashboardData.monthlyTrends?.filter(m => m._id.category === 'expense').map(m => m.total) || [],
+        data: monthlyTrends
+          .filter(m => m._id?.category === 'expense')
+          .map(m => Number(m.total || 0)),
         borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tension: 0.4
