@@ -21,8 +21,11 @@ const defaultMenu = [
   },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
-  { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />,
+  { to: "/admin/reports-complaints", 
+    label: "Reports & Complaints", 
+    icon: <ExclamationCircleOutlined />,
     subItems: [
+      { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />},
       { to: "/admin/garbage-fees", label: "Garbage Fees", icon: <DeleteOutlined /> },
       { to: "/admin/streetlight-fees", label: "Street Light Fees", icon: <BulbOutlined /> },
     ]
@@ -31,6 +34,8 @@ const defaultMenu = [
   { to: "/admin/publicdocuments", label: "Public Documents", icon: <UserOutlined /> },
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
 ];
+
+const noScrollbar = "overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 
 export default function AdminSidebar({
   title = "Admin",
@@ -44,6 +49,7 @@ export default function AdminSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
+  const [animatedSections, setAnimatedSections] = useState({});
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
@@ -83,12 +89,14 @@ export default function AdminSidebar({
   };
 
   const toggleSubMenu = (itemTo) => {
+    setAnimatedSections((prev) =>
+      prev[itemTo] ? prev : { ...prev, [itemTo]: true }
+    );
     setExpandedItems(prev => {
       const newState = {
         ...prev,
         [itemTo]: !prev[itemTo]
       };
-      // Persist expanded state to localStorage
       localStorage.setItem("adminSidebarExpanded", JSON.stringify(newState));
       return newState;
     });
@@ -131,7 +139,7 @@ export default function AdminSidebar({
           base,
           widthCls,
           "md:translate-x-0",
-          "fixed md:static z-40 h-screen top-0 left-0", // use h-screen here
+          "fixed md:static z-40 h-screen top-0 left-0",
           "md:flex md:flex-col",
           "shadow-lg md:shadow-none",
           "select-none",
@@ -140,7 +148,7 @@ export default function AdminSidebar({
           className,
           "transition-all duration-300 ease-in-out",
           collapsed ? "opacity-95" : "opacity-100",
-          "overflow-y-auto", // keep this for sidebar scroll
+          noScrollbar,
         ].join(" ")}
       >
         {/* Header */}
@@ -185,7 +193,7 @@ export default function AdminSidebar({
         </div>
         
         {/* Menu */}
-        <nav className="px-2 md:px-3 space-y-1 overflow-y-auto">
+        <nav className={["px-2 md:px-3 space-y-1", noScrollbar].join(" ")}>
           {items.map((item) => (
             <div key={item.to}>
               {item.subItems ? (
@@ -199,9 +207,11 @@ export default function AdminSidebar({
                         isActive ? "bg-slate-100 text-black" : "text-slate-700 hover:bg-slate-300 hover:text-black",
                       ].join(" ")
                     }
-                    onClick={() => {
-                      setMobileOpen(false);
-                      onNavigate?.(item.to);
+                    aria-expanded={Boolean(expandedItems[item.to])}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleSubMenu(item.to);
                     }}
                   >
                     <span className="text-slate-900 group-hover:text-slate-900">{item.icon}</span>
@@ -230,8 +240,18 @@ export default function AdminSidebar({
                   </NavLink>
                   
                   {/* Sub-items */}
-                  {!collapsed && expandedItems[item.to] && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-300 pl-3 py-1">
+                  <div
+                    className={[
+                      collapsed
+                        ? "hidden"
+                        : "ml-4 border-l-2 border-slate-300 pl-3 overflow-hidden",
+                      animatedSections[item.to] ? "transition-all duration-300" : "transition-none",
+                      expandedItems[item.to]
+                        ? "max-h-[999px] opacity-100 mt-1 py-1 pointer-events-auto"
+                        : "max-h-0 opacity-0 mt-0 py-0 pointer-events-none"
+                    ].join(" ")}
+                  >
+                    <div className="space-y-1">
                       {item.subItems.map((subItem) => (
                         <div key={subItem.to}>
                           {subItem.subItems ? (
@@ -245,9 +265,11 @@ export default function AdminSidebar({
                                     isActive ? "bg-slate-100 text-black" : "text-slate-600 hover:bg-slate-300 hover:text-black",
                                   ].join(" ")
                                 }
-                                onClick={() => {
-                                  setMobileOpen(false);
-                                  onNavigate?.(subItem.to);
+                                aria-expanded={Boolean(expandedItems[subItem.to])}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleSubMenu(subItem.to);
                                 }}
                               >
                                 <span className="text-slate-700 group-hover:text-slate-900 text-xs">{subItem.icon}</span>
@@ -272,8 +294,16 @@ export default function AdminSidebar({
                               </NavLink>
                               
                               {/* Nested sub-items */}
-                              {expandedItems[subItem.to] && (
-                                <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-200 pl-3 py-1">
+                              <div
+                                className={[
+                                  "ml-4 border-l-2 border-slate-200 pl-3 overflow-hidden",
+                                  animatedSections[subItem.to] ? "transition-all duration-300" : "transition-none",
+                                  expandedItems[subItem.to]
+                                    ? "max-h-[999px] opacity-100 mt-1 py-1 pointer-events-auto"
+                                    : "max-h-0 opacity-0 mt-0 py-0 pointer-events-none"
+                                ].join(" ")}
+                              >
+                                <div className="space-y-1">
                                   {subItem.subItems.map((nestedItem) => (
                                     <NavLink
                                       key={nestedItem.to}
@@ -302,7 +332,7 @@ export default function AdminSidebar({
                                       </NavLink>
                                   ))}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           ) : (
                             // Regular sub-item
@@ -335,7 +365,7 @@ export default function AdminSidebar({
                         </div>
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
               ) : (
                 // Regular menu item
@@ -389,7 +419,7 @@ export function AdminLayout({ children, title = "Admin" }) {
     <div className="min-h-screen bg-slate-200 md:flex">
       <AdminSidebar title={title} />
       
-      <main className="flex-1 p-4 overflow-y-auto h-screen rounded-3xl">
+      <main className={["flex-1 p-4 h-screen rounded-3xl", noScrollbar].join(" ")}>
         {children}
       </main>
     </div>
