@@ -21,7 +21,9 @@ const defaultMenu = [
   },
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
-  { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />,
+  { to: "/admin/reports-complaints", 
+    label: "Reports & Complaints", 
+    icon: <ExclamationCircleOutlined />,
     subItems: [
       { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />},
       { to: "/admin/garbage-fees", label: "Garbage Fees", icon: <DeleteOutlined /> },
@@ -233,8 +235,17 @@ export default function AdminSidebar({
                   </NavLink>
                   
                   {/* Sub-items */}
-                  {!collapsed && expandedItems[item.to] && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-300 pl-3 py-1">
+                  <div
+                    className={[
+                      collapsed
+                        ? "hidden"
+                        : "ml-4 border-l-2 border-slate-300 pl-3 transition-all duration-300 overflow-hidden",
+                      expandedItems[item.to]
+                        ? "max-h-[999px] opacity-100 mt-1 py-1 pointer-events-auto"
+                        : "max-h-0 opacity-0 mt-0 py-0 pointer-events-none"
+                    ].join(" ")}
+                  >
+                    <div className="space-y-1">
                       {item.subItems.map((subItem) => (
                         <div key={subItem.to}>
                           {subItem.subItems ? (
@@ -277,8 +288,15 @@ export default function AdminSidebar({
                               </NavLink>
                               
                               {/* Nested sub-items */}
-                              {expandedItems[subItem.to] && (
-                                <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-200 pl-3 py-1">
+                              <div
+                                className={[
+                                  "ml-4 border-l-2 border-slate-200 pl-3 transition-all duration-300 overflow-hidden",
+                                  expandedItems[subItem.to]
+                                    ? "max-h-[999px] opacity-100 mt-1 py-1 pointer-events-auto"
+                                    : "max-h-0 opacity-0 mt-0 py-0 pointer-events-none"
+                                ].join(" ")}
+                              >
+                                <div className="space-y-1">
                                   {subItem.subItems.map((nestedItem) => (
                                     <NavLink
                                       key={nestedItem.to}
@@ -307,7 +325,7 @@ export default function AdminSidebar({
                                       </NavLink>
                                   ))}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           ) : (
                             // Regular sub-item
@@ -340,7 +358,7 @@ export default function AdminSidebar({
                         </div>
                       ))}
                     </div>
-                  )}
+                  </div>
                 </div>
               ) : (
                 // Regular menu item
