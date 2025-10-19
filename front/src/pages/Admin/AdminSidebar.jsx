@@ -35,6 +35,8 @@ const defaultMenu = [
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
 ];
 
+const noScrollbar = "overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
+
 export default function AdminSidebar({
   title = "Admin",
   menuItems,
@@ -47,6 +49,7 @@ export default function AdminSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
+  const [animatedSections, setAnimatedSections] = useState({});
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
@@ -86,12 +89,14 @@ export default function AdminSidebar({
   };
 
   const toggleSubMenu = (itemTo) => {
+    setAnimatedSections((prev) =>
+      prev[itemTo] ? prev : { ...prev, [itemTo]: true }
+    );
     setExpandedItems(prev => {
       const newState = {
         ...prev,
         [itemTo]: !prev[itemTo]
       };
-      // Persist expanded state to localStorage
       localStorage.setItem("adminSidebarExpanded", JSON.stringify(newState));
       return newState;
     });
@@ -134,7 +139,7 @@ export default function AdminSidebar({
           base,
           widthCls,
           "md:translate-x-0",
-          "fixed md:static z-40 h-screen top-0 left-0", // use h-screen here
+          "fixed md:static z-40 h-screen top-0 left-0",
           "md:flex md:flex-col",
           "shadow-lg md:shadow-none",
           "select-none",
@@ -143,7 +148,7 @@ export default function AdminSidebar({
           className,
           "transition-all duration-300 ease-in-out",
           collapsed ? "opacity-95" : "opacity-100",
-          "overflow-y-auto", // keep this for sidebar scroll
+          noScrollbar,
         ].join(" ")}
       >
         {/* Header */}
@@ -188,7 +193,7 @@ export default function AdminSidebar({
         </div>
         
         {/* Menu */}
-        <nav className="px-2 md:px-3 space-y-1 overflow-y-auto">
+        <nav className={["px-2 md:px-3 space-y-1", noScrollbar].join(" ")}>
           {items.map((item) => (
             <div key={item.to}>
               {item.subItems ? (
@@ -239,7 +244,8 @@ export default function AdminSidebar({
                     className={[
                       collapsed
                         ? "hidden"
-                        : "ml-4 border-l-2 border-slate-300 pl-3 transition-all duration-300 overflow-hidden",
+                        : "ml-4 border-l-2 border-slate-300 pl-3 overflow-hidden",
+                      animatedSections[item.to] ? "transition-all duration-300" : "transition-none",
                       expandedItems[item.to]
                         ? "max-h-[999px] opacity-100 mt-1 py-1 pointer-events-auto"
                         : "max-h-0 opacity-0 mt-0 py-0 pointer-events-none"
@@ -290,7 +296,8 @@ export default function AdminSidebar({
                               {/* Nested sub-items */}
                               <div
                                 className={[
-                                  "ml-4 border-l-2 border-slate-200 pl-3 transition-all duration-300 overflow-hidden",
+                                  "ml-4 border-l-2 border-slate-200 pl-3 overflow-hidden",
+                                  animatedSections[subItem.to] ? "transition-all duration-300" : "transition-none",
                                   expandedItems[subItem.to]
                                     ? "max-h-[999px] opacity-100 mt-1 py-1 pointer-events-auto"
                                     : "max-h-0 opacity-0 mt-0 py-0 pointer-events-none"
@@ -412,7 +419,7 @@ export function AdminLayout({ children, title = "Admin" }) {
     <div className="min-h-screen bg-slate-200 md:flex">
       <AdminSidebar title={title} />
       
-      <main className="flex-1 p-4 overflow-y-auto h-screen rounded-3xl">
+      <main className={["flex-1 p-4 h-screen rounded-3xl", noScrollbar].join(" ")}>
         {children}
       </main>
     </div>
