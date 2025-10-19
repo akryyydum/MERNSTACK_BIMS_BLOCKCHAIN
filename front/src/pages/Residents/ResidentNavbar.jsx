@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import logo from '../../assets/logo.png';
-import { Layout, Menu, Avatar, Dropdown, message } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Drawer } from 'antd';
 import { 
   DashboardOutlined, 
   FileTextOutlined, 
@@ -13,15 +13,17 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined
 } from '@ant-design/icons';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const { Header } = Layout;
 
 const ResidentNavbar = () => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
   const [residentName, setResidentName] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Only use firstName from localStorage, fallback to 'Resident'
@@ -36,6 +38,20 @@ const ResidentNavbar = () => {
     } else {
       setResidentName('Resident');
     }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handleLogout = () => {
@@ -60,6 +76,51 @@ const ResidentNavbar = () => {
     }
   ];
 
+  const renderNavigationMenu = (mode = 'horizontal') => (
+    <Menu
+      mode={mode}
+      className={mode === 'horizontal' ? 'border-none' : ''}
+      selectedKeys={[location.pathname]}
+    >
+      <Menu.Item
+        key="/resident/dashboard"
+        icon={<DashboardOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline">
+          Dashboard
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/requests"
+        icon={<FileTextOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/requests" className="no-underline hover:no-underline">
+          My Requests
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/payments"
+        icon={<DollarOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/payments" className="no-underline hover:no-underline">
+          Payments
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/public-documents"
+        icon={<FileTextOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+          Public Docs
+        </NavLink>
+      </Menu.Item>
+    </Menu>
+  );
+
   return (
     <Header
       style={{
@@ -69,12 +130,23 @@ const ResidentNavbar = () => {
         width: '100%',
         display: 'flex',
         alignItems: 'center',
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
         background: '#fff',
         padding: '0 24px',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
       }}
     >
-      <div className="flex items-center" style={{ minWidth: 220 }}>
+      <div className="flex items-center" style={{ minWidth: isMobile ? 'auto' : 220 }}>
+        {isMobile && (
+          <button
+            type="button"
+            aria-label="Toggle navigation"
+            onClick={() => setMobileMenuOpen(true)}
+            className="mr-3 flex items-center rounded-md border border-gray-200 px-3 py-2 text-gray-700 hover:bg-gray-50 md:hidden"
+          >
+            <MenuUnfoldOutlined />
+          </button>
+        )}
         <img src={logo} alt="Logo" style={{ width: 48, height: 48, objectFit: 'contain', marginRight: 12 }} />
         <div className="flex flex-col justify-center">
           <span className="text-lg font-semibold leading-tight">La Torre North</span>
@@ -82,34 +154,11 @@ const ResidentNavbar = () => {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <Menu
-          mode="horizontal"
-          className="border-none"
-          selectedKeys={[window.location.pathname]}
-        >
-          <Menu.Item key="/resident/dashboard" icon={<DashboardOutlined />}>
-            <NavLink to="/resident/dashboard" className="no-underline hover:no-underline">Dashboard</NavLink>
-          </Menu.Item>
-          <Menu.Item key="/resident/requests" icon={<FileTextOutlined />}>
-            <NavLink to="/resident/requests" className="no-underline hover:no-underline">My Requests</NavLink>
-          </Menu.Item>
-          <Menu.Item key="/resident/community" icon={<TeamOutlined />}>
-            <NavLink to="/resident/community" className="no-underline hover:no-underline">Community</NavLink>
-          </Menu.Item>
-          <Menu.Item key="/resident/services" icon={<AppstoreOutlined />}>
-            <NavLink to="/resident/services" className="no-underline hover:no-underline">Services</NavLink>
-          </Menu.Item>
-          <Menu.Item key="/resident/payments" icon={<DollarOutlined />}>
-            <NavLink to="/resident/payments" className="no-underline hover:no-underline">Payments</NavLink>
-          </Menu.Item>
-          <Menu.Item key="/resident/public-documents" icon={<FileTextOutlined />}>
-            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">Public Docs</NavLink>
-          </Menu.Item>
-        </Menu>
+      <div className="hidden flex-1 justify-center md:flex">
+        {renderNavigationMenu()}
       </div>
 
-      <div className="ml-4">
+      <div className="ml-auto md:ml-4">
         <Dropdown menu={{ items: profileMenu }} placement="bottomRight">
           <div className="cursor-pointer flex items-center">
             <Avatar icon={<UserOutlined />} />
@@ -119,6 +168,20 @@ const ResidentNavbar = () => {
           </div>
         </Dropdown>
       </div>
+
+      <Drawer
+        placement="left"
+        width={280}
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        closeIcon={<MenuFoldOutlined />}
+        bodyStyle={{ padding: 0 }}
+      >
+        <div className="px-4 py-3">
+          <span className="text-base font-semibold text-gray-700">Menu</span>
+        </div>
+        {renderNavigationMenu('inline')}
+      </Drawer>
     </Header>
   );
 };

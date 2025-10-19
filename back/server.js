@@ -64,6 +64,7 @@ const adminPublicDocumentRoutes = require("./routes/adminPublicDocumentRoutes");
 app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
 app.use("/api/resident/public-documents", residentPublicDocumentRoutes);
+const residentPaymentsController = require("./controllers/residentPaymentsController");
 
 // Additional admin routes for garbage management
 const adminHouseholdController = require("./controllers/adminHouseholdController");
@@ -77,7 +78,7 @@ app.get("/api/admin/streetlight-statistics", auth, authorize("admin"), adminHous
 
 // Resident-accessible routes for their own payment data
 app.get("/api/resident/household", auth, adminHouseholdController.getResidentHousehold);
-app.get("/api/resident/payments", auth, adminHouseholdController.getResidentPayments);
+app.get("/api/resident/payments", auth, residentPaymentsController.getPayments);
 app.get("/api/resident/household/:id/garbage", auth, adminHouseholdController.garbageSummary);
 app.get("/api/resident/household/:id/streetlight", auth, adminHouseholdController.streetlightSummary);
 
