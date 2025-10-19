@@ -42,7 +42,7 @@ updatedAt: { type: Date, default: Date.now },
 // Ensure uniqueness only when user is set
 residentSchema.index(
   { user: 1 },
-  { unique: true, partialFilterExpression: { user: { $type: 'objectId' } } }
+  { unique: true, partialFilterExpression: { user: { $exists: true, $ne: null } } }
 );
 
 module.exports = mongoose.model('Resident', residentSchema);
