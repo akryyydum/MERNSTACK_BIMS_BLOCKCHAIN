@@ -40,7 +40,7 @@ exports.list = async (req, res) => {
 // POST /api/admin/users
 exports.create = async (req, res) => {
   try {
-    const { username, password, fullName, contact = {}, role, residentId } = req.body;
+  const { username, password, role, residentId, fullName, contact } = req.body;
 
     // Allow admins to create resident accounts by selecting an unlinked resident
     if (role === "resident") {
@@ -56,17 +56,10 @@ exports.create = async (req, res) => {
         return res.status(400).json({ message: "Resident not found or already linked to a user" });
       }
 
-      const email = String(resident.contact?.email || "").toLowerCase().trim();
-      if (!email) {
-        return res.status(400).json({ message: "Resident record has no email" });
-      }
-
-      // Ensure username and email are unique
-      const exists = await User.findOne({
-        $or: [{ username }, { "contact.email": email }],
-      });
+      // Ensure username is unique
+      const exists = await User.findOne({ username });
       if (exists) {
-        return res.status(400).json({ message: "Username or email already exists" });
+        return res.status(400).json({ message: "Username already exists" });
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
@@ -80,8 +73,7 @@ exports.create = async (req, res) => {
         username,
         passwordHash,
         role: "resident",
-        fullName: computedFullName || fullName || "Resident",
-        contact: { email, mobile: resident.contact?.mobile || "" },
+        fullName: computedFullName || "Resident",
         isVerified: true,
         isActive: true,
       });
@@ -93,7 +85,6 @@ exports.create = async (req, res) => {
         username: user.username,
         fullName: user.fullName,
         role: user.role,
-        contact: user.contact,
         isActive: user.isActive,
         isVerified: user.isVerified,
         createdAt: user.createdAt,
@@ -135,7 +126,8 @@ exports.create = async (req, res) => {
       createdAt: user.createdAt,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error in adminUserController.create:', err);
+    res.status(500).json({ message: err.message, stack: err.stack });
   }
 };
 

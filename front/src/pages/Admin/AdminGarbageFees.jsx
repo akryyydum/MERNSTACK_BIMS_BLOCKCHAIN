@@ -378,10 +378,16 @@ export default function AdminGarbageFees() {
       },
     },
     {
-      title: "Address",
-      key: "address",
-      render: (_, r) =>
-        r.address?.purok || "",
+      title: "Purok",
+      key: "Purok",
+      render: (_, record) => {
+        // Remove the word 'Purok' if present, show only the number
+        const purok = record.address?.purok || "";
+        if (typeof purok === "string") {
+          return purok.replace(/purok\s*/i, "").trim();
+        }
+        return purok;
+      }
     },
     {
       title: "Business",
@@ -507,7 +513,7 @@ export default function AdminGarbageFees() {
                 title="Delete Payment Records"
                 description={`Delete ALL payment records for ${r.householdId}? This will reset them to unpaid status.`}
                 onConfirm={() => deleteHouseholdPayments(r)}
-                okText="Yes, Delete"
+                okText="Delete"
                 cancelText="Cancel"
                 okType="danger"
               >
@@ -850,7 +856,7 @@ export default function AdminGarbageFees() {
                   >
                     <Select
                       showSearch
-                      placeholder="Search by household ID, head of household, or address"
+                      placeholder="Search by household ID, head of household, or Purok"
                       optionFilterProp="children"
                       filterOption={(input, option) =>
                         option?.children?.toLowerCase().includes(input.toLowerCase())
@@ -863,7 +869,7 @@ export default function AdminGarbageFees() {
                               {household.householdId} - {fullName(household.headOfHousehold)}
                             </span>
                             <span className="text-sm text-gray-500">
-                              {household.address?.street}, {household.address?.purok}
+                              {household.address?.street}{household.address?.purok ? `, ${household.address?.purok}` : ""}
                             </span>
                           </div>
                         </Select.Option>
@@ -896,7 +902,7 @@ export default function AdminGarbageFees() {
                               )}
                             </div>
                             <span className="text-sm text-gray-500">
-                              Household: {memberData.household.householdId} | {memberData.household.address?.street}, {memberData.household.address?.purok}
+                              Household: {memberData.household.householdId} | {memberData.household.address?.street}{memberData.household.address?.purok ? `, ${memberData.household.address?.purok}` : ""}
                             </span>
                           </div>
                         </Select.Option>
@@ -920,7 +926,7 @@ export default function AdminGarbageFees() {
                     {selectedHouseholdForPayment?.householdId} - {fullName(selectedHouseholdForPayment?.headOfHousehold)}
                   </p>
                   <p className="text-sm text-blue-600">
-                    {selectedHouseholdForPayment?.address?.street}, {selectedHouseholdForPayment?.address?.purok}
+                    {selectedHouseholdForPayment?.address?.street}{selectedHouseholdForPayment?.address?.purok ? `, ${selectedHouseholdForPayment?.address?.purok}` : ""}
                   </p>
                 </div>
                 

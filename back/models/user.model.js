@@ -8,8 +8,8 @@ const userSchema = new mongoose.Schema({
     // Position/title for officials (ignored for other roles)
     position: { type: String },
     contact: {
-        mobile: { type: String, required: true },
-        email: { type: String, required: true, lowercase: true, trim: true }
+        mobile: { type: String },
+        email: { type: String, lowercase: true, trim: true }
     },
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: true },

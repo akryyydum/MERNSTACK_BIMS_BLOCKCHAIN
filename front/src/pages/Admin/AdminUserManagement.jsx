@@ -164,6 +164,21 @@ export default function AdminUserManagement() {
       const values = await createForm.validateFields();
       setCreating(true);
 
+      // Frontend validation for required fields
+      if (values.role === "resident") {
+        if (!values.username || !values.password || !values.residentId) {
+          message.error("Username, password, and resident selection are required for resident accounts.");
+          setCreating(false);
+          return;
+        }
+      } else {
+        if (!values.username || !values.password || !values.fullName || !values.contact?.email || !values.contact?.mobile || !values.role) {
+          message.error("Username, password, full name, email, mobile, and role are required for admin/official accounts.");
+          setCreating(false);
+          return;
+        }
+      }
+
       // Build payload conditionally
       let payload;
       if (values.role === "resident") {
@@ -171,7 +186,7 @@ export default function AdminUserManagement() {
           role: "resident",
           username: values.username,
           password: values.password,
-          residentId: values.residentId,
+          residentId: values.residentId
         };
       } else {
         payload = {
