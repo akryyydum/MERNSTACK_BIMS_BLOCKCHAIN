@@ -2,11 +2,19 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
 const Resident = require("../models/resident.model");
 
+const ADDRESS_DEFAULTS = {
+  barangay: "La Torre North",
+  municipality: "Bayombong",
+  province: "Nueva Vizcaya",
+  zipCode: "3700",
+};
+const DEFAULT_CITIZENSHIP = "Filipino";
+const ALLOWED_STATUSES = new Set(["verified", "pending", "rejected"]);
+
 // POST /api/admin/residents
 exports.create = async (req, res) => {
   try {
     const {
-      // user fields intentionally NOT required here
       firstName,
       middleName,
       lastName,
@@ -20,55 +28,111 @@ exports.create = async (req, res) => {
       address,
       citizenship,
       occupation,
-  // ...existing code...
       contact = {},
       idFiles,
-      status, // optional, default to 'verified' for admin-created
+      status,
     } = req.body;
 
-    // Validate required resident fields only
-    const requiredResidentMissing =
-      !firstName || !lastName || !dateOfBirth || !birthPlace || !gender || !civilStatus ||
-      !ethnicity || !address?.purok || !address?.barangay ||
-      !address?.municipality || !address?.province ||
-  !citizenship || !occupation;
+    const contactData = contact && typeof contact === "object" ? contact : {};
+    const normalizedEmail =
+      typeof contactData.email === "string" && contactData.email.trim()
+        ? contactData.email.toLowerCase().trim()
+        : undefined;
 
-    if (requiredResidentMissing) {
+    const rawAddress = address && typeof address === "object" ? address : {};
+    const normalizedAddress = {
+      ...ADDRESS_DEFAULTS,
+      ...rawAddress,
+      purok:
+        typeof rawAddress.purok === "string" ? rawAddress.purok.trim() : rawAddress.purok,
+    };
+
+    const dob =
+      typeof dateOfBirth === "string" || typeof dateOfBirth === "number"
+        ? new Date(dateOfBirth)
+        : dateOfBirth instanceof Date
+        ? dateOfBirth
+        : null;
+
+    if (!dob || Number.isNaN(dob.getTime())) {
+      return res.status(400).json({ message: "Invalid date of birth" });
+    }
+
+    const sanitized = {
+      firstName: typeof firstName === "string" ? firstName.trim() : firstName,
+      middleName: typeof middleName === "string" ? middleName.trim() : middleName,
+      lastName: typeof lastName === "string" ? lastName.trim() : lastName,
+      suffix: typeof suffix === "string" ? suffix.trim() : suffix,
+      birthPlace: typeof birthPlace === "string" ? birthPlace.trim() : birthPlace,
+      gender: typeof gender === "string" ? gender.trim().toLowerCase() : gender,
+      civilStatus:
+        typeof civilStatus === "string" ? civilStatus.trim().toLowerCase() : civilStatus,
+      religion: typeof religion === "string" ? religion.trim() : religion,
+      ethnicity: typeof ethnicity === "string" ? ethnicity.trim() : ethnicity,
+      citizenship:
+        typeof citizenship === "string" && citizenship.trim()
+          ? citizenship.trim()
+          : DEFAULT_CITIZENSHIP,
+      occupation: typeof occupation === "string" ? occupation.trim() : occupation,
+    };
+
+    const requiredMissing =
+      !sanitized.firstName ||
+      !sanitized.lastName ||
+      !dob ||
+      !sanitized.birthPlace ||
+      !sanitized.gender ||
+      !sanitized.civilStatus ||
+      !sanitized.ethnicity ||
+      !normalizedAddress?.purok ||
+      !normalizedAddress?.barangay ||
+      !normalizedAddress?.municipality ||
+      !normalizedAddress?.province ||
+      !sanitized.citizenship ||
+      !sanitized.occupation;
+
+    if (requiredMissing) {
       return res.status(400).json({ message: "Missing required resident fields" });
     }
 
-    // Normalize types
-    const dob = typeof dateOfBirth === "string" ? new Date(dateOfBirth) : dateOfBirth;
+    const sanitizedContact = {};
+    if (normalizedEmail) sanitizedContact.email = normalizedEmail;
+    if (typeof contactData.mobile === "string" && contactData.mobile.trim()) {
+      sanitizedContact.mobile = contactData.mobile.trim();
+    }
 
-    // Create Resident only (no User, no username/password)
+    const statusValue =
+      typeof status === "string" ? status.trim().toLowerCase() : undefined;
+    const resolvedStatus = ALLOWED_STATUSES.has(statusValue)
+      ? statusValue
+      : "verified";
+
     const resident = await Resident.create({
-      firstName,
-      middleName,
-      lastName,
-      suffix,
+      firstName: sanitized.firstName,
+      middleName: sanitized.middleName,
+      lastName: sanitized.lastName,
+      suffix: sanitized.suffix,
       dateOfBirth: dob,
-      birthPlace,
-      gender,
-      civilStatus,
-      religion,
-      ethnicity,
-      address,
-      citizenship,
-      occupation,
-  // ...existing code...
-      contact: { email: String(contact.email).toLowerCase().trim(), mobile: contact.mobile },
+      birthPlace: sanitized.birthPlace,
+      gender: sanitized.gender,
+      civilStatus: sanitized.civilStatus,
+      religion: sanitized.religion,
+      ethnicity: sanitized.ethnicity,
+      address: normalizedAddress,
+      citizenship: sanitized.citizenship,
+      occupation: sanitized.occupation,
+      contact: sanitizedContact,
       idFiles,
-      status: status || "verified", // admin-created records default to verified
+      status: resolvedStatus,
     });
 
     res.status(201).json({ message: "Resident created", resident });
   } catch (err) {
-    // Log full error to backend console for debugging
-    console.error('Resident creation error:', err);
-    // Send more detailed error info to frontend
-    res.status(500).json({
-      message: err.message || 'Internal server error',
-      error: err.stack || err
+    console.error("Resident creation error:", err);
+    const statusCode = err.name === "ValidationError" ? 400 : 500;
+    res.status(statusCode).json({
+      message: err.message || "Internal server error",
+      error: err.name === "ValidationError" ? err.errors : undefined,
     });
   }
 };
