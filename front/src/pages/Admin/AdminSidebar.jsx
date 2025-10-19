@@ -22,7 +22,7 @@ const defaultMenu = [
   { to: "/admin/document-requests", label: "Document Requests", icon: <UserOutlined /> },
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
   { to: "/admin/reports-complaints", 
-    label: "Reports & Complaints", 
+    label: "Fees, Reports & Complaints", 
     icon: <ExclamationCircleOutlined />,
     subItems: [
       { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />},

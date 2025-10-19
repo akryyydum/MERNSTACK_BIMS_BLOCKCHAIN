@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs } from "antd";
+import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs, Pagination } from "antd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { 
@@ -28,6 +28,8 @@ export default function ResidentRequest() {
   const [resident, setResident] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const navigate = useNavigate();
   const [createForm] = Form.useForm();
@@ -138,6 +140,17 @@ export default function ResidentRequest() {
     // Default: show all requests
     return true;
   });
+
+  // Calculate paginated requests
+  const paginatedRequests = filteredRequests.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  // Reset to first page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const openView = (request) => {
     setViewRequest(request);
@@ -287,7 +300,7 @@ export default function ResidentRequest() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRequests.map((request) => (
+                  paginatedRequests.map((request) => (
                     <tr key={request._id} className="hover:bg-gray-50 transition-colors duration-150">
                       <td className="py-4 px-6">
                         <div className="flex items-center">
@@ -347,6 +360,25 @@ export default function ResidentRequest() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {filteredRequests.length > 0 && (
+            <div className="mt-4 flex items-center justify-end">
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={filteredRequests.length}
+                showSizeChanger={false}
+                showQuickJumper={true}
+                showTotal={(total, range) => 
+                  `${range[0]}-${range[1]} of ${total} requests`
+                }
+                onChange={(page) => {
+                  setCurrentPage(page);
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

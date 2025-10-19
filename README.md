@@ -41,7 +41,7 @@ This system modernizes barangay operations using **blockchain technology** to se
 
 ## Technologies Used
 
-- **Frontend:** React.js (MUI / Ant Design)  
+- **Frontend:** React.js (MUI / Ant Design / TailwindCSS)  
 - **Backend:** Node.js + Express.js  
 - **Database:** MongoDB  
 - **Blockchain Framework:** Hyperledger Fabric  
