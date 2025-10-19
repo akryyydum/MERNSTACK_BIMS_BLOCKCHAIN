@@ -23,6 +23,7 @@ const defaultMenu = [
   { to: "/admin/blockchain", label: "Blockchain Network", icon: <BlockOutlined /> },
   { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />,
     subItems: [
+      { to: "/admin/reports-complaints", label: "Reports & Complaints", icon: <ExclamationCircleOutlined />},
       { to: "/admin/garbage-fees", label: "Garbage Fees", icon: <DeleteOutlined /> },
       { to: "/admin/streetlight-fees", label: "Street Light Fees", icon: <BulbOutlined /> },
     ]
@@ -199,9 +200,11 @@ export default function AdminSidebar({
                         isActive ? "bg-slate-100 text-black" : "text-slate-700 hover:bg-slate-300 hover:text-black",
                       ].join(" ")
                     }
-                    onClick={() => {
-                      setMobileOpen(false);
-                      onNavigate?.(item.to);
+                    aria-expanded={Boolean(expandedItems[item.to])}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleSubMenu(item.to);
                     }}
                   >
                     <span className="text-slate-900 group-hover:text-slate-900">{item.icon}</span>
@@ -245,9 +248,11 @@ export default function AdminSidebar({
                                     isActive ? "bg-slate-100 text-black" : "text-slate-600 hover:bg-slate-300 hover:text-black",
                                   ].join(" ")
                                 }
-                                onClick={() => {
-                                  setMobileOpen(false);
-                                  onNavigate?.(subItem.to);
+                                aria-expanded={Boolean(expandedItems[subItem.to])}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleSubMenu(subItem.to);
                                 }}
                               >
                                 <span className="text-slate-700 group-hover:text-slate-900 text-xs">{subItem.icon}</span>
