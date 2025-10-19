@@ -12,8 +12,10 @@ import {
   DownloadOutlined
 } from "@ant-design/icons";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 import ResidentNavbar from './ResidentNavbar';
+import PaymentStatusAlert from './PaymentStatusAlert';
 
 export default function ResidentRequest() {
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,10 @@ export default function ResidentRequest() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [resident, setResident] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
 
+  const navigate = useNavigate();
   const [createForm] = Form.useForm();
   const selectedDocType = Form.useWatch("documentType", createForm);
 
@@ -32,10 +37,51 @@ export default function ResidentRequest() {
   useEffect(() => {
     // Only fetch requests on initial load
     fetchRequests();
+    checkPaymentStatus();
     // We'll get the resident info from localStorage instead of API
     const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
     setResident(userProfile);
   }, []);
+
+  // Check payment status to determine if user can request documents
+  const checkPaymentStatus = async () => {
+    setCheckingPayment(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        message.error("You are not logged in. Please log in first.");
+        return;
+      }
+
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests/payment-status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPaymentStatus(res.data);
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        message.error("Authentication error. Please log in again.");
+      } else if (error.response?.status === 400) {
+        console.log("Bad request - possibly no household associated with resident");
+        // Set a default status that allows document requests for now
+        setPaymentStatus({
+          canRequestDocuments: true,
+          message: "Payment status not available - proceeding with document requests",
+          paymentStatus: null
+        });
+      } else {
+        console.log("Payment status check failed, allowing document requests by default");
+        // Don't show error to user, just allow document requests
+        setPaymentStatus({
+          canRequestDocuments: true,
+          message: "Payment validation unavailable",
+          paymentStatus: null
+        });
+      }
+    }
+    setCheckingPayment(false);
+  };
 
   // (Removed unused fetchUserInfo function)
 
@@ -98,6 +144,18 @@ export default function ResidentRequest() {
     setViewOpen(true);
   };
 
+  const handleNewRequest = () => {
+    if (!paymentStatus?.canRequestDocuments && paymentStatus?.paymentStatus) {
+      message.warning("Please settle your outstanding payments before requesting documents");
+      return;
+    }
+    setCreateOpen(true);
+  };
+
+  const handleGoToPayments = () => {
+    navigate('/resident/payments');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <ResidentNavbar />
@@ -114,14 +172,29 @@ export default function ResidentRequest() {
             <Button 
               type="primary" 
               size="large" 
-              onClick={() => setCreateOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-1"
+              onClick={handleNewRequest}
+              className={`shadow-sm flex items-center gap-1 ${
+                paymentStatus?.canRequestDocuments !== false || !paymentStatus?.paymentStatus
+                  ? "bg-blue-600 hover:bg-blue-700" 
+                  : "bg-gray-400 hover:bg-gray-500"
+              }`}
               icon={<FileTextOutlined />}
+              disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
+              loading={checkingPayment}
             >
               New Request
             </Button>
           </div>
-          
+
+          {/* Payment Status Alert */}
+          {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
+            <div className="mb-5">
+              <PaymentStatusAlert 
+                paymentStatus={paymentStatus}
+                onPaymentClick={handleGoToPayments}
+              />
+            </div>
+          )}
           {/* Request Statistics Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
@@ -517,10 +590,22 @@ export default function ResidentRequest() {
                 setCreateOpen(false);
                 createForm.resetFields();
                 fetchRequests();
+                // Refresh payment status after successful request
+                checkPaymentStatus();
               } catch (err) {
                 console.error("Error creating request:", err);
                 if (err.response?.status === 401 || err.response?.status === 403) {
                   message.error("Authentication error. Please log in again.");
+                } else if (err.response?.status === 400 && err.response?.data?.paymentStatus) {
+                  // Handle payment validation error
+                  message.error(err.response.data.message || "Outstanding payments must be settled first");
+                  setCreateOpen(false);
+                  // Update payment status to show current state
+                  setPaymentStatus({
+                    canRequestDocuments: false,
+                    paymentStatus: err.response.data.paymentStatus,
+                    message: err.response.data.details
+                  });
                 } else {
                   message.error(err?.response?.data?.message || "Failed to create document request");
                 }
