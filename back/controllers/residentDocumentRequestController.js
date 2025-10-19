@@ -1,6 +1,7 @@
 const DocumentRequest = require('../models/document.model');
 const Resident = require('../models/resident.model');
 const mongoose = require('mongoose');
+const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
 
 exports.list = async (req, res) => {
   try {
@@ -26,6 +27,24 @@ exports.createRequest = async (req, res) => {
     // find the resident doc linked to the authenticated user
     const resident = await Resident.findOne({ user: req.user.id });
     if (!resident) return res.status(404).json({ message: "Resident profile not found" });
+
+    // Validate payment status before allowing document request
+    try {
+      const paymentValidation = await validateResidentPaymentStatus(resident._id);
+      if (!paymentValidation.isValid) {
+        return res.status(400).json({ 
+          message: "Cannot request documents due to outstanding payments",
+          paymentStatus: paymentValidation.paymentStatus,
+          details: paymentValidation.message
+        });
+      }
+    } catch (paymentError) {
+      console.error('Payment validation error:', paymentError);
+      return res.status(500).json({ 
+        message: "Unable to validate payment status at this time",
+        error: paymentError.message 
+      });
+    }
 
     const { documentType, purpose, businessName } = req.body;
 
@@ -99,16 +118,47 @@ exports.getStats = async (req, res) => {
       released: 0
     };
 
-    requests.forEach(r => {
-      if (r.status === 'pending') stats.pending++;
-      else if (r.status === 'accepted') stats.approved++;
-      else if (r.status === 'declined') stats.rejected++;
-      else if (r.status === 'completed') stats.released++;
+    requests.forEach(req => {
+      if (req.status === 'pending') stats.pending++;
+      else if (req.status === 'accepted') stats.approved++;
+      else if (req.status === 'declined') stats.rejected++;
+      else if (req.status === 'completed') stats.released++;
     });
 
     res.json(stats);
   } catch (error) {
-    console.error("Error getting document request stats:", error);
+    console.error("Error getting stats:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// New endpoint to check payment status
+exports.checkPaymentStatus = async (req, res) => {
+  try {
+    console.log("=== PAYMENT STATUS CHECK ===");
+    console.log("User ID from token:", req.user.id);
+    
+    const resident = await Resident.findOne({ user: req.user.id });
+    console.log("Found resident:", resident ? `${resident._id} - ${resident.firstName} ${resident.lastName}` : "null");
+    
+    if (!resident) return res.status(404).json({ message: "Resident profile not found" });
+
+    // Check if there are any households in the database
+    const totalHouseholds = await require('../models/household.model').countDocuments();
+    console.log("Total households in database:", totalHouseholds);
+    
+    const paymentValidation = await validateResidentPaymentStatus(resident._id);
+    console.log("Payment validation result:", paymentValidation);
+    
+    res.json({
+      canRequestDocuments: paymentValidation.isValid,
+      resident: paymentValidation.resident,
+      paymentStatus: paymentValidation.paymentStatus,
+      message: paymentValidation.message
+    });
+  } catch (error) {
+    console.error("Error checking payment status:", error);
+    console.error("Error stack:", error.stack);
+    res.status(400).json({ message: "Unable to check payment status", error: error.message });
   }
 };

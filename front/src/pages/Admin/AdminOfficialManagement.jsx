@@ -29,40 +29,28 @@ export default function AdminOfficialManagement() {
   const [editForm] = Form.useForm();
   const [editing, setEditing] = useState(false);
   const [selectedOfficial, setSelectedOfficial] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
 
-  // Track window size for responsive layout (fallback mobile cards)
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 640); // <640px -> mobile
-    handler();
+    const handler = () => setIsMobile(window.innerWidth < 640);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  useEffect(() => {
-    fetchOfficials();
-  }, []);
-
+  useEffect(() => { fetchOfficials(); }, []);
   const fetchOfficials = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(API_URL, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to fetch officials");
-      const data = await res.json();
-      setOfficials(Array.isArray(data) ? data : []);
-    } catch (err) {
-      message.error(err.message || "Failed to fetch officials");
-    }
+      const res = await fetch(API_URL, { headers: { Authorization: `Bearer ${token}` } });
+      setOfficials((await res.json()) || []);
+    } catch (err) { message.error(err.message || "Failed to fetch officials"); }
     setLoading(false);
   };
 
-  // Statistics
   const totalOfficials = officials.length;
-  const activeOfficials = officials.filter((o) => o.isActive).length;
-  const inactiveOfficials = officials.filter((o) => !o.isActive).length;
+  const activeOfficials = officials.filter(o => o.isActive).length;
+  const inactiveOfficials = totalOfficials - activeOfficials;
 
   // Columns
   const columns = [
@@ -138,15 +126,11 @@ export default function AdminOfficialManagement() {
     }
   ];
 
-  const filteredOfficials = officials.filter((o) =>
+  const filteredOfficials = officials.filter(o =>
     [o.username, o.fullName, o.position, o.contact?.email || o.email, o.contact?.mobile || o.mobile]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase())
+      .join(" ").toLowerCase().includes(search.toLowerCase())
   );
 
-  // Add Official
   const handleAddOfficial = async () => {
     try {
       setCreating(true);
@@ -154,114 +138,54 @@ export default function AdminOfficialManagement() {
       const token = localStorage.getItem("token");
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          username: values.username,
-          password: values.password,
-          fullName: values.fullName,
-          position: values.position,
-          email: values.email,
-          mobile: values.mobile,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...values })
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to add official");
-      }
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to add official");
       message.success("Official added!");
-      setAddOpen(false);
-      addForm.resetFields();
-      fetchOfficials();
-    } catch (err) {
-      message.error(err?.message || "Failed to add official");
-    }
+      setAddOpen(false); addForm.resetFields(); fetchOfficials();
+    } catch (err) { message.error(err?.message || "Failed to add official"); }
     setCreating(false);
   };
 
-  // Open Edit Modal
-  const openEdit = (official) => {
-    setSelectedOfficial(official);
-    setEditOpen(true);
-  };
+  const openEdit = (official) => { setSelectedOfficial(official); setEditOpen(true); };
 
-  // Auto-populate form when modal opens
   useEffect(() => {
     if (editOpen && selectedOfficial) {
       editForm.setFieldsValue({
         fullName: selectedOfficial.fullName || "",
         position: selectedOfficial.position || "",
-        email:
-          selectedOfficial.contact?.email || selectedOfficial.email || "",
-        mobile:
-          selectedOfficial.contact?.mobile || selectedOfficial.mobile || "",
-        isActive:
-          typeof selectedOfficial.isActive === "boolean"
-            ? selectedOfficial.isActive
-            : true,
+        email: selectedOfficial.contact?.email || selectedOfficial.email || "",
+        mobile: selectedOfficial.contact?.mobile || selectedOfficial.mobile || "",
+        isActive: typeof selectedOfficial.isActive === "boolean" ? selectedOfficial.isActive : true,
       });
     }
   }, [editOpen, selectedOfficial, editForm]);
 
-  // Handle Edit
   const handleEditOfficial = async () => {
     try {
       setEditing(true);
       const values = await editForm.validateFields();
-      const body = {
-        fullName: values.fullName,
-        position: values.position,
-        email: values.email,
-        mobile: values.mobile,
-        isActive: values.isActive,
-      };
-
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/${selectedOfficial._id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(values),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to update official");
-      }
-
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to update official");
       message.success("Official updated!");
-      setEditOpen(false);
-      fetchOfficials();
-    } catch (err) {
-      message.error(err?.message || "Failed to update official");
-    } finally {
-      setEditing(false);
-    }
+      setEditOpen(false); fetchOfficials();
+    } catch (err) { message.error(err?.message || "Failed to update official"); }
+    setEditing(false);
   };
 
-  // Delete
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to delete official");
-      }
-
-      message.success("Official deleted!");
-      fetchOfficials();
-    } catch (err) {
-      message.error(err?.message || "Failed to delete official");
-    }
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Failed to delete official");
+      message.success("Official deleted!"); fetchOfficials();
+    } catch (err) { message.error(err?.message || "Failed to delete official"); }
   };
 
   return (
