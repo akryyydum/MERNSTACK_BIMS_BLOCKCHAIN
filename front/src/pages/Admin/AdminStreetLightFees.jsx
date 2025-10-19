@@ -376,10 +376,16 @@ export default function AdminStreetLightFees() {
       },
     },
     {
-      title: "Address",
-      key: "address",
-      render: (_, r) =>
-        r.address?.purok || "",
+      title: "Purok",
+      key: "Purok",
+      render: (_, record) => {
+        // Remove the word 'Purok' if present, show only the number
+        const purok = record.address?.purok || "";
+        if (typeof purok === "string") {
+          return purok.replace(/purok\s*/i, "").trim();
+        }
+        return purok;
+      }
     },
     {
       title: "Monthly Fee",
@@ -460,7 +466,7 @@ export default function AdminStreetLightFees() {
                 title="Delete Payment Records"
                 description={`Delete ALL payment records for ${r.householdId}? This will reset them to unpaid status.`}
                 onConfirm={() => deleteHouseholdPayments(r)}
-                okText="Yes, Delete"
+                okText="Delete"
                 cancelText="Cancel"
                 okType="danger"
               >
