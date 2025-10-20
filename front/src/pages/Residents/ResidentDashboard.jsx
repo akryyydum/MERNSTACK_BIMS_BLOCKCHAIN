@@ -317,26 +317,6 @@ export default function ResidentDashboard() {
                   <p className="text-emerald-800 mb-4">
                     Great! Your garbage and streetlight fees are current. You can now request official documents from the barangay.
                   </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button 
-                      type="primary" 
-                      size="large"
-                      onClick={() => navigate('/resident/requests')}
-                      className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 flex items-center gap-2"
-                      icon={<FileTextOutlined />}
-                    >
-                      Request Document
-                    </Button>
-                    <Button 
-                      size="large"
-                      onClick={handleGoToPayments}
-                      className="text-slate-600 hover:text-slate-800 flex items-center gap-2"
-                      icon={<DollarOutlined />}
-                    >
-                      View Payment History
-                    </Button>
-                  </div>
                 </div>
               </div>
             </CardContent>

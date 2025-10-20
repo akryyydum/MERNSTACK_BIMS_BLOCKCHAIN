@@ -64,6 +64,8 @@ const adminPublicDocumentRoutes = require("./routes/adminPublicDocumentRoutes");
 app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
 app.use("/api/resident/public-documents", residentPublicDocumentRoutes);
+const residentComplaintRoutes = require("./routes/residentComplaintRoutes");
+app.use("/api/resident/complaints", residentComplaintRoutes);
 const residentPaymentsController = require("./controllers/residentPaymentsController");
 
 // Additional admin routes for garbage management
