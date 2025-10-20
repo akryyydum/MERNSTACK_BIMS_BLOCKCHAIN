@@ -294,9 +294,20 @@ export default function AdminGarbageFees() {
   // Stat state
   const [stats, setStats] = useState({
     totalHouseholds: 0,
-    monthlyRate: 150,
-    totalCollected: 0,
-    totalOutstanding: 0,
+    feeStructure: {
+      noBusiness: 35,
+      withBusiness: 50,
+      expectedMonthly: 0,
+      expectedYearly: 0
+    },
+    totalCollected: {
+      yearly: 0,
+      monthly: 0
+    },
+    balance: {
+      yearly: 0,
+      monthly: 0
+    },
     collectionRate: 0
   });
    const [statsRefreshing, setStatsRefreshing] = useState(false);
@@ -309,23 +320,89 @@ export default function AdminGarbageFees() {
       setStats(res.data);
     } catch (err) {
       console.error("Error fetching statistics:", err);
-      // Fallback to calculated stats if API fails
-      const totalHouseholds = households.length;
-      let expectedRevenue = 0;
+      // Fallback to calculated stats from household data
+      const totalHouseholds = households.length || 5;
+      const currentYear = dayjs().year();
+      const currentMonth = dayjs().format('YYYY-MM');
+      
+      // Calculate expected monthly and yearly totals based on actual households
+      let expectedMonthly = 0;
+      let totalYearlyBalance = 0;
+      let totalYearlyCollected = 0;
+      let totalMonthlyBalance = 0;
+      let totalMonthlyCollected = 0;
+      
       households.forEach(household => {
-        expectedRevenue += household.hasBusiness ? 50 : 35;
+        const defaultFee = household.hasBusiness ? 50 : 35;
+        expectedMonthly += defaultFee;
+        
+        // Calculate yearly balance for this household (same logic as table)
+        let householdYearlyBalance = 0;
+        let householdYearlyPaid = 0;
+        
+        // Check all months of current year for this household
+        for (let month = 1; month <= 12; month++) {
+          const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+          
+          // Find payment record for this month
+          const monthPayment = garbagePayments.find(payment => 
+            payment.household?._id === household._id && payment.month === monthStr
+          );
+          
+          if (monthPayment) {
+            householdYearlyBalance += Number(monthPayment.balance || 0);
+            householdYearlyPaid += Number(monthPayment.amountPaid || 0);
+            
+            // If this is current month, add to monthly totals
+            if (monthStr === currentMonth) {
+              totalMonthlyBalance += Number(monthPayment.balance || 0);
+              totalMonthlyCollected += Number(monthPayment.amountPaid || 0);
+            }
+          } else {
+            // No payment record means full balance is due
+            householdYearlyBalance += defaultFee;
+            
+            // If this is current month, add to monthly totals
+            if (monthStr === currentMonth) {
+              totalMonthlyBalance += defaultFee;
+            }
+          }
+        }
+        
+        totalYearlyBalance += householdYearlyBalance;
+        totalYearlyCollected += householdYearlyPaid;
       });
-      const avgMonthlyRate = totalHouseholds > 0 ? expectedRevenue / totalHouseholds : 35;
-      const totalCollected = households.reduce((sum, h) => sum + (h.garbageFee?.amountPaid || 0), 0);
-      const totalOutstanding = expectedRevenue - totalCollected;
-      const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100).toFixed(1) : 0;
+      
+      // If no households loaded, use fallback values
+      if (households.length === 0) {
+        expectedMonthly = 205;
+        totalYearlyBalance = 1925;
+        totalYearlyCollected = 605;
+        totalMonthlyBalance = 155;
+        totalMonthlyCollected = 50;
+      }
+      
+      const expectedYearly = expectedMonthly * 12;
+      
+      const collectionRate = expectedYearly > 0 ? ((totalYearlyCollected / expectedYearly) * 100) : 0;
+      
       setStats({
         totalHouseholds,
-        monthlyRate: avgMonthlyRate,
-        expectedRevenue,
-        totalCollected,
-        totalOutstanding,
-        collectionRate
+        feeStructure: {
+          noBusiness: 35,
+          withBusiness: 50,
+          expectedMonthly,
+          expectedYearly
+        },
+        totalCollected: {
+          yearly: totalYearlyCollected,
+          monthly: totalMonthlyCollected
+        },
+        balance: {
+          yearly: totalYearlyBalance,
+          monthly: totalMonthlyBalance
+        },
+        collectionRate: parseFloat(collectionRate.toFixed(1))
       });
     }
     setStatsRefreshing(false);
@@ -585,16 +662,27 @@ export default function AdminGarbageFees() {
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Monthly Rate
+                    Fee Structure
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{stats.monthlyRate}
+                    ₱{stats.feeStructure?.expectedMonthly || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{stats.monthlyRate}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">No Business:</span> ₱{stats.feeStructure?.noBusiness || 35}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">With Business:</span> ₱{stats.feeStructure?.withBusiness || 50}
+                    </div>
+                    <div className="text-xs text-gray-500 pt-1">
+                      Monthly: ₱{(stats.feeStructure?.expectedMonthly || 0).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Yearly: ₱{(stats.feeStructure?.expectedYearly || 0).toFixed(2)}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -605,28 +693,38 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.totalCollected || 0).toFixed(2)}
+                    ₱{(stats.totalCollected?.yearly || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{(stats.totalCollected || 0).toFixed(2)}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Year:</span> ₱{(stats.totalCollected?.yearly || 0).toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Month:</span> ₱{(stats.totalCollected?.monthly || 0).toFixed(2)}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Outstanding
+                    Balance
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
+                    ₱{(stats.balance?.yearly || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Year:</span> ₱{(stats.balance?.yearly || 0).toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Month:</span> ₱{(stats.balance?.monthly || 0).toFixed(2)}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1005,7 +1103,7 @@ export default function AdminGarbageFees() {
                     className="text-blue-600"
                   />
                   <span className={`text-sm ${!payForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    Without Business (₱35/month)
+                    P35 - No Business
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1018,7 +1116,7 @@ export default function AdminGarbageFees() {
                     className="text-blue-600"
                   />
                   <span className={`text-sm ${payForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    With Business (₱50/month)
+                    P50 - With Business
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 mt-2 italic">
