@@ -22,6 +22,7 @@ import AdminReportsComplaints from "./pages/Admin/AdminReportsComplaints";
 import AdminFinancialReports from "./pages/Admin/AdminFinancialReports";
 import AdminBlockchainNetwork from "./pages/Admin/AdminBlockchainNetwork";
 import ResidentPublicDocuments from "./pages/Residents/ResidentPublicDocuments";
+import ResidentReportsComplaints from "./pages/Residents/ResidentReportsComplaints";
 function App() {
   const [count, setCount] = useState(0)
 
@@ -60,6 +61,7 @@ function App() {
           <Route path="/resident/dashboard" element={<ResidentDashboard />} />
           <Route path="/resident/requests" element={<ResidentRequest />} />
           <Route path="/resident/payments" element={<ResidentPayment />} />
+          <Route path="/resident/reports-complaints" element={<ResidentReportsComplaints />} />
           <Route path="/resident/public-documents" element={<ResidentPublicDocuments />} />
         </Route>
 

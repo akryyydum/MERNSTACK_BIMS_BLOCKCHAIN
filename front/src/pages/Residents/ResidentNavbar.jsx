@@ -110,6 +110,15 @@ const ResidentNavbar = () => {
         </NavLink>
       </Menu.Item>
       <Menu.Item
+        key="/resident/reports-complaints"
+        icon={<CommentOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline">
+          Reports & Complaints
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
         key="/resident/public-documents"
         icon={<FileTextOutlined />}
         onClick={() => setMobileMenuOpen(false)}
