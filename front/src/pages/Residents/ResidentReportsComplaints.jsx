@@ -223,6 +223,14 @@ export default function ResidentReportsComplaints() {
     { value: 'report', label: 'Report' }
   ];
 
+  const purokOptions = [
+    { value: 'Purok 1', label: 'Purok 1' },
+    { value: 'Purok 2', label: 'Purok 2' },
+    { value: 'Purok 3', label: 'Purok 3' },
+    { value: 'Purok 4', label: 'Purok 4' },
+    { value: 'Purok 5', label: 'Purok 5' }
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
@@ -341,7 +349,7 @@ export default function ResidentReportsComplaints() {
                   <tr>
                     <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Complaint</th>
                     <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">Location</th>
+                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">Purok</th>
                     <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">Priority</th>
                     <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
                     <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
@@ -509,10 +517,10 @@ export default function ResidentReportsComplaints() {
 
           <Form.Item
             name="location"
-            label="Location"
-            rules={[{ required: true, message: "Please enter location" }]}
+            label="Purok"
+            rules={[{ required: true, message: "Please select purok" }]}
           >
-            <Input placeholder="Where did this occur?" />
+            <Select placeholder="Select purok" options={purokOptions} />
           </Form.Item>
 
           <Form.Item
@@ -577,10 +585,10 @@ export default function ResidentReportsComplaints() {
 
           <Form.Item
             name="location"
-            label="Location"
-            rules={[{ required: true, message: "Please enter location" }]}
+            label="Purok"
+            rules={[{ required: true, message: "Please select purok" }]}
           >
-            <Input placeholder="Where did this occur?" />
+            <Select placeholder="Select purok" options={purokOptions} />
           </Form.Item>
 
           <Form.Item
@@ -653,7 +661,7 @@ export default function ResidentReportsComplaints() {
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">LOCATION</p>
+                  <p className="text-sm font-medium text-gray-500 mb-1">PUROK</p>
                   <p className="text-gray-800">{viewComplaint.location}</p>
                 </div>
                 

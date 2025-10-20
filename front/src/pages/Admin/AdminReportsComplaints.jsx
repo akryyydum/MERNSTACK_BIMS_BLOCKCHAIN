@@ -199,10 +199,10 @@ export default function AdminReportsComplaints() {
     },
     {
       title: "Purok",
-      dataIndex: "purok",
-      key: "purok",
+      dataIndex: "location",
+      key: "location",
       width: 150,
-      render: (purok) => `Purok ${purok}`,
+      render: (location) => location || 'Not specified',
     },
     {
       title: "Category",
@@ -269,7 +269,7 @@ export default function AdminReportsComplaints() {
       c.title,
       c.description,
       c.category,
-      c.purok,
+      c.location,
       c.type,
       formatResidentName(c.residentId),
     ]
@@ -472,15 +472,16 @@ export default function AdminReportsComplaints() {
             <Form.Item name="description" label="Description" rules={[{ required: true }]}>
               <TextArea rows={4} />
             </Form.Item>
-            <Form.Item name="purok" label="Purok" rules={[{ required: true }]}>
+            <Form.Item name="location" label="Purok" rules={[{ required: true }]}>
               <Select
                 placeholder="Select purok"
                 options={[
-                  { value: "1", label: "Purok 1" },
-                  { value: "2", label: "Purok 2" },
-                  { value: "3", label: "Purok 3" },
-                  { value: "4", label: "Purok 4" },
-                  { value: "5", label: "Purok 5" },
+                  { value: "Purok 1", label: "Purok 1" },
+                  { value: "Purok 2", label: "Purok 2" },
+                  { value: "Purok 3", label: "Purok 3" },
+                  { value: "Purok 4", label: "Purok 4" },
+                  { value: "Purok 5", label: "Purok 5" },
+                  { value: "Purok 6", label: "Purok 6" },
                 ]}
               />
             </Form.Item>
@@ -522,7 +523,7 @@ export default function AdminReportsComplaints() {
                 {viewComplaint.residentId?.contact?.mobile} | {viewComplaint.residentId?.contact?.email}
               </Descriptions.Item>
               <Descriptions.Item label="Purok">
-                {viewComplaint.purok ? `Purok ${viewComplaint.purok}` : 'Not specified'}
+                {viewComplaint.location || 'Not specified'}
               </Descriptions.Item>
               <Descriptions.Item label="Category">{viewComplaint.category}</Descriptions.Item>
               <Descriptions.Item label="Priority">

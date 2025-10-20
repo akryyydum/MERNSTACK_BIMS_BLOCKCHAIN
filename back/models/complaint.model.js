@@ -27,7 +27,7 @@ const complaintSchema = new mongoose.Schema({
   },
   title: { type: String, required: true, trim: true },
   description: { type: String, required: true, trim: true },
-  location: { type: String, required: true, trim: true },
+  location: { type: String, required: true, trim: true }, // This can be purok or any location
   priority: {
     type: String,
     enum: ['low', 'medium', 'high', 'urgent'],
