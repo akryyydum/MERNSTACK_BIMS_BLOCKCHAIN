@@ -706,6 +706,7 @@ export default function AdminFinancialReports() {
                 <Select.Option value="document_fee">Document Fee</Select.Option>
                 <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                 <Select.Option value="electric_fee">Electric Fee</Select.Option>
+                <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                 <Select.Option value="permit_fee">Permit Fee</Select.Option>
                 <Select.Option value="other">Other</Select.Option>
               </Select>
@@ -857,6 +858,7 @@ export default function AdminFinancialReports() {
                     <Select.Option value="document_fee">Document Fee</Select.Option>
                     <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                     <Select.Option value="electric_fee">Electric Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="permit_fee">Permit Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
@@ -1041,6 +1043,7 @@ export default function AdminFinancialReports() {
                     <Select.Option value="document_fee">Document Fee</Select.Option>
                     <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                     <Select.Option value="electric_fee">Electric Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="permit_fee">Permit Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>

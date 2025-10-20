@@ -1,6 +1,9 @@
 const FinancialTransaction = require("../models/financialTransaction.model");
 const DocumentRequest = require("../models/document.model");
 const Resident = require("../models/resident.model");
+const StreetlightPayment = require("../models/streetlightPayment.model");
+const GasPayment = require("../models/gasPayment.model");
+const UtilityPayment = require("../models/utilityPayment.model");
 
 // Get dashboard statistics
 const getDashboard = async (req, res) => {
@@ -14,30 +17,58 @@ const getDashboard = async (req, res) => {
       if (endDate) filter.transactionDate.$lte = new Date(endDate);
     }
 
+    // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter);
 
+    // Fetch streetlight payments and convert to transaction format for calculations
+    let streetlightTransactions = [];
+    
+    // Create date filter for streetlight payments if needed
+    const streetlightFilter = {};
+    if (startDate || endDate) {
+      streetlightFilter.updatedAt = {};
+      if (startDate) streetlightFilter.updatedAt.$gte = new Date(startDate);
+      if (endDate) streetlightFilter.updatedAt.$lte = new Date(endDate);
+    }
+    
+    const streetlightPayments = await StreetlightPayment.find(streetlightFilter);
+
+    // Convert streetlight payments to transaction format for statistics
+    streetlightTransactions = streetlightPayments.flatMap(payment => 
+      payment.payments.map(paymentEntry => ({
+        type: 'streetlight_fee',
+        category: 'revenue',
+        amount: paymentEntry.amount,
+        transactionDate: paymentEntry.paidAt
+      }))
+    );
+
+    // Combine all transactions for calculations
+    const allTransactions = [...transactions, ...streetlightTransactions];
+
     // Calculate statistics
-    const totalRevenue = transactions
+    const totalRevenue = allTransactions
       .filter(t => t.category === 'revenue')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const totalExpenses = transactions
+    const totalExpenses = allTransactions
       .filter(t => t.category === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const totalAllocations = transactions
+    const totalAllocations = allTransactions
       .filter(t => t.category === 'allocation')
       .reduce((sum, t) => sum + t.amount, 0);
 
     const balance = totalRevenue - totalExpenses - totalAllocations;
 
     // Transaction counts by type
-    const documentFees = transactions.filter(t => t.type === 'document_fee').length;
-    const garbageFees = transactions.filter(t => t.type === 'garbage_fee').length;
-    const electricFees = transactions.filter(t => t.type === 'electric_fee').length;
-    const permitFees = transactions.filter(t => t.type === 'permit_fee').length;
+    const documentFees = allTransactions.filter(t => t.type === 'document_fee').length;
+    const garbageFees = allTransactions.filter(t => t.type === 'garbage_fee').length;
+    const electricFees = allTransactions.filter(t => t.type === 'electric_fee').length;
+    const streetlightFees = allTransactions.filter(t => t.type === 'streetlight_fee').length;
+    const permitFees = allTransactions.filter(t => t.type === 'permit_fee').length;
 
-    // Recent transactions
+    // Recent transactions (using original transactions for proper population)
     const recentTransactions = transactions
       .sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate))
       .slice(0, 10);
@@ -52,8 +83,9 @@ const getDashboard = async (req, res) => {
           documentFees,
           garbageFees,
           electricFees,
+          streetlightFees,
           permitFees,
-          total: transactions.length
+          total: allTransactions.length
         }
       },
       recentTransactions
@@ -91,13 +123,63 @@ const getTransactions = async (req, res) => {
     if (residentId) filter.residentId = residentId;
     if (officialId) filter.officialId = officialId;
 
+    // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName lastName')
       .populate('officialId', 'firstName lastName position')
       .populate('createdBy', 'username fullName')
       .sort({ transactionDate: -1 });
 
-    res.json({ transactions });
+    // Fetch streetlight payments and convert to transaction format
+    let streetlightTransactions = [];
+    
+    // Create date filter for streetlight payments if needed
+    const streetlightFilter = {};
+    if (startDate || endDate) {
+      streetlightFilter.updatedAt = {};
+      if (startDate) streetlightFilter.updatedAt.$gte = new Date(startDate);
+      if (endDate) streetlightFilter.updatedAt.$lte = new Date(endDate);
+    }
+    
+    // Only include streetlight transactions if no specific type filter OR if type is streetlight_fee
+    if (!type || type === 'streetlight_fee') {
+      const streetlightPayments = await StreetlightPayment.find(streetlightFilter)
+        .populate({
+          path: 'household',
+          populate: {
+            path: 'head',
+            select: 'firstName lastName'
+          }
+        })
+        .sort({ updatedAt: -1 });
+
+      // Convert streetlight payments to transaction format
+      streetlightTransactions = streetlightPayments.flatMap(payment => 
+        payment.payments.map(paymentEntry => ({
+          _id: `streetlight_${payment._id}_${paymentEntry.paidAt}`,
+          type: 'streetlight_fee',
+          category: 'revenue',
+          description: `Streetlight fee payment for ${payment.month}`,
+          amount: paymentEntry.amount,
+          transactionDate: paymentEntry.paidAt,
+          status: 'completed',
+          paymentMethod: paymentEntry.method || 'cash',
+          referenceNumber: paymentEntry.reference,
+          residentId: payment.household?.head || null,
+          householdId: payment.household?._id,
+          month: payment.month,
+          createdAt: paymentEntry.paidAt,
+          updatedAt: paymentEntry.paidAt,
+          isStreetlightPayment: true
+        }))
+      );
+    }
+
+    // Combine and sort all transactions
+    const allTransactions = [...transactions, ...streetlightTransactions]
+      .sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+
+    res.json({ transactions: allTransactions });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -227,17 +309,67 @@ const generateReport = async (req, res) => {
     }
     if (type) filter.type = type;
 
+    // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName lastName')
       .populate('officialId', 'firstName lastName')
       .sort({ transactionDate: 1 });
 
+    // Fetch streetlight payments and convert to transaction format for reports
+    let streetlightTransactions = [];
+    
+    // Create date filter for streetlight payments if needed
+    const streetlightFilter = {};
+    if (startDate || endDate) {
+      streetlightFilter.updatedAt = {};
+      if (startDate) streetlightFilter.updatedAt.$gte = new Date(startDate);
+      if (endDate) streetlightFilter.updatedAt.$lte = new Date(endDate);
+    }
+    
+    // Only include streetlight transactions if no specific type filter OR if type is streetlight_fee
+    if (!type || type === 'streetlight_fee') {
+      const streetlightPayments = await StreetlightPayment.find(streetlightFilter)
+        .populate({
+          path: 'household',
+          populate: {
+            path: 'head',
+            select: 'firstName lastName'
+          }
+        })
+        .sort({ updatedAt: 1 });
+
+      // Convert streetlight payments to transaction format
+      streetlightTransactions = streetlightPayments.flatMap(payment => 
+        payment.payments.map(paymentEntry => ({
+          _id: `streetlight_${payment._id}_${paymentEntry.paidAt}`,
+          type: 'streetlight_fee',
+          category: 'revenue',
+          description: `Streetlight fee payment for ${payment.month}`,
+          amount: paymentEntry.amount,
+          transactionDate: paymentEntry.paidAt,
+          status: 'completed',
+          paymentMethod: paymentEntry.method || 'cash',
+          referenceNumber: paymentEntry.reference,
+          residentId: payment.household?.head || null,
+          householdId: payment.household?._id,
+          month: payment.month,
+          createdAt: paymentEntry.paidAt,
+          updatedAt: paymentEntry.paidAt,
+          isStreetlightPayment: true
+        }))
+      );
+    }
+
+    // Combine all transactions
+    const allTransactions = [...transactions, ...streetlightTransactions]
+      .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate));
+
     // Calculate totals
     const summary = {
-      totalRevenue: transactions.filter(t => t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0),
-      totalExpenses: transactions.filter(t => t.category === 'expense').reduce((sum, t) => sum + t.amount, 0),
-      totalAllocations: transactions.filter(t => t.category === 'allocation').reduce((sum, t) => sum + t.amount, 0),
-      transactionCount: transactions.length
+      totalRevenue: allTransactions.filter(t => t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0),
+      totalExpenses: allTransactions.filter(t => t.category === 'expense').reduce((sum, t) => sum + t.amount, 0),
+      totalAllocations: allTransactions.filter(t => t.category === 'allocation').reduce((sum, t) => sum + t.amount, 0),
+      transactionCount: allTransactions.length
     };
 
     summary.balance = summary.totalRevenue - summary.totalExpenses - summary.totalAllocations;
@@ -246,7 +378,7 @@ const generateReport = async (req, res) => {
       report: {
         period: { startDate, endDate },
         summary,
-        transactions
+        transactions: allTransactions
       }
     });
   } catch (error) {
