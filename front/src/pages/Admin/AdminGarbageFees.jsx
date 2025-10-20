@@ -4,8 +4,9 @@ import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined } from "@ant-design/icons";
 import axios from "axios";
+import * as XLSX from 'xlsx';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -38,6 +39,11 @@ export default function AdminGarbageFees() {
   // State for multiple month payments
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
+
+  // State for export Excel modal
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportForm] = Form.useForm();
+  const [exporting, setExporting] = useState(false);
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -412,6 +418,171 @@ export default function AdminGarbageFees() {
     fetchStatistics();
   }, [households]);
 
+  // Excel Export Functions
+  const exportToExcel = async (values) => {
+    setExporting(true);
+    try {
+      // Fetch fresh payment data before exporting
+      const paymentRes = await axios.get(`${API_BASE}/api/admin/garbage-payments`, { headers: authHeaders() });
+      const freshGarbagePayments = paymentRes.data || [];
+      
+      console.log('Fresh payment data for export:', freshGarbagePayments);
+      
+      const { exportType, selectedMonth } = values;
+      let exportData = [];
+      let filename = '';
+      
+      if (exportType === 'whole-year') {
+        // Export whole year data
+        exportData = await generateYearlyExportData(freshGarbagePayments);
+        filename = `Garbage_Fees_${new Date().getFullYear()}_Complete.xlsx`;
+      } else if (exportType === 'chosen-month') {
+        // Export chosen month data
+        const selectedMonthStr = dayjs(selectedMonth).format('YYYY-MM');
+        exportData = await generateMonthlyExportData(selectedMonthStr, freshGarbagePayments);
+        const monthName = dayjs(selectedMonth).format('MMMM_YYYY');
+        filename = `Garbage_Fees_${monthName}.xlsx`;
+      } else if (exportType === 'current-month') {
+        // Export current month data
+        const currentMonth = dayjs().format('YYYY-MM');
+        exportData = await generateMonthlyExportData(currentMonth, freshGarbagePayments);
+        const monthName = dayjs().format('MMMM_YYYY');
+        filename = `Garbage_Fees_${monthName}_Current.xlsx`;
+      }
+
+      if (exportData.length === 0) {
+        message.warning('No data available for export');
+        return;
+      }
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-fit columns
+      const colWidths = exportData.reduce((acc, row) => {
+        Object.keys(row).forEach((key, idx) => {
+          const value = row[key] ? row[key].toString() : '';
+          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+        });
+        return acc;
+      }, []);
+      
+      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Garbage Fees Report');
+      XLSX.writeFile(wb, filename);
+      
+      message.success('Excel file exported successfully!');
+      setExportOpen(false);
+      exportForm.resetFields();
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export Excel file');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const generateYearlyExportData = async (paymentData) => {
+    const exportData = [];
+    const currentYear = new Date().getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => 
+      dayjs().month(i).format('YYYY-MM')
+    );
+
+    console.log('Generating yearly export with payments:', paymentData);
+    console.log('Households for export:', households);
+
+    for (const household of households) {
+      const baseData = {
+        'Household ID': household.householdId,
+        'Head of Household': fullName(household.headOfHousehold),
+        'Purok': household.address?.purok || 'N/A',
+        'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
+        'Fee Rate': household.hasBusiness ? '₱50' : '₱35',
+      };
+
+      // Add monthly payment status for the year
+      for (const month of months) {
+        const monthName = dayjs(month).format('MMM YYYY');
+        const payment = paymentData.find(p => 
+          p.household?.householdId === household.householdId && 
+          p.month === month
+        );
+        
+        console.log(`Checking payment for ${household.householdId} in ${month}:`, payment);
+        
+        baseData[`${monthName} Status`] = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+        baseData[`${monthName} Amount`] = payment ? `₱${payment.amountPaid}` : '₱0';
+      }
+
+      // Calculate totals
+      const totalPaid = paymentData
+        .filter(p => p.household?.householdId === household.householdId && 
+                dayjs(p.month + '-01').year() === currentYear)
+        .reduce((sum, p) => sum + p.amountPaid, 0);
+        
+      const expectedFee = household.hasBusiness ? 50 : 35;
+      const expectedTotal = expectedFee * 12;
+      const balance = expectedTotal - totalPaid;
+
+      baseData['Total Paid'] = `₱${totalPaid}`;
+      baseData['Expected Total'] = `₱${expectedTotal}`;
+      baseData['Balance'] = `₱${balance}`;
+
+      exportData.push(baseData);
+    }
+
+    return exportData;
+  };
+
+  const generateMonthlyExportData = async (monthStr, paymentData) => {
+    const exportData = [];
+    const targetMonth = dayjs(monthStr);
+
+    console.log('Generating monthly export for:', monthStr);
+    console.log('Payment data:', paymentData);
+    console.log('Households:', households);
+
+    for (const household of households) {
+      const payment = paymentData.find(p => 
+        p.household?.householdId === household.householdId && 
+        p.month === monthStr
+      );
+
+      console.log(`Payment for ${household.householdId} in ${monthStr}:`, payment);
+
+      const expectedFee = household.hasBusiness ? 50 : 35;
+      const paidAmount = payment ? payment.amountPaid : 0;
+      const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+      const balance = expectedFee - paidAmount;
+
+      // Get the latest payment date from payments array
+      let paymentDate = 'Not Paid';
+      if (payment && payment.payments && payment.payments.length > 0) {
+        const latestPayment = payment.payments[payment.payments.length - 1];
+        paymentDate = dayjs(latestPayment.paidAt).format('MMMM DD, YYYY');
+      }
+
+      exportData.push({
+        'Household ID': household.householdId,
+        'Head of Household': fullName(household.headOfHousehold),
+        'Purok': household.address?.purok || 'N/A',
+        'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
+        'Expected Fee': `₱${expectedFee}`,
+        'Paid Amount': `₱${paidAmount}`,
+        'Payment Status': status,
+        'Balance': `₱${balance}`,
+        'Payment Date': paymentDate,
+        'Month': targetMonth.format('MMMM YYYY')
+      });
+    }
+
+    console.log('Generated export data:', exportData);
+    return exportData;
+  };
+
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
 
   // Get all members with their household info for searching
@@ -765,6 +936,14 @@ export default function AdminGarbageFees() {
                 onClick={() => setAddPaymentOpen(true)}
               >
                 + Add Payment
+              </Button>
+              <Button 
+                type="default"
+                icon={<FileExcelOutlined />}
+                onClick={() => setExportOpen(true)}
+                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+              >
+                Export Excel
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1395,6 +1574,119 @@ export default function AdminGarbageFees() {
               )}
             </div>
           )}
+        </Modal>
+
+        {/* Export Excel Modal */}
+        <Modal
+          title="Export Garbage Fees to Excel"
+          open={exportOpen}
+          onCancel={() => {
+            setExportOpen(false);
+            exportForm.resetFields();
+          }}
+          footer={[
+            <Button key="cancel" onClick={() => {
+              setExportOpen(false);
+              exportForm.resetFields();
+            }}>
+              Cancel
+            </Button>,
+            <Button
+              key="export"
+              type="primary"
+              loading={exporting}
+              onClick={() => exportForm.submit()}
+              icon={<FileExcelOutlined />}
+            >
+              Export to Excel
+            </Button>
+          ]}
+          width={500}
+        >
+          <Form
+            form={exportForm}
+            layout="vertical"
+            onFinish={exportToExcel}
+            initialValues={{
+              exportType: 'current-month'
+            }}
+          >
+            <Form.Item
+              name="exportType"
+              label="Export Type"
+              rules={[{ required: true, message: 'Please select export type' }]}
+            >
+              <Select placeholder="Select what to export">
+                <Select.Option value="current-month">Current Month</Select.Option>
+                <Select.Option value="chosen-month">Chosen Month</Select.Option>
+                <Select.Option value="whole-year">Whole Year</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prevValues, currentValues) =>
+                prevValues.exportType !== currentValues.exportType
+              }
+            >
+              {({ getFieldValue }) => {
+                const exportType = getFieldValue('exportType');
+                return exportType === 'chosen-month' ? (
+                  <Form.Item
+                    name="selectedMonth"
+                    label="Select Month"
+                    rules={[{ required: true, message: 'Please select a month' }]}
+                  >
+                    <DatePicker
+                      picker="month"
+                      placeholder="Select month and year"
+                      style={{ width: '100%' }}
+                      format="MMMM YYYY"
+                    />
+                  </Form.Item>
+                ) : null;
+              }}
+            </Form.Item>
+
+            <div className="bg-blue-50 p-3 rounded border border-blue-200">
+              <div className="text-sm text-blue-800">
+                <div className="font-semibold mb-2">Export Information:</div>
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue }) => {
+                    const exportType = getFieldValue('exportType');
+                    if (exportType === 'current-month') {
+                      return (
+                        <div className="space-y-1">
+                          <div>• Current month: {dayjs().format('MMMM YYYY')}</div>
+                          <div>• Includes all households with payment status</div>
+                          <div>• Shows payment dates, amounts, and balances</div>
+                        </div>
+                      );
+                    } else if (exportType === 'chosen-month') {
+                      const selectedMonth = getFieldValue('selectedMonth');
+                      return (
+                        <div className="space-y-1">
+                          <div>• Selected month: {selectedMonth ? dayjs(selectedMonth).format('MMMM YYYY') : 'Please select month'}</div>
+                          <div>• Includes all households with payment status</div>
+                          <div>• Shows payment dates, amounts, and balances</div>
+                        </div>
+                      );
+                    } else if (exportType === 'whole-year') {
+                      return (
+                        <div className="space-y-1">
+                          <div>• Full year report: {new Date().getFullYear()}</div>
+                          <div>• Monthly breakdown for all households</div>
+                          <div>• Shows payment status for each month</div>
+                          <div>• Includes yearly totals and balances</div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                </Form.Item>
+              </div>
+            </div>
+          </Form>
         </Modal>
       </div>
     </AdminLayout>
