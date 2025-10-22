@@ -227,6 +227,7 @@ export default function AdminResidentManagement() {
         "Date of Birth": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString() : "",
         "Birth Place": r.birthPlace || "",
         "Civil Status": r.civilStatus || "",
+        "Religion": r.religion || "",
         "Ethnicity": r.ethnicity || "",
         "Citizenship": r.citizenship || "",
         "Occupation": r.occupation || "",
@@ -294,15 +295,27 @@ export default function AdminResidentManagement() {
           .filter(Boolean)
           .join(" "),
     },
-    { title: "Gender", dataIndex: "gender", key: "gender" },
-    { title: "Date of Birth", dataIndex: "dateOfBirth", key: "dateOfBirth", render: v => v ? new Date(v).toLocaleDateString() : "" },
-    { title: "Civil Status", dataIndex: "civilStatus", key: "civilStatus" },
-    { title: "Mobile", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
-    { title: "Email", dataIndex: ["contact", "email"], key: "email", render: (_, r) => r.contact?.email },
-    { title: "Purok", key: "purok", render: (_, r) => r.address?.purok ? r.address.purok.replace("Purok ", "") : "" },
-    { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
-    { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
-    { title: "Occupation", dataIndex: "occupation", key: "occupation" },
+  { title: "Gender", dataIndex: "gender", key: "gender" },
+  { title: "Date of Birth", dataIndex: "dateOfBirth", key: "dateOfBirth", render: v => v ? new Date(v).toLocaleDateString() : "" },
+  { title: "Civil Status", dataIndex: "civilStatus", key: "civilStatus" },
+  { title: "Religion", dataIndex: "religion", key: "religion" },
+  { title: "Mobile", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
+  { 
+    title: "Purok", 
+    key: "purok", 
+    render: (_, r) => r.address?.purok ? r.address.purok.replace("Purok ", "") : "",
+    filters: [
+      { text: "Purok 1", value: "Purok 1" },
+      { text: "Purok 2", value: "Purok 2" },
+      { text: "Purok 3", value: "Purok 3" },
+      { text: "Purok 4", value: "Purok 4" },
+      { text: "Purok 5", value: "Purok 5" },
+    ],
+    onFilter: (value, record) => record.address?.purok === value,
+  },
+  { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
+  { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
+  { title: "Occupation", dataIndex: "occupation", key: "occupation" },
   // ...existing code...
      {
       title: "Status",
@@ -350,6 +363,7 @@ export default function AdminResidentManagement() {
       r.address?.municipality,
       r.address?.province,
       r.citizenship,
+      r.religion,
       r.ethnicity,
       r.occupation,
     ]
@@ -377,6 +391,7 @@ export default function AdminResidentManagement() {
         "birthPlace",
         "gender",
         "civilStatus",
+        "religion",
         "ethnicity",
       ],
     },
@@ -663,7 +678,6 @@ export default function AdminResidentManagement() {
                 <li>Personal information (name, gender, birth date)</li>
                 <li>Contact details (mobile, email)</li>
                 <li>Address information</li>
-                <li>Status and blockchain data</li>
               </ul>
             </div>
           </Form>
@@ -787,10 +801,14 @@ export default function AdminResidentManagement() {
                     ]}
                   />
                 </Form.Item>
-                <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
-                  <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                <Form.Item name="religion" label="Religion">
+                  <Input placeholder="e.g., Catholic, Protestant, Islam" />
                 </Form.Item>
               </div>
+              
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+              </Form.Item>
             </div>
 
             {/* Step 2 - Address */}
@@ -968,10 +986,14 @@ export default function AdminResidentManagement() {
                     ]}
                   />
                 </Form.Item>
-                <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
-                  <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                <Form.Item name="religion" label="Religion">
+                  <Input placeholder="e.g., Catholic, Protestant, Islam" />
                 </Form.Item>
               </div>
+              
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+              </Form.Item>
             </div>
             
             {/* Step 2 - Address */}
@@ -1048,11 +1070,13 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Date of Birth">{viewResident.dateOfBirth ? new Date(viewResident.dateOfBirth).toLocaleDateString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Civil Status">{viewResident.civilStatus}</Descriptions.Item>
               <Descriptions.Item label="Birth Place">{viewResident.birthPlace}</Descriptions.Item>
+              <Descriptions.Item label="Religion">{viewResident.religion || "-"}</Descriptions.Item>
               <Descriptions.Item label="Ethnicity">{viewResident.ethnicity}</Descriptions.Item>
               <Descriptions.Item label="Citizenship">{viewResident.citizenship}</Descriptions.Item>
               <Descriptions.Item label="Occupation">{viewResident.occupation}</Descriptions.Item>
-              // ...existing code...
-              <Descriptions.Item label="Mobile">{viewResident.contact?.mobile}</Descriptions.Item>
+              {viewResident.contact?.mobile && (
+                <Descriptions.Item label="Mobile">{viewResident.contact.mobile}</Descriptions.Item>
+              )}
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
               <Descriptions.Item label="Address">
                 {[
@@ -1064,7 +1088,6 @@ export default function AdminResidentManagement() {
               </Descriptions.Item>
               <Descriptions.Item label="Purok">{viewResident.address?.purok}</Descriptions.Item>
               <Descriptions.Item label="Status">{viewResident.status}</Descriptions.Item>
-
             </Descriptions>
           )}
         </Modal>
