@@ -881,10 +881,7 @@ export default function AdminStreetLightFees() {
                 + Add Payment
               </Button>
               <Button 
-                type="default"
-                icon={<FileExcelOutlined />}
                 onClick={() => setExportOpen(true)}
-                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
               >
                 Export Excel
               </Button>

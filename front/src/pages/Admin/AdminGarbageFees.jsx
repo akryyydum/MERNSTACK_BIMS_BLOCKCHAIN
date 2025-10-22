@@ -936,11 +936,8 @@ export default function AdminGarbageFees() {
               >
                 + Add Payment
               </Button>
-              <Button 
-                type="default"
-                icon={<FileExcelOutlined />}
+              <Button
                 onClick={() => setExportOpen(true)}
-                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
               >
                 Export Excel
               </Button>
