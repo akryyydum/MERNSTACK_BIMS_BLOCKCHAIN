@@ -474,15 +474,18 @@ exports.getGarbageStatistics = async (req, res) => {
         expectedMonthly: parseFloat(expectedMonthly.toFixed(2)),
         expectedYearly: parseFloat(expectedYearly.toFixed(2))
       },
-      totalCollected: {
+      totalCollectedBreakdown: {
         yearly: parseFloat(totalYearlyCollected.toFixed(2)),
         monthly: parseFloat(totalMonthlyCollected.toFixed(2))
       },
-      balance: {
+      balanceBreakdown: {
         yearly: parseFloat(totalYearlyBalance.toFixed(2)),
         monthly: parseFloat(totalMonthlyBalance.toFixed(2))
       },
-      collectionRate: parseFloat(collectionRate.toFixed(1))
+      collectionRate: parseFloat(collectionRate.toFixed(1)),
+      // Add flat values for easier frontend access
+      totalCollected: parseFloat(totalYearlyCollected.toFixed(2)),
+      totalOutstanding: parseFloat(totalYearlyBalance.toFixed(2))
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

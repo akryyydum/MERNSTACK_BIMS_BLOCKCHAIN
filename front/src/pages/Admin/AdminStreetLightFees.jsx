@@ -883,7 +883,10 @@ export default function AdminStreetLightFees() {
               <Button 
                 type="default"
                 icon={<FileExcelOutlined />}
-                onClick={() => setExportOpen(true)}
+                onClick={() => {
+                  exportForm.setFieldsValue({}); // Reset export form fields
+                  setExportOpen(true);
+                }}
                 style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
               >
                 Export Excel

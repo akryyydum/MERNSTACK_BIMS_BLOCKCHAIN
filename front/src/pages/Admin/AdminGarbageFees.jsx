@@ -40,6 +40,10 @@ export default function AdminGarbageFees() {
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
 
+  // State to store payment status for each household
+  const [householdPaymentStatuses, setHouseholdPaymentStatuses] = useState({});
+  const [paymentStatusLoading, setPaymentStatusLoading] = useState(false);
+
   // State for export Excel modal
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
@@ -53,6 +57,57 @@ export default function AdminGarbageFees() {
     fetchHouseholds();
     fetchGarbagePayments();
   }, []);
+
+  // Precompute payment status for each household for the current year
+  useEffect(() => {
+    const fetchPaymentStatuses = async () => {
+      if (households.length === 0) return;
+      
+      setPaymentStatusLoading(true);
+      try {
+        const currentYear = dayjs().year();
+        const statuses = {};
+        
+        for (const household of households) {
+          let allPaid = true;
+          let anyPaid = false;
+          const defaultFee = household.hasBusiness ? 50 : 35;
+          
+          for (let month = 1; month <= 12; month++) {
+            const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+            
+            try {
+              const res = await axios.get(`${API_BASE}/api/admin/households/${household._id}/garbage`, {
+                headers: authHeaders(),
+                params: { month: monthStr },
+              });
+              
+              if (res.data.status !== 'paid') allPaid = false;
+              if (res.data.status === 'paid' || res.data.status === 'partial') anyPaid = true;
+            } catch {
+              // If no payment record exists, consider it unpaid
+              allPaid = false;
+            }
+          }
+          
+          if (allPaid) statuses[household._id] = 'paid';
+          else if (anyPaid) statuses[household._id] = 'partial';
+          else statuses[household._id] = 'unpaid';
+        }
+        
+        setHouseholdPaymentStatuses(statuses);
+      } catch (error) {
+        console.error("Error fetching payment statuses:", error);
+        message.warning("Could not load payment statuses. Using fallback calculation.");
+      } finally {
+        setPaymentStatusLoading(false);
+      }
+    };
+
+    if (households.length > 0) {
+      fetchPaymentStatuses();
+    }
+  }, [households, garbagePayments]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -219,6 +274,7 @@ export default function AdminGarbageFees() {
       setPayHousehold(null);
       setSelectedMonths([]);
       setMonthPaymentStatus({});
+      setHouseholdPaymentStatuses({}); // Reset payment statuses to trigger loading
       payForm.resetFields();
       
       // Show refreshing indicator and refresh all data
@@ -247,6 +303,7 @@ export default function AdminGarbageFees() {
   const deleteHouseholdPayments = async (household) => {
     try {
       setRefreshing(true);
+      setHouseholdPaymentStatuses({}); // Reset payment statuses to trigger loading
       
       const res = await axios.delete(`${API_BASE}/api/admin/households/${household._id}/garbage/payments`, {
         headers: authHeaders()
@@ -409,15 +466,18 @@ export default function AdminGarbageFees() {
           expectedMonthly,
           expectedYearly
         },
-        totalCollected: {
+        totalCollectedBreakdown: {
           yearly: totalYearlyCollected,
           monthly: totalMonthlyCollected
         },
-        balance: {
+        balanceBreakdown: {
           yearly: totalYearlyBalance,
           monthly: totalMonthlyBalance
         },
-        collectionRate: parseFloat(collectionRate.toFixed(1))
+        collectionRate: parseFloat(collectionRate.toFixed(1)),
+        // Add flat values for display
+        totalCollected: totalYearlyCollected,
+        totalOutstanding: totalYearlyBalance
       });
     }
     setStatsRefreshing(false);
@@ -669,31 +729,16 @@ export default function AdminGarbageFees() {
       title: "Payment Status",
       key: "paymentStatus",
       render: (_, record) => {
-        // Calculate overall payment status for current year
-        const defaultFee = record.hasBusiness ? 50 : 35;
-        const currentYear = dayjs().year();
-        let totalExpected = 0;
-        let totalPaid = 0;
+        // Check if we have precomputed status
+        const precomputedStatus = householdPaymentStatuses[record._id];
         
-        // Check all months of current year
-        for (let month = 1; month <= 12; month++) {
-          const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
-          totalExpected += defaultFee;
-          
-          const monthPayment = garbagePayments.find(payment => 
-            payment.household?._id === record._id && payment.month === monthStr
-          );
-          
-          if (monthPayment) {
-            totalPaid += Number(monthPayment.amountPaid || 0);
-          }
+        if (paymentStatusLoading || !precomputedStatus) {
+          return <Tag color="default">Loading...</Tag>;
         }
         
-        const balance = totalExpected - totalPaid;
-        
-        if (balance <= 0) {
+        if (precomputedStatus === 'paid') {
           return <Tag color="green">Fully Paid</Tag>;
-        } else if (totalPaid > 0) {
+        } else if (precomputedStatus === 'partial') {
           return <Tag color="orange">Partially Paid</Tag>;
         } else {
           return <Tag color="red">Unpaid</Tag>;
@@ -922,7 +967,7 @@ export default function AdminGarbageFees() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <Input.Search
                 placeholder="Search households..."
                 value={search}
@@ -936,19 +981,16 @@ export default function AdminGarbageFees() {
               >
                 + Add Payment
               </Button>
-              <Button 
-                type="default"
-                icon={<FileExcelOutlined />}
+              <Button
                 onClick={() => setExportOpen(true)}
-                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
               >
                 Export Excel
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
                 <Button
-                  loading={statsRefreshing}
-                  onClick={fetchStatistics}
+                  loading={refreshing}
+                  onClick={() => { fetchHouseholds && fetchHouseholds(); fetchGarbagePayments && fetchGarbagePayments(); fetchStatistics && fetchStatistics(); }}
                   size="small"
                 >
                   Refresh
