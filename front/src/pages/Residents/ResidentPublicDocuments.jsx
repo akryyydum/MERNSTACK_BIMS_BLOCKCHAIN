@@ -219,7 +219,6 @@ export default function ResidentPublicDocuments() {
           setPreviewDoc(null);
         }}
         footer={null}
-        className="top-4"
         width={900}
         className="top-4"
         bodyStyle={{ height: "75vh", display: "flex", flexDirection: "column" }}
