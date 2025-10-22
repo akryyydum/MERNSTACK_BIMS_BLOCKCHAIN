@@ -221,6 +221,7 @@ export default function ResidentPublicDocuments() {
         footer={null}
         className="top-4"
         width={900}
+        className="top-4"
         bodyStyle={{ height: "75vh", display: "flex", flexDirection: "column" }}
       >
         {previewLoading && <Skeleton active />}
