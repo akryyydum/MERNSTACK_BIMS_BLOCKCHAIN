@@ -323,7 +323,16 @@ export default function AdminGarbageFees() {
     setStatsRefreshing(true);
     try {
       const res = await axios.get(`${API_BASE}/api/admin/garbage-statistics`, { headers: authHeaders() });
-      setStats(res.data);
+      // Ensure numeric values are properly converted
+      const apiStats = res.data;
+      setStats({
+        ...apiStats,
+        totalCollected: Number(apiStats.totalCollected || 0),
+        totalOutstanding: Number(apiStats.totalOutstanding || 0),
+        monthlyRate: Number(apiStats.monthlyRate || 0),
+        totalHouseholds: Number(apiStats.totalHouseholds || 0),
+        collectionRate: Number(apiStats.collectionRate || 0)
+      });
     } catch (err) {
       console.error("Error fetching statistics:", err);
       // Fallback to calculated stats from household data
@@ -864,17 +873,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.totalCollected?.yearly || 0).toFixed(2)}
+                    ₱{Number(stats.totalCollected || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Year:</span> ₱{(stats.totalCollected?.yearly || 0).toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Month:</span> ₱{(stats.totalCollected?.monthly || 0).toFixed(2)}
-                    </div>
+                  <div className="text-3xl font-bold text-black">
+                    ₱{Number(stats.totalCollected || 0).toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
@@ -885,17 +889,12 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.balance?.yearly || 0).toFixed(2)}
+                    ₱{Number(stats.totalOutstanding || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Year:</span> ₱{(stats.balance?.yearly || 0).toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Month:</span> ₱{(stats.balance?.monthly || 0).toFixed(2)}
-                    </div>
+                  <div className="text-3xl font-bold text-black">
+                    ₱{Number(stats.totalOutstanding || 0).toFixed(2)}
                   </div>
                 </CardContent>
               </Card>

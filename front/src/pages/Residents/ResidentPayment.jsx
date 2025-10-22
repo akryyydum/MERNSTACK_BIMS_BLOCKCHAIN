@@ -320,11 +320,6 @@ export default function ResidentPayment() {
         className: "border border-rose-200 bg-rose-50 text-rose-700",
         Icon: AlertTriangle,
       },
-      upcoming: {
-        label: "Upcoming",
-        className: "border border-slate-200 bg-slate-50 text-slate-600",
-        Icon: CalendarDays,
-      },
     };
 
     const { label, className, Icon } =
@@ -566,11 +561,6 @@ export default function ResidentPayment() {
                     label: `Paid (${statusCounts.paid})`,
                     children: null,
                   },
-                  {
-                    key: 'upcoming',
-                    label: `Upcoming (${statusCounts.upcoming})`,
-                    children: null,
-                  },
                 ]}
                 onChange={(key) => {
                   setActiveTab(key);
@@ -648,11 +638,6 @@ export default function ResidentPayment() {
                             {payment.status === 'overdue' && (
                               <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                                 OVERDUE
-                              </span>
-                            )}
-                            {payment.status === 'upcoming' && (
-                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                                UPCOMING
                               </span>
                             )}
                           </td>
