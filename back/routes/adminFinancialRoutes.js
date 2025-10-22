@@ -1,25 +1,39 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { auth, authorize } = require('../middleware/authMiddleware');
+const { auth, authorize } = require("../middleware/authMiddleware");
+
 const {
   getDashboard,
   getTransactions,
   createTransaction,
+  syncDocumentFees,
+  generateReport,
   updateTransaction,
   deleteTransaction,
-  generateReport,
-  syncDocumentFees
-} = require('../controllers/adminFinancialController');
+  bulkDeleteTransactions
+} = require("../controllers/adminFinancialController");
 
-// Protect all routes
-router.use(auth, authorize('admin'));
+// Middleware shorthand
+const authMiddleware = [auth, authorize("admin")];
 
-router.get('/dashboard', getDashboard);
-router.get('/transactions', getTransactions);
-router.post('/transactions', createTransaction);
-router.put('/transactions/:id', updateTransaction);
-router.delete('/transactions/:id', deleteTransaction);
-router.get('/reports', generateReport);
-router.post('/sync-document-fees', syncDocumentFees);
+// Request logging middleware
+router.use((req, res, next) => {
+  console.log(`[Financial Routes] ${req.method} ${req.path}`);
+  console.log('[Financial Routes] Body:', req.body);
+  console.log('[Financial Routes] Params:', req.params);
+  next();
+});
+
+// Existing routes
+router.get("/dashboard", authMiddleware, getDashboard);
+router.get("/transactions", authMiddleware, getTransactions);
+router.post("/transactions", authMiddleware, createTransaction);
+router.post("/sync-document-fees", authMiddleware, syncDocumentFees);
+router.get("/reports", authMiddleware, generateReport);
+
+// CRUD routes
+router.put("/transactions/:id", authMiddleware, updateTransaction);
+router.delete("/transactions/:id", authMiddleware, deleteTransaction);
+router.post("/transactions/bulk-delete", authMiddleware, bulkDeleteTransactions);
 
 module.exports = router;

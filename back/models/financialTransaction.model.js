@@ -4,7 +4,7 @@ const financialTransactionSchema = new mongoose.Schema({
   transactionId: { type: String, unique: true },
   type: {
     type: String,
-    enum: ['document_fee', 'garbage_fee', 'electric_fee', 'permit_fee', 'other'],
+    enum: ['document_fee', 'garbage_fee', 'electric_fee', 'streetlight_fee', 'permit_fee', 'other'],
     required: true
   },
   category: {
@@ -19,6 +19,13 @@ const financialTransactionSchema = new mongoose.Schema({
   residentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident' },
   householdId: { type: mongoose.Schema.Types.ObjectId, ref: 'Household' },
   documentRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'DocumentRequest' },
+  
+  // NEW: Add official reference
+  officialId: { type: mongoose.Schema.Types.ObjectId, ref: 'Official' },
+  
+  // NEW: Store names directly for faster access and historical records
+  residentName: { type: String },
+  officialName: { type: String },
   
   // Payment details
   paymentMethod: {
@@ -70,11 +77,37 @@ financialTransactionSchema.pre('save', async function(next) {
       const prefix = this.type === 'document_fee' ? 'DOC' : 
                      this.type === 'garbage_fee' ? 'GRB' : 
                      this.type === 'electric_fee' ? 'ELC' : 
+                     this.type === 'streetlight_fee' ? 'STL' :
                      this.type === 'permit_fee' ? 'PRM' : 'TXN';
       this.transactionId = `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(6, '0')}`;
     } catch (error) {
       // Fallback ID generation if count fails
       this.transactionId = `TXN-${new Date().getFullYear()}-${Date.now()}`;
+    }
+  }
+  
+  // NEW: Auto-populate resident/official names if IDs are provided
+  if (this.isModified('residentId') && this.residentId && !this.residentName) {
+    try {
+      const Resident = mongoose.model('Resident');
+      const resident = await Resident.findById(this.residentId).select('firstName lastName');
+      if (resident) {
+        this.residentName = `${resident.firstName} ${resident.lastName}`;
+      }
+    } catch (error) {
+      console.error('Error fetching resident name:', error);
+    }
+  }
+  
+  if (this.isModified('officialId') && this.officialId && !this.officialName) {
+    try {
+      const Official = mongoose.model('Official');
+      const official = await Official.findById(this.officialId).select('firstName lastName');
+      if (official) {
+        this.officialName = `${official.firstName} ${official.lastName}`;
+      }
+    } catch (error) {
+      console.error('Error fetching official name:', error);
     }
   }
   

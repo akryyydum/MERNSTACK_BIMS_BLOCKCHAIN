@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions } from "antd";
 
@@ -10,6 +10,9 @@ const Login = () => {
   const [regLoading, setRegLoading] = useState(false);
   const [regEmail, setRegEmail] = useState("");
   const [regForm] = Form.useForm();
+  const [initializing, setInitializing] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
+  const [contentVisible, setContentVisible] = useState(false);
 
   const stepFieldNames = {
     1: [
@@ -197,7 +200,6 @@ const Login = () => {
         },
         citizenship: values.citizenship,
         occupation: values.occupation,
-  // ...existing code...
         role: "resident",
       };
 
@@ -237,8 +239,51 @@ const Login = () => {
 
   // Verification functions removed
 
+  useEffect(() => {
+    setContentVisible(false);
+    const startTimer = setTimeout(() => setFadeOut(true), 600);
+    const endTimer = setTimeout(() => setInitializing(false), 1100);
+    return () => {
+      clearTimeout(startTimer);
+      clearTimeout(endTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initializing) {
+      const showTimer = setTimeout(() => setContentVisible(true), 50);
+      return () => clearTimeout(showTimer);
+    }
+  }, [initializing]);
+
+  if (initializing) {
+    return (
+      <div
+        className={`flex min-h-screen items-center justify-center bg-gray-100 transition-opacity duration-500 ${
+          fadeOut ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src="/src/assets/logo.png"
+            alt="Barangay Logo"
+            className="h-28 w-28 animate-spin"
+            style={{ animationDuration: "3s" }}
+          />
+          <span className="text-gray-600 font-semibold tracking-wide">
+            Loading Barangay Portal...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen bg-gray-100 relative overflow-hidden">
+    <div
+      className={`flex min-h-screen bg-gray-100 relative overflow-hidden transition-opacity duration-500 ${
+        contentVisible ? "opacity-100" : "opacity-0"
+      }`}
+    >
       {/* Left Side - Full Image */}
       <div className="hidden md:block relative w-3/5 h-screen">
         <img

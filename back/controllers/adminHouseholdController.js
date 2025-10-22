@@ -3,6 +3,7 @@ const Resident = require("../models/resident.model");
 const Counter = require("../models/counter.model");
 // const GasPayment = require("../models/gasPayment.model");
 const UtilityPayment = require("../models/utilityPayment.model");
+const FinancialTransaction = require("../models/financialTransaction.model");
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -202,7 +203,7 @@ async function getUtilitySummary(householdId, type, month) {
 }
 
 // Generic payer
-async function payUtility(householdId, type, { month, amount, totalCharge, method, reference, hasBusiness }) {
+async function payUtility(householdId, type, { month, amount, totalCharge, method, reference, hasBusiness }, user) {
   if (amount === undefined || Number(amount) <= 0) {
     return { error: "amount must be greater than 0", status: 400 };
   }
@@ -246,12 +247,13 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
     summary.totalCharge = Number(totalCharge);
   }
 
-  summary.payments.push({
+  const paymentRecord = {
     amount: Number(amount),
     method,
     reference,
     paidAt: new Date(),
-  });
+  };
+  summary.payments.push(paymentRecord);
 
   summary.amountPaid = (Number(summary.amountPaid) || 0) + Number(amount);
   const computedBalance = Math.max(Number(summary.totalCharge) - Number(summary.amountPaid), 0);
@@ -276,6 +278,31 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
   else hh.electricFee = snap;
   await hh.save();
 
+  const transactionTypeMap = {
+    garbage: "garbage_fee",
+    electric: "electric_fee",
+    streetlight: "streetlight_fee",
+  };
+
+  try {
+    await FinancialTransaction.create({
+      type: transactionTypeMap[type] || "other",
+      category: "revenue",
+      description: `${type.charAt(0).toUpperCase() + type.slice(1)} fee payment for ${hh.householdId} (${m})`,
+      amount: Number(amount),
+      residentId: hh.headOfHousehold,
+      householdId: hh._id,
+      paymentMethod: method || "cash",
+      referenceNumber: reference,
+      status: "completed",
+      transactionDate: paymentRecord.paidAt,
+      createdBy: user?.id || user?._id,
+      updatedBy: user?.id || user?._id,
+    });
+  } catch (err) {
+    console.error("Failed to log financial transaction:", err);
+  }
+
   return { summary, status: 201 };
 }
 
@@ -293,7 +320,7 @@ exports.garbageSummary = async (req, res) => {
 // POST /api/admin/households/:id/garbage/pay
 exports.payGarbage = async (req, res) => {
   try {
-    const { summary, error, status } = await payUtility(req.params.id, "garbage", req.body || {});
+    const { summary, error, status } = await payUtility(req.params.id, "garbage", req.body || {}, req.user);
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
@@ -315,7 +342,7 @@ exports.electricSummary = async (req, res) => {
 // POST /api/admin/households/:id/electric/pay
 exports.payElectric = async (req, res) => {
   try {
-    const { summary, error, status } = await payUtility(req.params.id, "electric", req.body || {});
+    const { summary, error, status } = await payUtility(req.params.id, "electric", req.body || {}, req.user);
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
@@ -337,7 +364,7 @@ exports.streetlightSummary = async (req, res) => {
 // POST /api/admin/households/:id/streetlight/pay
 exports.payStreetlight = async (req, res) => {
   try {
-    const { summary, error, status } = await payUtility(req.params.id, "streetlight", req.body || {});
+    const { summary, error, status } = await payUtility(req.params.id, "streetlight", req.body || {}, req.user);
     if (error) return res.status(status).json({ message: error });
     res.status(201).json(summary);
   } catch (err) {
@@ -369,38 +396,92 @@ exports.listGarbagePayments = async (req, res) => {
 // GET /api/admin/garbage-statistics - Get garbage payment statistics
 exports.getGarbageStatistics = async (req, res) => {
   try {
-    const currentMonth = monthKey();
+    const currentYear = new Date().getFullYear();
     
     // Get all households
     const households = await Household.find({}).lean();
     const totalHouseholds = households.length;
     
-    // Calculate expected revenue based on business status
-    let expectedRevenue = 0;
+    // Calculate expected monthly revenue based on actual household business status
+    let expectedMonthly = 0;
     households.forEach(household => {
-      expectedRevenue += calculateGarbageFee(household);
+      expectedMonthly += household.hasBusiness ? 50 : 35;
     });
     
-    // Get current month payments
-    const currentMonthPayments = await UtilityPayment.find({ 
-      type: "garbage", 
-      month: currentMonth 
+    const expectedYearly = expectedMonthly * 12;
+    
+    // Get all garbage payments for current year
+    const yearPayments = await UtilityPayment.find({ 
+      type: "garbage",
+      month: { $regex: `^${currentYear}-` }
     }).lean();
     
-    // Calculate statistics
-    const totalCollected = currentMonthPayments.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
-    const totalOutstanding = expectedRevenue - totalCollected;
-    const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100) : 0;
+    // Calculate balances using the same logic as the frontend table
+    let totalYearlyBalance = 0;
+    let totalYearlyCollected = 0;
+    let totalMonthlyBalance = 0;
+    let totalMonthlyCollected = 0;
     
-    // Calculate average monthly rate for display
-    const avgMonthlyRate = totalHouseholds > 0 ? expectedRevenue / totalHouseholds : 35;
+    const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    
+    households.forEach(household => {
+      const defaultFee = household.hasBusiness ? 50 : 35;
+      let householdYearlyBalance = 0;
+      let householdYearlyPaid = 0;
+      
+      // Check all months of current year for this household
+      for (let month = 1; month <= 12; month++) {
+        const monthStr = `${currentYear}-${String(month).padStart(2, '0')}`;
+        
+        // Find payment record for this month
+        const monthPayment = yearPayments.find(payment => 
+          payment.household && payment.household.toString() === household._id.toString() && 
+          payment.month === monthStr
+        );
+        
+        if (monthPayment) {
+          householdYearlyBalance += Number(monthPayment.balance || 0);
+          householdYearlyPaid += Number(monthPayment.amountPaid || 0);
+          
+          // If this is current month, add to monthly totals
+          if (monthStr === currentMonth) {
+            totalMonthlyBalance += Number(monthPayment.balance || 0);
+            totalMonthlyCollected += Number(monthPayment.amountPaid || 0);
+          }
+        } else {
+          // No payment record means full balance is due
+          householdYearlyBalance += defaultFee;
+          
+          // If this is current month, add to monthly totals
+          if (monthStr === currentMonth) {
+            totalMonthlyBalance += defaultFee;
+          }
+        }
+      }
+      
+      totalYearlyBalance += householdYearlyBalance;
+      totalYearlyCollected += householdYearlyPaid;
+    });
+    
+    // Calculate collection rate
+    const collectionRate = expectedYearly > 0 ? ((totalYearlyCollected / expectedYearly) * 100) : 0;
     
     res.json({
       totalHouseholds,
-      monthlyRate: parseFloat(avgMonthlyRate.toFixed(2)),
-      expectedRevenue,
-      totalCollected,
-      totalOutstanding,
+      feeStructure: {
+        noBusiness: 35,
+        withBusiness: 50,
+        expectedMonthly: parseFloat(expectedMonthly.toFixed(2)),
+        expectedYearly: parseFloat(expectedYearly.toFixed(2))
+      },
+      totalCollected: {
+        yearly: parseFloat(totalYearlyCollected.toFixed(2)),
+        monthly: parseFloat(totalMonthlyCollected.toFixed(2))
+      },
+      balance: {
+        yearly: parseFloat(totalYearlyBalance.toFixed(2)),
+        monthly: parseFloat(totalMonthlyBalance.toFixed(2))
+      },
       collectionRate: parseFloat(collectionRate.toFixed(1))
     });
   } catch (err) {
