@@ -100,6 +100,7 @@ export default function AdminFinancialReports() {
         params
       });
       
+      console.log('Dashboard data received:', res.data);
       setDashboardData(res.data);
     } catch (error) {
       console.error('Error fetching dashboard:', error);
@@ -116,12 +117,9 @@ export default function AdminFinancialReports() {
       if (filters.type) params.append('type', filters.type);
       if (filters.category) params.append('category', filters.category);
       
-      // Only show completed/pending transactions, not cancelled
+      // Only apply status filter if explicitly set
       if (filters.status) {
         params.append('status', filters.status);
-      } else {
-        // Don't show cancelled by default
-        params.append('status', 'completed');
       }
 
       console.log('Fetching transactions with params:', params.toString());
@@ -132,6 +130,7 @@ export default function AdminFinancialReports() {
       );
       
       console.log('Transactions fetched:', res.data.transactions?.length);
+      console.log('Transaction data:', res.data.transactions);
       setTransactions(res.data.transactions || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -208,8 +207,13 @@ export default function AdminFinancialReports() {
         'Category': t.category,
         'Description': t.description,
         'Amount': t.amount,
-        'Resident': t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : '-',
-        'Payment Method': t.paymentMethod,
+        'Resident': t.isUtilityPayment ? t.resident : 
+                   t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : '-',
+        'Official': t.isUtilityPayment ? t.official : 
+                   t.officialId ? `${t.officialId.firstName} ${t.officialId.lastName}` : '-',
+        'Payment Method': t.paymentMethod || t.method,
+        'Reference Number': t.referenceNumber || t.reference || '-',
+        'Month': t.month || '-',
         'Status': t.status,
         'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
         'Blockchain Hash': t.blockchain?.hash || '-',
@@ -287,33 +291,20 @@ export default function AdminFinancialReports() {
   };
 
   const statistics = dashboardData.statistics || {};
-  const revenues = Array.isArray(dashboardData.revenues) ? dashboardData.revenues : statistics.revenues || [];
-  const expenses = Array.isArray(dashboardData.expenses) ? dashboardData.expenses : statistics.expenses || [];
-  const allocations = Array.isArray(dashboardData.allocations) ? dashboardData.allocations : statistics.allocations || [];
-  const monthlyTrends = Array.isArray(dashboardData.monthlyTrends) ? dashboardData.monthlyTrends : statistics.monthlyTrends || [];
+  const monthlyTrends = dashboardData.monthlyTrends || {};
+  const revenueByType = dashboardData.revenueByType || {};
 
-  const totalRevenue = revenues.length
-    ? revenues.reduce((sum, r) => sum + Number(r.total || 0), 0)
-    : Number(statistics.totalRevenue ?? statistics.totalIncome ?? 0);
-
-  const totalExpenses = expenses.length
-    ? expenses.reduce((sum, e) => sum + Number(e.total || 0), 0)
-    : Number(statistics.totalExpenses ?? statistics.expenseTotal ?? 0);
-
-  const totalAllocations = allocations.length
-    ? allocations.reduce((sum, a) => sum + Number(a.total || 0), 0)
-    : Number(statistics.totalAllocations ?? statistics.allocationTotal ?? 0);
-
-  const netIncome = Number(
-    statistics.netIncome ?? statistics.balance ?? (totalRevenue - totalExpenses)
-  );
+  const totalRevenue = Number(statistics.totalRevenue || 0);
+  const totalExpenses = Number(statistics.totalExpenses || 0);
+  const totalAllocations = Number(statistics.totalAllocations || 0);
+  const netIncome = Number(statistics.balance || (totalRevenue - totalExpenses - totalAllocations));
 
   // Chart data
   const revenueChartData = {
-    labels: revenues.map(r => (r._id ? String(r._id).replace(/_/g, ' ').toUpperCase() : '')),
+    labels: Object.keys(revenueByType).map(key => key.replace(/_/g, ' ').toUpperCase()),
     datasets: [{
       label: 'Revenue by Type',
-      data: revenues.map(r => Number(r.total || 0)),
+      data: Object.values(revenueByType),
       backgroundColor: [
         '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
       ]
@@ -321,27 +312,27 @@ export default function AdminFinancialReports() {
   };
 
   const monthlyTrendData = {
-    labels: monthlyTrends.map(m => {
-      const id = m?._id || {};
-      return `${id.year ?? '----'}-${String(id.month ?? 1).padStart(2, '0')}`;
-    }),
+    labels: Object.keys(monthlyTrends).sort(),
     datasets: [
       {
         label: 'Revenue',
-        data: monthlyTrends
-          .filter(m => m._id?.category === 'revenue')
-          .map(m => Number(m.total || 0)),
+        data: Object.keys(monthlyTrends).sort().map(month => monthlyTrends[month]?.revenue || 0),
         borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         tension: 0.4
       },
       {
         label: 'Expenses',
-        data: monthlyTrends
-          .filter(m => m._id?.category === 'expense')
-          .map(m => Number(m.total || 0)),
+        data: Object.keys(monthlyTrends).sort().map(month => monthlyTrends[month]?.expenses || 0),
         borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        tension: 0.4
+      },
+      {
+        label: 'Allocations',
+        data: Object.keys(monthlyTrends).sort().map(month => monthlyTrends[month]?.allocations || 0),
+        borderColor: '#F59E0B',
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
         tension: 0.4
       }
     ]
@@ -372,31 +363,49 @@ export default function AdminFinancialReports() {
 
   // Handle Delete Transaction
   const handleDeleteTransaction = (record) => {
+    console.log('=== DELETE BUTTON CLICKED ===');
+    console.log('Record to delete:', record._id);
+    console.log('API Base URL:', API_BASE);
+    console.log('Delete URL will be:', `${API_BASE}/api/admin/financial/transactions/${record._id}`);
+    
     Modal.confirm({
       title: 'Delete Transaction',
-      content: `Are you sure you want to delete transaction ${record.transactionId}?`,
+      content: `Are you sure you want to delete this transaction?`,
       okText: 'Delete',
       okType: 'danger',
       cancelText: 'Cancel',
       onOk: async () => {
         try {
-          console.log('Deleting transaction:', record._id); // Debug log
+          console.log('=== SENDING DELETE REQUEST ===');
+          console.log('Sending delete request for ID:', record._id);
+          console.log('Auth headers:', authHeaders());
           
           const response = await axios.delete(
             `${API_BASE}/api/admin/financial/transactions/${record._id}`, 
             { headers: authHeaders() }
           );
           
-          console.log('Delete response:', response.data); // Debug log
+          console.log('=== DELETE SUCCESSFUL ===');
+          console.log('Response status:', response.status);
+          console.log('Response data:', response.data);
           
           message.success('Transaction deleted successfully!');
-          fetchDashboard();
-          fetchTransactions();
+          
+          console.log('=== REFRESHING DATA ===');
+          await fetchDashboard();
+          await fetchTransactions();
+          console.log('=== DATA REFRESHED ===');
+          
         } catch (error) {
-          console.error('Delete error:', error.response || error); // Debug log
+          console.error('=== DELETE FAILED ===');
+          console.error('Error status:', error.response?.status);
+          console.error('Error data:', error.response?.data);
+          console.error('Error message:', error.message);
+          console.error('Full error:', error);
+          
           message.error(
             error?.response?.data?.message || 
-            'Failed to delete transaction'
+            `Failed to delete transaction: ${error.message}`
           );
         }
       }
@@ -500,6 +509,8 @@ export default function AdminFinancialReports() {
       title: 'Resident',
       key: 'resident',
       render: (_, record) => {
+        // Handle utility payments format
+        if (record.isUtilityPayment && record.resident) return record.resident;
         // Use stored name first, fallback to populated data
         if (record.residentName) return record.residentName;
         if (record.residentId) return `${record.residentId.firstName} ${record.residentId.lastName}`;
@@ -510,6 +521,8 @@ export default function AdminFinancialReports() {
       title: 'Official',
       key: 'official',
       render: (_, record) => {
+        // Handle utility payments format
+        if (record.isUtilityPayment && record.official) return record.official;
         // Use stored name first, fallback to populated data
         if (record.officialName) return record.officialName;
         if (record.officialId) return `${record.officialId.firstName} ${record.officialId.lastName}`;
@@ -528,10 +541,14 @@ export default function AdminFinancialReports() {
     {
       title: 'Blockchain',
       key: 'blockchain',
-      render: (_, record) => 
-        record.blockchain?.verified ? 
-        <Tag color="green">Verified</Tag> : 
-        <Tag color="orange">Pending</Tag>
+      render: (_, record) => {
+        if (record.isUtilityPayment) {
+          return <Tag color="orange">Pending</Tag>;
+        }
+        return record.blockchain?.verified ? 
+          <Tag color="green">Verified</Tag> : 
+          <Tag color="orange">Pending</Tag>;
+      }
     },
     {
       title: 'Date',
@@ -550,22 +567,26 @@ export default function AdminFinancialReports() {
           >
             View
           </Button>
-          <Button 
-            size="small" 
-            type="primary"
-            onClick={() => openEditModal(record)}
-            disabled={record.blockchain?.verified}
-          >
-            Edit
-          </Button>
-          <Button 
-            size="small" 
-            danger
-            onClick={() => handleDeleteTransaction(record)}
-            disabled={record.blockchain?.verified}
-          >
-            Delete
-          </Button>
+          {!record.isUtilityPayment && (
+            <>
+              <Button 
+                size="small" 
+                type="primary"
+                onClick={() => openEditModal(record)}
+                disabled={record.blockchain?.verified}
+              >
+                Edit
+              </Button>
+              <Button 
+                size="small" 
+                danger
+                onClick={() => handleDeleteTransaction(record)}
+                disabled={record.blockchain?.verified}
+              >
+                Delete
+              </Button>
+            </>
+          )}
         </div>
       )
     }
@@ -578,7 +599,7 @@ export default function AdminFinancialReports() {
       setSelectedRowKeys(selectedKeys);
     },
     getCheckboxProps: (record) => ({
-      disabled: record.blockchain?.verified, // Disable selection for verified transactions
+      disabled: record.blockchain?.verified || record.isUtilityPayment, // Disable selection for verified transactions and utility payments
     }),
   };
 
@@ -978,7 +999,6 @@ export default function AdminFinancialReports() {
               </Descriptions.Item>
               
               <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
-              <Descriptions.Item label="Reference Number">{viewTransaction.referenceNumber || '-'}</Descriptions.Item>
               <Descriptions.Item label="Status">
                 <Tag color={viewTransaction.status === 'completed' ? 'green' : 'orange'}>
                   {viewTransaction.status.toUpperCase()}

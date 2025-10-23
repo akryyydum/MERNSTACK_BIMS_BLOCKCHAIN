@@ -172,8 +172,7 @@ export default function AdminStreetLightFees() {
       selectedMonths: initialMonths,
       totalCharge: totalCharge,
       amount: totalCharge,
-      method: undefined,
-      reference: undefined,
+      method: "Cash",
     });
   };
 
@@ -824,7 +823,7 @@ export default function AdminStreetLightFees() {
               <Card className="bg-slate-50 text-black shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Outstanding
+                    Balance
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
@@ -1172,7 +1171,7 @@ export default function AdminStreetLightFees() {
           confirmLoading={payLoading}
           width={720}
         >
-          <Form form={payForm} layout="vertical">
+          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
             <Form.Item label="Fee Type">
               <Input disabled value="Streetlight Maintenance Fee" />
             </Form.Item>
@@ -1267,18 +1266,7 @@ export default function AdminStreetLightFees() {
               <InputNumber className="w-full" min={0} step={10} />
             </Form.Item>
             <Form.Item name="method" label="Payment Method">
-              <Select
-                allowClear
-                options={[
-                  { value: "cash", label: "Cash" },
-                  { value: "gcash", label: "GCash" },
-                  { value: "bank", label: "Bank Transfer" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="reference" label="Reference No. (optional)">
-              <Input />
+              <Input value="Cash" disabled />
             </Form.Item>
             {selectedMonths.length > 0 && (
               <div className="p-3 rounded border border-blue-200 bg-blue-50 text-sm">

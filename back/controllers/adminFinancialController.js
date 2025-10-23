@@ -20,36 +20,84 @@ const getDashboard = async (req, res) => {
     // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter);
 
-    // Fetch streetlight payments and convert to transaction format for calculations
-    let streetlightTransactions = [];
+    // Calculate utility revenue using the same logic as individual pages
+    const currentYear = new Date().getFullYear();
     
-    // Create date filter for streetlight payments if needed
-    const streetlightFilter = {};
-    if (startDate || endDate) {
-      streetlightFilter.updatedAt = {};
-      if (startDate) streetlightFilter.updatedAt.$gte = new Date(startDate);
-      if (endDate) streetlightFilter.updatedAt.$lte = new Date(endDate);
-    }
+    // Get garbage statistics (yearly total) - only valid payments
+    const garbagePayments = await UtilityPayment.find({ 
+      type: "garbage",
+      month: { $regex: `^${currentYear}-` }
+    }).lean();
     
-    const streetlightPayments = await StreetlightPayment.find(streetlightFilter);
+    const garbageRevenue = garbagePayments.reduce((total, payment) => {
+      return total + (payment.amountPaid || 0);
+    }, 0);
+    
+    // Get streetlight statistics (yearly total) - only valid payments
+    const streetlightPayments = await UtilityPayment.find({ 
+      type: "streetlight",
+      month: { $regex: `^${currentYear}-` }
+    }).lean();
+    
+    const streetlightRevenue = streetlightPayments.reduce((total, payment) => {
+      return total + (payment.amountPaid || 0);
+    }, 0);
 
-    // Convert streetlight payments to transaction format for statistics
-    streetlightTransactions = streetlightPayments.flatMap(payment => 
-      payment.payments.map(paymentEntry => ({
-        type: 'streetlight_fee',
+    console.log('Garbage payments found:', garbagePayments.length, 'Revenue:', garbageRevenue);
+    console.log('Streetlight payments found:', streetlightPayments.length, 'Revenue:', streetlightRevenue);
+    
+    // Fetch ALL utility payments for transaction details
+    console.log('Fetching utility payments for transactions...');
+    const allUtilityPayments = await UtilityPayment.find({})
+      .populate({
+        path: 'household',
+        populate: {
+          path: 'headOfHousehold',
+          select: 'firstName lastName'
+        }
+      });
+    
+    console.log('Total utility payment records found:', allUtilityPayments.length);
+    console.log('Sample utility payment:', JSON.stringify(allUtilityPayments[0], null, 2));
+
+    // Convert utility payments to transaction format for statistics (only those with actual payments)
+    const utilityTransactions = allUtilityPayments
+      .filter(payment => payment.payments && payment.payments.length > 0)
+      .flatMap(payment => {
+        return payment.payments.map(paymentEntry => ({
+        type: payment.type === 'garbage' ? 'garbage_fee' : 
+              payment.type === 'streetlight' ? 'streetlight_fee' : 
+              'utility_fee',
         category: 'revenue',
         amount: paymentEntry.amount,
-        transactionDate: paymentEntry.paidAt
-      }))
-    );
+        transactionDate: paymentEntry.paidAt,
+        description: `${payment.type.charAt(0).toUpperCase() + payment.type.slice(1)} fee payment for ${payment.month}`,
+        residentName: payment.household?.headOfHousehold ? 
+          `${payment.household.headOfHousehold.firstName} ${payment.household.headOfHousehold.lastName}` : 
+          'Unknown Resident',
+        householdId: payment.household?._id,
+        month: payment.month,
+        method: paymentEntry.method,
+        reference: paymentEntry.reference,
+        status: 'completed'
+      }));
+    });
 
     // Combine all transactions for calculations
-    const allTransactions = [...transactions, ...streetlightTransactions];
+    const allTransactions = [...transactions, ...utilityTransactions];
 
-    // Calculate statistics
-    const totalRevenue = allTransactions
+    // Calculate statistics using correct totals
+    const regularTransactionRevenue = transactions
       .filter(t => t.category === 'revenue')
       .reduce((sum, t) => sum + t.amount, 0);
+    
+    // Use the calculated utility revenue instead of summing individual payments
+    const totalRevenue = regularTransactionRevenue + garbageRevenue + streetlightRevenue;
+
+    console.log('Dashboard - Regular transaction revenue:', regularTransactionRevenue);
+    console.log('Dashboard - Garbage revenue:', garbageRevenue);
+    console.log('Dashboard - Streetlight revenue:', streetlightRevenue);
+    console.log('Dashboard - Total revenue calculated:', totalRevenue);
 
     const totalExpenses = allTransactions
       .filter(t => t.category === 'expense')
@@ -68,10 +116,30 @@ const getDashboard = async (req, res) => {
     const streetlightFees = allTransactions.filter(t => t.type === 'streetlight_fee').length;
     const permitFees = allTransactions.filter(t => t.type === 'permit_fee').length;
 
-    // Recent transactions (using original transactions for proper population)
-    const recentTransactions = transactions
-      .sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate))
-      .slice(0, 10);
+    // Monthly trends for chart data
+    const monthlyData = {};
+    allTransactions.forEach(transaction => {
+      const monthKey = new Date(transaction.transactionDate).toISOString().substring(0, 7); // YYYY-MM
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { revenue: 0, expenses: 0, allocations: 0 };
+      }
+      if (transaction.category === 'revenue') {
+        monthlyData[monthKey].revenue += transaction.amount;
+      } else if (transaction.category === 'expense') {
+        monthlyData[monthKey].expenses += transaction.amount;
+      } else if (transaction.category === 'allocation') {
+        monthlyData[monthKey].allocations += transaction.amount;
+      }
+    });
+
+    // Revenue by type for pie chart using correct totals
+    const revenueByType = {
+      garbage_fee: garbageRevenue,
+      streetlight_fee: streetlightRevenue,
+      document_fee: transactions.filter(t => t.type === 'document_fee').reduce((sum, t) => sum + t.amount, 0),
+      permit_fee: transactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
+      other: transactions.filter(t => !['document_fee', 'permit_fee'].includes(t.type) && t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0)
+    };
 
     res.json({
       statistics: {
@@ -88,7 +156,9 @@ const getDashboard = async (req, res) => {
           total: allTransactions.length
         }
       },
-      recentTransactions
+      monthlyTrends: monthlyData,
+      revenueByType: revenueByType,
+      totalTransactions: allTransactions.length
     });
   } catch (error) {
     console.error('Error fetching dashboard:', error);
@@ -109,6 +179,9 @@ const getTransactions = async (req, res) => {
       officialId
     } = req.query;
 
+    let allTransactions = [];
+
+    // Fetch regular financial transactions
     const filter = {};
     
     if (startDate || endDate) {
@@ -117,68 +190,155 @@ const getTransactions = async (req, res) => {
       if (endDate) filter.transactionDate.$lte = new Date(endDate);
     }
     
-    if (type) filter.type = type;
+    if (type && !['garbage_fee', 'streetlight_fee'].includes(type)) filter.type = type;
     if (category) filter.category = category;
     if (status) filter.status = status;
     if (residentId) filter.residentId = residentId;
     if (officialId) filter.officialId = officialId;
 
-    // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName lastName')
       .populate('officialId', 'firstName lastName position')
       .populate('createdBy', 'username fullName')
       .sort({ transactionDate: -1 });
 
-    // Fetch streetlight payments and convert to transaction format
-    let streetlightTransactions = [];
-    
-    // Create date filter for streetlight payments if needed
-    const streetlightFilter = {};
-    if (startDate || endDate) {
-      streetlightFilter.updatedAt = {};
-      if (startDate) streetlightFilter.updatedAt.$gte = new Date(startDate);
-      if (endDate) streetlightFilter.updatedAt.$lte = new Date(endDate);
-    }
-    
-    // Only include streetlight transactions if no specific type filter OR if type is streetlight_fee
-    if (!type || type === 'streetlight_fee') {
-      const streetlightPayments = await StreetlightPayment.find(streetlightFilter)
-        .populate({
-          path: 'household',
-          populate: {
-            path: 'head',
-            select: 'firstName lastName'
-          }
-        })
-        .sort({ updatedAt: -1 });
+    allTransactions = [...transactions];
 
-      // Convert streetlight payments to transaction format
-      streetlightTransactions = streetlightPayments.flatMap(payment => 
-        payment.payments.map(paymentEntry => ({
-          _id: `streetlight_${payment._id}_${paymentEntry.paidAt}`,
-          type: 'streetlight_fee',
+    // Fetch utility payments (garbage and streetlight fees)
+    const utilityFilter = {};
+    if (startDate || endDate) {
+      utilityFilter.updatedAt = {};
+      if (startDate) utilityFilter.updatedAt.$gte = new Date(startDate);
+      if (endDate) utilityFilter.updatedAt.$lte = new Date(endDate);
+    }
+
+    // Add type filter for utility payments
+    if (type === 'garbage_fee') {
+      utilityFilter.type = 'garbage';
+    } else if (type === 'streetlight_fee') {
+      utilityFilter.type = 'streetlight';
+    }
+
+    // Use the same utility payments as dashboard for consistency
+    const currentYear = new Date().getFullYear();
+    console.log('Fetching current year utility payments for transactions...');
+    
+    // Only get current year utility payments to match what's shown in statistics
+    const allUtilityPayments = await UtilityPayment.find({
+      month: { $regex: `^${currentYear}-` }
+    })
+      .populate({
+        path: 'household',
+        populate: {
+          path: 'headOfHousehold',
+          select: 'firstName lastName'
+        }
+      })
+      .sort({ updatedAt: -1 });
+
+    console.log('Found current year utility payments for transactions:', allUtilityPayments.length);
+    
+    // Filter to only show payments that have actual payment entries
+    const validUtilityPayments = allUtilityPayments.filter(payment => {
+      return payment.payments && payment.payments.length > 0;
+    });
+    
+    console.log('Valid utility payments after filtering:', validUtilityPayments.length);
+    
+    // Convert utility payments to transaction format (only those with actual payments)
+    const utilityTransactions = validUtilityPayments
+      .flatMap(payment => {
+        console.log(`Processing ${payment.type} payment:`, payment.month, 'with', payment.payments.length, 'payments');
+        
+        return payment.payments.map((paymentEntry, index) => {
+        const transactionType = payment.type === 'garbage' ? 'garbage_fee' : 
+                                payment.type === 'streetlight' ? 'streetlight_fee' : 
+                                'utility_fee';
+        
+        return {
+          _id: `${payment.type}_${payment._id}_${index}`,
+          transactionId: `${payment.type.toUpperCase()}-${payment.month}-${payment.household?._id?.toString().slice(-6).toUpperCase() || 'UNKNOWN'}`,
+          type: transactionType,
           category: 'revenue',
-          description: `Streetlight fee payment for ${payment.month}`,
+          description: `${payment.type.charAt(0).toUpperCase() + payment.type.slice(1)} Collection Fee - ${payment.month}`,
           amount: paymentEntry.amount,
           transactionDate: paymentEntry.paidAt,
           status: 'completed',
-          paymentMethod: paymentEntry.method || 'cash',
-          referenceNumber: paymentEntry.reference,
-          residentId: payment.household?.head || null,
-          householdId: payment.household?._id,
-          month: payment.month,
+          paymentMethod: paymentEntry.method || 'Cash',
+          referenceNumber: paymentEntry.reference || '',
+          resident: payment.household?.headOfHousehold ? 
+            `${payment.household.headOfHousehold.firstName} ${payment.household.headOfHousehold.lastName}` : 
+            'Unknown Resident',
+          official: 'System Generated',
+          blockchain: 'Pending',
           createdAt: paymentEntry.paidAt,
           updatedAt: paymentEntry.paidAt,
-          isStreetlightPayment: true
-        }))
-      );
+          isUtilityPayment: true,
+          householdId: payment.household?._id,
+          month: payment.month
+        };
+      });
+    });
+
+    console.log('Converted utility transactions for table:', utilityTransactions.length);
+    if (utilityTransactions.length > 0) {
+      console.log('Sample utility transaction for table:', utilityTransactions[0]);
+      console.log('Sample transaction _id:', utilityTransactions[0]._id);
+      console.log('Sample transaction type:', utilityTransactions[0].type);
+      console.log('Sample transaction isUtilityPayment:', utilityTransactions[0].isUtilityPayment);
+    }
+    allTransactions = [...allTransactions, ...utilityTransactions];
+
+    // Apply filters after fetching all data
+    console.log('All transactions before filtering:', allTransactions.length);
+    
+    // Apply type filter
+    if (type) {
+      allTransactions = allTransactions.filter(t => t.type === type);
+      console.log(`After type filter (${type}):`, allTransactions.length);
+    }
+    
+    // Apply category filter
+    if (category) {
+      allTransactions = allTransactions.filter(t => t.category === category);
+      console.log(`After category filter (${category}):`, allTransactions.length);
+    }
+    
+    // Apply status filter
+    if (status) {
+      allTransactions = allTransactions.filter(t => t.status === status);
+      console.log(`After status filter (${status}):`, allTransactions.length);
     }
 
-    // Combine and sort all transactions
-    const allTransactions = [...transactions, ...streetlightTransactions]
-      .sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+    // Apply date filtering
+    if (startDate || endDate) {
+      allTransactions = allTransactions.filter(transaction => {
+        const transactionDate = new Date(transaction.transactionDate);
+        if (startDate && transactionDate < new Date(startDate)) return false;
+        if (endDate && transactionDate > new Date(endDate)) return false;
+        return true;
+      });
+      console.log(`After date filter (${startDate} to ${endDate}):`, allTransactions.length);
+    }
 
+    // Sort all transactions by date
+    allTransactions.sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+
+    console.log('Final transactions count:', allTransactions.length);
+    
+    // Debug: Log a few sample transactions to see their _id format
+    console.log('=== SAMPLE TRANSACTIONS BEING RETURNED ===');
+    allTransactions.slice(0, 3).forEach((tx, index) => {
+      console.log(`Transaction ${index + 1}:`, {
+        _id: tx._id,
+        transactionId: tx.transactionId,
+        type: tx.type,
+        isUtilityPayment: tx.isUtilityPayment,
+        amount: tx.amount
+      });
+    });
+    console.log('=== END SAMPLE TRANSACTIONS ===');
+    
     res.json({ transactions: allTransactions });
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -443,58 +603,77 @@ const deleteTransaction = async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log('=== DELETE TRANSACTION ===');
-    console.log('Received ID:', id);
-    console.log('User:', req.user);
-
-    // Validate ID format
+    console.log('=== BACKEND DELETE RECEIVED ===');
+    console.log('DELETE request received for ID:', id);
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.originalUrl);
+    console.log('User:', req.user?.id || 'No user');
+    
     const mongoose = require('mongoose');
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log('Invalid ID format');
-      return res.status(400).json({ message: 'Invalid transaction ID format' });
+      console.log('❌ Invalid ID format');
+      return res.status(400).json({ message: 'Invalid ID format' });
     }
-
-    const transaction = await FinancialTransaction.findById(id);
     
-    console.log('Transaction found:', transaction ? 'YES' : 'NO');
-    if (transaction) {
-      console.log('Transaction details:', {
-        id: transaction._id,
-        transactionId: transaction.transactionId,
-        status: transaction.status,
-        blockchainVerified: transaction.blockchain?.verified
+    console.log('✓ Valid ObjectId format');
+    
+    // Try UtilityPayment collection first
+    console.log('→ Searching UtilityPayment collection...');
+    let deletedRecord = await UtilityPayment.findByIdAndDelete(id);
+    
+    if (deletedRecord) {
+      console.log('✅ DELETED from UtilityPayment collection');
+      console.log('Deleted record details:', {
+        id: deletedRecord._id,
+        type: deletedRecord.type,
+        month: deletedRecord.month,
+        amountPaid: deletedRecord.amountPaid
+      });
+      return res.json({ 
+        success: true,
+        message: 'Transaction deleted successfully',
+        deletedFrom: 'UtilityPayment',
+        deletedId: id
       });
     }
     
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
-    }
-
-    // Don't allow deleting blockchain-verified transactions
-    if (transaction.blockchain?.verified) {
-      console.log('Transaction is blockchain verified, cannot delete');
-      return res.status(400).json({ 
-        message: 'Cannot delete blockchain-verified transactions' 
+    console.log('→ Not found in UtilityPayment, trying FinancialTransaction...');
+    
+    // Try FinancialTransaction collection
+    deletedRecord = await FinancialTransaction.findByIdAndDelete(id);
+    
+    if (deletedRecord) {
+      console.log('✅ DELETED from FinancialTransaction collection');
+      console.log('Deleted record details:', {
+        id: deletedRecord._id,
+        type: deletedRecord.type,
+        amount: deletedRecord.amount,
+        description: deletedRecord.description
+      });
+      return res.json({ 
+        success: true,
+        message: 'Transaction deleted successfully',
+        deletedFrom: 'FinancialTransaction',
+        deletedId: id
       });
     }
-
-    // Soft delete by updating status
-    transaction.status = 'cancelled';
-    transaction.updatedBy = req.user.id;
-    await transaction.save();
-
-    console.log('Transaction soft deleted successfully');
-    console.log('=== END DELETE TRANSACTION ===');
-
-    res.json({ 
-      message: 'Transaction deleted successfully',
-      deletedId: id 
+    
+    console.log('❌ Record not found in any collection');
+    console.log('Searched ID:', id);
+    
+    return res.status(404).json({ 
+      message: 'Transaction not found',
+      searchedId: id,
+      searchedCollections: ['UtilityPayment', 'FinancialTransaction']
     });
+    
   } catch (error) {
-    console.error('Error deleting transaction:', error);
+    console.error('❌ Delete error:', error);
     res.status(500).json({ 
       message: 'Server error', 
-      error: error.message 
+      error: error.message,
+      stack: error.stack
     });
   }
 };
@@ -568,6 +747,239 @@ const bulkDeleteTransactions = async (req, res) => {
 };
 
 // Export all functions
+// Cleanup orphaned utility payment records
+const cleanupOrphanedPayments = async (req, res) => {
+  try {
+    console.log('=== CLEANUP ORPHANED PAYMENTS ===');
+    
+    // Find all utility payments and check their validity
+    const allUtilityPayments = await UtilityPayment.find({})
+      .populate('household', 'headOfHousehold address houseNumber');
+    console.log('Total utility payment records found:', allUtilityPayments.length);
+    
+    // Get current totals before cleanup
+    const currentTotals = await UtilityPayment.aggregate([
+      { $match: {} },
+      { $group: {
+        _id: '$type',
+        totalAmount: { $sum: '$amountPaid' },
+        count: { $sum: 1 }
+      }}
+    ]);
+    
+    console.log('Current totals by type:', currentTotals);
+    
+    // Find truly orphaned payments with multiple criteria
+    const orphanedPayments = [];
+    const currentYear = new Date().getFullYear();
+    
+    for (const payment of allUtilityPayments) {
+      let shouldDelete = false;
+      let reason = '';
+      
+      // Check if household reference is missing or invalid
+      if (!payment.household) {
+        shouldDelete = true;
+        reason = 'No household reference';
+      }
+      // Check if payments array is empty or missing
+      else if (!payment.payments || payment.payments.length === 0) {
+        shouldDelete = true;
+        reason = 'Empty payments array';
+      }
+      // Check if amount paid is zero or negative
+      else if (!payment.amountPaid || payment.amountPaid <= 0) {
+        shouldDelete = true;
+        reason = 'Zero or negative amount';
+      }
+      // Check if this is from a previous year (likely old data)
+      else if (new Date(payment.createdAt).getFullYear() < currentYear) {
+        shouldDelete = true;
+        reason = 'Previous year data';
+      }
+      // Check if this payment record has inconsistent data
+      else if (payment.payments.length > 0 && payment.amountPaid === 0) {
+        shouldDelete = true;
+        reason = 'Inconsistent payment data';
+      }
+      
+      if (shouldDelete) {
+        orphanedPayments.push({
+          ...payment.toObject(),
+          deleteReason: reason
+        });
+        
+        console.log('Flagged for deletion:', {
+          id: payment._id,
+          type: payment.type,
+          month: payment.month,
+          year: new Date(payment.createdAt).getFullYear(),
+          amountPaid: payment.amountPaid,
+          paymentsCount: payment.payments?.length || 0,
+          household: payment.household?._id || 'Missing',
+          reason: reason
+        });
+      }
+    }
+    
+    console.log('Found orphaned payment records:', orphanedPayments.length);
+    
+    let deletedCount = 0;
+    if (orphanedPayments.length > 0) {
+      // Delete orphaned records by ID
+      const orphanedIds = orphanedPayments.map(p => p._id);
+      const result = await UtilityPayment.deleteMany({
+        _id: { $in: orphanedIds }
+      });
+      
+      deletedCount = result.deletedCount;
+      console.log('Deleted orphaned records:', deletedCount);
+      
+      // Show breakdown by deletion reason
+      const deletionBreakdown = {};
+      orphanedPayments.forEach(p => {
+        deletionBreakdown[p.deleteReason] = (deletionBreakdown[p.deleteReason] || 0) + 1;
+      });
+      
+      console.log('Deletion breakdown by reason:', deletionBreakdown);
+      
+      res.json({
+        message: `Cleaned up ${deletedCount} orphaned payment records`,
+        deletedCount: deletedCount,
+        deletionBreakdown: deletionBreakdown,
+        beforeCleanup: currentTotals,
+        deletedRecords: orphanedPayments.map(p => ({
+          id: p._id,
+          type: p.type,
+          month: p.month,
+          amountPaid: p.amountPaid,
+          reason: p.deleteReason
+        }))
+      });
+    } else {
+      res.json({
+        message: 'No orphaned payment records found',
+        deletedCount: 0,
+        currentTotals: currentTotals
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error cleaning up orphaned payments:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Clean up old transactions (keep only latest/current day transactions)
+const cleanupOldTransactions = async (req, res) => {
+  try {
+    console.log('=== CLEANUP OLD TRANSACTIONS ===');
+    
+    // Get current date (today)
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    console.log('Today start:', todayStart);
+    console.log('Keeping transactions from:', todayStart.toISOString());
+    
+    // Find all utility payments
+    const allUtilityPayments = await UtilityPayment.find({})
+      .populate('household', 'headOfHousehold address houseNumber');
+    
+    console.log('Total utility payment records found:', allUtilityPayments.length);
+    
+    // Separate current and old payments
+    const oldPayments = [];
+    const currentPayments = [];
+    
+    for (const payment of allUtilityPayments) {
+      const paymentDate = new Date(payment.createdAt);
+      const isOld = paymentDate < todayStart;
+      
+      if (isOld) {
+        oldPayments.push(payment);
+        console.log('OLD payment:', {
+          id: payment._id,
+          type: payment.type,
+          month: payment.month,
+          createdAt: paymentDate.toISOString(),
+          amountPaid: payment.amountPaid,
+          paymentsCount: payment.payments?.length || 0
+        });
+      } else {
+        currentPayments.push(payment);
+        console.log('CURRENT payment:', {
+          id: payment._id,
+          type: payment.type,
+          month: payment.month,
+          createdAt: paymentDate.toISOString(),
+          amountPaid: payment.amountPaid,
+          paymentsCount: payment.payments?.length || 0
+        });
+      }
+    }
+    
+    console.log('Old payments to delete:', oldPayments.length);
+    console.log('Current payments to keep:', currentPayments.length);
+    
+    // Calculate totals before cleanup
+    const oldTotal = oldPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+    const currentTotal = currentPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+    
+    console.log('Old payments total amount:', oldTotal);
+    console.log('Current payments total amount:', currentTotal);
+    
+    // Delete old payments
+    let deletedCount = 0;
+    if (oldPayments.length > 0) {
+      const oldPaymentIds = oldPayments.map(p => p._id);
+      const deleteResult = await UtilityPayment.deleteMany({
+        _id: { $in: oldPaymentIds }
+      });
+      
+      deletedCount = deleteResult.deletedCount;
+      console.log('✓ Deleted old payment records:', deletedCount);
+    }
+    
+    // Also clean up old regular financial transactions if any
+    const oldRegularTransactions = await FinancialTransaction.find({
+      createdAt: { $lt: todayStart }
+    });
+    
+    console.log('Old regular transactions found:', oldRegularTransactions.length);
+    
+    let deletedRegularCount = 0;
+    if (oldRegularTransactions.length > 0) {
+      const deleteRegularResult = await FinancialTransaction.deleteMany({
+        createdAt: { $lt: todayStart }
+      });
+      deletedRegularCount = deleteRegularResult.deletedCount;
+      console.log('✓ Deleted old regular transactions:', deletedRegularCount);
+    }
+    
+    res.json({
+      success: true,
+      message: `Cleaned up old transaction data. Removed ${deletedCount} utility payments and ${deletedRegularCount} regular transactions`,
+      summary: {
+        utilityPayments: {
+          oldDeleted: deletedCount,
+          currentKept: currentPayments.length,
+          oldTotalAmount: oldTotal,
+          currentTotalAmount: currentTotal
+        },
+        regularTransactions: {
+          oldDeleted: deletedRegularCount
+        },
+        cutoffDate: todayStart.toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error cleaning up old transactions:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 module.exports = {
   getDashboard,
   getTransactions,
@@ -576,5 +988,40 @@ module.exports = {
   generateReport,
   updateTransaction,
   deleteTransaction,
-  bulkDeleteTransactions
+  bulkDeleteTransactions,
+  cleanupOrphanedPayments,
+  cleanupOldTransactions
+};
+
+// Additional cleanup function for resetting all utility payment data
+const resetAllUtilityPayments = async (req, res) => {
+  try {
+    console.log('=== RESET ALL UTILITY PAYMENTS ===');
+    
+    // Get current totals before reset
+    const beforeReset = await UtilityPayment.aggregate([
+      { $group: {
+        _id: '$type',
+        totalAmount: { $sum: '$amountPaid' },
+        count: { $sum: 1 }
+      }}
+    ]);
+    
+    console.log('Before reset totals:', beforeReset);
+    
+    // Delete ALL utility payment records
+    const deleteResult = await UtilityPayment.deleteMany({});
+    
+    console.log('Reset complete - deleted records:', deleteResult.deletedCount);
+    
+    res.json({
+      message: `Reset complete. Deleted all ${deleteResult.deletedCount} utility payment records`,
+      deletedCount: deleteResult.deletedCount,
+      beforeReset: beforeReset
+    });
+    
+  } catch (error) {
+    console.error('Error resetting utility payments:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 };
