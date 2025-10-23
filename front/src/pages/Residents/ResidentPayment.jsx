@@ -220,16 +220,42 @@ export default function ResidentPayment() {
       payments.reduce(
         (acc, payment) => {
           const balance = payment.balance || 0;
+          const amountPaid = payment.amountPaid || 0;
+          
+          // Overall totals
           if (payment.status === "pending" || payment.status === "overdue") {
             acc.totalDue += balance;
           }
           if (payment.status === "overdue") {
             acc.overdueAmount += balance;
           }
-          acc.paidAmount += payment.amountPaid || 0;
+          acc.paidAmount += amountPaid;
+          
+          // Yearly totals by type (current year only)
+          const currentYear = new Date().getFullYear();
+          const paymentYear = payment.monthKey ? parseInt(payment.monthKey.split('-')[0]) : currentYear;
+          
+          if (paymentYear === currentYear) {
+            if (payment.type === "Garbage Fee") {
+              acc.garbageYearlyDue += (payment.status === "pending" || payment.status === "overdue") ? balance : 0;
+              acc.garbageYearlyPaid += amountPaid;
+            } else if (payment.type === "Streetlight Fee") {
+              acc.streetlightYearlyDue += (payment.status === "pending" || payment.status === "overdue") ? balance : 0;
+              acc.streetlightYearlyPaid += amountPaid;
+            }
+          }
+          
           return acc;
         },
-        { totalDue: 0, overdueAmount: 0, paidAmount: 0 }
+        { 
+          totalDue: 0, 
+          overdueAmount: 0, 
+          paidAmount: 0,
+          garbageYearlyDue: 0,
+          garbageYearlyPaid: 0,
+          streetlightYearlyDue: 0,
+          streetlightYearlyPaid: 0
+        }
       ),
     [payments]
   );
@@ -426,6 +452,93 @@ export default function ResidentPayment() {
                   <p className="text-xs text-emerald-600">
                     Total successful payments recorded for your household.
                   </p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Yearly Breakdown by Fee Type */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-slate-900">
+              {new Date().getFullYear()} Yearly Breakdown
+            </CardTitle>
+            <CardDescription>
+              Detailed breakdown of garbage and streetlight fees for the current year.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Garbage Fee Yearly Summary */}
+              <Card className="w-full border border-orange-200 bg-orange-50">
+                <CardContent className="px-4 py-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-orange-900">Garbage Fees</h3>
+                      <p className="text-sm text-orange-700">Year-to-date summary</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Outstanding Balance:</span>
+                      <span className="text-lg font-bold text-orange-900">
+                        ₱{totals.garbageYearlyDue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Total Paid:</span>
+                      <span className="text-lg font-semibold text-emerald-700">
+                        ₱{totals.garbageYearlyPaid.toFixed(2)}
+                      </span>
+                    </div>
+                    <hr className="border-orange-200" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-orange-700">Total Fees:</span>
+                      <span className="text-xl font-bold text-orange-900">
+                        ₱{(totals.garbageYearlyDue + totals.garbageYearlyPaid).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Streetlight Fee Yearly Summary */}
+              <Card className="w-full border border-blue-200 bg-blue-50">
+                <CardContent className="px-4 py-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Streetlight Fees</h3>
+                      <p className="text-sm text-blue-700">Year-to-date summary</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Outstanding Balance:</span>
+                      <span className="text-lg font-bold text-blue-900">
+                        ₱{totals.streetlightYearlyDue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Total Paid:</span>
+                      <span className="text-lg font-semibold text-emerald-700">
+                        ₱{totals.streetlightYearlyPaid.toFixed(2)}
+                      </span>
+                    </div>
+                    <hr className="border-blue-200" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-700">Total Fees:</span>
+                      <span className="text-xl font-bold text-blue-900">
+                        ₱{(totals.streetlightYearlyDue + totals.streetlightYearlyPaid).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
