@@ -47,6 +47,19 @@ const OCCUPATION_OPTIONS = [
   { value: "Other", label: "Other" }
 ];
 
+// Sectoral Information options
+const SECTORAL_OPTIONS = [
+  { value: "Solo Parent", label: "Solo Parent" },
+  { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
+  { value: "PWD", label: "PWD (Person with Disability)" },
+  { value: "Unemployed", label: "Unemployed" },
+  { value: "Labor Force", label: "Labor Force" },
+  { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
+  { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
+  { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
+  { value: "None", label: "None" }
+];
+
 // NEW: Consistent API base
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -231,6 +244,7 @@ export default function AdminResidentManagement() {
         "Ethnicity": r.ethnicity || "",
         "Citizenship": r.citizenship || "",
         "Occupation": r.occupation || "",
+        "Sectoral Information": r.sectoralInformation || "",
         "Mobile": r.contact?.mobile || "",
         "Email": r.contact?.email || "",
         "Purok": r.address?.purok || "",
@@ -299,7 +313,7 @@ export default function AdminResidentManagement() {
   { title: "Date of Birth", dataIndex: "dateOfBirth", key: "dateOfBirth", render: v => v ? new Date(v).toLocaleDateString() : "" },
   { title: "Civil Status", dataIndex: "civilStatus", key: "civilStatus" },
   { title: "Religion", dataIndex: "religion", key: "religion" },
-  { title: "Mobile", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
+  { title: "Mobile Number", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
   { 
     title: "Purok", 
     key: "purok", 
@@ -316,6 +330,7 @@ export default function AdminResidentManagement() {
   { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
   { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
   { title: "Occupation", dataIndex: "occupation", key: "occupation" },
+  { title: "Sectoral Info", dataIndex: "sectoralInformation", key: "sectoralInformation" },
   // ...existing code...
      {
       title: "Status",
@@ -366,6 +381,7 @@ export default function AdminResidentManagement() {
       r.religion,
       r.ethnicity,
       r.occupation,
+      r.sectoralInformation,
     ]
       .filter(Boolean)
       .join(" ")
@@ -412,6 +428,7 @@ export default function AdminResidentManagement() {
       fields: [
         "citizenship",
         "occupation",
+        "sectoralInformation",
         ["contact", "mobile"],
         ["contact", "email"],
       ],
@@ -854,10 +871,17 @@ export default function AdminResidentManagement() {
                 <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
                   <Input placeholder="e.g., Teacher, Engineer, Farmer" />
                 </Form.Item>
+                <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
+                  <Select
+                    placeholder="Select sectoral information"
+                    options={SECTORAL_OPTIONS}
+                    allowClear
+                  />
+                </Form.Item>
               </div>
               
               <div className="form-row">
-                <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
+                <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
                   <Input />
                 </Form.Item>
                 <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
@@ -1039,10 +1063,17 @@ export default function AdminResidentManagement() {
                 <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
                   <Input placeholder="e.g., Teacher, Engineer, Farmer" />
                 </Form.Item>
+                <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
+                  <Select
+                    placeholder="Select sectoral information"
+                    options={SECTORAL_OPTIONS}
+                    allowClear
+                  />
+                </Form.Item>
               </div>
               
               <div className="form-row">
-                <Form.Item name={["contact", "mobile"]} label="Mobile" rules={[{ type: "string" }]}>
+                <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
                   <Input />
                 </Form.Item>
                 <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
@@ -1074,8 +1105,9 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Ethnicity">{viewResident.ethnicity}</Descriptions.Item>
               <Descriptions.Item label="Citizenship">{viewResident.citizenship}</Descriptions.Item>
               <Descriptions.Item label="Occupation">{viewResident.occupation}</Descriptions.Item>
+              <Descriptions.Item label="Sectoral Information">{viewResident.sectoralInformation || "None"}</Descriptions.Item>
               {viewResident.contact?.mobile && (
-                <Descriptions.Item label="Mobile">{viewResident.contact.mobile}</Descriptions.Item>
+                <Descriptions.Item label="Mobile Number">{viewResident.contact.mobile}</Descriptions.Item>
               )}
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
               <Descriptions.Item label="Address">

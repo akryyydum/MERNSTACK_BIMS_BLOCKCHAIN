@@ -28,6 +28,7 @@ exports.create = async (req, res) => {
       address,
       citizenship,
       occupation,
+      sectoralInformation,
       contact = {},
       idFiles,
       status,
@@ -74,6 +75,7 @@ exports.create = async (req, res) => {
           ? citizenship.trim()
           : DEFAULT_CITIZENSHIP,
       occupation: typeof occupation === "string" ? occupation.trim() : occupation,
+      sectoralInformation: typeof sectoralInformation === "string" ? sectoralInformation.trim() : sectoralInformation,
     };
 
     const requiredMissing =
@@ -121,6 +123,7 @@ exports.create = async (req, res) => {
       address: normalizedAddress,
       citizenship: sanitized.citizenship,
       occupation: sanitized.occupation,
+      sectoralInformation: sanitized.sectoralInformation,
       contact: sanitizedContact,
       idFiles,
       status: resolvedStatus,

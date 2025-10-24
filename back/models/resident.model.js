@@ -21,6 +21,12 @@ const residentSchema = new mongoose.Schema({
     },
     citizenship: { type: String, required: true },
     occupation: { type: String, required: true },
+    sectoralInformation: { 
+        type: String, 
+        enum: ['Solo Parent', 'OFW', 'PWD', 'Unemployed', 'Labor Force', 'OSC - Out of School Children', 'OSC - Out of School Youth', 'OSC - Out of School Adult', 'None'], 
+        required: false,
+        default: 'None'
+    },
     contact: {
         mobile: { type: String, required: false },
         email: { type: String, required: false }
