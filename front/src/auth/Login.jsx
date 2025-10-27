@@ -180,8 +180,8 @@ const Login = () => {
       const password = values?.password;
       const username = values?.username?.trim();
 
-      if (!password || !fullName || !email || !username) {
-        setRegError("Username, password, full name, and contact email are required");
+      if (!password || !fullName || !username) {
+        setRegError("Username, password, and full name are required");
         return;
       }
 
@@ -541,12 +541,12 @@ const Login = () => {
                   label="Religion"
                   name="religion"
                   rules={[
-                    { required: true, message: 'Religion is required' },
+                    { required: false },
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
                   ]}
                   className="mb-2"
                 >
-                  <Input size="middle" placeholder="e.g., Roman-Catholic" />
+                  <Input size="middle" placeholder="e.g., Roman-Catholic (optional)" />
                 </Form.Item>
                 <Form.Item
                   label="Ethnicity"
@@ -594,8 +594,8 @@ const Login = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Citizenship" name="citizenship" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" placeholder="e.g., Filipino" />
+                  <Form.Item label="Citizenship" name="citizenship" initialValue="Filipino" rules={[{ required: false }]} className="mb-2">
+                    <Input size="middle" placeholder="e.g., Filipino" disabled />
                   </Form.Item>
                   <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., Teacher" />
@@ -613,10 +613,10 @@ const Login = () => {
 
                 <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ type: "string" }]} className="mb-2">
+                  <Form.Item label="Mobile (optional)" name={["contact", "mobile"]} rules={[{ type: "string", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., 09123456789" />
                   </Form.Item>
-                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ type: "email" }]} className="mb-2">
+                  <Form.Item label="Email (optional)" name={["contact", "email"]} rules={[{ type: "email", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., juan.delacruz@email.com" />
                   </Form.Item>
                 </div>
