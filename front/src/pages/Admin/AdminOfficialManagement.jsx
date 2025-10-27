@@ -484,7 +484,22 @@ export default function AdminOfficialManagement() {
               <Input />
             </Form.Item>
             <Form.Item name="position" label="Position" rules={[{ required: true }]}>
-              <Input />
+              <Select placeholder="Select a position">
+                <Select.Option value="Barangay Captain">Barangay Captain</Select.Option>
+                <Select.Option value="Barangay Kagawad">Barangay Kagawad</Select.Option>
+                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
+                <Select.Option value="Barangay Secretary">Barangay Secretary</Select.Option>
+                <Select.Option value="Barangay Treasurer">Barangay Treasurer</Select.Option>
+                <Select.Option value="Admin Assistant">Admin Assistant</Select.Option>
+                <Select.Option value="Barangay Nutrition Scholar">Barangay Nutrition Scholar</Select.Option>
+                <Select.Option value="Day Care Worker">Day Care Worker</Select.Option>
+                <Select.Option value="Barangay Health Worker">Barangay Health Worker</Select.Option>
+                <Select.Option value="Barangay Utility Worker">Barangay Utility Worker</Select.Option>
+                <Select.Option value="Barangay Chief Tanod">Barangay Chief Tanod</Select.Option>
+                <Select.Option value="Barangay Tanod">Barangay Tanod</Select.Option>
+                <Select.Option value="SWM Driver">SWM Driver</Select.Option>
+                <Select.Option value="Garbage Collector">Garbage Collector</Select.Option>
+              </Select>
             </Form.Item>
             <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
               <Input />

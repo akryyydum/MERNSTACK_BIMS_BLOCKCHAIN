@@ -546,7 +546,7 @@ const Login = () => {
                   ]}
                   className="mb-2"
                 >
-                  <Input size="middle" placeholder="e.g., Roman-Catholic (optional)" />
+                  <Input size="middle" placeholder="e.g., Roman-Catholic" />
                 </Form.Item>
                 <Form.Item
                   label="Ethnicity"
@@ -613,10 +613,10 @@ const Login = () => {
 
                 <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Mobile (optional)" name={["contact", "mobile"]} rules={[{ type: "string", required: false }]} className="mb-2">
+                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ type: "string", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., 09123456789" />
                   </Form.Item>
-                  <Form.Item label="Email (optional)" name={["contact", "email"]} rules={[{ type: "email", required: false }]} className="mb-2">
+                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ type: "email", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., juan.delacruz@email.com" />
                   </Form.Item>
                 </div>

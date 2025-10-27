@@ -125,12 +125,34 @@ exports.update = async (req, res) => {
 };
 
 // Delete official
+// Remove official role (demote to resident, don't delete user)
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findByIdAndDelete(id);
+    
+    // Find the user and update their role instead of deleting
+    const user = await User.findByIdAndUpdate(
+      id, 
+      { 
+        role: "resident",      // Change role back to resident
+        $unset: { position: 1 }    // Remove the position field
+      }, 
+      { new: true }
+    );
+    
     if (!user) return res.status(404).json({ message: "Official not found" });
-    res.json({ message: "Official deleted" });
+    
+    res.json({ 
+      message: "Official role removed successfully. User demoted to resident.", 
+      user: {
+        _id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        contact: user.contact,
+        isActive: user.isActive
+      }
+    });
   } catch (err) {
     console.error("[adminOfficialController.remove]", err);
     res.status(500).json({ message: err.message });
