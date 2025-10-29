@@ -790,7 +790,11 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-                  <DatePicker className="w-full" />
+                  <DatePicker 
+                    className="w-full" 
+                    disabledDate={current => current && current > new Date()}
+                    placeholder="Select date of birth"
+                  />
                 </Form.Item>
                 <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
                   <Select
@@ -982,7 +986,11 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
-                  <DatePicker className="w-full" />
+                  <DatePicker 
+                    className="w-full" 
+                    disabledDate={current => current && current > new Date()}
+                    placeholder="Select date of birth"
+                  />
                 </Form.Item>
                 <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
                   <Select
