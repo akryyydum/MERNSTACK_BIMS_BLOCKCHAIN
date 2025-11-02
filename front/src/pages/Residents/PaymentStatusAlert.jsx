@@ -42,7 +42,9 @@ const PaymentStatusAlert = ({ paymentStatus, onPaymentClick, className = "" }) =
                   <div className="text-xs text-gray-500">Current Month</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-semibold">₱{Number(garbageFee.balance || 0).toFixed(2)}</div>
+                  {Number(garbageFee.balance || 0) > 0 && (
+                    <div className="text-lg font-semibold">₱{Number(garbageFee.balance || 0).toFixed(2)}</div>
+                  )}
                   <Tag color={garbageFee.paid ? 'green' : garbageFee.status === 'partial' ? 'orange' : 'red'} size="small">
                     {garbageFee.paid ? 'PAID' : (garbageFee.status || 'UNPAID').toUpperCase()}
                   </Tag>
@@ -58,7 +60,9 @@ const PaymentStatusAlert = ({ paymentStatus, onPaymentClick, className = "" }) =
                   <div className="text-xs text-gray-500">Current Month</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-semibold">₱{Number(streetlightFee.balance || 0).toFixed(2)}</div>
+                  {Number(streetlightFee.balance || 0) > 0 && (
+                    <div className="text-lg font-semibold">₱{Number(streetlightFee.balance || 0).toFixed(2)}</div>
+                  )}
                   <Tag color={streetlightFee.paid ? 'green' : streetlightFee.status === 'partial' ? 'orange' : 'red'} size="small">
                     {streetlightFee.paid ? 'PAID' : (streetlightFee.status || 'UNPAID').toUpperCase()}
                   </Tag>

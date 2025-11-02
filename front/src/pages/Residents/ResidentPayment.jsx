@@ -97,7 +97,8 @@ const normalizeUtilityResponse = (payload) => {
     { key: "garbagePayments", type: "garbage" },
     { key: "streetlight", type: "streetlight" },
     { key: "streetlightPayments", type: "streetlight" },
-    { key: "utilityPayments", type: null },
+    { key: "utilityPayments", type: "garbage" }, // These are garbage fees
+    { key: "gasPayments", type: "garbage" }, // Gas payments are also garbage fees
     { key: "records", type: null },
     { key: "data", type: null },
   ];
@@ -165,6 +166,7 @@ export default function ResidentPayment() {
   const [loading, setLoading] = useState(false);
   const [resident, setResident] = useState(null);
   const [payments, setPayments] = useState([]);
+  const [paymentSummary, setPaymentSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -186,6 +188,9 @@ export default function ResidentPayment() {
         headers,
       });
 
+      // Store the payment summary for annual calculations
+      setPaymentSummary(response.data);
+      
       const normalizedEntries = normalizeUtilityResponse(response.data);
       const mapped = normalizedEntries
         .filter((item) => item.month || item.dueDate)
@@ -197,6 +202,7 @@ export default function ResidentPayment() {
       console.error("Failed to load resident payments:", error);
       setError(error?.response?.data?.message || "Unable to load your payment history right now.");
       setPayments([]);
+      setPaymentSummary(null);
     } finally {
       setLoading(false);
     }
@@ -216,11 +222,31 @@ export default function ResidentPayment() {
   );
 
   const totals = useMemo(
-    () =>
-      payments.reduce(
+    () => {
+      // Use payment summary data if available, otherwise calculate from payments
+      if (paymentSummary) {
+        const garbageFees = paymentSummary.garbageFees || {};
+        const streetlightFees = paymentSummary.streetlightFees || {};
+        
+        return {
+          totalDue: (garbageFees.outstandingBalance || 0) + (streetlightFees.outstandingBalance || 0),
+          overdueAmount: 0, // Would need additional logic for overdue calculation
+          paidAmount: (garbageFees.totalPaid || 0) + (streetlightFees.totalPaid || 0),
+          garbageYearlyTotal: garbageFees.annualTotal || 0,
+          garbageYearlyDue: garbageFees.outstandingBalance || 0,
+          garbageYearlyPaid: garbageFees.totalPaid || 0,
+          streetlightYearlyTotal: streetlightFees.annualTotal || 0,
+          streetlightYearlyDue: streetlightFees.outstandingBalance || 0,
+          streetlightYearlyPaid: streetlightFees.totalPaid || 0
+        };
+      }
+
+      // Fallback to old calculation method if no payment summary
+      return payments.reduce(
         (acc, payment) => {
           const balance = payment.balance || 0;
           const amountPaid = payment.amountPaid || 0;
+          const totalAmount = payment.amount || 0;
           
           // Overall totals
           if (payment.status === "pending" || payment.status === "overdue") {
@@ -237,11 +263,13 @@ export default function ResidentPayment() {
           
           if (paymentYear === currentYear) {
             if (payment.type === "Garbage Fee") {
-              acc.garbageYearlyDue += (payment.status === "pending" || payment.status === "overdue") ? balance : 0;
+              acc.garbageYearlyTotal += totalAmount;
               acc.garbageYearlyPaid += amountPaid;
+              acc.garbageYearlyDue += balance;
             } else if (payment.type === "Streetlight Fee") {
-              acc.streetlightYearlyDue += (payment.status === "pending" || payment.status === "overdue") ? balance : 0;
+              acc.streetlightYearlyTotal += totalAmount;
               acc.streetlightYearlyPaid += amountPaid;
+              acc.streetlightYearlyDue += balance;
             }
           }
           
@@ -251,13 +279,16 @@ export default function ResidentPayment() {
           totalDue: 0, 
           overdueAmount: 0, 
           paidAmount: 0,
+          garbageYearlyTotal: 0,
           garbageYearlyDue: 0,
           garbageYearlyPaid: 0,
+          streetlightYearlyTotal: 0,
           streetlightYearlyDue: 0,
           streetlightYearlyPaid: 0
         }
-      ),
-    [payments]
+      );
+    },
+    [payments, paymentSummary]
   );
 
   const filteredPayments = useMemo(() => {
@@ -499,7 +530,7 @@ export default function ResidentPayment() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-orange-700">Total Fees:</span>
                       <span className="text-xl font-bold text-orange-900">
-                        ₱{(totals.garbageYearlyDue + totals.garbageYearlyPaid).toFixed(2)}
+                        ₱{totals.garbageYearlyTotal.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -535,7 +566,7 @@ export default function ResidentPayment() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-blue-700">Total Fees:</span>
                       <span className="text-xl font-bold text-blue-900">
-                        ₱{(totals.streetlightYearlyDue + totals.streetlightYearlyPaid).toFixed(2)}
+                        ₱{totals.streetlightYearlyTotal.toFixed(2)}
                       </span>
                     </div>
                   </div>

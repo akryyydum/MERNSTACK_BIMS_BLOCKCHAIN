@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const COLORS = ['#1677FF', '#13C2C2', '#69C0FF', '#FFC53D', '#F759AB'];
+const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
 
 export default function AdminDashboard() {
@@ -27,12 +28,12 @@ export default function AdminDashboard() {
       const headers = { Authorization: `Bearer ${token}` };
       try {
         const endpoints = [
-          '/api/admin/residents',
-          '/api/admin/officials',
-          '/api/admin/document-requests',
-          '/api/admin/complaints',
-          '/api/admin/financial/dashboard',
-          '/api/admin/financial/transactions?limit=1'
+          `${API_BASE}/api/admin/residents`,
+          `${API_BASE}/api/admin/officials`,
+          `${API_BASE}/api/admin/document-requests`,
+          `${API_BASE}/api/admin/complaints`,
+          `${API_BASE}/api/admin/financial/dashboard`,
+          `${API_BASE}/api/admin/financial/transactions?limit=1`
         ];
         const res = await Promise.all(endpoints.map(url => fetch(url, { headers, signal: abort.signal })));
         if (!res.every(r => r.ok)) throw new Error('Failed to load dashboard');
