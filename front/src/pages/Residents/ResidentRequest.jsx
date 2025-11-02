@@ -202,7 +202,7 @@ export default function ResidentRequest() {
 
         {/* Payment Status Alert */}
         {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 mb-5">
+          <div className="rounded-lg border px-4 py-3 text-sm text-rose-700 mb-5">
             <PaymentStatusAlert 
               paymentStatus={paymentStatus}
               onPaymentClick={handleGoToPayments}
