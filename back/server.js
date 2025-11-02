@@ -50,8 +50,8 @@ const adminOfficialManagementRoutes = require("./routes/adminOfficialManagementR
 app.use("/api/admin/officials", adminOfficialManagementRoutes);
 const adminResidentRoutes = require("./routes/adminResidentRoutes");
 app.use("/api/admin/residents", adminResidentRoutes);
-//const adminDocumentRequestRoutes = require('./routes/adminDocumentRequest');
-//app.use('/api/admin/document-requests', adminDocumentRequestRoutes);
+const adminDocumentRequestRoutes = require('./routes/adminDocumentRequest');
+app.use('/api/admin/document-requests', adminDocumentRequestRoutes);
 const adminComplaintRoutes = require("./routes/adminComplaintRoutes");
 app.use("/api/admin/complaints", adminComplaintRoutes);
 const adminFinancialRoutes = require("./routes/adminFinancialRoutes");
