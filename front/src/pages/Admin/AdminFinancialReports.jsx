@@ -37,6 +37,24 @@ const { RangePicker } = DatePicker;
 const { TabPane } = Tabs;
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
+const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+
+const getTransactionKey = (transaction = {}) => {
+  const rawKey =
+    transaction?._id ??
+    transaction?.id ??
+    transaction?.transactionId ??
+    transaction?.key ??
+    "";
+
+  if (!rawKey && rawKey !== 0) return "";
+  if (typeof rawKey === "string") return rawKey;
+  if (typeof rawKey === "number") return String(rawKey);
+  if (rawKey && typeof rawKey === "object" && typeof rawKey.toString === "function") {
+    return rawKey.toString();
+  }
+  return String(rawKey ?? "");
+};
 
 export default function AdminFinancialReports() {
   const [loading, setLoading] = useState(false);
@@ -132,7 +150,17 @@ export default function AdminFinancialReports() {
       );
       
       console.log('Transactions fetched:', res.data.transactions?.length);
-      setTransactions(res.data.transactions || []);
+      const fetchedTransactions = (res.data.transactions || []).map((tx) => ({
+        ...tx,
+        __rowKey: getTransactionKey(tx),
+      }));
+
+      setTransactions(fetchedTransactions);
+      setSelectedRowKeys((prev) =>
+        prev.filter((key) =>
+          fetchedTransactions.some((tx) => getTransactionKey(tx) === key)
+        )
+      );
     } catch (error) {
       console.error('Error fetching transactions:', error);
       message.error('Failed to fetch transactions');
@@ -211,9 +239,7 @@ export default function AdminFinancialReports() {
         'Resident': t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : '-',
         'Payment Method': t.paymentMethod,
         'Status': t.status,
-        'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
-        'Blockchain Hash': t.blockchain?.hash || '-',
-        'Blockchain Verified': t.blockchain?.verified ? 'Yes' : 'No'
+        'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm')
       }));
 
       const wb = XLSX.utils.book_new();
@@ -380,16 +406,25 @@ export default function AdminFinancialReports() {
       cancelText: 'Cancel',
       onOk: async () => {
         try {
-          console.log('Deleting transaction:', record._id); // Debug log
-          
+          const transactionKey = getTransactionKey(record);
+
+          if (!transactionKey || transactionKey === "undefined" || transactionKey === "null") {
+            message.error('Missing transaction identifier. Please refresh and try again.');
+            return;
+          }
+
+          const isMongoId = objectIdRegex.test(transactionKey);
+          console.log('Deleting transaction:', transactionKey, 'isMongoId:', isMongoId); // Debug log
+
           const response = await axios.delete(
-            `${API_BASE}/api/admin/financial/transactions/${record._id}`, 
+            `${API_BASE}/api/admin/financial/transactions/${transactionKey}`, 
             { headers: authHeaders() }
           );
           
           console.log('Delete response:', response.data); // Debug log
           
           message.success('Transaction deleted successfully!');
+          setSelectedRowKeys((prev) => prev.filter((key) => key !== transactionKey));
           fetchDashboard();
           fetchTransactions();
         } catch (error) {
@@ -421,15 +456,26 @@ export default function AdminFinancialReports() {
           setDeleting(true);
           console.log('Bulk deleting IDs:', selectedRowKeys); // Debug log
           
+          const uniqueKeys = Array.from(new Set(
+            (selectedRowKeys || [])
+              .filter((key) => key && key !== "undefined" && key !== "null")
+              .map((key) => (typeof key === "string" ? key : String(key)))
+          ));
+
+          if (!uniqueKeys.length) {
+            message.error('No valid transaction identifiers selected.');
+            return;
+          }
+
           const response = await axios.post(
             `${API_BASE}/api/admin/financial/transactions/bulk-delete`,
-            { ids: selectedRowKeys },
+            { ids: uniqueKeys },
             { headers: authHeaders() }
           );
           
           console.log('Bulk delete response:', response.data); // Debug log
           
-          message.success(`${selectedRowKeys.length} transaction(s) deleted successfully!`);
+          message.success(`${uniqueKeys.length} transaction(s) deleted successfully!`);
           setSelectedRowKeys([]);
           fetchDashboard();
           fetchTransactions();
@@ -526,14 +572,6 @@ export default function AdminFinancialReports() {
       }
     },
     {
-      title: 'Blockchain',
-      key: 'blockchain',
-      render: (_, record) => 
-        record.blockchain?.verified ? 
-        <Tag color="green">Verified</Tag> : 
-        <Tag color="orange">Pending</Tag>
-    },
-    {
       title: 'Date',
       dataIndex: 'transactionDate',
       key: 'transactionDate',
@@ -550,19 +588,17 @@ export default function AdminFinancialReports() {
           >
             View
           </Button>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             type="primary"
             onClick={() => openEditModal(record)}
-            disabled={record.blockchain?.verified}
           >
             Edit
           </Button>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             danger
             onClick={() => handleDeleteTransaction(record)}
-            disabled={record.blockchain?.verified}
           >
             Delete
           </Button>
@@ -575,11 +611,11 @@ export default function AdminFinancialReports() {
   const rowSelection = {
     selectedRowKeys,
     onChange: (selectedKeys) => {
-      setSelectedRowKeys(selectedKeys);
-    },
-    getCheckboxProps: (record) => ({
-      disabled: record.blockchain?.verified, // Disable selection for verified transactions
-    }),
+      const sanitizedKeys = (selectedKeys || [])
+        .filter((key) => key && key !== "undefined" && key !== "null")
+        .map((key) => (typeof key === "string" ? key : String(key)));
+      setSelectedRowKeys(sanitizedKeys);
+    }
   };
 
   const filteredTransactions = transactions.filter(t =>
@@ -608,7 +644,7 @@ export default function AdminFinancialReports() {
                 Financial Reports
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
+            <div className="flex items-center outline-1 outline-offset-1 outline-slate-300 rounded-2xl p-5 gap-3">
               <UserOutlined className="text-2xl text-blue-600" />
               <div className="flex flex-col items-start">
                 <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
@@ -828,12 +864,12 @@ export default function AdminFinancialReports() {
                 <Table
                   columns={columns}
                   dataSource={filteredTransactions}
-                  rowKey="_id"
                   loading={loading}
                   rowSelection={rowSelection}
                   pagination={{ pageSize: 10 }}
                   scroll={{ x: 1400 }}
                   size="small"
+                  rowKey={(record) => record.__rowKey ?? record._id ?? getTransactionKey(record)}
                 />
               </div>
             </CardContent>

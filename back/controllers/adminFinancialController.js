@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const FinancialTransaction = require("../models/financialTransaction.model");
 const DocumentRequest = require("../models/document.model");
 const Resident = require("../models/resident.model");
@@ -310,59 +311,42 @@ const updateTransaction = async (req, res) => {
 const deleteTransaction = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    console.log('=== DELETE TRANSACTION ===');
-    console.log('Received ID:', id);
-    console.log('User:', req.user);
 
-    // Validate ID format
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log('Invalid ID format');
-      return res.status(400).json({ message: 'Invalid transaction ID format' });
+    if (!id || id === "undefined" || id === "null") {
+      return res.status(400).json({ message: "Missing transaction identifier" });
     }
 
-    const transaction = await FinancialTransaction.findById(id);
-    
-    console.log('Transaction found:', transaction ? 'YES' : 'NO');
-    if (transaction) {
-      console.log('Transaction details:', {
-        id: transaction._id,
-        transactionId: transaction.transactionId,
-        status: transaction.status,
-        blockchainVerified: transaction.blockchain?.verified
-      });
-    }
-    
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+
+    const deletionFilter = isObjectId
+      ? { _id: id }
+      : { transactionId: id };
+
+    const deleted = await FinancialTransaction.findOneAndDelete(deletionFilter);
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Transaction not found" });
     }
 
-    // Don't allow deleting blockchain-verified transactions
-    if (transaction.blockchain?.verified) {
-      console.log('Transaction is blockchain verified, cannot delete');
-      return res.status(400).json({ 
-        message: 'Cannot delete blockchain-verified transactions' 
-      });
+    if (deleted.documentRequestId) {
+      await DocumentRequest.findByIdAndUpdate(
+        deleted.documentRequestId,
+        { $unset: { financialTransactionId: "" } },
+        { new: true }
+      );
     }
 
-    // Soft delete by updating status
-    transaction.status = 'cancelled';
-    transaction.updatedBy = req.user.id;
-    await transaction.save();
-
-    console.log('Transaction soft deleted successfully');
-    console.log('=== END DELETE TRANSACTION ===');
-
-    res.json({ 
-      message: 'Transaction deleted successfully',
-      deletedId: id 
+    res.json({
+      message: "Transaction deleted permanently",
+      deletedId: deleted._id?.toString(),
+      deletedTransactionId: deleted.transactionId,
+      deletedBy: isObjectId ? "_id" : "transactionId"
     });
   } catch (error) {
     console.error('Error deleting transaction:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message
     });
   }
 };
@@ -372,65 +356,94 @@ const bulkDeleteTransactions = async (req, res) => {
   try {
     const { ids } = req.body;
 
-    console.log('=== BULK DELETE TRANSACTIONS ===');
-    console.log('Received IDs:', ids);
-    console.log('User:', req.user);
-
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ message: 'Please provide transaction IDs' });
     }
 
-    // Validate all IDs
-    const mongoose = require('mongoose');
-    const invalidIds = ids.filter(id => !mongoose.Types.ObjectId.isValid(id));
-    if (invalidIds.length > 0) {
-      console.log('Invalid IDs found:', invalidIds);
-      return res.status(400).json({ 
-        message: 'Invalid transaction ID format',
-        invalidIds 
-      });
-    }
+    const objectIdFilters = new Set();
+    const transactionIdFilters = new Set();
+    const invalidIds = [];
 
-    // Check for blockchain-verified transactions
-    const verifiedTransactions = await FinancialTransaction.find({
-      _id: { $in: ids },
-      'blockchain.verified': true
+    ids.forEach((original) => {
+      if (original === null || original === undefined) {
+        invalidIds.push(original);
+        return;
+      }
+
+      let value = original;
+
+      if (typeof value === 'string') {
+        value = value.trim();
+      }
+
+      if (value === '' || value === 'undefined' || value === 'null') {
+        invalidIds.push(original);
+        return;
+      }
+
+      const stringValue = typeof value === 'string' ? value : String(value);
+
+      if (mongoose.Types.ObjectId.isValid(stringValue)) {
+        objectIdFilters.add(stringValue);
+        return;
+      }
+
+      if (typeof stringValue === 'string' && stringValue.length > 0) {
+        transactionIdFilters.add(stringValue);
+        return;
+      }
+
+      invalidIds.push(original);
     });
 
-    console.log('Verified transactions found:', verifiedTransactions.length);
+    const objectIdList = Array.from(objectIdFilters);
+    const transactionIdList = Array.from(transactionIdFilters);
 
-    if (verifiedTransactions.length > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete blockchain-verified transactions',
-        verifiedCount: verifiedTransactions.length,
-        verifiedIds: verifiedTransactions.map(t => t._id)
+    if (!objectIdList.length && !transactionIdList.length) {
+      return res.status(400).json({
+        message: 'Invalid transaction ID format',
+        invalidIds
       });
     }
 
-    // Perform bulk update
-    const result = await FinancialTransaction.updateMany(
-      { _id: { $in: ids } },
-      {
-        $set: {
-          status: 'cancelled',
-          updatedBy: req.user.id,
-          updatedAt: new Date()
-        }
+    const filters = [];
+    if (objectIdList.length) filters.push({ _id: { $in: objectIdList } });
+    if (transactionIdList.length) filters.push({ transactionId: { $in: transactionIdList } });
+
+    if (!filters.length) {
+      return res.status(400).json({ message: 'No valid transaction identifiers provided' });
+    }
+
+    const combinedFilter = filters.length === 1 ? filters[0] : { $or: filters };
+
+    const transactionsToDelete = await FinancialTransaction.find(combinedFilter)
+      .select('_id transactionId documentRequestId');
+
+    const result = await FinancialTransaction.deleteMany(combinedFilter);
+
+    if (transactionsToDelete.length) {
+      const docRequestIds = transactionsToDelete
+        .map((tx) => tx.documentRequestId)
+        .filter(Boolean);
+
+      if (docRequestIds.length) {
+        await DocumentRequest.updateMany(
+          { _id: { $in: docRequestIds } },
+          { $unset: { financialTransactionId: "" } }
+        );
       }
-    );
+    }
 
-    console.log('Bulk delete result:', result);
-    console.log('=== END BULK DELETE TRANSACTIONS ===');
-
-    res.json({ 
-      message: `${result.modifiedCount} transaction(s) deleted successfully`,
-      deletedCount: result.modifiedCount
+    res.json({
+      message: `${result.deletedCount} transaction(s) deleted permanently`,
+      deletedCount: result.deletedCount,
+      invalidIds
     });
   } catch (error) {
     console.error('Error bulk deleting transactions:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message
     });
   }
 };
