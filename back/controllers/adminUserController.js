@@ -122,9 +122,10 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role, isActive, isVerified, fullName, contact } = req.body;
+  const { role, isActive, isVerified, fullName, contact } = req.body;
 
-    const update = {};
+  const update = {};
+  let unset = {};
     if (typeof isActive === "boolean") update.isActive = isActive;
     if (typeof isVerified === "boolean") update.isVerified = isVerified;
     if (fullName) update.fullName = String(fullName).trim();
@@ -135,15 +136,27 @@ exports.update = async (req, res) => {
       update.role = role;
     }
     if (contact) {
-      if (contact.email !== undefined) update["contact.email"] = String(contact.email).toLowerCase().trim();
-      if (contact.mobile !== undefined) update["contact.mobile"] = contact.mobile;
-      // ensure unique email if changed
-      if (contact.email) {
-        const exists = await User.findOne({
-          _id: { $ne: id },
-          "contact.email": String(contact.email).toLowerCase().trim(),
-        });
-        if (exists) return res.status(400).json({ message: "Email already in use" });
+      if (contact.email !== undefined) {
+        const emailTrim = String(contact.email || "").toLowerCase().trim();
+        if (emailTrim) {
+          // ensure unique email if changed
+          const exists = await User.findOne({
+            _id: { $ne: id },
+            "contact.email": emailTrim,
+          });
+          if (exists) return res.status(400).json({ message: "Email already in use" });
+          update["contact.email"] = emailTrim;
+        } else {
+          unset["contact.email"] = ""; // treat empty email as removal
+        }
+      }
+      if (contact.mobile !== undefined) {
+        const mobileTrim = typeof contact.mobile === 'string' ? contact.mobile.trim() : contact.mobile;
+        if (mobileTrim) {
+          update["contact.mobile"] = mobileTrim;
+        } else {
+          unset["contact.mobile"] = "";
+        }
       }
     }
 
@@ -151,7 +164,10 @@ exports.update = async (req, res) => {
       return res.status(400).json({ message: "No valid fields to update" });
     }
 
-    await User.updateOne({ _id: id }, { $set: update });
+  const updateOps = {};
+  if (Object.keys(update).length) updateOps.$set = update;
+  if (Object.keys(unset).length) updateOps.$unset = unset;
+  await User.updateOne({ _id: id }, updateOps);
     res.json({ message: "Updated" });
   } catch (err) {
     res.status(500).json({ message: err.message });

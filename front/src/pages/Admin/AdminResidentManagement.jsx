@@ -245,6 +245,7 @@ export default function AdminResidentManagement() {
         "Citizenship": r.citizenship || "",
         "Occupation": r.occupation || "",
         "Sectoral Information": r.sectoralInformation || "",
+        "Registered Voter": r.registeredVoter ? "Yes" : "No",
         "Mobile": r.contact?.mobile || "",
         "Email": r.contact?.email || "",
         "Purok": r.address?.purok || "",
@@ -331,6 +332,17 @@ export default function AdminResidentManagement() {
   { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
   { title: "Occupation", dataIndex: "occupation", key: "occupation" },
   { title: "Sectoral Info", dataIndex: "sectoralInformation", key: "sectoralInformation" },
+  { 
+    title: "Registered Voter", 
+    dataIndex: "registeredVoter", 
+    key: "registeredVoter",
+    render: (value) => value ? "Yes" : "No",
+    filters: [
+      { text: "Yes", value: true },
+      { text: "No", value: false },
+    ],
+    onFilter: (value, record) => record.registeredVoter === value,
+  },
   // ...existing code...
      {
       title: "Status",
@@ -429,6 +441,7 @@ export default function AdminResidentManagement() {
         "citizenship",
         "occupation",
         "sectoralInformation",
+        "registeredVoter",
         ["contact", "mobile"],
         ["contact", "email"],
       ],
@@ -884,6 +897,10 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
+              <Form.Item name="registeredVoter" label="Registered Voter" rules={[{ required: false }]} valuePropName="checked">
+                <Switch checkedChildren="Yes" unCheckedChildren="No" />
+              </Form.Item>
+              
               <div className="form-row">
                 <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
                   <Input />
@@ -1080,6 +1097,10 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
+              <Form.Item name="registeredVoter" label="Registered Voter" rules={[{ required: false }]} valuePropName="checked">
+                <Switch checkedChildren="Yes" unCheckedChildren="No" />
+              </Form.Item>
+              
               <div className="form-row">
                 <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
                   <Input />
@@ -1114,6 +1135,7 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Citizenship">{viewResident.citizenship}</Descriptions.Item>
               <Descriptions.Item label="Occupation">{viewResident.occupation}</Descriptions.Item>
               <Descriptions.Item label="Sectoral Information">{viewResident.sectoralInformation || "None"}</Descriptions.Item>
+              <Descriptions.Item label="Registered Voter">{viewResident.registeredVoter ? "Yes" : "No"}</Descriptions.Item>
               {viewResident.contact?.mobile && (
                 <Descriptions.Item label="Mobile Number">{viewResident.contact.mobile}</Descriptions.Item>
               )}

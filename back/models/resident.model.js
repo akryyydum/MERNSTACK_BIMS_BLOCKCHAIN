@@ -27,6 +27,7 @@ const residentSchema = new mongoose.Schema({
         required: false,
         default: 'None'
     },
+    registeredVoter: { type: Boolean, required: true, default: false },
     contact: {
         mobile: { type: String, required: false },
         email: { type: String, required: false }
