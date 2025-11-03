@@ -468,7 +468,7 @@ export default function AdminFinancialReports() {
         message.error('Missing transaction ID. Please refresh and try again.');
         setDeleting(false);
         return;
-      }
+      }   
 
       // Validate it's a proper MongoDB ObjectId (24 hex characters)
       if (!objectIdRegex.test(mongoId)) {
