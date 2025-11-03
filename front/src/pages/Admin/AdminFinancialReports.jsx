@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Row, Col, Tabs } from "antd";
+import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Row, Col, Tabs, Popconfirm } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, DollarSign, TrendingUp, TrendingDown, PieChart } from "lucide-react";
@@ -69,6 +69,7 @@ export default function AdminFinancialReports() {
   const [viewOpen, setViewOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [viewTransaction, setViewTransaction] = useState(null);
   const [editTransaction, setEditTransaction] = useState(null);
   
@@ -76,6 +77,10 @@ export default function AdminFinancialReports() {
   const [createForm] = Form.useForm();
   const [reportForm] = Form.useForm();
   const [editForm] = Form.useForm();
+  const [exportForm] = Form.useForm();
+  
+  // Export state
+  const [selectedExportType, setSelectedExportType] = useState(null);
   
   // Loading states
   const [creating, setCreating] = useState(false);
@@ -230,7 +235,43 @@ export default function AdminFinancialReports() {
     try {
       setExporting(true);
       
-      const excelData = transactions.map(t => ({
+      // Get form values
+      const values = await exportForm.validateFields();
+      const { feeType, documentType } = values;
+      
+      // Filter transactions based on selected fee type
+      let filteredData = transactions;
+      
+      if (feeType === 'garbage_fees') {
+        filteredData = transactions.filter(t => t.type === 'garbage_fee');
+      } else if (feeType === 'streetlight_fees') {
+        filteredData = transactions.filter(t => t.type === 'electric_fee');
+      } else if (feeType === 'document_request_fees') {
+        if (documentType === 'certificate_of_indigency') {
+          filteredData = transactions.filter(t => 
+            t.type === 'document_fee' && 
+            (t.description?.toLowerCase().includes('indigency') || 
+             t.description?.toLowerCase().includes('certificate of indigency'))
+          );
+        } else if (documentType === 'barangay_clearance') {
+          filteredData = transactions.filter(t => 
+            t.type === 'document_fee' && 
+            (t.description?.toLowerCase().includes('barangay clearance') ||
+             t.description?.toLowerCase().includes('brgy clearance'))
+          );
+        } else if (documentType === 'business_clearance') {
+          filteredData = transactions.filter(t => 
+            t.type === 'document_fee' && 
+            (t.description?.toLowerCase().includes('business clearance') ||
+             t.description?.toLowerCase().includes('bus clearance'))
+          );
+        } else {
+          // All document fees if no specific document type
+          filteredData = transactions.filter(t => t.type === 'document_fee');
+        }
+      }
+      
+      const excelData = filteredData.map(t => ({
         'Transaction ID': t.transactionId,
         'Type': t.type,
         'Category': t.category,
@@ -253,10 +294,13 @@ export default function AdminFinancialReports() {
 
       XLSX.utils.book_append_sheet(wb, ws, 'Financial_Transactions');
       
-      const filename = `Financial_Report_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
+      const filename = `Financial_Report_${feeType}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
       XLSX.writeFile(wb, filename);
       
       message.success('Financial report exported successfully!');
+      setExportOpen(false);
+      exportForm.resetFields();
+      setSelectedExportType(null);
     } catch (error) {
       message.error('Failed to export data');
     }
@@ -397,45 +441,65 @@ export default function AdminFinancialReports() {
   };
 
   // Handle Delete Transaction
-  const handleDeleteTransaction = (record) => {
-    Modal.confirm({
-      title: 'Delete Transaction',
-      content: `Are you sure you want to delete transaction ${record.transactionId}?`,
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: async () => {
-        try {
-          const transactionKey = getTransactionKey(record);
-
-          if (!transactionKey || transactionKey === "undefined" || transactionKey === "null") {
-            message.error('Missing transaction identifier. Please refresh and try again.');
-            return;
-          }
-
-          const isMongoId = objectIdRegex.test(transactionKey);
-          console.log('Deleting transaction:', transactionKey, 'isMongoId:', isMongoId); // Debug log
-
-          const response = await axios.delete(
-            `${API_BASE}/api/admin/financial/transactions/${transactionKey}`, 
-            { headers: authHeaders() }
-          );
-          
-          console.log('Delete response:', response.data); // Debug log
-          
-          message.success('Transaction deleted successfully!');
-          setSelectedRowKeys((prev) => prev.filter((key) => key !== transactionKey));
-          fetchDashboard();
-          fetchTransactions();
-        } catch (error) {
-          console.error('Delete error:', error.response || error); // Debug log
-          message.error(
-            error?.response?.data?.message || 
-            'Failed to delete transaction'
-          );
+  const handleDeleteTransaction = async (record) => {
+    try {
+      setDeleting(true);
+      
+      console.log('Full record object:', record);
+      console.log('record._id:', record._id);
+      console.log('All record keys:', Object.keys(record));
+      
+      // For utility payments, the _id is composite like "garbage_MONGOID_INDEX"
+      // We need to extract the actual MongoDB ID from it
+      let mongoId = record._id;
+      
+      // Check if it's a composite ID (utility payment format)
+      if (typeof mongoId === 'string' && mongoId.includes('_')) {
+        // Split by underscore and get the middle part (the actual MongoDB ID)
+        const parts = mongoId.split('_');
+        if (parts.length >= 2) {
+          // The MongoDB ID is the second part (index 1)
+          mongoId = parts[1];
+          console.log('Extracted MongoDB ID from composite:', mongoId);
         }
       }
-    });
+
+      if (!mongoId) {
+        message.error('Missing transaction ID. Please refresh and try again.');
+        setDeleting(false);
+        return;
+      }
+
+      // Validate it's a proper MongoDB ObjectId (24 hex characters)
+      if (!objectIdRegex.test(mongoId)) {
+        console.error('Invalid MongoDB ID format:', mongoId);
+        message.error('Invalid transaction ID format. Cannot delete.');
+        setDeleting(false);
+        return;
+      }
+
+      console.log('Deleting transaction with MongoDB _id:', mongoId);
+
+      const response = await axios.delete(
+        `${API_BASE}/api/admin/financial/transactions/${mongoId}`, 
+        { headers: authHeaders() }
+      );
+      
+      console.log('Delete response:', response.data);
+      
+      message.success('Transaction deleted successfully!');
+      setSelectedRowKeys((prev) => prev.filter((key) => key !== record._id));
+      await fetchDashboard();
+      await fetchTransactions();
+    } catch (error) {
+      console.error('Delete error:', error.response || error);
+      message.error(
+        error?.response?.data?.message || 
+        'Failed to delete transaction'
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Handle Bulk Delete
@@ -500,7 +564,7 @@ export default function AdminFinancialReports() {
       category: record.category,
       description: record.description,
       amount: record.amount,
-      paymentMethod: record.paymentMethod,
+      paymentMethod: record.paymentMethod || 'Cash',
       referenceNumber: record.referenceNumber
     });
     setEditOpen(true);
@@ -559,16 +623,6 @@ export default function AdminFinancialReports() {
       }
     },
     {
-      title: 'Official',
-      key: 'official',
-      render: (_, record) => {
-        // Use stored name first, fallback to populated data
-        if (record.officialName) return record.officialName;
-        if (record.officialId) return `${record.officialId.firstName} ${record.officialId.lastName}`;
-        return '-';
-      }
-    },
-    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -601,13 +655,22 @@ export default function AdminFinancialReports() {
           >
             Edit
           </Button>
-          <Button
-            size="small"
-            danger
-            onClick={() => handleDeleteTransaction(record)}
+          <Popconfirm
+            title="Delete Transaction"
+            description={`Are you sure you want to delete transaction ${record.transactionId}?`}
+            onConfirm={() => handleDeleteTransaction(record)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
           >
-            Delete
-          </Button>
+            <Button
+              size="small"
+              danger
+              loading={deleting}
+            >
+              Delete
+            </Button>
+          </Popconfirm>
         </div>
       )
     }
@@ -861,7 +924,7 @@ export default function AdminFinancialReports() {
                 />
                 <Button
                   loading={exporting}
-                  onClick={handleExportData}
+                  onClick={() => setExportOpen(true)}
                 >
                   Export to Excel
                 </Button>
@@ -882,6 +945,72 @@ export default function AdminFinancialReports() {
           </Card>
         </div>
 
+        {/* Export Modal */}
+        <Modal
+          title="Export Financial Report to Excel"
+          open={exportOpen}
+          onCancel={() => { 
+            setExportOpen(false); 
+            exportForm.resetFields(); 
+            setSelectedExportType(null);
+          }}
+          onOk={handleExportData}
+          okText="Export"
+          confirmLoading={exporting}
+          width={500}
+        >
+          <Form 
+            form={exportForm} 
+            layout="vertical" 
+            initialValues={{ feeType: 'garbage_fees' }}
+          >
+            <Form.Item 
+              name="feeType" 
+              label="Select Fee Type" 
+              rules={[{ required: true, message: "Please select a fee type" }]}
+            >
+              <Select
+                placeholder="Choose fee type to export"
+                onChange={(value) => {
+                  setSelectedExportType(value);
+                  if (value !== 'document_request_fees') {
+                    exportForm.setFieldsValue({ documentType: undefined });
+                  }
+                }}
+              >
+                <Select.Option value="garbage_fees">Garbage Fees</Select.Option>
+                <Select.Option value="streetlight_fees">Streetlight Fees</Select.Option>
+                <Select.Option value="document_request_fees">Document Request Fees</Select.Option>
+              </Select>
+            </Form.Item>
+            
+            {selectedExportType === 'document_request_fees' && (
+              <Form.Item 
+                name="documentType" 
+                label="Select Document Type"
+                rules={[{ required: true, message: "Please select a document type" }]}
+              >
+                <Select placeholder="Choose document type">
+                  <Select.Option value="certificate_of_indigency">Certificate of Indigency</Select.Option>
+                  <Select.Option value="barangay_clearance">Barangay Clearance</Select.Option>
+                  <Select.Option value="business_clearance">Business Clearance</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+            
+            <div className="text-sm text-gray-500 mt-4 p-3 rounded">
+              <p><strong>Export includes:</strong></p>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Transaction ID and Type</li>
+                <li>Category and Description</li>
+                <li>Amount and Payment Method</li>
+                <li>Resident Information</li>
+                <li>Status and Date</li>
+              </ul>
+            </div>
+          </Form>
+        </Modal>
+
         {/* Create Transaction Modal */}
         <Modal
           title="Add Financial Transaction"
@@ -891,7 +1020,7 @@ export default function AdminFinancialReports() {
           confirmLoading={creating}
           width={700}
         >
-          <Form form={createForm} layout="vertical">
+          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash' }}>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}>
@@ -968,12 +1097,7 @@ export default function AdminFinancialReports() {
               </Col>
               <Col span={12}>
                 <Form.Item name="paymentMethod" label="Payment Method">
-                  <Select>
-                    <Select.Option value="cash">Cash</Select.Option>
-                    <Select.Option value="gcash">GCash</Select.Option>
-                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
-                    <Select.Option value="other">Other</Select.Option>
-                  </Select>
+                  <Input value="Cash" disabled />
                 </Form.Item>
               </Col>
             </Row>
@@ -1152,12 +1276,7 @@ export default function AdminFinancialReports() {
               </Col>
               <Col span={12}>
                 <Form.Item name="paymentMethod" label="Payment Method">
-                  <Select>
-                    <Select.Option value="cash">Cash</Select.Option>
-                    <Select.Option value="gcash">GCash</Select.Option>
-                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
-                    <Select.Option value="other">Other</Select.Option>
-                  </Select>
+                  <Input value="Cash" disabled />
                 </Form.Item>
               </Col>
             </Row>
