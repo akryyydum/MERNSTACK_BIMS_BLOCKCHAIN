@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import ResidentDashboard from "./pages/Residents/ResidentDashboard";
 import ResidentRequest from "./pages/Residents/ResidentRequest";
 import ResidentPayment from "./pages/Residents/ResidentPayment";
+import ResidentProfile from "./pages/Residents/ResidentProfile";
 import SplashRedirect from "./routes/SplashRedirect";
 import AdminUserManagement from "./pages/Admin/AdminUserManagement";
 import AdminResidentManagement from "./pages/Admin/AdminResidentManagement";
@@ -59,6 +60,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={["resident"]} />}>
           <Route path="/resident-dashboard" element={<ResidentDashboard />} />
           <Route path="/resident/dashboard" element={<ResidentDashboard />} />
+          <Route path="/resident/profile" element={<ResidentProfile />} />
           <Route path="/resident/requests" element={<ResidentRequest />} />
           <Route path="/resident/payments" element={<ResidentPayment />} />
           <Route path="/resident/reports-complaints" element={<ResidentReportsComplaints />} />

@@ -10,6 +10,7 @@ import {
 import axios from "axios";
 import dayjs from "dayjs";
 import ResidentNavbar from "./ResidentNavbar";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 function iconFor(mime) {
   if (/pdf$/i.test(mime)) return <FilePdfOutlined className="text-red-600" />;
@@ -147,14 +148,18 @@ export default function ResidentPublicDocuments() {
         <div className="flex gap-2">
           <Button
             size="small"
+            type="default"
             onClick={() => openPreview(r)}
+            className="shadow-sm"
           >
             View
           </Button>
           <Button
             size="small"
+            type="primary"
             icon={<DownloadOutlined />}
             onClick={() => download(r)}
+            className="shadow-sm bg-blue-600 hover:bg-blue-700"
           >
             Download
           </Button>
@@ -164,34 +169,50 @@ export default function ResidentPublicDocuments() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-bold">Public Documents</h1>
-        <div className="flex gap-2 flex-wrap">
-          <Input.Search
-            placeholder="Search documents"
-            allowClear
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onSearch={v => setSearch(v.trim())}
-            className="max-w-xs"
-          />
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <Table
-            rowKey="_id"
-            loading={loading}
-            dataSource={filtered}
-            columns={columns}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 700 }}
-          />
-        </div>
-      </div>
+      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        <Card className="w-full">
+          <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-2xl font-semibold text-slate-900">Public Documents</CardTitle>
+              <CardDescription>
+                View and download official barangay public documents
+              </CardDescription>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Input.Search
+                placeholder="Search documents"
+                allowClear
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onSearch={v => setSearch(v.trim())}
+                className="max-w-xs"
+              />
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Card className="w-full">
+          <CardContent className="space-y-6">
+            <Table
+              rowKey="_id"
+              loading={loading}
+              dataSource={filtered}
+              columns={columns}
+              pagination={{ pageSize: 10 }}
+              scroll={{ x: 700 }}
+            />
+          </CardContent>
+        </Card>
+      </main>
 
       <Modal
-        title={previewDoc ? `Preview: ${previewDoc.title}` : "Preview"}
+        title={
+          <div className="text-lg font-semibold text-slate-900">
+            {previewDoc ? `Preview: ${previewDoc.title}` : "Preview"}
+          </div>
+        }
         open={previewOpen}
         onCancel={() => {
           setPreviewOpen(false);
@@ -199,6 +220,7 @@ export default function ResidentPublicDocuments() {
         }}
         footer={null}
         width={900}
+        className="top-4"
         bodyStyle={{ height: "75vh", display: "flex", flexDirection: "column" }}
       >
         {previewLoading && <Skeleton active />}
@@ -227,7 +249,7 @@ export default function ResidentPublicDocuments() {
                   <p>No inline preview for this file type.</p>
                   <Button
                     type="primary"
-                    className="mt-2"
+                    className="mt-2 shadow-sm bg-blue-600 hover:bg-blue-700"
                     icon={<DownloadOutlined />}
                     onClick={() => download(previewDoc)}
                   >

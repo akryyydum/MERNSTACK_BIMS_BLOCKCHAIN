@@ -164,42 +164,20 @@ export default function AdminUserManagement() {
       const values = await createForm.validateFields();
       setCreating(true);
 
-      // Frontend validation for required fields
-      if (values.role === "resident") {
-        if (!values.username || !values.password || !values.residentId) {
-          message.error("Username, password, and resident selection are required for resident accounts.");
-          setCreating(false);
-          return;
-        }
-      } else {
-        if (!values.username || !values.password || !values.fullName || !values.contact?.email || !values.contact?.mobile || !values.role) {
-          message.error("Username, password, full name, email, mobile, and role are required for admin/official accounts.");
-          setCreating(false);
-          return;
-        }
+      // All roles now use the same validation: username, password, residentId, role
+      if (!values.username || !values.password || !values.residentId || !values.role) {
+        message.error("Username, password, resident selection, and role are required.");
+        setCreating(false);
+        return;
       }
 
-      // Build payload conditionally
-      let payload;
-      if (values.role === "resident") {
-        payload = {
-          role: "resident",
-          username: values.username,
-          password: values.password,
-          residentId: values.residentId
-        };
-      } else {
-        payload = {
-          role: values.role,
-          fullName: values.fullName,
-          username: values.username,
-          password: values.password,
-          contact: {
-            email: values.contact.email,
-            mobile: values.contact.mobile,
-          },
-        };
-      }
+      // Build unified payload for all roles
+      const payload = {
+        role: values.role,
+        username: values.username,
+        password: values.password,
+        residentId: values.residentId
+      };
 
       const res = await fetch(`${API_BASE}/api/admin/users`, {
         method: "POST",
@@ -540,8 +518,8 @@ export default function AdminUserManagement() {
           width={window.innerWidth < 600 ? "95vw" : 520}
           bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
           afterOpenChange={(open) => {
-            if (open && createForm.getFieldValue("role") === "resident") {
-              fetchUnlinkedResidents();
+            if (open) {
+              fetchUnlinkedResidents(); // Fetch for all roles now
             }
           }}
         >
@@ -549,7 +527,7 @@ export default function AdminUserManagement() {
             form={createForm}
             layout="vertical"
             onValuesChange={(changed) => {
-              if (changed.role === "resident") fetchUnlinkedResidents();
+              if (changed.role) fetchUnlinkedResidents(); // Fetch when role changes
             }}
           >
             <Form.Item
@@ -567,18 +545,6 @@ export default function AdminUserManagement() {
               />
             </Form.Item>
 
-            {roleValue !== "resident" && (
-              <>
-                <Form.Item
-                  name="fullName"
-                  label="Full name"
-                  rules={[{ required: true, message: "Full name is required" }]}
-                >
-                  <Input />
-                </Form.Item>
-              </>
-            )}
-
             <Form.Item
               name="username"
               label="Username"
@@ -595,57 +561,34 @@ export default function AdminUserManagement() {
               <Input.Password autoComplete="new-password" />
             </Form.Item>
 
-            {roleValue === "resident" ? (
-              <>
-                <Form.Item
-                  name="residentId"
-                  label="Select Resident (no account yet)"
-                  rules={[{ required: true, message: "Please select a resident" }]}
-                  extra="List shows residents without a linked user account."
-                >
-                  <Select
-                    loading={loadingUnlinked}
-                    placeholder="Choose resident"
-                    showSearch
-                    optionFilterProp="label"
-                    options={unlinkedResidents.map(r => ({
-                      value: r._id,
-                      label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""} • ${r.address?.purok || ""}`,
-                    }))}
-                  />
-                </Form.Item>
-                {/* Optional preview */}
-                {(() => {
-                  const rid = createForm.getFieldValue("residentId");
-                  const sel = unlinkedResidents.find(r => r._id === rid);
-                  return sel ? (
-                    <div className="text-xs text-gray-600">
-                      Email: {sel.contact?.email || "-"} • Mobile: {sel.contact?.mobile || "-"}
-                    </div>
-                  ) : null;
-                })()}
-              </>
-            ) : (
-              <>
-                <Form.Item
-                  name={["contact", "email"]}
-                  label="Email"
-                  rules={[
-                    { required: true, message: "Email is required" },
-                    { type: "email", message: "Invalid email" },
-                  ]}
-                >
-                  <Input type="email" />
-                </Form.Item>
-                <Form.Item
-                  name={["contact", "mobile"]}
-                  label="Mobile"
-                  rules={[{ required: true, message: "Mobile is required" }]}
-                >
-                  <Input />
-                </Form.Item>
-              </>
-            )}
+            {/* All roles now use resident selection */}
+            <Form.Item
+              name="residentId"
+              label="Select Resident (no account yet)"
+              rules={[{ required: true, message: "Please select a resident" }]}
+              extra="List shows residents without a linked user account."
+            >
+              <Select
+                loading={loadingUnlinked}
+                placeholder="Choose resident"
+                showSearch
+                optionFilterProp="label"
+                options={unlinkedResidents.map(r => ({
+                  value: r._id,
+                  label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""} • ${r.address?.purok || ""}`,
+                }))}
+              />
+            </Form.Item>
+            {/* Optional preview */}
+            {(() => {
+              const rid = createForm.getFieldValue("residentId");
+              const sel = unlinkedResidents.find(r => r._id === rid);
+              return sel ? (
+                <div className="text-xs text-gray-600">
+                  Email: {sel.contact?.email || "-"} • Mobile: {sel.contact?.mobile || "-"}
+                </div>
+              ) : null;
+            })()}
           </Form>
         </Modal>
 

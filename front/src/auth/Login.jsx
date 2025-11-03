@@ -2,6 +2,19 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions } from "antd";
 
+// Sectoral Information options
+const SECTORAL_OPTIONS = [
+  { value: "Solo Parent", label: "Solo Parent" },
+  { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
+  { value: "PWD", label: "PWD (Person with Disability)" },
+  { value: "Unemployed", label: "Unemployed" },
+  { value: "Labor Force", label: "Labor Force" },
+  { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
+  { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
+  { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
+  { value: "None", label: "None" }
+];
+
 const Login = () => {
   const [error, setError] = useState("");
   const [showRegister, setShowRegister] = useState(false);
@@ -21,7 +34,7 @@ const Login = () => {
     2: [
       ["address","purok"],
       ["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
-  "citizenship","occupation",["contact","mobile"],["contact","email"]
+  "citizenship","occupation","sectoralInformation",["contact","mobile"],["contact","email"]
     ],
     3: [
       "username",
@@ -167,8 +180,8 @@ const Login = () => {
       const password = values?.password;
       const username = values?.username?.trim();
 
-      if (!password || !fullName || !email || !username) {
-        setRegError("Username, password, full name, and contact email are required");
+      if (!password || !fullName || !username) {
+        setRegError("Username, password, and full name are required");
         return;
       }
 
@@ -200,6 +213,7 @@ const Login = () => {
         },
         citizenship: values.citizenship,
         occupation: values.occupation,
+        sectoralInformation: values.sectoralInformation,
         role: "resident",
       };
 
@@ -527,7 +541,7 @@ const Login = () => {
                   label="Religion"
                   name="religion"
                   rules={[
-                    { required: true, message: 'Religion is required' },
+                    { required: false },
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
                   ]}
                   className="mb-2"
@@ -580,20 +594,29 @@ const Login = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Citizenship" name="citizenship" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" placeholder="e.g., Filipino" />
+                  <Form.Item label="Citizenship" name="citizenship" initialValue="Filipino" rules={[{ required: false }]} className="mb-2">
+                    <Input size="middle" placeholder="e.g., Filipino" disabled />
                   </Form.Item>
                   <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., Teacher" />
                   </Form.Item>
                 </div>
 
+                <Form.Item label="Sectoral Information" name="sectoralInformation" rules={[{ required: false }]} className="mb-2">
+                  <Select
+                    size="middle"
+                    placeholder="Select sectoral information (optional)"
+                    options={SECTORAL_OPTIONS}
+                    allowClear
+                  />
+                </Form.Item>
+
                 <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ type: "string" }]} className="mb-2">
+                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ type: "string", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., 09123456789" />
                   </Form.Item>
-                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ type: "email" }]} className="mb-2">
+                  <Form.Item label="Email" name={["contact", "email"]} rules={[{ type: "email", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., juan.delacruz@email.com" />
                   </Form.Item>
                 </div>
@@ -710,6 +733,7 @@ const Login = () => {
                   <Descriptions title="Other Information" bordered column={2} className="mb-4" size="middle">
                     <Descriptions.Item label="Citizenship" span={1}>{regForm.getFieldValue('citizenship')}</Descriptions.Item>
                     <Descriptions.Item label="Occupation" span={1}>{regForm.getFieldValue('occupation')}</Descriptions.Item>
+                    <Descriptions.Item label="Sectoral Information" span={2}>{regForm.getFieldValue('sectoralInformation') || 'None'}</Descriptions.Item>
                     {/* ...existing code... */}
                     <Descriptions.Item label="Mobile" span={2}>{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>
                     <Descriptions.Item label="Email" span={2}>{regForm.getFieldValue(['contact', 'email'])}</Descriptions.Item>

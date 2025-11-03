@@ -28,6 +28,7 @@ exports.create = async (req, res) => {
       address,
       citizenship,
       occupation,
+      sectoralInformation,
       contact = {},
       idFiles,
       status,
@@ -74,6 +75,7 @@ exports.create = async (req, res) => {
           ? citizenship.trim()
           : DEFAULT_CITIZENSHIP,
       occupation: typeof occupation === "string" ? occupation.trim() : occupation,
+      sectoralInformation: typeof sectoralInformation === "string" ? sectoralInformation.trim() : sectoralInformation,
     };
 
     const requiredMissing =
@@ -121,6 +123,7 @@ exports.create = async (req, res) => {
       address: normalizedAddress,
       citizenship: sanitized.citizenship,
       occupation: sanitized.occupation,
+      sectoralInformation: sanitized.sectoralInformation,
       contact: sanitizedContact,
       idFiles,
       status: resolvedStatus,
@@ -150,8 +153,35 @@ exports.list = async (req, res) => {
     
     const filter = {};
     if (String(req.query.unlinked) === "true") {
-      filter.$or = [{ user: { $exists: false } }, { user: null }];
+      // Get all residents
+      const allResidents = await Resident.find({});
+      const unlinkedResidents = [];
+      
+      // Check each resident to see if they're truly unlinked
+      for (const resident of allResidents) {
+        if (!resident.user) {
+          // No user reference at all
+          unlinkedResidents.push(resident);
+        } else {
+          // Check if the referenced user actually exists
+          const User = require("../models/user.model");
+          const userExists = await User.findById(resident.user);
+          if (!userExists) {
+            // Broken reference - clean it up and include in unlinked list
+            await Resident.updateOne(
+              { _id: resident._id },
+              { $unset: { user: 1 } }
+            );
+            resident.user = undefined; // Update local object
+            unlinkedResidents.push(resident);
+          }
+        }
+      }
+      
+      console.log(`Found ${unlinkedResidents.length} unlinked residents`);
+      return res.json(unlinkedResidents);
     }
+    
     const residents = await Resident.find(filter).populate("user", "username fullName contact");
     
     console.log(`Found ${residents.length} residents`);

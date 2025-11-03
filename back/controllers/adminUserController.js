@@ -40,80 +40,67 @@ exports.list = async (req, res) => {
 // POST /api/admin/users
 exports.create = async (req, res) => {
   try {
-  const { username, password, role, residentId, fullName, contact } = req.body;
+    const { username, password, role, residentId } = req.body;
 
-    // Allow admins to create resident accounts by selecting an unlinked resident
-    if (role === "resident") {
-      if (!username || !password || !residentId) {
-        return res.status(400).json({ message: "username, password and residentId are required" });
-      }
-
-      const resident = await Resident.findOne({
-        _id: residentId,
-        $or: [{ user: null }, { user: { $exists: false } }],
-      });
-      if (!resident) {
-        return res.status(400).json({ message: "Resident not found or already linked to a user" });
-      }
-
-      // Ensure username is unique
-      const exists = await User.findOne({ username });
-      if (exists) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-
-      const passwordHash = await bcrypt.hash(password, 10);
-      const computedFullName = [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
-        .filter(Boolean)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      const user = await User.create({
-        username,
-        passwordHash,
-        role: "resident",
-        fullName: computedFullName || "Resident",
-        isVerified: true,
-        isActive: true,
-      });
-
-      await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id } });
-
-      return res.status(201).json({
-        _id: user._id,
-        username: user.username,
-        fullName: user.fullName,
-        role: user.role,
-        isActive: user.isActive,
-        isVerified: user.isVerified,
-        createdAt: user.createdAt,
-      });
+    // All user creation now uses resident selection approach
+    if (!username || !password || !residentId || !role) {
+      return res.status(400).json({ message: "username, password, residentId, and role are required" });
     }
 
-    // Admin/Official creation (unchanged)
-    if (!username || !password || !fullName || !contact.email || !contact.mobile || !role) {
-      return res.status(400).json({ message: "username, password, fullName, contact.email, contact.mobile, role are required" });
-    }
-    if (!["admin", "official"].includes(role)) {
-      return res.status(400).json({ message: "Only admin or official can be created here" });
+    if (!["resident", "admin", "official"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role. Must be resident, admin, or official" });
     }
 
-    const exists = await User.findOne({
-      $or: [{ username }, { "contact.email": String(contact.email).toLowerCase().trim() }],
-    });
-    if (exists) return res.status(400).json({ message: "Username or email already exists" });
+    // Find resident and check if it's available (no user link or broken user link)
+    const resident = await Resident.findById(residentId);
+    if (!resident) {
+      return res.status(400).json({ message: "Resident not found" });
+    }
+
+    // Check if resident is already properly linked to an existing user
+    if (resident.user) {
+      const existingUser = await User.findById(resident.user);
+      if (existingUser) {
+        return res.status(400).json({ message: "Resident is already linked to a user account" });
+      }
+      // If user doesn't exist, clean up the broken reference
+      resident.user = undefined;
+      await resident.save();
+    }
+
+    // Ensure username is unique
+    const exists = await User.findOne({ username });
+    if (exists) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const computedFullName = [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Prepare contact object - only include fields with values to avoid unique constraint issues
+    const contactData = {};
+    if (resident.contact?.email && resident.contact.email.trim()) {
+      contactData.email = resident.contact.email.toLowerCase().trim();
+    }
+    if (resident.contact?.mobile && resident.contact.mobile.trim()) {
+      contactData.mobile = resident.contact.mobile.trim();
+    }
+
     const user = await User.create({
       username,
       passwordHash,
-      role,
-      fullName,
-      contact: { email: String(contact.email).toLowerCase().trim(), mobile: contact.mobile },
+      role, // Can be resident, admin, or official
+      fullName: computedFullName || "User",
+      contact: contactData,
       isVerified: true,
       isActive: true,
     });
+
+    await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id } });
 
     res.status(201).json({
       _id: user._id,
@@ -179,8 +166,17 @@ exports.remove = async (req, res) => {
     if (req.user && String(req.user.id) === String(id)) {
       return res.status(400).json({ message: "You cannot delete your own account" });
     }
+    
+    // Delete the user
     await User.deleteOne({ _id: id });
-    res.json({ message: "Deleted" });
+    
+    // Clean up any resident references to this deleted user
+    await Resident.updateMany(
+      { user: id },
+      { $unset: { user: 1 } }
+    );
+    
+    res.json({ message: "User deleted and resident references cleaned up" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

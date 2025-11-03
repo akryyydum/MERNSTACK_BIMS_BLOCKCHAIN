@@ -11,11 +11,13 @@ router.patch("/:id", adminHouseholdCtrl.update);
 router.delete("/:id", adminHouseholdCtrl.remove);
 
 // Utility fees
+router.get("/garbage-statistics", adminHouseholdCtrl.getGarbageStatistics);
 router.get("/:id/garbage", adminHouseholdCtrl.garbageSummary);
 router.post("/:id/garbage/pay", adminHouseholdCtrl.payGarbage);
 router.delete("/:id/garbage/payments", adminHouseholdCtrl.deleteGarbagePayments);
 router.get("/:id/electric", adminHouseholdCtrl.electricSummary);
 router.post("/:id/electric/pay", adminHouseholdCtrl.payElectric);
+router.get("/streetlight-statistics", adminHouseholdCtrl.getStreetlightStatistics);
 router.get("/:id/streetlight", adminHouseholdCtrl.streetlightSummary);
 router.post("/:id/streetlight/pay", adminHouseholdCtrl.payStreetlight);
 router.delete("/:id/streetlight/payments", adminHouseholdCtrl.deleteStreetlightPayments);

@@ -36,6 +36,7 @@ async function register(req, res) {
       address,
   citizenship,
   occupation,
+  sectoralInformation,
   contact = {},
     } = req.body;
 
@@ -110,6 +111,7 @@ async function register(req, res) {
       address,
       citizenship,
   occupation,
+      sectoralInformation,
       contact: {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined

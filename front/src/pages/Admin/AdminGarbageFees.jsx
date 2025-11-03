@@ -139,8 +139,7 @@ export default function AdminGarbageFees() {
         hasBusiness: household?.hasBusiness || false,
         totalCharge: Number(res.data.totalCharge || defaultFee),
         amount: Number(res.data.balance || res.data.totalCharge || defaultFee),
-        method: undefined,
-        reference: undefined,
+        method: "Cash",
       });
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to load garbage fee summary");
@@ -168,8 +167,7 @@ export default function AdminGarbageFees() {
       selectedMonths: initialMonths,
       totalCharge: totalCharge,
       amount: totalCharge,
-      method: undefined,
-      reference: undefined,
+      method: "Cash",
     });
   };
 
@@ -323,7 +321,28 @@ export default function AdminGarbageFees() {
     setStatsRefreshing(true);
     try {
       const res = await axios.get(`${API_BASE}/api/admin/garbage-statistics`, { headers: authHeaders() });
-      setStats(res.data);
+      const apiStats = res.data;
+      
+      console.log('API Statistics Response:', apiStats);
+      
+      setStats({
+        totalHouseholds: Number(apiStats.totalHouseholds || 0),
+        feeStructure: {
+          noBusiness: apiStats.feeStructure?.noBusiness || 35,
+          withBusiness: apiStats.feeStructure?.withBusiness || 50,
+          expectedMonthly: Number(apiStats.feeStructure?.expectedMonthly || 0),
+          expectedYearly: Number(apiStats.feeStructure?.expectedYearly || 0)
+        },
+        totalCollected: {
+          yearly: Number(apiStats.totalCollected?.yearly || 0),
+          monthly: Number(apiStats.totalCollected?.monthly || 0)
+        },
+        balance: {
+          yearly: Number(apiStats.balance?.yearly || 0),
+          monthly: Number(apiStats.balance?.monthly || 0)
+        },
+        collectionRate: Number(apiStats.collectionRate || 0)
+      });
     } catch (err) {
       console.error("Error fetching statistics:", err);
       // Fallback to calculated stats from household data
@@ -864,16 +883,16 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.totalCollected?.yearly || 0).toFixed(2)}
+                    ₱{stats.totalCollected?.monthly || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Year:</span> ₱{(stats.totalCollected?.yearly || 0).toFixed(2)}
+                      <span className="font-semibold">Year:</span> ₱{stats.totalCollected?.yearly || 0}
                     </div>
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Month:</span> ₱{(stats.totalCollected?.monthly || 0).toFixed(2)}
+                      <span className="font-semibold">Month:</span> ₱{stats.totalCollected?.monthly || 0}
                     </div>
                   </div>
                 </CardContent>
@@ -885,16 +904,16 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.balance?.yearly || 0).toFixed(2)}
+                    ₱{stats.balance?.monthly || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Year:</span> ₱{(stats.balance?.yearly || 0).toFixed(2)}
+                      <span className="font-semibold">Year:</span> ₱{stats.balance?.yearly || 0}
                     </div>
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Month:</span> ₱{(stats.balance?.monthly || 0).toFixed(2)}
+                      <span className="font-semibold">Month:</span> ₱{stats.balance?.monthly || 0}
                     </div>
                   </div>
                 </CardContent>
@@ -937,11 +956,8 @@ export default function AdminGarbageFees() {
               >
                 + Add Payment
               </Button>
-              <Button 
-                type="default"
-                icon={<FileExcelOutlined />}
+              <Button
                 onClick={() => setExportOpen(true)}
-                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
               >
                 Export Excel
               </Button>
@@ -1263,7 +1279,7 @@ export default function AdminGarbageFees() {
           confirmLoading={payLoading}
           width={720}
         >
-          <Form form={payForm} layout="vertical">
+          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
             <Form.Item label="Fee Type">
               <Input disabled value="Garbage Collection Fee" />
             </Form.Item>
@@ -1397,18 +1413,7 @@ export default function AdminGarbageFees() {
               <InputNumber className="w-full" min={0} step={50} />
             </Form.Item>
             <Form.Item name="method" label="Payment Method">
-              <Select
-                allowClear
-                options={[
-                  { value: "cash", label: "Cash" },
-                  { value: "gcash", label: "GCash" },
-                  { value: "bank", label: "Bank Transfer" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="reference" label="Reference No. (optional)">
-              <Input />
+              <Input value="Cash" disabled />
             </Form.Item>
 
             {selectedMonths.length > 0 && (

@@ -4,6 +4,7 @@ const Counter = require("../models/counter.model");
 // const GasPayment = require("../models/gasPayment.model");
 const UtilityPayment = require("../models/utilityPayment.model");
 const FinancialTransaction = require("../models/financialTransaction.model");
+const dayjs = require("dayjs");
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -554,17 +555,34 @@ exports.deleteGarbagePayments = async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log(`[DELETE GARBAGE] Starting deletion for household ID: ${id}`);
+    
     // Verify household exists
     const household = await Household.findById(id);
     if (!household) {
       return res.status(404).json({ message: "Household not found" });
     }
     
+    // Check existing records before deletion
+    const existingRecords = await UtilityPayment.find({ 
+      household: id, 
+      type: "garbage" 
+    });
+    console.log(`[DELETE GARBAGE] Found ${existingRecords.length} existing records to delete`);
+    console.log(`[DELETE GARBAGE] Records:`, existingRecords.map(r => ({ 
+      id: r._id, 
+      month: r.month, 
+      amountPaid: r.amountPaid,
+      paymentsCount: r.payments?.length || 0
+    })));
+    
     // Delete all garbage payment records for this household
     const result = await UtilityPayment.deleteMany({ 
       household: id, 
       type: "garbage" 
     });
+    
+    console.log(`[DELETE GARBAGE] Deletion result:`, result);
     
     // Reset household garbage fee to default
     household.garbageFee = {
@@ -574,9 +592,19 @@ exports.deleteGarbagePayments = async (req, res) => {
     };
     await household.save();
     
+    console.log(`[DELETE GARBAGE] Household ${household.householdId} reset completed`);
+    
+    // Verify deletion was successful by checking remaining records
+    const remainingRecords = await UtilityPayment.find({ 
+      household: id, 
+      type: "garbage" 
+    });
+    console.log(`[DELETE GARBAGE] Remaining records after deletion: ${remainingRecords.length}`);
+    
     res.json({ 
       message: `Deleted ${result.deletedCount} garbage payment records for household ${household.householdId}`,
-      deletedCount: result.deletedCount
+      deletedCount: result.deletedCount,
+      remainingRecords: remainingRecords.length
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -588,17 +616,34 @@ exports.deleteStreetlightPayments = async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log(`[DELETE STREETLIGHT] Starting deletion for household ID: ${id}`);
+    
     // Verify household exists
     const household = await Household.findById(id);
     if (!household) {
       return res.status(404).json({ message: "Household not found" });
     }
     
+    // Check existing records before deletion
+    const existingRecords = await UtilityPayment.find({ 
+      household: id, 
+      type: "streetlight" 
+    });
+    console.log(`[DELETE STREETLIGHT] Found ${existingRecords.length} existing records to delete`);
+    console.log(`[DELETE STREETLIGHT] Records:`, existingRecords.map(r => ({ 
+      id: r._id, 
+      month: r.month, 
+      amountPaid: r.amountPaid,
+      paymentsCount: r.payments?.length || 0
+    })));
+    
     // Delete all streetlight payment records for this household
     const result = await UtilityPayment.deleteMany({ 
       household: id, 
       type: "streetlight" 
     });
+    
+    console.log(`[DELETE STREETLIGHT] Deletion result:`, result);
     
     // Reset household streetlight fee to default
     household.streetlightFee = {
@@ -608,9 +653,19 @@ exports.deleteStreetlightPayments = async (req, res) => {
     };
     await household.save();
     
+    console.log(`[DELETE STREETLIGHT] Household ${household.householdId} reset completed`);
+    
+    // Verify deletion was successful by checking remaining records
+    const remainingRecords = await UtilityPayment.find({ 
+      household: id, 
+      type: "streetlight" 
+    });
+    console.log(`[DELETE STREETLIGHT] Remaining records after deletion: ${remainingRecords.length}`);
+    
     res.json({ 
       message: `Deleted ${result.deletedCount} streetlight payment records for household ${household.householdId}`,
-      deletedCount: result.deletedCount
+      deletedCount: result.deletedCount,
+      remainingRecords: remainingRecords.length
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -692,5 +747,184 @@ exports.getResidentPayments = async (req, res) => {
   } catch (err) {
     console.error("Error in getResidentPayments:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/admin/garbage-statistics - Get garbage payment statistics
+exports.getGarbageStatistics = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    console.log('Fetching garbage statistics for year:', currentYear);
+    console.log('Current month:', currentMonth);
+
+    // Get all households
+    const households = await Household.find({}).populate('headOfHousehold').lean();
+    const totalHouseholds = households.length;
+
+    console.log('Total households found:', totalHouseholds);
+
+    // Calculate expected totals
+    let expectedMonthly = 0;
+    let expectedYearly = 0;
+    
+    households.forEach(household => {
+      const monthlyFee = household.hasBusiness ? 50 : 35;
+      expectedMonthly += monthlyFee;
+      expectedYearly += monthlyFee * 12;
+    });
+
+    console.log('Expected monthly total:', expectedMonthly);
+    console.log('Expected yearly total:', expectedYearly);
+
+    // Get all garbage payments for current year
+    const garbagePayments = await UtilityPayment.find({
+      type: 'garbage',
+      month: { $regex: `^${currentYear}-` }
+    }).populate('household', 'householdId hasBusiness').lean();
+
+    console.log('Garbage payments found:', garbagePayments.length);
+
+    // Calculate totals
+    let yearlyCollected = 0;
+    let monthlyCollected = 0;
+    
+    garbagePayments.forEach(payment => {
+      if (payment.household && payment.amountPaid > 0) {
+        console.log(`Payment: ${payment.household.householdId} - ${payment.month} - ₱${payment.amountPaid}`);
+        yearlyCollected += payment.amountPaid || 0;
+        
+        if (payment.month === currentMonth) {
+          monthlyCollected += payment.amountPaid || 0;
+        }
+      }
+    });
+
+    const yearlyOutstanding = expectedYearly - yearlyCollected;
+    const monthlyOutstanding = expectedMonthly - monthlyCollected;
+    const collectionRate = expectedYearly > 0 ? (yearlyCollected / expectedYearly) * 100 : 0;
+
+    console.log('Final statistics:', {
+      totalHouseholds,
+      expectedMonthly,
+      expectedYearly,
+      yearlyCollected,
+      monthlyCollected,
+      yearlyOutstanding,
+      monthlyOutstanding,
+      collectionRate
+    });
+
+    res.json({
+      totalHouseholds,
+      feeStructure: {
+        noBusiness: 35,
+        withBusiness: 50,
+        expectedMonthly,
+        expectedYearly
+      },
+      totalCollected: {
+        yearly: yearlyCollected,
+        monthly: monthlyCollected
+      },
+      balance: {
+        yearly: yearlyOutstanding,
+        monthly: monthlyOutstanding
+      },
+      collectionRate: parseFloat(collectionRate.toFixed(1))
+    });
+
+  } catch (error) {
+    console.error('Error getting garbage statistics:', error);
+    res.status(500).json({ 
+      message: 'Failed to get garbage statistics', 
+      error: error.message 
+    });
+  }
+};
+
+// GET /api/admin/streetlight-statistics - Get streetlight payment statistics
+exports.getStreetlightStatistics = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    console.log('Fetching streetlight statistics for year:', currentYear);
+    console.log('Current month:', currentMonth);
+
+    // Get all households
+    const households = await Household.find({}).populate('headOfHousehold').lean();
+    const totalHouseholds = households.length;
+
+    console.log('Total households found:', totalHouseholds);
+
+    // Calculate expected totals (fixed ₱10 per household)
+    const monthlyRate = 10;
+    const expectedMonthly = totalHouseholds * monthlyRate;
+    const expectedYearly = expectedMonthly * 12;
+
+    console.log('Expected monthly total:', expectedMonthly);
+    console.log('Expected yearly total:', expectedYearly);
+
+    // Get all streetlight payments for current year
+    const streetlightPayments = await UtilityPayment.find({
+      type: 'streetlight',
+      month: { $regex: `^${currentYear}-` }
+    }).populate('household', 'householdId').lean();
+
+    console.log('Streetlight payments found:', streetlightPayments.length);
+
+    // Calculate totals
+    let yearlyCollected = 0;
+    let monthlyCollected = 0;
+    
+    streetlightPayments.forEach(payment => {
+      if (payment.household && payment.amountPaid > 0) {
+        console.log(`Payment: ${payment.household.householdId} - ${payment.month} - ₱${payment.amountPaid}`);
+        yearlyCollected += payment.amountPaid || 0;
+        
+        if (payment.month === currentMonth) {
+          monthlyCollected += payment.amountPaid || 0;
+        }
+      }
+    });
+
+    const yearlyOutstanding = expectedYearly - yearlyCollected;
+    const monthlyOutstanding = expectedMonthly - monthlyCollected;
+    const collectionRate = expectedYearly > 0 ? (yearlyCollected / expectedYearly) * 100 : 0;
+
+    console.log('Final streetlight statistics:', {
+      totalHouseholds,
+      monthlyRate,
+      expectedMonthly,
+      expectedYearly,
+      yearlyCollected,
+      monthlyCollected,
+      yearlyOutstanding,
+      monthlyOutstanding,
+      collectionRate
+    });
+
+    res.json({
+      totalHouseholds,
+      monthlyRate,
+      totalCollected: {
+        yearly: yearlyCollected,
+        monthly: monthlyCollected
+      },
+      outstanding: {
+        yearly: yearlyOutstanding,
+        monthly: monthlyOutstanding
+      },
+      collectionRate: parseFloat(collectionRate.toFixed(1))
+    });
+
+  } catch (error) {
+    console.error('Error getting streetlight statistics:', error);
+    res.status(500).json({ 
+      message: 'Failed to get streetlight statistics', 
+      error: error.message 
+    });
   }
 };

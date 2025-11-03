@@ -97,7 +97,8 @@ const normalizeUtilityResponse = (payload) => {
     { key: "garbagePayments", type: "garbage" },
     { key: "streetlight", type: "streetlight" },
     { key: "streetlightPayments", type: "streetlight" },
-    { key: "utilityPayments", type: null },
+    { key: "utilityPayments", type: "garbage" }, // These are garbage fees
+    { key: "gasPayments", type: "garbage" }, // Gas payments are also garbage fees
     { key: "records", type: null },
     { key: "data", type: null },
   ];
@@ -165,6 +166,7 @@ export default function ResidentPayment() {
   const [loading, setLoading] = useState(false);
   const [resident, setResident] = useState(null);
   const [payments, setPayments] = useState([]);
+  const [paymentSummary, setPaymentSummary] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -186,6 +188,9 @@ export default function ResidentPayment() {
         headers,
       });
 
+      // Store the payment summary for annual calculations
+      setPaymentSummary(response.data);
+      
       const normalizedEntries = normalizeUtilityResponse(response.data);
       const mapped = normalizedEntries
         .filter((item) => item.month || item.dueDate)
@@ -197,6 +202,7 @@ export default function ResidentPayment() {
       console.error("Failed to load resident payments:", error);
       setError(error?.response?.data?.message || "Unable to load your payment history right now.");
       setPayments([]);
+      setPaymentSummary(null);
     } finally {
       setLoading(false);
     }
@@ -216,22 +222,73 @@ export default function ResidentPayment() {
   );
 
   const totals = useMemo(
-    () =>
-      payments.reduce(
+    () => {
+      // Use payment summary data if available, otherwise calculate from payments
+      if (paymentSummary) {
+        const garbageFees = paymentSummary.garbageFees || {};
+        const streetlightFees = paymentSummary.streetlightFees || {};
+        
+        return {
+          totalDue: (garbageFees.outstandingBalance || 0) + (streetlightFees.outstandingBalance || 0),
+          overdueAmount: 0, // Would need additional logic for overdue calculation
+          paidAmount: (garbageFees.totalPaid || 0) + (streetlightFees.totalPaid || 0),
+          garbageYearlyTotal: garbageFees.annualTotal || 0,
+          garbageYearlyDue: garbageFees.outstandingBalance || 0,
+          garbageYearlyPaid: garbageFees.totalPaid || 0,
+          streetlightYearlyTotal: streetlightFees.annualTotal || 0,
+          streetlightYearlyDue: streetlightFees.outstandingBalance || 0,
+          streetlightYearlyPaid: streetlightFees.totalPaid || 0
+        };
+      }
+
+      // Fallback to old calculation method if no payment summary
+      return payments.reduce(
         (acc, payment) => {
           const balance = payment.balance || 0;
+          const amountPaid = payment.amountPaid || 0;
+          const totalAmount = payment.amount || 0;
+          
+          // Overall totals
           if (payment.status === "pending" || payment.status === "overdue") {
             acc.totalDue += balance;
           }
           if (payment.status === "overdue") {
             acc.overdueAmount += balance;
           }
-          acc.paidAmount += payment.amountPaid || 0;
+          acc.paidAmount += amountPaid;
+          
+          // Yearly totals by type (current year only)
+          const currentYear = new Date().getFullYear();
+          const paymentYear = payment.monthKey ? parseInt(payment.monthKey.split('-')[0]) : currentYear;
+          
+          if (paymentYear === currentYear) {
+            if (payment.type === "Garbage Fee") {
+              acc.garbageYearlyTotal += totalAmount;
+              acc.garbageYearlyPaid += amountPaid;
+              acc.garbageYearlyDue += balance;
+            } else if (payment.type === "Streetlight Fee") {
+              acc.streetlightYearlyTotal += totalAmount;
+              acc.streetlightYearlyPaid += amountPaid;
+              acc.streetlightYearlyDue += balance;
+            }
+          }
+          
           return acc;
         },
-        { totalDue: 0, overdueAmount: 0, paidAmount: 0 }
-      ),
-    [payments]
+        { 
+          totalDue: 0, 
+          overdueAmount: 0, 
+          paidAmount: 0,
+          garbageYearlyTotal: 0,
+          garbageYearlyDue: 0,
+          garbageYearlyPaid: 0,
+          streetlightYearlyTotal: 0,
+          streetlightYearlyDue: 0,
+          streetlightYearlyPaid: 0
+        }
+      );
+    },
+    [payments, paymentSummary]
   );
 
   const filteredPayments = useMemo(() => {
@@ -319,11 +376,6 @@ export default function ResidentPayment() {
         label: "Overdue",
         className: "border border-rose-200 bg-rose-50 text-rose-700",
         Icon: AlertTriangle,
-      },
-      upcoming: {
-        label: "Upcoming",
-        className: "border border-slate-200 bg-slate-50 text-slate-600",
-        Icon: CalendarDays,
       },
     };
 
@@ -431,6 +483,93 @@ export default function ResidentPayment() {
                   <p className="text-xs text-emerald-600">
                     Total successful payments recorded for your household.
                   </p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Yearly Breakdown by Fee Type */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-slate-900">
+              {new Date().getFullYear()} Yearly Breakdown
+            </CardTitle>
+            <CardDescription>
+              Detailed breakdown of garbage and streetlight fees for the current year.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Garbage Fee Yearly Summary */}
+              <Card className="w-full border border-orange-200 bg-orange-50">
+                <CardContent className="px-4 py-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-orange-900">Garbage Fees</h3>
+                      <p className="text-sm text-orange-700">Year-to-date summary</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Outstanding Balance:</span>
+                      <span className="text-lg font-bold text-orange-900">
+                        ₱{totals.garbageYearlyDue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-700">Total Paid:</span>
+                      <span className="text-lg font-semibold text-emerald-700">
+                        ₱{totals.garbageYearlyPaid.toFixed(2)}
+                      </span>
+                    </div>
+                    <hr className="border-orange-200" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-orange-700">Total Fees:</span>
+                      <span className="text-xl font-bold text-orange-900">
+                        ₱{totals.garbageYearlyTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Streetlight Fee Yearly Summary */}
+              <Card className="w-full border border-blue-200 bg-blue-50">
+                <CardContent className="px-4 py-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">Streetlight Fees</h3>
+                      <p className="text-sm text-blue-700">Year-to-date summary</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Outstanding Balance:</span>
+                      <span className="text-lg font-bold text-blue-900">
+                        ₱{totals.streetlightYearlyDue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700">Total Paid:</span>
+                      <span className="text-lg font-semibold text-emerald-700">
+                        ₱{totals.streetlightYearlyPaid.toFixed(2)}
+                      </span>
+                    </div>
+                    <hr className="border-blue-200" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-700">Total Fees:</span>
+                      <span className="text-xl font-bold text-blue-900">
+                        ₱{totals.streetlightYearlyTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -566,11 +705,6 @@ export default function ResidentPayment() {
                     label: `Paid (${statusCounts.paid})`,
                     children: null,
                   },
-                  {
-                    key: 'upcoming',
-                    label: `Upcoming (${statusCounts.upcoming})`,
-                    children: null,
-                  },
                 ]}
                 onChange={(key) => {
                   setActiveTab(key);
@@ -648,11 +782,6 @@ export default function ResidentPayment() {
                             {payment.status === 'overdue' && (
                               <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                                 OVERDUE
-                              </span>
-                            )}
-                            {payment.status === 'upcoming' && (
-                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                                UPCOMING
                               </span>
                             )}
                           </td>

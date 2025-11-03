@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs, Pagination } from "antd";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { 
   UserOutlined, 
@@ -170,17 +170,17 @@ export default function ResidentRequest() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <div className="w-full p-4 sm:p-6 lg:p-8 pt-6">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          {/* Header Section with Title and Button */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        <Card className="w-full">
+          <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-800">My Document Requests</h1>
-              <p className="text-gray-500 text-sm mt-1">
+              <CardTitle className="text-2xl font-semibold text-slate-900">My Document Requests</CardTitle>
+              <CardDescription>
                 Submit and track your official barangay documents
-              </p>
+              </CardDescription>
             </div>
             <Button 
               type="primary" 
@@ -197,36 +197,48 @@ export default function ResidentRequest() {
             >
               New Request
             </Button>
-          </div>
+          </CardHeader>
+        </Card>
 
-          {/* Payment Status Alert */}
-          {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
-            <div className="mb-5">
-              <PaymentStatusAlert 
-                paymentStatus={paymentStatus}
-                onPaymentClick={handleGoToPayments}
-              />
-            </div>
-          )}
-          {/* Request Statistics Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-              <p className="text-sm text-blue-700">All Requests</p>
-              <p className="text-2xl font-bold text-blue-900 mt-1">{totalRequests}</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
-              <p className="text-sm text-amber-700">Pending</p>
-              <p className="text-2xl font-bold text-amber-900 mt-1">{pendingRequests}</p>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-              <p className="text-sm text-green-700">Approved</p>
-              <p className="text-2xl font-bold text-green-900 mt-1">{approvedRequests}</p>
-            </div>
-            <div className="bg-red-50 rounded-lg p-4 border border-red-100">
-              <p className="text-sm text-red-700">Rejected</p>
-              <p className="text-2xl font-bold text-red-900 mt-1">{rejectedRequests}</p>
-            </div>
+        {/* Payment Status Alert */}
+        {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
+          <div className="rounded-lg border px-4 py-3 text-sm text-rose-700 mb-5">
+            <PaymentStatusAlert 
+              paymentStatus={paymentStatus}
+              onPaymentClick={handleGoToPayments}
+            />
           </div>
+        )}
+
+        <Card className="w-full">
+          <CardContent className="space-y-6">
+            {/* Request Statistics Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="w-full border border-blue-200 bg-blue-50">
+                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
+                  <p className="text-sm font-medium text-blue-700">All Requests</p>
+                  <p className="text-2xl font-bold text-blue-900">{totalRequests}</p>
+                </CardContent>
+              </Card>
+              <Card className="w-full border border-amber-200 bg-amber-50">
+                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
+                  <p className="text-sm font-medium text-amber-700">Pending</p>
+                  <p className="text-2xl font-bold text-amber-900">{pendingRequests}</p>
+                </CardContent>
+              </Card>
+              <Card className="w-full border border-emerald-200 bg-emerald-50">
+                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
+                  <p className="text-sm font-medium text-emerald-700">Approved</p>
+                  <p className="text-2xl font-bold text-emerald-900">{approvedRequests}</p>
+                </CardContent>
+              </Card>
+              <Card className="w-full border border-rose-200 bg-rose-50">
+                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
+                  <p className="text-sm font-medium text-rose-700">Rejected</p>
+                  <p className="text-2xl font-bold text-rose-900">{rejectedRequests}</p>
+                </CardContent>
+              </Card>
+            </div>
           
           {/* Filter Tabs */}
           <Tabs 
@@ -379,11 +391,13 @@ export default function ResidentRequest() {
               />
             </div>
           )}
-        </div>
-      </div>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
 
-      {/* View Request Modal */}
-      <Modal
+    {/* View Request Modal */}
+    <Modal
         title={null}
         open={viewOpen}
         onCancel={() => setViewOpen(false)}
@@ -710,6 +724,6 @@ export default function ResidentRequest() {
           </Form>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

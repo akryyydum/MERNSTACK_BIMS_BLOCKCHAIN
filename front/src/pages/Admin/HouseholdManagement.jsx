@@ -3,8 +3,9 @@ import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descrip
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, FileExcelOutlined } from "@ant-design/icons";
 import axios from "axios";
+import * as XLSX from 'xlsx';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -26,6 +27,9 @@ export default function HouseholdManagement() {
   // NEW: Only me toggles
   const [addOnlyMe, setAddOnlyMe] = useState(false);
   const [editOnlyMe, setEditOnlyMe] = useState(false);
+
+  // State for export Excel functionality
+  const [exporting, setExporting] = useState(false);
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -175,6 +179,73 @@ export default function HouseholdManagement() {
     
     setViewHousehold(householdWithMembers);
     setViewOpen(true);
+  };
+
+  // Export to Excel
+  const exportToExcel = async () => {
+    setExporting(true);
+    try {
+      // Prepare export data
+      const exportData = households.map(household => {
+        const head = typeof household.headOfHousehold === "object" 
+          ? household.headOfHousehold 
+          : residents.find(r => r._id === household.headOfHousehold);
+        
+        const membersList = (household.members || []).map(m => {
+          const memberId = m?._id || m;
+          const memberObj = typeof m === "object" ? m : residents.find(r => r._id === memberId);
+          return fullName(memberObj) || "Unknown Member";
+        }).join(", ");
+
+        return {
+          'Household ID': household.householdId,
+          'Head of Household': fullName(head) || 'Not specified',
+          'Purok': household.address?.purok || 'N/A',
+          'Street': household.address?.street || 'N/A',
+          'Members Count': household.members?.length || 0,
+          'Members': membersList || 'None',
+          'Has Business': household.hasBusiness ? 'Yes' : 'No',
+          'Business Type': household.businessType || 'N/A',
+          'Created Date': household.createdAt ? new Date(household.createdAt).toLocaleDateString() : 'N/A',
+        };
+      });
+
+      if (exportData.length === 0) {
+        message.warning('No household data available for export');
+        return;
+      }
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-fit columns
+      const colWidths = exportData.reduce((acc, row) => {
+        Object.keys(row).forEach((key, idx) => {
+          const value = row[key] ? row[key].toString() : '';
+          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+        });
+        return acc;
+      }, []);
+      
+      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Households Report');
+      
+      // Generate filename with current date
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const filename = `Households_Report_${dateStr}.xlsx`;
+      
+      XLSX.writeFile(wb, filename);
+      
+      message.success('Households exported to Excel successfully!');
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export households to Excel');
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Statistics
@@ -511,6 +582,12 @@ export default function HouseholdManagement() {
                 }}
               >
                 Add Household
+              </Button>
+              <Button 
+                onClick={exportToExcel}
+                loading={exporting}
+              >
+                Export Excel
               </Button>
             </div>
           </div>

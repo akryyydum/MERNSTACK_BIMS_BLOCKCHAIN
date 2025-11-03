@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
 import PaymentStatusAlert from './PaymentStatusAlert';
@@ -34,6 +34,7 @@ export default function ResidentDashboard() {
     // Fetch requests and resident info on component mount
     fetchRequests();
     checkPaymentStatus();
+    fetchRealPayments(); // Fetch real payment data instead of mock data
     // Get resident info from localStorage
     console.log("=== DASHBOARD DEBUG ===");
     console.log("userData from localStorage:", localStorage.getItem("userData"));
@@ -43,8 +44,21 @@ export default function ResidentDashboard() {
     console.log("Using residentData:", residentData);
     console.log("========================");
     setResident(residentData);
-    // Generate mock payment data
-    generateMockPayments();
+  }, []);
+
+  // Auto-refresh payment data when user returns to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Page became visible, refreshing payment data...");
+        refreshPaymentData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Check payment status to determine if user can request documents
@@ -63,6 +77,9 @@ export default function ResidentDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log("Payment status response:", res.data);
+      console.log("Garbage fee data:", res.data.paymentStatus?.garbageFee);
+      console.log("Streetlight fee data:", res.data.paymentStatus?.streetlightFee);
+      console.log("Raw payment status structure:", JSON.stringify(res.data.paymentStatus, null, 2));
       setPaymentStatus(res.data);
     } catch (error) {
       console.error("Error checking payment status:", error);
@@ -91,6 +108,102 @@ export default function ResidentDashboard() {
 
   const handleGoToPayments = () => {
     navigate('/resident/payments');
+  };
+
+  const refreshPaymentData = async () => {
+    await checkPaymentStatus();
+    await fetchRealPayments();
+  };
+
+  // Fetch real payment data from the API
+  const fetchRealPayments = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.log("No token found for fetching payments");
+        return;
+      }
+
+      console.log("Fetching real payment data...");
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/payments`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("Real payment response:", response.data);
+      
+      // Process the payment data similar to ResidentPayment.jsx
+      const normalizeUtilityResponse = (payload) => {
+        if (!payload) return [];
+        if (Array.isArray(payload)) return payload;
+
+        const containers = [
+          { key: "garbage", type: "garbage" },
+          { key: "garbagePayments", type: "garbage" },
+          { key: "streetlight", type: "streetlight" },
+          { key: "streetlightPayments", type: "streetlight" },
+          { key: "utilityPayments", type: null },
+          { key: "records", type: null },
+          { key: "data", type: null },
+        ];
+
+        const merged = [];
+        containers.forEach(({ key, type }) => {
+          const value = payload[key];
+          if (Array.isArray(value)) {
+            value.forEach((entry) =>
+              merged.push({
+                ...entry,
+                type: entry.type || entry.utilityType || entry.feeType || type,
+              })
+            );
+          }
+        });
+
+        return merged;
+      };
+
+      const buildPaymentRecord = (raw) => {
+        const toNumber = (value) => Number(value ?? 0);
+        const typeLabel = raw.type?.toLowerCase().includes("street") ? "Streetlight Fee" : "Garbage Fee";
+        const monthKey = raw.month || raw.period || raw.billingMonth;
+        const amount = toNumber(raw.totalCharge);
+        const amountPaid = toNumber(raw.amountPaid);
+        const balance = raw.balance !== undefined ? Math.max(toNumber(raw.balance), 0) : Math.max(amount - amountPaid, 0);
+        
+        // Determine status based on balance
+        let status = "pending";
+        if (balance <= 0) {
+          status = "paid";
+        } else if (amountPaid > 0 && balance > 0) {
+          status = "pending"; // Partially paid but still has balance
+        } else {
+          status = "pending"; // Unpaid
+        }
+
+        return {
+          id: raw._id || raw.id || `${typeLabel.toLowerCase().replace(/\s+/g, "-")}-${monthKey || Date.now()}`,
+          description: `${typeLabel} — ${monthKey || "Current Month"}`,
+          type: typeLabel,
+          amount,
+          amountPaid,
+          balance,
+          status,
+        };
+      };
+
+      const normalizedEntries = normalizeUtilityResponse(response.data);
+      const mapped = normalizedEntries
+        .filter((item) => item.month || item.dueDate)
+        .map((item) => buildPaymentRecord(item));
+
+      console.log("Processed payment data:", mapped);
+      setPayments(mapped);
+    } catch (error) {
+      console.error("Failed to load real payment data:", error);
+      // Fallback to empty payments instead of mock data
+      setPayments([]);
+    }
   };
   
   // Generate mock payment data based on current date
@@ -185,18 +298,47 @@ export default function ResidentDashboard() {
   const totalRequests = requests.length;
   const pendingPayments = requests.filter(r => r.status === "accepted" && !r.paymentStatus).length;
   
-  // Payment statistics
-  const totalDue = payments
-    .filter(p => p.status === "pending" || p.status === "overdue")
-    .reduce((sum, p) => sum + p.amount, 0);
+  // Payment statistics - use actual balances from payment status API
+  const { totalMonthlyDue, totalYearlyDue } = useMemo(() => {
+    if (paymentStatus?.paymentStatus) {
+      const garbageMonthlyBalance = paymentStatus.paymentStatus.garbageFee?.paid 
+        ? 0 
+        : (paymentStatus.paymentStatus.garbageFee?.monthlyBalance || 0);
+      const streetlightMonthlyBalance = paymentStatus.paymentStatus.streetlightFee?.paid 
+        ? 0 
+        : (paymentStatus.paymentStatus.streetlightFee?.monthlyBalance || 0);
+      
+      const garbageYearlyBalance = paymentStatus.paymentStatus.garbageFee?.yearlyBalance || 0;
+      const streetlightYearlyBalance = paymentStatus.paymentStatus.streetlightFee?.yearlyBalance || 0;
+      
+      return {
+        totalMonthlyDue: garbageMonthlyBalance + streetlightMonthlyBalance,
+        totalYearlyDue: garbageYearlyBalance + streetlightYearlyBalance
+      };
+    }
+    // Fallback to payment records if payment status not available
+    const monthlyDue = payments
+      .filter(p => p.status === "pending" || p.status === "overdue")
+      .reduce((sum, p) => sum + (p.balance || 0), 0);
+    return {
+      totalMonthlyDue: monthlyDue,
+      totalYearlyDue: monthlyDue * 12 // Rough estimate
+    };
+  }, [paymentStatus, payments]);
     
   const paidAmount = payments
     .filter(p => p.status === "paid")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + (p.amountPaid || p.amount), 0);
     
-  const pendingFees = payments
-    .filter(p => p.status === "pending")
-    .length;
+  const pendingFees = useMemo(() => {
+    if (paymentStatus?.paymentStatus) {
+      let count = 0;
+      if (paymentStatus.paymentStatus.garbageFee && !paymentStatus.paymentStatus.garbageFee.paid && paymentStatus.paymentStatus.garbageFee.balance > 0) count++;
+      if (paymentStatus.paymentStatus.streetlightFee && !paymentStatus.paymentStatus.streetlightFee.paid && paymentStatus.paymentStatus.streetlightFee.balance > 0) count++;
+      return count;
+    }
+    return payments.filter(p => p.status === "pending" && (p.balance || 0) > 0).length;
+  }, [paymentStatus, payments]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -237,19 +379,50 @@ export default function ResidentDashboard() {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     {/* Garbage Fee */}
-                    {paymentStatus.paymentStatus?.garbageFee && !paymentStatus.paymentStatus.garbageFee.paid && (
-                      <Card className="w-full border border-rose-200 bg-white shadow-none">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium text-slate-900">Garbage Fee</h4>
-                              <p className="text-sm text-slate-600">Current Month</p>
+                    {paymentStatus.paymentStatus?.garbageFee && (
+                      <Card className={`w-full border shadow-none min-h-[120px] ${
+                        paymentStatus.paymentStatus.garbageFee.paid 
+                          ? 'border-emerald-200 bg-emerald-50' 
+                          : 'border-rose-200 bg-white'
+                      }`}>
+                        <CardContent className="p-3 py-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-slate-900 text-base mb-1">Garbage Fee</h4>
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600">This Month:</span>
+                                  <span className={`font-semibold ${
+                                    paymentStatus.paymentStatus.garbageFee.paid ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    ₱{Number(paymentStatus.paymentStatus.garbageFee.monthlyBalance || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600">This Year:</span>
+                                  <span className={`font-semibold ${
+                                    (paymentStatus.paymentStatus.garbageFee.yearlyBalance || paymentStatus.paymentStatus.garbageFee.balance || 0) === 0 ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    ₱{Number(paymentStatus.paymentStatus.garbageFee.yearlyBalance || paymentStatus.paymentStatus.garbageFee.balance || 0).toFixed(2)}
+                                    {console.log("Garbage fee object:", paymentStatus.paymentStatus.garbageFee)}
+                                    {console.log("Displaying garbage yearly balance:", paymentStatus.paymentStatus.garbageFee.yearlyBalance)}
+                                    {console.log("Displaying garbage balance fallback:", paymentStatus.paymentStatus.garbageFee.balance)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-rose-600">
-                                ₱{Number(paymentStatus.paymentStatus.garbageFee.balance || 0).toFixed(2)}
-                              </p>
-                              <span className="text-xs text-rose-500 font-medium">UNPAID</span>
+                            <div className="text-right ml-3">
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                paymentStatus.paymentStatus.garbageFee.paid 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : paymentStatus.paymentStatus.garbageFee.status === 'partial'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-rose-100 text-rose-700'
+                              }`}>
+                                {paymentStatus.paymentStatus.garbageFee.paid 
+                                  ? 'PAID' 
+                                  : (paymentStatus.paymentStatus.garbageFee.status || 'UNPAID').toUpperCase()}
+                              </span>
                             </div>
                           </div>
                         </CardContent>
@@ -257,39 +430,55 @@ export default function ResidentDashboard() {
                     )}
                     
                     {/* Streetlight Fee */}
-                    {paymentStatus.paymentStatus?.streetlightFee && !paymentStatus.paymentStatus.streetlightFee.paid && (
-                      <Card className="w-full border border-rose-200 bg-white shadow-none">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium text-slate-900">Streetlight Fee</h4>
-                              <p className="text-sm text-slate-600">Current Month</p>
+                    {paymentStatus.paymentStatus?.streetlightFee && (
+                      <Card className={`w-full border shadow-none min-h-[120px] ${
+                        paymentStatus.paymentStatus.streetlightFee.paid 
+                          ? 'border-emerald-200 bg-emerald-50' 
+                          : 'border-rose-200 bg-white'
+                      }`}>
+                        <CardContent className="p-3 py-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-slate-900 text-base mb-1">Streetlight Fee</h4>
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600">This Month:</span>
+                                  <span className={`font-semibold ${
+                                    paymentStatus.paymentStatus.streetlightFee.paid ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    ₱{Number(paymentStatus.paymentStatus.streetlightFee.monthlyBalance || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600">This Year:</span>
+                                  <span className={`font-semibold ${
+                                    (paymentStatus.paymentStatus.streetlightFee.yearlyBalance || paymentStatus.paymentStatus.streetlightFee.balance || 0) === 0 ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    ₱{Number(paymentStatus.paymentStatus.streetlightFee.yearlyBalance || paymentStatus.paymentStatus.streetlightFee.balance || 0).toFixed(2)}
+                                    {console.log("Streetlight fee object:", paymentStatus.paymentStatus.streetlightFee)}
+                                    {console.log("Displaying streetlight yearly balance:", paymentStatus.paymentStatus.streetlightFee.yearlyBalance)}
+                                    {console.log("Displaying streetlight balance fallback:", paymentStatus.paymentStatus.streetlightFee.balance)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-rose-600">
-                                ₱{Number(paymentStatus.paymentStatus.streetlightFee.balance || 0).toFixed(2)}
-                              </p>
-                              <span className="text-xs text-rose-500 font-medium">UNPAID</span>
+                            <div className="text-right ml-3">
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                paymentStatus.paymentStatus.streetlightFee.paid 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : paymentStatus.paymentStatus.streetlightFee.status === 'partial'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-rose-100 text-rose-700'
+                              }`}>
+                                {paymentStatus.paymentStatus.streetlightFee.paid 
+                                  ? 'PAID' 
+                                  : (paymentStatus.paymentStatus.streetlightFee.status || 'UNPAID').toUpperCase()}
+                              </span>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
                     )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button 
-                      size="large"
-                      onClick={() => {
-                        const alertElement = document.querySelector('.outstanding-payments-alert');
-                        if (alertElement) {
-                          alertElement.style.display = 'none';
-                        }
-                      }}
-                      className="text-slate-600 hover:text-slate-800"
-                    >
-                      Dismiss
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -349,138 +538,144 @@ export default function ResidentDashboard() {
           </CardContent>
         </Card>
         
-        {/* Dashboard Statistics */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Request Statistics Section */}
-          <Card className="w-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold text-slate-900 flex items-center">
-                <FileTextOutlined className="mr-2" /> Your Document Requests
-              </CardTitle>
-              <Button 
-                type="link" 
-                size="small" 
-                className="text-blue-600" 
-                onClick={() => navigate('/resident/requests')}
-              >
-                Make New Request
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="w-full border border-blue-200 bg-blue-50">
-                  <CardContent className="space-y-3 px-4 py-5 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-blue-700">All Requests</p>
-                        <p className="text-2xl font-bold text-blue-900 mt-1">{totalRequests}</p>
-                        <p className="text-xs text-blue-600 mt-1">Document requests made</p>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <FileTextOutlined className="text-blue-600" style={{ fontSize: '24px' }} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="w-full border border-emerald-200 bg-emerald-50">
-                  <CardContent className="space-y-3 px-4 py-5 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-emerald-700">New Request</p>
-                        <p className="text-lg font-bold text-emerald-900 mt-1">Request Document</p>
-                        <p className="text-xs text-emerald-600 mt-1">Apply for barangay documents</p>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <FileTextOutlined className="text-emerald-600" style={{ fontSize: '24px' }} />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button 
-                        type="primary"
-                        size="small"
-                        onClick={() => {
-                          if (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus) {
-                            message.warning("Please settle your outstanding payments before requesting documents");
-                            navigate('/resident/payments');
-                          } else {
-                            navigate('/resident/requests');
-                          }
-                        }}
-                        disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
-                        className={`${
-                          paymentStatus?.canRequestDocuments !== false 
-                            ? "bg-emerald-600 hover:bg-emerald-700 border-emerald-600" 
-                            : "bg-slate-400 hover:bg-slate-500"
-                        }`}
-                      >
-                        {(paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus) ? "Payments Required" : "Request Now"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+        {/* Dashboard Statistics - Combined Document Requests & Barangay Fee Summary */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-slate-900">Dashboard Overview</CardTitle>
+            <CardDescription>Manage your document requests and track barangay fee payments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Section Headers Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4">
+              <div className="md:col-span-2 flex flex-row items-center justify-between">
+                <h3 className="text-md font-semibold text-slate-800 flex items-center">
+                  <FileTextOutlined className="mr-2 text-blue-600" /> Document Requests
+                </h3>
+                <Button 
+                  type="link" 
+                  size="small" 
+                  className="text-blue-600" 
+                  onClick={() => navigate('/resident/requests')}
+                >
+                  Make New Request
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+              <div className="md:col-span-2 flex flex-row items-center justify-between">
+                <h3 className="text-md font-semibold text-slate-800 flex items-center">
+                  <DollarOutlined className="mr-2 text-amber-600" /> Barangay Fee Summary
+                </h3>
+                <div className="flex gap-2">
+                  <Button 
+                    type="default" 
+                    size="small" 
+                    loading={checkingPayment}
+                    onClick={refreshPaymentData}
+                    className="text-blue-600"
+                  >
+                    Refresh
+                  </Button>
+                  <Button 
+                    type="link" 
+                    size="small" 
+                    className="text-blue-600" 
+                    onClick={() => navigate('/resident/payments')}
+                  >
+                    View All Payments
+                  </Button>
+                </div>
+              </div>
+            </div>
             
-          {/* Payment Summary Section */}
-          <Card className="w-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold text-slate-900 flex items-center">
-                <DollarOutlined className="mr-2" /> Barangay Fee Summary
-              </CardTitle>
-              <Button 
-                type="link" 
-                size="small" 
-                className="text-blue-600" 
-                onClick={() => navigate('/resident/payments')}
-              >
-                View All Payments
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="w-full border border-amber-200 bg-amber-50">
-                  <CardContent className="space-y-3 px-4 py-5 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-amber-700">Current Balance Due</p>
-                        <p className="text-2xl font-bold text-amber-900 mt-1">₱{totalDue.toFixed(2)}</p>
-                        <p className="text-xs text-amber-600 mt-1">Garbage & Streetlight fees</p>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
-                        <DollarOutlined className="text-amber-600" style={{ fontSize: '24px' }} />
-                      </div>
+            {/* Cards Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* All Requests Card */}
+              <Card className="w-full border border-blue-200 bg-blue-50">
+                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-700">All Requests</p>
+                      <p className="text-2xl font-bold text-blue-900 mt-1">{totalRequests}</p>
+                      <p className="text-xs text-blue-600 mt-1">Document requests made</p>
                     </div>
-                  </CardContent>
-                </Card>
-                <Card className="w-full border border-blue-200 bg-blue-50">
-                  <CardContent className="space-y-3 px-4 py-5 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-blue-700">Payment Schedule</p>
-                        <p className="text-lg font-bold text-blue-900 mt-1">Quarterly</p>
-                        <p className="text-xs text-blue-600 mt-1">Every 3 Months</p>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <CalendarOutlined className="text-blue-600" style={{ fontSize: '24px' }} />
-                      </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <FileTextOutlined className="text-blue-600" style={{ fontSize: '24px' }} />
                     </div>
-                    <div className="flex justify-end">
-                      <Button 
-                        type="primary" 
-                        size="small" 
-                        className="bg-blue-500 hover:bg-blue-600 border-blue-600"
-                        onClick={() => navigate('/resident/payments')}
-                      >
-                        View Details
-                      </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* New Request Card */}
+              <Card className="w-full border border-emerald-200 bg-emerald-50">
+                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-emerald-700">New Request</p>
+                      <p className="text-lg font-bold text-emerald-900 mt-1">Request Document</p>
+                      <p className="text-xs text-emerald-600 mt-1">Apply for barangay documents</p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <FileTextOutlined className="text-emerald-600" style={{ fontSize: '24px' }} />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      type="primary"
+                      size="small"
+                      onClick={() => {
+                        if (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus) {
+                          message.warning("Please settle your outstanding payments before requesting documents");
+                          navigate('/resident/payments');
+                        } else {
+                          navigate('/resident/requests');
+                        }
+                      }}
+                      disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
+                      className={`${
+                        paymentStatus?.canRequestDocuments !== false 
+                          ? "bg-emerald-600 hover:bg-emerald-700 border-emerald-600" 
+                          : "bg-slate-400 hover:bg-slate-500"
+                      }`}
+                    >
+                      {(paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus) ? "Payments Required" : "Request Now"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Monthly Balance Due Card */}
+              <Card className="w-full border border-amber-200 bg-amber-50">
+                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-amber-700">Monthly Balance Due</p>
+                      <p className="text-2xl font-bold text-amber-900 mt-1">₱{totalMonthlyDue.toFixed(2)}</p>
+                      <p className="text-xs text-amber-600 mt-1">Current month only</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <DollarOutlined className="text-amber-600" style={{ fontSize: '24px' }} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Yearly Balance Due Card */}
+              <Card className="w-full border border-red-200 bg-red-50">
+                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-red-700">Yearly Balance Due</p>
+                      <p className="text-2xl font-bold text-red-900 mt-1">₱{totalYearlyDue.toFixed(2)}</p>
+                      <p className="text-xs text-red-600 mt-1">Outstanding for {new Date().getFullYear()}</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                      <CalendarOutlined className="text-red-600" style={{ fontSize: '24px' }} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
         
         {/* Recent Activity Section */}
         <Card className="w-full">

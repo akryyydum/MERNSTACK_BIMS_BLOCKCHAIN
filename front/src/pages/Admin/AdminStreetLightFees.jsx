@@ -4,8 +4,9 @@ import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, DeleteOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined } from "@ant-design/icons";
 import axios from "axios";
+import * as XLSX from 'xlsx';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -69,6 +70,11 @@ export default function AdminStreetLightFees() {
   // State for multiple month payments
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
+
+  // State for export Excel modal
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportForm] = Form.useForm();
+  const [exporting, setExporting] = useState(false);
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -166,8 +172,7 @@ export default function AdminStreetLightFees() {
       selectedMonths: initialMonths,
       totalCharge: totalCharge,
       amount: totalCharge,
-      method: undefined,
-      reference: undefined,
+      method: "Cash",
     });
   };
 
@@ -299,39 +304,284 @@ export default function AdminStreetLightFees() {
   const [stats, setStats] = useState({
     totalHouseholds: 0,
     monthlyRate: 10,
-    totalCollected: 0,
-    totalOutstanding: 0,
+    totalCollected: {
+      yearly: 0,
+      monthly: 0
+    },
+    outstanding: {
+      yearly: 0,
+      monthly: 0
+    },
     collectionRate: 0
   });
+  const [statsRefreshing, setStatsRefreshing] = useState(false);
   
   // Fetch statistics
   const fetchStatistics = async () => {
+    setStatsRefreshing(true);
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/streetlight-statistics`, { headers: authHeaders() });
-      setStats(res.data);
-    } catch (err) {
-      console.error("Error fetching statistics:", err);
-      // Fallback to calculated stats if API fails
+      const currentYear = new Date().getFullYear();
+      const currentMonth = dayjs().format('YYYY-MM');
+      
+      // Fetch fresh streetlight payments
+      const paymentRes = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, { headers: authHeaders() });
+      const payments = paymentRes.data || [];
+      
+      console.log('Streetlight payments for statistics:', payments);
+      console.log('Current month:', currentMonth);
+      console.log('Current year:', currentYear);
+      
+      // Debug: Show all payments with their details
+      payments.forEach((payment, index) => {
+        console.log(`Payment ${index + 1}:`, {
+          id: payment._id,
+          household: payment.household?.householdId,
+          month: payment.month,
+          amountPaid: payment.amountPaid,
+          type: payment.type
+        });
+      });
+      
       const totalHouseholds = households.length;
-      const expectedRevenue = totalHouseholds * 10; // Fixed rate of 10 per household
-      const totalCollected = households.reduce((sum, h) => sum + (h.streetlightFee?.amountPaid || 0), 0);
-      const totalOutstanding = expectedRevenue - totalCollected;
-      const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100).toFixed(1) : 0;
+      const monthlyRate = 10; // Fixed rate for streetlight
+      
+      // Calculate yearly collections (only count payments with valid household references)
+      const yearlyPayments = payments.filter(p => {
+        const paymentYear = dayjs(p.month + '-01').year();
+        const hasValidHousehold = p.household && p.household.householdId;
+        console.log(`Payment ${p._id} month: ${p.month}, year: ${paymentYear}, household: ${p.household?.householdId}, valid: ${hasValidHousehold}, matches current year: ${paymentYear === currentYear}`);
+        return paymentYear === currentYear && hasValidHousehold;
+      });
+      const yearlyCollected = yearlyPayments.reduce((sum, p) => {
+        console.log(`Adding yearly payment: ${p.amountPaid} from household ${p.household?.householdId}`);
+        return sum + p.amountPaid;
+      }, 0);
+      
+      // Calculate monthly collections (only count payments with valid household references)
+      const monthlyPayments = payments.filter(p => {
+        const hasValidHousehold = p.household && p.household.householdId;
+        console.log(`Payment ${p._id} month: ${p.month}, current month: ${currentMonth}, household: ${p.household?.householdId}, valid: ${hasValidHousehold}, matches: ${p.month === currentMonth}`);
+        return p.month === currentMonth && hasValidHousehold;
+      });
+      const monthlyCollected = monthlyPayments.reduce((sum, p) => {
+        console.log(`Adding monthly payment: ${p.amountPaid} from household ${p.household?.householdId}`);
+        return sum + p.amountPaid;
+      }, 0);
+      
+      console.log('Yearly collected:', yearlyCollected);
+      console.log('Monthly collected:', monthlyCollected);
+      
+      // Calculate expected amounts
+      const expectedYearly = totalHouseholds * monthlyRate * 12;
+      const expectedMonthly = totalHouseholds * monthlyRate;
+      
+      // Calculate outstanding amounts
+      const yearlyOutstanding = expectedYearly - yearlyCollected;
+      const monthlyOutstanding = expectedMonthly - monthlyCollected;
+      
+      // Calculate collection rate
+      const collectionRate = expectedYearly > 0 ? 
+        parseFloat(((yearlyCollected / expectedYearly) * 100).toFixed(1)) : 0;
       
       setStats({
         totalHouseholds,
-        monthlyRate: 10,
-        expectedRevenue,
-        totalCollected,
-        totalOutstanding,
+        monthlyRate,
+        totalCollected: {
+          yearly: yearlyCollected,
+          monthly: monthlyCollected
+        },
+        outstanding: {
+          yearly: yearlyOutstanding,
+          monthly: monthlyOutstanding
+        },
         collectionRate
       });
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      // Set default values if there's an error
+      setStats({
+        totalHouseholds: households.length,
+        monthlyRate: 10,
+        totalCollected: {
+          yearly: 0,
+          monthly: 0
+        },
+        outstanding: {
+          yearly: households.length * 10 * 12,
+          monthly: households.length * 10
+        },
+        collectionRate: 0
+      });
     }
+    setStatsRefreshing(false);
   };
   
   useEffect(() => {
     fetchStatistics();
   }, [households]);
+
+  // Excel Export Functions
+  const exportToExcel = async (values) => {
+    setExporting(true);
+    try {
+      // Fetch fresh payment data before exporting
+      const paymentRes = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, { headers: authHeaders() });
+      const freshStreetlightPayments = paymentRes.data || [];
+      
+      console.log('Fresh streetlight payment data for export:', freshStreetlightPayments);
+      
+      const { exportType, selectedMonth } = values;
+      let exportData = [];
+      let filename = '';
+      
+      if (exportType === 'whole-year') {
+        // Export whole year data
+        exportData = await generateYearlyExportData(freshStreetlightPayments);
+        filename = `Streetlight_Fees_${new Date().getFullYear()}_Complete.xlsx`;
+      } else if (exportType === 'chosen-month') {
+        // Export chosen month data
+        const selectedMonthStr = dayjs(selectedMonth).format('YYYY-MM');
+        exportData = await generateMonthlyExportData(selectedMonthStr, freshStreetlightPayments);
+        const monthName = dayjs(selectedMonth).format('MMMM_YYYY');
+        filename = `Streetlight_Fees_${monthName}.xlsx`;
+      } else if (exportType === 'current-month') {
+        // Export current month data
+        const currentMonth = dayjs().format('YYYY-MM');
+        exportData = await generateMonthlyExportData(currentMonth, freshStreetlightPayments);
+        const monthName = dayjs().format('MMMM_YYYY');
+        filename = `Streetlight_Fees_${monthName}_Current.xlsx`;
+      }
+
+      if (exportData.length === 0) {
+        message.warning('No data available for export');
+        return;
+      }
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-fit columns
+      const colWidths = exportData.reduce((acc, row) => {
+        Object.keys(row).forEach((key, idx) => {
+          const value = row[key] ? row[key].toString() : '';
+          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+        });
+        return acc;
+      }, []);
+      
+      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Streetlight Fees Report');
+      XLSX.writeFile(wb, filename);
+      
+      message.success('Excel file exported successfully!');
+      setExportOpen(false);
+      exportForm.resetFields();
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export Excel file');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const generateYearlyExportData = async (paymentData) => {
+    const exportData = [];
+    const currentYear = new Date().getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => 
+      dayjs().month(i).format('YYYY-MM')
+    );
+
+    console.log('Generating yearly streetlight export with payments:', paymentData);
+    console.log('Households for export:', households);
+
+    for (const household of households) {
+      const baseData = {
+        'Household ID': household.householdId,
+        'Head of Household': fullName(household.headOfHousehold),
+        'Purok': household.address?.purok || 'N/A',
+        'Monthly Fee': '₱10',
+      };
+
+      // Add monthly payment status for the year
+      for (const month of months) {
+        const monthName = dayjs(month).format('MMM YYYY');
+      const payment = paymentData.find(p => 
+        p.household && p.household.householdId && 
+        p.household.householdId === household.householdId && 
+        p.month === month
+      );        console.log(`Checking streetlight payment for ${household.householdId} in ${month}:`, payment);
+        
+        baseData[`${monthName} Status`] = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+        baseData[`${monthName} Amount`] = payment ? `₱${payment.amountPaid}` : '₱0';
+      }
+
+      // Calculate totals (only count payments with valid household references)
+      const totalPaid = paymentData
+        .filter(p => p.household && p.household.householdId && 
+                p.household.householdId === household.householdId && 
+                dayjs(p.month + '-01').year() === currentYear)
+        .reduce((sum, p) => sum + p.amountPaid, 0);
+        
+      const expectedFee = 10; // Fixed rate for streetlight
+      const expectedTotal = expectedFee * 12;
+      const balance = expectedTotal - totalPaid;
+
+      baseData['Total Paid'] = `₱${totalPaid}`;
+      baseData['Expected Total'] = `₱${expectedTotal}`;
+      baseData['Balance'] = `₱${balance}`;
+
+      exportData.push(baseData);
+    }
+
+    return exportData;
+  };
+
+  const generateMonthlyExportData = async (monthStr, paymentData) => {
+    const exportData = [];
+    const targetMonth = dayjs(monthStr);
+
+    console.log('Generating monthly streetlight export for:', monthStr);
+    console.log('Payment data:', paymentData);
+    console.log('Households:', households);
+
+    for (const household of households) {
+      const payment = paymentData.find(p => 
+        p.household?.householdId === household.householdId && 
+        p.month === monthStr
+      );
+
+      console.log(`Streetlight payment for ${household.householdId} in ${monthStr}:`, payment);
+
+      const expectedFee = 10; // Fixed rate for streetlight
+      const paidAmount = payment ? payment.amountPaid : 0;
+      const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+      const balance = expectedFee - paidAmount;
+
+      // Get the latest payment date from payments array
+      let paymentDate = 'Not Paid';
+      if (payment && payment.payments && payment.payments.length > 0) {
+        const latestPayment = payment.payments[payment.payments.length - 1];
+        paymentDate = dayjs(latestPayment.paidAt).format('MMMM DD, YYYY');
+      }
+
+      exportData.push({
+        'Household ID': household.householdId,
+        'Head of Household': fullName(household.headOfHousehold),
+        'Purok': household.address?.purok || 'N/A',
+        'Monthly Fee': `₱${expectedFee}`,
+        'Paid Amount': `₱${paidAmount}`,
+        'Payment Status': status,
+        'Balance': `₱${balance}`,
+        'Payment Date': paymentDate,
+        'Month': targetMonth.format('MMMM YYYY')
+      });
+    }
+
+    console.log('Generated streetlight export data:', exportData);
+    return exportData;
+  };
 
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
 
@@ -531,7 +781,7 @@ export default function AdminStreetLightFees() {
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Monthly Rate
+                    Fee Structure
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
@@ -539,8 +789,13 @@ export default function AdminStreetLightFees() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{stats.monthlyRate}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Monthly:</span> ₱{stats.monthlyRate}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Yearly:</span> ₱{stats.monthlyRate * 12}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -551,28 +806,38 @@ export default function AdminStreetLightFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.totalCollected || 0).toFixed(2)}
+                    ₱{stats.totalCollected?.monthly || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{(stats.totalCollected || 0).toFixed(2)}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Year:</span> ₱{stats.totalCollected?.yearly || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Month:</span> ₱{stats.totalCollected?.monthly || 0}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Outstanding
+                    Balance
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
+                    ₱{stats.outstanding?.monthly || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{(stats.totalOutstanding || 0).toFixed(2)}
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Year:</span> ₱{stats.outstanding?.yearly || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-semibold">Month:</span> ₱{stats.outstanding?.monthly || 0}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -614,10 +879,21 @@ export default function AdminStreetLightFees() {
               >
                 + Add Payment
               </Button>
+              <Button 
+                onClick={() => setExportOpen(true)}
+              >
+                Export Excel
+              </Button>
             </div>
-            <Button onClick={() => { fetchHouseholds(); fetchStreetlightPayments(); fetchStatistics(); }}>
-              Refresh
-            </Button>
+            <div className="flex flex-wrap gap-2">
+                <Button
+                  loading={statsRefreshing}
+                  onClick={() => { fetchHouseholds(); fetchStreetlightPayments(); fetchStatistics(); }}
+                  size="small"
+                >
+                  Refresh
+                </Button>
+            </div>
           </div>
 
           <Table
@@ -895,7 +1171,7 @@ export default function AdminStreetLightFees() {
           confirmLoading={payLoading}
           width={720}
         >
-          <Form form={payForm} layout="vertical">
+          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
             <Form.Item label="Fee Type">
               <Input disabled value="Streetlight Maintenance Fee" />
             </Form.Item>
@@ -990,18 +1266,7 @@ export default function AdminStreetLightFees() {
               <InputNumber className="w-full" min={0} step={10} />
             </Form.Item>
             <Form.Item name="method" label="Payment Method">
-              <Select
-                allowClear
-                options={[
-                  { value: "cash", label: "Cash" },
-                  { value: "gcash", label: "GCash" },
-                  { value: "bank", label: "Bank Transfer" },
-                  { value: "other", label: "Other" },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="reference" label="Reference No. (optional)">
-              <Input />
+              <Input value="Cash" disabled />
             </Form.Item>
             {selectedMonths.length > 0 && (
               <div className="p-3 rounded border border-blue-200 bg-blue-50 text-sm">
@@ -1150,6 +1415,119 @@ export default function AdminStreetLightFees() {
               )}
             </div>
           )}
+        </Modal>
+
+        {/* Export Excel Modal */}
+        <Modal
+          title="Export Streetlight Fees to Excel"
+          open={exportOpen}
+          onCancel={() => {
+            setExportOpen(false);
+            exportForm.resetFields();
+          }}
+          footer={[
+            <Button key="cancel" onClick={() => {
+              setExportOpen(false);
+              exportForm.resetFields();
+            }}>
+              Cancel
+            </Button>,
+            <Button
+              key="export"
+              type="primary"
+              loading={exporting}
+              onClick={() => exportForm.submit()}
+              icon={<FileExcelOutlined />}
+            >
+              Export to Excel
+            </Button>
+          ]}
+          width={500}
+        >
+          <Form
+            form={exportForm}
+            layout="vertical"
+            onFinish={exportToExcel}
+            initialValues={{
+              exportType: 'current-month'
+            }}
+          >
+            <Form.Item
+              name="exportType"
+              label="Export Type"
+              rules={[{ required: true, message: 'Please select export type' }]}
+            >
+              <Select placeholder="Select what to export">
+                <Select.Option value="current-month">Current Month</Select.Option>
+                <Select.Option value="chosen-month">Chosen Month</Select.Option>
+                <Select.Option value="whole-year">Whole Year</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prevValues, currentValues) =>
+                prevValues.exportType !== currentValues.exportType
+              }
+            >
+              {({ getFieldValue }) => {
+                const exportType = getFieldValue('exportType');
+                return exportType === 'chosen-month' ? (
+                  <Form.Item
+                    name="selectedMonth"
+                    label="Select Month"
+                    rules={[{ required: true, message: 'Please select a month' }]}
+                  >
+                    <DatePicker
+                      picker="month"
+                      placeholder="Select month and year"
+                      style={{ width: '100%' }}
+                      format="MMMM YYYY"
+                    />
+                  </Form.Item>
+                ) : null;
+              }}
+            </Form.Item>
+
+            <div className="bg-blue-50 p-3 rounded border border-blue-200">
+              <div className="text-sm text-blue-800">
+                <div className="font-semibold mb-2">Export Information:</div>
+                <Form.Item noStyle shouldUpdate>
+                  {({ getFieldValue }) => {
+                    const exportType = getFieldValue('exportType');
+                    if (exportType === 'current-month') {
+                      return (
+                        <div className="space-y-1">
+                          <div>• Current month: {dayjs().format('MMMM YYYY')}</div>
+                          <div>• Includes all households with payment status</div>
+                          <div>• Shows payment dates, amounts, and balances</div>
+                        </div>
+                      );
+                    } else if (exportType === 'chosen-month') {
+                      const selectedMonth = getFieldValue('selectedMonth');
+                      return (
+                        <div className="space-y-1">
+                          <div>• Selected month: {selectedMonth ? dayjs(selectedMonth).format('MMMM YYYY') : 'Please select month'}</div>
+                          <div>• Includes all households with payment status</div>
+                          <div>• Shows payment dates, amounts, and balances</div>
+                        </div>
+                      );
+                    } else if (exportType === 'whole-year') {
+                      return (
+                        <div className="space-y-1">
+                          <div>• Full year report: {new Date().getFullYear()}</div>
+                          <div>• Monthly breakdown for all households</div>
+                          <div>• Shows payment status for each month</div>
+                          <div>• Includes yearly totals and balances</div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                </Form.Item>
+              </div>
+            </div>
+          </Form>
         </Modal>
       </div>
     </AdminLayout>

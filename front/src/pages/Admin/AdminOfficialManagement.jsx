@@ -20,6 +20,7 @@ const API_URL = "/api/admin/officials";
 
 export default function AdminOfficialManagement() {
   const [officials, setOfficials] = useState([]);
+  const [residents, setResidents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -29,6 +30,7 @@ export default function AdminOfficialManagement() {
   const [editForm] = Form.useForm();
   const [editing, setEditing] = useState(false);
   const [selectedOfficial, setSelectedOfficial] = useState(null);
+  const [selectedResident, setSelectedResident] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
 
   useEffect(() => {
@@ -37,15 +39,49 @@ export default function AdminOfficialManagement() {
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  useEffect(() => { fetchOfficials(); }, []);
+  useEffect(() => { 
+    fetchOfficials(); 
+    fetchResidents();
+  }, []);
+  
   const fetchOfficials = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(API_URL, { headers: { Authorization: `Bearer ${token}` } });
-      setOfficials((await res.json()) || []);
-    } catch (err) { message.error(err.message || "Failed to fetch officials"); }
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch officials: ${res.status} ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      console.log("Fetched officials:", data);
+      setOfficials(data || []);
+    } catch (err) { 
+      console.error("Error fetching officials:", err);
+      message.error(err.message || "Failed to fetch officials"); 
+    }
     setLoading(false);
+  };
+
+  const fetchResidents = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/residents", { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch residents: ${res.status} ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      console.log("Fetched residents:", data);
+      setResidents(data || []);
+    } catch (err) { 
+      console.error("Error fetching residents:", err);
+      message.error(err.message || "Failed to fetch residents"); 
+    }
   };
 
   const totalOfficials = officials.length;
@@ -55,29 +91,21 @@ export default function AdminOfficialManagement() {
   // Columns
   const columns = [
     { 
-      title: "Username", 
-      dataIndex: "username", 
-      key: "username", 
-      width: 140,
-      ellipsis: true,
-      responsive: ['xs','sm','md','lg']
-    },
-    { 
       title: "Full Name", 
       dataIndex: "fullName", 
       key: "fullName", 
-      width: 180, 
+      width: 200, 
       ellipsis: true,
-      responsive: ['sm','md','lg']
+      responsive: ['xs','sm','md','lg']
     },
     {
       title: "Position",
       dataIndex: "position",
       key: "position",
-      width: 140,
+      width: 160,
       ellipsis: true,
       render: v => v || '-',
-      responsive: ['md','lg']
+      responsive: ['sm','md','lg']
     },
     {
       title: "Email",
@@ -85,8 +113,8 @@ export default function AdminOfficialManagement() {
       key: "email",
       width: 200,
       ellipsis: true,
-      render: (_, r) => r.contact?.email || r.email,
-      responsive: ['lg']
+      render: (_, r) => r.contact?.email || r.email || '-',
+      responsive: ['md','lg']
     },
     {
       title: "Mobile",
@@ -94,7 +122,7 @@ export default function AdminOfficialManagement() {
       key: "mobile",
       width: 140,
       ellipsis: true,
-      render: (_, r) => r.contact?.mobile || r.mobile,
+      render: (_, r) => r.contact?.mobile || r.mobile || '-',
       responsive: ['sm','md','lg']
     },
     {
@@ -127,7 +155,7 @@ export default function AdminOfficialManagement() {
   ];
 
   const filteredOfficials = officials.filter(o =>
-    [o.username, o.fullName, o.position, o.contact?.email || o.email, o.contact?.mobile || o.mobile]
+    [o.fullName, o.position, o.contact?.email || o.email, o.contact?.mobile || o.mobile]
       .join(" ").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -135,16 +163,31 @@ export default function AdminOfficialManagement() {
     try {
       setCreating(true);
       const values = await addForm.validateFields();
+      console.log("Form values:", values);
+      
       const token = localStorage.getItem("token");
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...values })
       });
-      if (!res.ok) throw new Error((await res.json()).message || "Failed to add official");
+      
+      const responseData = await res.json();
+      console.log("Server response:", responseData);
+      
+      if (!res.ok) {
+        throw new Error(responseData.message || "Failed to add official");
+      }
+      
       message.success("Official added!");
-      setAddOpen(false); addForm.resetFields(); fetchOfficials();
-    } catch (err) { message.error(err?.message || "Failed to add official"); }
+      setAddOpen(false); 
+      addForm.resetFields(); 
+      setSelectedResident(null);
+      fetchOfficials();
+    } catch (err) { 
+      console.error("Error adding official:", err);
+      message.error(err?.message || "Failed to add official"); 
+    }
     setCreating(false);
   };
 
@@ -306,6 +349,7 @@ export default function AdminOfficialManagement() {
           open={addOpen}
           onCancel={() => {
             addForm.resetFields();
+            setSelectedResident(null);
             setAddOpen(false);
           }}
           width={500}
@@ -314,6 +358,7 @@ export default function AdminOfficialManagement() {
               key="cancel"
               onClick={() => {
                 addForm.resetFields();
+                setSelectedResident(null);
                 setAddOpen(false);
               }}
             >
@@ -331,38 +376,64 @@ export default function AdminOfficialManagement() {
         >
           <Form form={addForm} layout="vertical" autoComplete="off">
             <Form.Item
-              name="username"
-              label="Username"
-              rules={[{ required: true, message: "Username is required" }]}
+              name="residentId"
+              label="Select Resident"
+              rules={[{ required: true, message: "Please select a resident" }]}
             >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="password"
-              label="Password"
-              rules={[{ required: true, message: "Password is required" }]}
-            >
-              <Input.Password />
-            </Form.Item>
-            <Form.Item
-              name="fullName"
-              label="Full Name"
-              rules={[{ required: true, message: "Full Name is required" }]}
-            >
-              <Input />
+              <Select
+                placeholder="Select a resident"
+                showSearch
+                optionFilterProp="children"
+                onDropdownVisibleChange={(open) => {
+                  if (open) {
+                    console.log("Dropdown opened, residents available:", residents);
+                  }
+                }}
+                onChange={(value) => {
+                  const resident = residents.find(r => r._id === value);
+                  console.log("Selected resident:", resident);
+                  if (resident) {
+                    setSelectedResident(resident);
+                    addForm.setFieldsValue({
+                      email: resident.contact?.email || '',
+                      mobile: resident.contact?.mobile || ''
+                    });
+                  }
+                }}
+              >
+                {residents.map(resident => (
+                  <Select.Option key={resident._id} value={resident._id}>
+                    {resident.lastName}, {resident.firstName} {resident.middleName || ''}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
             <Form.Item
               name="position"
               label="Position"
               rules={[{ required: true, message: "Position is required" }]}
             >
-              <Input />
+              <Select placeholder="Select a position">
+                <Select.Option value="Barangay Captain">Barangay Captain</Select.Option>
+                <Select.Option value="Barangay Kagawad">Barangay Kagawad</Select.Option>
+                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
+                <Select.Option value="Barangay Secretary">Barangay Secretary</Select.Option>
+                <Select.Option value="Barangay Treasurer">Barangay Treasurer</Select.Option>
+                <Select.Option value="Admin Assistant">Admin Assistant</Select.Option>
+                <Select.Option value="Barangay Nutrition Scholar">Barangay Nutrition Scholar</Select.Option>
+                <Select.Option value="Day Care Worker">Day Care Worker</Select.Option>
+                <Select.Option value="Barangay Health Worker">Barangay Health Worker</Select.Option>
+                <Select.Option value="Barangay Utility Worker">Barangay Utility Worker</Select.Option>
+                <Select.Option value="Barangay Chief Tanod">Barangay Chief Tanod</Select.Option>
+                <Select.Option value="Barangay Tanod">Barangay Tanod</Select.Option>
+                <Select.Option value="SWM Driver">SWM Driver</Select.Option>
+                <Select.Option value="Garbage Collector">Garbage Collector</Select.Option>
+              </Select>
             </Form.Item>
             <Form.Item
               name="email"
               label="Email"
               rules={[
-                { required: true, message: "Valid email is required" },
                 { type: "email", message: "Enter a valid email" },
               ]}
             >
@@ -371,7 +442,6 @@ export default function AdminOfficialManagement() {
             <Form.Item
               name="mobile"
               label="Mobile"
-              rules={[{ required: true, message: "Mobile is required" }]}
             >
               <Input />
             </Form.Item>
@@ -414,7 +484,22 @@ export default function AdminOfficialManagement() {
               <Input />
             </Form.Item>
             <Form.Item name="position" label="Position" rules={[{ required: true }]}>
-              <Input />
+              <Select placeholder="Select a position">
+                <Select.Option value="Barangay Captain">Barangay Captain</Select.Option>
+                <Select.Option value="Barangay Kagawad">Barangay Kagawad</Select.Option>
+                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
+                <Select.Option value="Barangay Secretary">Barangay Secretary</Select.Option>
+                <Select.Option value="Barangay Treasurer">Barangay Treasurer</Select.Option>
+                <Select.Option value="Admin Assistant">Admin Assistant</Select.Option>
+                <Select.Option value="Barangay Nutrition Scholar">Barangay Nutrition Scholar</Select.Option>
+                <Select.Option value="Day Care Worker">Day Care Worker</Select.Option>
+                <Select.Option value="Barangay Health Worker">Barangay Health Worker</Select.Option>
+                <Select.Option value="Barangay Utility Worker">Barangay Utility Worker</Select.Option>
+                <Select.Option value="Barangay Chief Tanod">Barangay Chief Tanod</Select.Option>
+                <Select.Option value="Barangay Tanod">Barangay Tanod</Select.Option>
+                <Select.Option value="SWM Driver">SWM Driver</Select.Option>
+                <Select.Option value="Garbage Collector">Garbage Collector</Select.Option>
+              </Select>
             </Form.Item>
             <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
               <Input />
