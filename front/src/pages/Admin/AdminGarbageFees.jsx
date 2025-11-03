@@ -984,7 +984,7 @@ export default function AdminGarbageFees() {
                 showQuickJumper: true,
                 showTotal: (total, range) => 
                   `${range[0]}-${range[1]} of ${total} households`,
-                pageSizeOptions: ['5', '10', '20', '50', '100'],
+                pageSizeOptions: ['10', '20', '50', '100'],
                 defaultPageSize: 10,
                 size: 'default'
               }}

@@ -22,13 +22,16 @@ import AdminOfficialManagement from "./pages/Admin/AdminOfficialManagement";
 import AdminReportsComplaints from "./pages/Admin/AdminReportsComplaints";
 import AdminFinancialReports from "./pages/Admin/AdminFinancialReports";
 import AdminBlockchainNetwork from "./pages/Admin/AdminBlockchainNetwork";
+import AdminSettings from "./pages/Admin/AdminSettings";
 import ResidentPublicDocuments from "./pages/Residents/ResidentPublicDocuments";
 import ResidentReportsComplaints from "./pages/Residents/ResidentReportsComplaints";
+
 function App() {
   const [count, setCount] = useState(0)
 
   return (
-    <BrowserRouter>
+    <>
+      <BrowserRouter>
       <Routes>
         {/* Public route (blocked for authenticated users) */}
         <Route element={<PublicOnly />}>
@@ -49,6 +52,7 @@ function App() {
           <Route path="/admin/publicdocuments" element={<AdminPublicDocuments />} />
           <Route path="/admin/blockchain" element={<AdminBlockchainNetwork />} />
           <Route path="/admin/official-management" element={<AdminOfficialManagement />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
         </Route>
 
         {/* Official only */}
@@ -72,7 +76,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-
+    </>
   )
 }
 

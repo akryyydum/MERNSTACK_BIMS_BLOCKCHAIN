@@ -13,27 +13,21 @@ export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState(undefined);
+  const [allUsers, setAllUsers] = useState([]); // Store all users for statistics
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [creating, setCreating] = useState(false);
 
-  // Remove resident creation state
-  // const [createResidentOpen, setCreateResidentOpen] = useState(false);
-  // const [residentForm] = Form.useForm();
-  // const [creatingResident, setCreatingResident] = useState(false);
-  // const [residentStep, setResidentStep] = useState(1);
+  const [editOpen, setEditOpen] = useState(false);            
+  const [editForm] = Form.useForm();                           
+  const [editingUser, setEditingUser] = useState(null);         
+  const [savingEdit, setSavingEdit] = useState(false);          
 
-  const [editOpen, setEditOpen] = useState(false);              // + add
-  const [editForm] = Form.useForm();                            // + add
-  const [editingUser, setEditingUser] = useState(null);         // + add
-  const [savingEdit, setSavingEdit] = useState(false);          // + add
-
-  // Fields to validate per step
-  const residentStepFields = {                                  // +
+  const residentStepFields = {                                 
     1: ["username", "password", ["contact","email"], ["contact","mobile"]],
     2: ["firstName", "lastName", "dateOfBirth", "birthPlace", "gender", "civilStatus", "religion"],
     3: [
@@ -66,6 +60,16 @@ export default function AdminUserManagement() {
       const data = await res.json();
       setUsers(data.items);
       setTotal(data.total);
+      
+      // Fetch all users for statistics (without pagination)
+      const allParams = new URLSearchParams({ limit: "1000" }); // Get all users
+      const allRes = await fetch(`${API_BASE}/api/admin/users?${allParams.toString()}`, {
+        headers: authHeaders,
+      });
+      if (allRes.ok) {
+        const allData = await allRes.json();
+        setAllUsers(allData.items || []);
+      }
     } catch (err) {
       message.error(err.message || "Failed to load users");
     } finally {

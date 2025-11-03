@@ -519,7 +519,13 @@ export default function AdminFinancialReports() {
       key: 'type',
       render: (type) => (
         <Tag color="blue">{type.replace('_', ' ').toUpperCase()}</Tag>
-      )
+      ),
+      filters: [
+        { text: 'Garbage Fee', value: 'garbage_fee' },
+        { text: 'Streetlight Fee', value: 'streetlight_fee' },
+        { text: 'Document Request Fee', value: 'document_request_fee' },
+      ],
+      onFilter: (value, record) => record.type === value,
     },
     {
       title: 'Category',

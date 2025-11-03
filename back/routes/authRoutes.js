@@ -10,6 +10,9 @@ router.post('/login', authController.login);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password/:token', authController.resetPassword);
 
+// Protected - Change Password (for authenticated users)
+router.post('/change-password', auth, authController.changePassword);
+
 // Only Admins can access
 router.get('/admin-only', auth, authorize('admin'), (req, res) => {
     res.json({ message: 'Welcome, Admin!' });
