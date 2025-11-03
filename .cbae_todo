@@ -1,0 +1,2 @@
+- [ ] Review `AdminPublicDocuments.jsx` to ensure document preview modal handles unsupported file types gracefully without leaking object URLs
+- [ ] Confirm that download functionality in `AdminPublicDocuments.jsx` revokes blob URLs and works across browsers

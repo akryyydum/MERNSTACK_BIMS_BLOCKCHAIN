@@ -12,6 +12,8 @@ import {
   Popconfirm,
   Descriptions,
   Select,
+  Spin,
+  Alert,
 } from "antd";
 import {
   UploadOutlined,
@@ -22,6 +24,7 @@ import {
   DeleteOutlined,
   FileTextOutlined,
   UserOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
@@ -42,6 +45,19 @@ function iconFor(mime = "") {
   return <FileTextOutlined className="text-gray-500" />;
 }
 
+const isPreviewable = (mime = "") => {
+  if (!mime) return false;
+  const lower = mime.toLowerCase();
+  return (
+    lower.includes("pdf") ||
+    lower.includes("image") ||
+    lower.includes("word") ||
+    lower.includes("excel") ||
+    lower.includes("spreadsheet") ||
+    lower.includes("officedocument")
+  );
+};
+
 export default function AdminPublicDocuments() {
   const [loading, setLoading] = useState(false);
   const [docs, setDocs] = useState([]);
@@ -50,6 +66,11 @@ export default function AdminPublicDocuments() {
   const [viewOpen, setViewOpen] = useState(false);
   const [viewDoc, setViewDoc] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewError, setPreviewError] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [form] = Form.useForm();
 
   const userProfile = JSON.parse(localStorage.getItem("userProfile")) || {};
@@ -76,6 +97,14 @@ export default function AdminPublicDocuments() {
   useEffect(() => {
     fetchDocs();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const filtered = docs.filter(d =>
     [
@@ -174,6 +203,146 @@ export default function AdminPublicDocuments() {
     }
   };
 
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setPreviewDoc(null);
+    setPreviewError("");
+    setPreviewLoading(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl("");
+    }
+  };
+
+  const openPreview = async record => {
+    if (!isPreviewable(record.mimeType)) {
+      message.info("Preview is not available for this file type.");
+      return;
+    }
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl("");
+    }
+
+    setPreviewDoc(record);
+    setPreviewOpen(true);
+    setPreviewError("");
+    setPreviewLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        `${baseURL}/api/admin/public-documents/${record._id}/download`,
+        {
+          responseType: "blob",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const blobUrl = URL.createObjectURL(res.data);
+      setPreviewUrl(blobUrl);
+    } catch (err) {
+      console.error("Preview error", err?.response?.status, err?.response?.data);
+      setPreviewError(
+        err?.response?.data?.message || "Unable to load preview for this document"
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const renderPreviewContent = () => {
+    if (previewLoading) {
+      return (
+        <div className="flex h-[480px] items-center justify-center">
+          <Spin tip="Loading preview..." />
+        </div>
+      );
+    }
+
+    if (previewError) {
+      return (
+        <Alert
+          type="error"
+          message="Preview Error"
+          description={previewError}
+          showIcon
+        />
+      );
+    }
+
+    if (!previewDoc || !previewUrl) {
+      return (
+        <Alert
+          type="info"
+          message="Preview Unavailable"
+          description="No preview content to display."
+          showIcon
+        />
+      );
+    }
+
+    const mime = previewDoc.mimeType?.toLowerCase() || "";
+
+    if (mime.includes("image")) {
+      return (
+        <div className="flex max-h-[480px] items-center justify-center overflow-auto">
+          <img src={previewUrl} alt={previewDoc.title} className="max-h-[460px]" />
+        </div>
+      );
+    }
+
+    if (mime.includes("pdf")) {
+      return (
+        <iframe
+          src={previewUrl}
+          title={`Preview ${previewDoc.title}`}
+          className="h-[480px] w-full rounded-md border"
+        />
+      );
+    }
+
+    if (
+      mime.includes("word") ||
+      mime.includes("excel") ||
+      mime.includes("spreadsheet") ||
+      mime.includes("officedocument")
+    ) {
+      return (
+        <object
+          data={previewUrl}
+          type={previewDoc.mimeType}
+          className="h-[480px] w-full rounded-md border"
+        >
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <Alert
+              type="warning"
+              message="Preview might not be supported in this browser"
+              description="You can download the file instead."
+              showIcon
+            />
+            <Button
+              onClick={() => download(previewDoc)}
+              icon={<DownloadOutlined />}
+            >
+              Download
+            </Button>
+          </div>
+        </object>
+      );
+    }
+
+    return (
+      <Alert
+        type="info"
+        message="Preview Not Supported"
+        description="This file type cannot be previewed. Download to view the file."
+        showIcon
+      />
+    );
+  };
+
   const columns = [
     {
       title: "Title",
@@ -235,6 +404,14 @@ export default function AdminPublicDocuments() {
         <div className="flex gap-2">
           <Button
             size="small"
+            icon={<EyeOutlined />}
+            onClick={() => openPreview(r)}
+            disabled={!isPreviewable(r.mimeType)}
+          >
+            View
+          </Button>
+          <Button
+            size="small"
             icon={<DownloadOutlined />}
             onClick={() => download(r)}
           >
@@ -269,7 +446,7 @@ export default function AdminPublicDocuments() {
                 Public Documents
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
+            <div className="flex items-center outline-1 outline-slate-300 rounded-2xl p-5 gap-3">
               <UserOutlined className="text-2xl text-blue-600" />
               <div className="flex flex-col items-start">
                 <span className="font-semibold text-gray-700">
@@ -427,23 +604,23 @@ export default function AdminPublicDocuments() {
 
         <Modal
           title="Document Details"
-            open={viewOpen}
-            onCancel={() => setViewOpen(false)}
-            footer={[
-              viewDoc && (
-                <Button
-                  key="download"
-                  icon={<DownloadOutlined />}
-                  onClick={() => download(viewDoc)}
-                >
-                  Download
-                </Button>
-              ),
-              <Button key="close" onClick={() => setViewOpen(false)}>
-                Close
-              </Button>,
-            ]}
-            width={650}
+          open={viewOpen}
+          onCancel={() => setViewOpen(false)}
+          footer={[
+            viewDoc && (
+              <Button
+                key="download"
+                icon={<DownloadOutlined />}
+                onClick={() => download(viewDoc)}
+              >
+                Download
+              </Button>
+            ),
+            <Button key="close" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>,
+          ]}
+          width={650}
         >
           {viewDoc && (
             <Descriptions bordered column={1} size="middle">
@@ -475,6 +652,30 @@ export default function AdminPublicDocuments() {
               </Descriptions.Item>
             </Descriptions>
           )}
+        </Modal>
+
+        <Modal
+          title={previewDoc ? `Preview: ${previewDoc.title}` : "Document Preview"}
+          open={previewOpen}
+          onCancel={closePreview}
+          footer={[
+            previewDoc && (
+              <Button
+                key="download"
+                icon={<DownloadOutlined />}
+                onClick={() => download(previewDoc)}
+              >
+                Download
+              </Button>
+            ),
+            <Button key="close" onClick={closePreview}>
+              Close
+            </Button>,
+          ]}
+          width={820}
+          destroyOnClose
+        >
+          {renderPreviewContent()}
         </Modal>
       </div>
     </AdminLayout>
