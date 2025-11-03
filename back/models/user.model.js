@@ -16,6 +16,10 @@ const userSchema = new mongoose.Schema({
     verificationToken: { type: String } // keeping for password reset functionality
 }, { timestamps: true });
 
-userSchema.index({ 'contact.email': 1 }, { unique: true });
+// Make email unique only when present (avoid duplicate null/undefined)
+userSchema.index(
+    { 'contact.email': 1 },
+    { unique: true, sparse: true }
+);
 
 module.exports = mongoose.model('User', userSchema);

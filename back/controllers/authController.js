@@ -37,6 +37,7 @@ async function register(req, res) {
   citizenship,
   occupation,
   sectoralInformation,
+  registeredVoter,
   contact = {},
     } = req.body;
 
@@ -112,6 +113,7 @@ async function register(req, res) {
       citizenship,
   occupation,
       sectoralInformation,
+      registeredVoter: typeof registeredVoter === 'boolean' ? registeredVoter : false,
       contact: {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined
