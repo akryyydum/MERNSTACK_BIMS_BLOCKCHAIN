@@ -82,6 +82,7 @@ export default function AdminResidentManagement() {
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
+  const [exportEthnicityOther, setExportEthnicityOther] = useState(false);
 
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -220,16 +221,25 @@ export default function AdminResidentManagement() {
   // Export to Excel
   const handleExport = async () => {
     try {
-      const { purokFilter } = await exportForm.validateFields();
+      const { purokFilter, ethnicityFilter, ethnicityOtherText } = await exportForm.validateFields();
       
       // Filter residents by purok
       let filtered = residents;
       if (purokFilter !== "all") {
         filtered = residents.filter(r => r.address?.purok === purokFilter);
       }
+      
+      // Filter by ethnicity if specified
+      if (ethnicityFilter) {
+        const ethnicityToMatch = ethnicityFilter === "Others" ? ethnicityOtherText : ethnicityFilter;
+        filtered = filtered.filter(r => {
+          const residentEthnicity = r.ethnicity || "";
+          return residentEthnicity.toLowerCase().includes(ethnicityToMatch.toLowerCase());
+        });
+      }
 
       if (!filtered.length) {
-        message.warning("No residents found for the selected purok.");
+        message.warning("No residents found for the selected filters.");
         return;
       }
 
@@ -273,7 +283,10 @@ export default function AdminResidentManagement() {
 
       // Generate filename
       const timestamp = dayjs().format("YYYYMMDD_HHmmss");
-      const filename = `Residents_${sheetName}_${timestamp}.xlsx`;
+      const ethnicityPart = ethnicityFilter 
+        ? `_${ethnicityFilter === "Others" ? ethnicityOtherText.replace(/\s+/g, "_") : ethnicityFilter}`
+        : "";
+      const filename = `Residents_${sheetName}${ethnicityPart}_${timestamp}.xlsx`;
 
       // Download file
       XLSX.writeFile(wb, filename);
@@ -281,6 +294,7 @@ export default function AdminResidentManagement() {
       message.success("Excel file exported successfully!");
       setExportOpen(false);
       exportForm.resetFields();
+      setExportEthnicityOther(false);
     } catch (error) {
       console.error("Export error:", error);
       message.error("Failed to export data");
@@ -679,7 +693,11 @@ export default function AdminResidentManagement() {
         <Modal
           title="Export Residents to Excel"
           open={exportOpen}
-          onCancel={() => { setExportOpen(false); exportForm.resetFields(); }}
+          onCancel={() => { 
+            setExportOpen(false); 
+            exportForm.resetFields(); 
+            setExportEthnicityOther(false);
+          }}
           onOk={handleExport}
           okText="Export"
           width={400}
@@ -702,6 +720,35 @@ export default function AdminResidentManagement() {
                 ]}
               />
             </Form.Item>
+            
+            <Form.Item 
+              name="ethnicityFilter" 
+              label="Filter by Ethnicity (Optional)"
+            >
+              <Select
+                placeholder="Select ethnicity"
+                allowClear
+                onChange={(value) => setExportEthnicityOther(value === "Others")}
+                options={[
+                  { value: "Ilocano", label: "Ilocano" },
+                  { value: "Tagalog", label: "Tagalog" },
+                  { value: "Ifugao", label: "Ifugao" },
+                  { value: "Igorot", label: "Igorot" },
+                  { value: "Others", label: "Others" },
+                ]}
+              />
+            </Form.Item>
+            
+            {exportEthnicityOther && (
+              <Form.Item 
+                name="ethnicityOtherText" 
+                label="Specify Ethnicity"
+                rules={[{ required: true, message: "Please specify the ethnicity" }]}
+              >
+                <Input placeholder="Enter ethnicity" />
+              </Form.Item>
+            )}
+            
             <div className="text-sm text-gray-500 mt-2">
               <p><strong>Export includes:</strong></p>
               <ul className="list-disc list-inside mt-1 space-y-1">
