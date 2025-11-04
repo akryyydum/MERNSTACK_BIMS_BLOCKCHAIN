@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form, Popconfirm } from "antd";
+import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Popconfirm } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
@@ -21,9 +21,21 @@ export default function AdminDocumentRequests() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [residents, setResidents] = useState([]);
+  // Households and payment gating state
+  const [households, setHouseholds] = useState([]);
+  const [paymentsCheckLoading, setPaymentsCheckLoading] = useState(false);
+  const [unpaidMonths, setUnpaidMonths] = useState({ garbage: [], streetlight: [] });
+  const [blockCreate, setBlockCreate] = useState(false);
+  const [showUnpaidModal, setShowUnpaidModal] = useState(false);
+  // Accept modal for Business Clearance amount
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [acceptRecord, setAcceptRecord] = useState(null);
+  const [acceptForm] = Form.useForm();
 
   const [createForm] = Form.useForm();
   const selectedCreateDocType = Form.useWatch("documentType", createForm); // NEW
+  const selectedResidentId = Form.useWatch("residentId", createForm);
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
@@ -36,6 +48,7 @@ export default function AdminDocumentRequests() {
   useEffect(() => {
     fetchRequests();
     fetchResidents();
+    fetchHouseholds();
   }, []);
 
   // Helper: newest first
@@ -72,6 +85,20 @@ export default function AdminDocumentRequests() {
       setResidents(res.data);
     } catch {
       message.error("Failed to load residents");
+    }
+  };
+
+  // Fetch households for resident->household mapping
+  const fetchHouseholds = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/households`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setHouseholds(res.data || []);
+    } catch (err) {
+      console.error("Failed to load households", err);
     }
   };
 
@@ -120,6 +147,13 @@ export default function AdminDocumentRequests() {
       key: "documentType",
     },
     {
+      title: "Qty",
+      dataIndex: "quantity",
+      key: "quantity",
+      width: 70,
+      render: (v) => Number(v || 1)
+    },
+    {
       title: "Purpose",
       dataIndex: "purpose",
       key: "purpose",
@@ -156,7 +190,15 @@ export default function AdminDocumentRequests() {
           <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
           {r.status === "pending" && (
             <>
-              <Button size="small" type="primary" onClick={() => handleAction(r._id, 'accept')}>Accept</Button>
+              <Button size="small" type="primary" onClick={() => {
+                if (r.documentType === 'Business Clearance') {
+                  setAcceptRecord(r);
+                  acceptForm.setFieldsValue({ amount: r.feeAmount || undefined });
+                  setAcceptOpen(true);
+                } else {
+                  handleAction(r._id, 'accept');
+                }
+              }}>Accept</Button>
               <Button size="small" danger onClick={() => handleAction(r._id, 'decline')}>Decline</Button>
             </>
           )}
@@ -193,6 +235,91 @@ export default function AdminDocumentRequests() {
       .toLowerCase()
       .includes(search.toLowerCase())
 );
+
+  // Helper: find the household that contains a given resident ID
+  const findHouseholdByResident = (residentId) => {
+    if (!residentId) return null;
+    for (const h of households) {
+      const headId = h?.headOfHousehold?._id || h?.headOfHousehold;
+      if (String(headId) === String(residentId)) return h;
+      const hasMember = (h?.members || []).some(m => String(m?._id || m) === String(residentId));
+      if (hasMember) return h;
+    }
+    return null;
+  };
+
+  // Compute unpaid months for garbage and streetlight up to and including current month
+  const computeUnpaidMonths = async (householdId) => {
+    if (!householdId) {
+      setUnpaidMonths({ garbage: [], streetlight: [] });
+      setBlockCreate(false);
+      return;
+    }
+    try {
+      setPaymentsCheckLoading(true);
+      const token = localStorage.getItem("token");
+      const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+      const now = dayjs();
+      const year = now.year();
+      const currentMonthIdx = now.month() + 1; // 1..12
+      const months = Array.from({ length: currentMonthIdx }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+
+      // For each month, fetch both statuses
+      const garbagePromises = months.map(m =>
+        axios.get(`${API}/api/admin/households/${householdId}/garbage`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { month: m },
+        }).then(res => ({ month: m, status: res.data?.status || "unpaid" }))
+          .catch(() => ({ month: m, status: "unpaid" }))
+      );
+      const streetPromises = months.map(m =>
+        axios.get(`${API}/api/admin/households/${householdId}/streetlight`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { month: m },
+        }).then(res => ({ month: m, status: res.data?.status || "unpaid" }))
+          .catch(() => ({ month: m, status: "unpaid" }))
+      );
+
+      const [garbageResults, streetResults] = await Promise.all([
+        Promise.all(garbagePromises),
+        Promise.all(streetPromises)
+      ]);
+
+      // Collect months that are not fully paid
+      const garbageUnpaid = garbageResults
+        .filter(r => r.status !== "paid")
+        .map(r => ({ month: r.month, isCurrent: r.month === now.format("YYYY-MM") }));
+      const streetUnpaid = streetResults
+        .filter(r => r.status !== "paid")
+        .map(r => ({ month: r.month, isCurrent: r.month === now.format("YYYY-MM") }));
+
+      setUnpaidMonths({ garbage: garbageUnpaid, streetlight: streetUnpaid });
+      // Block create if there exists any unpaid for current/past months in either
+      const hasUnpaid = garbageUnpaid.length > 0 || streetUnpaid.length > 0;
+      setBlockCreate(Boolean(hasUnpaid));
+    } catch (err) {
+      console.error("Error computing unpaid months", err);
+      // Be safe: if we can't verify, block creation
+      setBlockCreate(true);
+    } finally {
+      setPaymentsCheckLoading(false);
+    }
+  };
+
+  // React when resident selection changes in create modal
+  useEffect(() => {
+    if (!createOpen) return; // only check when modal open
+    // reset and recompute when resident changes
+    setUnpaidMonths({ garbage: [], streetlight: [] });
+    setBlockCreate(false);
+    if (selectedResidentId && households?.length) {
+      const hh = findHouseholdByResident(selectedResidentId);
+      if (hh?._id) {
+        computeUnpaidMonths(hh._id);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedResidentId, households, createOpen]);
 
    const openView = (request) => {
     setViewRequest(request);
@@ -399,44 +526,119 @@ const handleAction = async (id, action) => {
   }
 };
 
+// Helpers for export
+function formatResidentName(resident) {
+  if (!resident) return "-";
+  const parts = [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+    .filter(Boolean);
+  return parts.join(" ");
+}
+
+function getRange(rangeType, period) {
+  const p = dayjs(period);
+  if (rangeType === 'day') {
+    return { start: p.startOf('day'), end: p.endOf('day') };
+  }
+  if (rangeType === 'week') {
+    return { start: p.startOf('week'), end: p.endOf('week') };
+  }
+  // month default
+  return { start: p.startOf('month'), end: p.endOf('month') };
+}
+
+function toCsv(rows) {
+  if (!rows || !rows.length) return '';
+  const headers = Object.keys(rows[0]);
+  const esc = (v) => {
+    if (v == null) return '';
+    const s = String(v);
+    if (/[",\n]/.test(s)) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+  const lines = [];
+  lines.push(headers.join(','));
+  for (const row of rows) {
+    lines.push(headers.map((h) => esc(row[h])).join(','));
+  }
+  return lines.join('\n');
+}
+
 const handleExport = async () => {
   try {
-    const { rangeType, period } = await exportForm.validateFields();
-    const { start, end } = getRange(rangeType, period);
+      const { rangeType, period, reportType, docTypeFilter } = await exportForm.validateFields();
+      const { start, end } = getRange(rangeType, period);
 
-    const filtered = requests.filter(r => {
-      const t = dayjs(r.requestedAt).valueOf();
-      return t >= start.valueOf() && t <= end.valueOf();
-    });
+      // Date range filter
+      let filtered = requests.filter(r => {
+        const t = dayjs(r.requestedAt).valueOf();
+        return t >= start.valueOf() && t <= end.valueOf();
+      });
 
-    if (!filtered.length) {
-      message.warning("No requests found for the selected period.");
-      return;
-    }
+      // Document type filter
+      const docFilter = docTypeFilter || 'all';
+      if (docFilter && docFilter !== 'all') {
+        filtered = filtered.filter(r => r.documentType === docFilter);
+      }
 
-    const rows = filtered.map(r => ({
-      Resident: formatResidentName(r.residentId),
-      CivilStatus: r.residentId?.civilStatus || "-",
-      Purok: r.residentId?.address?.purok || "-",
-      DocumentType: r.documentType,
-      Purpose: r.purpose || "",
-      Status: r.status,
-      BusinessName: r.documentType === "Business Clearance" ? (r.businessName || "") : "",
-      RequestedAt: r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
-      UpdatedAt: r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
-    }));
+      if (!filtered.length) {
+        message.warning("No requests found for the selected filters.");
+        return;
+      }
 
-    const csv = toCsv(rows);
-    const filenameBase =
-      rangeType === "day"
-        ? dayjs(period).format("YYYYMMDD")
-        : rangeType === "week"
-        ? `W${dayjs(period).format("GGGG-ww")}` // ISO week label
-        : dayjs(period).format("YYYYMM");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    saveAs(blob, `DocumentRequests-${rangeType}-${filenameBase}.csv`);
-    message.success("Export generated.");
-    setExportOpen(false);
+      let rows = [];
+      let filenamePrefix = 'DocumentRequests';
+
+      if (reportType === 'top_requesters') {
+        // Group by resident and count requests
+        const counts = new Map();
+        for (const r of filtered) {
+          const id = r?.residentId?._id || r?.residentId || 'unknown';
+          if (!id || id === 'unknown') continue; // skip records without resident
+          const prev = counts.get(id) || { count: 0, resident: r.residentId };
+          counts.set(id, { count: prev.count + 1, resident: prev.resident || r.residentId });
+        }
+        const ranked = Array.from(counts.entries())
+          .map(([id, { count, resident }]) => ({ id, count, resident }))
+          .sort((a, b) => b.count - a.count);
+
+        rows = ranked.map((entry, idx) => ({
+          Rank: idx + 1,
+          Resident: formatResidentName(entry.resident),
+          ResidentId: entry.id,
+          Requests: entry.count,
+          DocumentTypeFilter: docFilter,
+        }));
+        filenamePrefix = 'TopRequesters';
+      } else {
+        // Detailed rows
+        rows = filtered.map(r => ({
+          Resident: formatResidentName(r.residentId),
+          CivilStatus: r.residentId?.civilStatus || "-",
+          Purok: r.residentId?.address?.purok || "-",
+          DocumentType: r.documentType,
+          Purpose: r.purpose || "",
+          Status: r.status,
+          BusinessName: r.documentType === "Business Clearance" ? (r.businessName || "") : "",
+          RequestedAt: r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
+          UpdatedAt: r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
+        }));
+      }
+
+      const csv = toCsv(rows);
+      const filenameBase =
+        rangeType === "day"
+          ? dayjs(period).format("YYYYMMDD")
+          : rangeType === "week"
+          ? `W${dayjs(period).format("GGGG-ww")}` // ISO week label
+          : dayjs(period).format("YYYYMM");
+
+      const docSlug = (docFilter || 'all').replace(/\s+/g, '_').toLowerCase();
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      saveAs(blob, `${filenamePrefix}-${docSlug}-${rangeType}-${filenameBase}.csv`);
+      message.success("Export generated.");
+      setExportOpen(false);
   } catch (e) {
     // validation or other errors
   }
@@ -568,7 +770,7 @@ const handleExport = async () => {
                 onClick={() => {
                   setExportOpen(true);
                   // initialize default export values
-                  exportForm.setFieldsValue({ rangeType: "month", period: dayjs() });
+                  exportForm.setFieldsValue({ reportType: 'detailed', docTypeFilter: 'all', rangeType: "month", period: dayjs() });
                 }}
               >
                 Export
@@ -626,7 +828,7 @@ const handleExport = async () => {
         <Modal
           title="Create Document Request"
           open={createOpen}
-          onCancel={() => setCreateOpen(false)}
+          onCancel={() => { setCreateOpen(false); setShowUnpaidModal(false); setUnpaidMonths({ garbage: [], streetlight: [] }); setBlockCreate(false); }}
           onOk={async () => {
             try {
               setCreating(true);
@@ -648,6 +850,7 @@ const handleExport = async () => {
           }}
           confirmLoading={creating}
           okText="Create"
+          okButtonProps={{ disabled: blockCreate || paymentsCheckLoading }}
           width={600}
         >
           <Form form={createForm} layout="vertical">
@@ -667,6 +870,20 @@ const handleExport = async () => {
                 ))}
               </Select>
             </Form.Item>
+            {selectedResidentId && (
+              <div className="mb-3 -mt-2 flex items-center gap-2">
+                <Button size="small" onClick={() => setShowUnpaidModal(true)} disabled={paymentsCheckLoading}>
+                  View Unpaid Months
+                </Button>
+                {paymentsCheckLoading ? (
+                  <span className="text-xs text-gray-500">Checking payments…</span>
+                ) : blockCreate ? (
+                  <span className="text-xs text-red-600 font-medium">Creation disabled: resident has unpaid garbage/streetlight fees.</span>
+                ) : (
+                  <span className="text-xs text-green-600">All fees up-to-date.</span>
+                )}
+              </div>
+            )}
             <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
               <Select
                 showSearch
@@ -693,6 +910,10 @@ const handleExport = async () => {
               />
             </Form.Item>
 
+            <Form.Item name="quantity" label="Quantity" initialValue={1} rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity (min 1)' }]}>
+              <InputNumber min={1} className="w-full" />
+            </Form.Item>
+
             {selectedCreateDocType === "Business Clearance" && (
               <Form.Item
                 name="businessName"
@@ -709,6 +930,92 @@ const handleExport = async () => {
           </Form>
         </Modal>
 
+        {/* Unpaid Months Viewer */}
+        <Modal
+          title="Unpaid Months"
+          open={showUnpaidModal}
+          onCancel={() => setShowUnpaidModal(false)}
+          footer={null}
+          width={520}
+        >
+          {!selectedResidentId ? (
+            <div className="text-sm text-gray-500">Select a resident to view payment status.</div>
+          ) : paymentsCheckLoading ? (
+            <div className="text-sm text-gray-500">Loading unpaid months…</div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <div className="font-semibold mb-2">Garbage Fees</div>
+                {unpaidMonths.garbage.length === 0 ? (
+                  <div className="text-sm text-green-600">No unpaid months.</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {unpaidMonths.garbage.map(({ month, isCurrent }) => (
+                      <Tag key={`g-${month}`} color={isCurrent ? 'gold' : 'red'}>
+                        {dayjs(`${month}-01`).format('MMM YYYY')}{isCurrent ? ' (Current)' : ''}
+                      </Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="font-semibold mb-2">Streetlight Fees</div>
+                {unpaidMonths.streetlight.length === 0 ? (
+                  <div className="text-sm text-green-600">No unpaid months.</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {unpaidMonths.streetlight.map(({ month, isCurrent }) => (
+                      <Tag key={`s-${month}`} color={isCurrent ? 'gold' : 'red'}>
+                        {dayjs(`${month}-01`).format('MMM YYYY')}{isCurrent ? ' (Current)' : ''}
+                      </Tag>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-gray-500">Legend: Red = past unpaid, Yellow = current month unpaid.</div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Accept Modal for Business Clearance */}
+        <Modal
+          title="Accept Request: Business Clearance"
+          open={acceptOpen}
+          onCancel={() => setAcceptOpen(false)}
+          onOk={async () => {
+            try {
+              const { amount } = await acceptForm.validateFields();
+              setAccepting(true);
+              const token = localStorage.getItem("token");
+              await axios.patch(
+                `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${acceptRecord._id}/accept`,
+                { amount: Number(amount) },
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              setRequests(prev => prev.map(r => r._id === acceptRecord._id ? { ...r, status: 'accepted', feeAmount: Number(amount) } : r));
+              message.success('Request accepted and recorded');
+              setAcceptOpen(false);
+            } catch (err) {
+              message.error(err?.response?.data?.message || 'Failed to accept request');
+            }
+            setAccepting(false);
+          }}
+          confirmLoading={accepting}
+          okText="Accept"
+          width={420}
+        >
+          {acceptRecord && (
+            <Form form={acceptForm} layout="vertical" initialValues={{ amount: acceptRecord.feeAmount }}>
+              <Form.Item label="Document">
+                <Input value={`${acceptRecord.documentType} x ${acceptRecord.quantity || 1}`} readOnly />
+              </Form.Item>
+              <Form.Item name="amount" label="Unit Amount (₱)" rules={[{ required: true, type: 'number', min: 0, message: 'Enter a valid amount' }]}>
+                <InputNumber min={0} className="w-full" />
+              </Form.Item>
+            </Form>
+          )}
+        </Modal>
+
         {/* Export Modal */}
         <Modal
           title="Export Document Requests"
@@ -718,7 +1025,25 @@ const handleExport = async () => {
           okText="Export"
           width={420}
         >
-          <Form form={exportForm} layout="vertical" initialValues={{ rangeType: "month", period: dayjs() }}>
+          <Form form={exportForm} layout="vertical" initialValues={{ reportType: 'detailed', docTypeFilter: 'all', rangeType: "month", period: dayjs() }}>
+            <Form.Item name="reportType" label="Report Type" rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: 'detailed', label: 'Detailed Rows' },
+                  { value: 'top_requesters', label: 'Top Requesters (Most Requests)' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="docTypeFilter" label="Document Type">
+              <Select
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'Indigency', label: 'Indigency' },
+                  { value: 'Barangay Clearance', label: 'Barangay Clearance' },
+                  { value: 'Business Clearance', label: 'Business Clearance' },
+                ]}
+              />
+            </Form.Item>
             <Form.Item name="rangeType" label="Range Type" rules={[{ required: true }]}>
               <Select
                 options={[

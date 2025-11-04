@@ -9,12 +9,16 @@ const documentRequestSchema = new mongoose.Schema({
     enum: ['Barangay Certificate', 'Indigency', 'Barangay Clearance', 'Residency', 'Business Clearance'], 
     required: true 
   },
+  // Quantity of copies requested
+  quantity: { type: Number, default: 1, min: 1 },
   purpose: { type: String },
   status: {
     type: String,
     enum: ['pending', 'accepted', 'declined', 'completed'],
     default: 'pending'
   },
+  // Optional fee amount set by admin (e.g., for Business Clearance)
+  feeAmount: { type: Number },
   
   blockchain: {
     hash: String,

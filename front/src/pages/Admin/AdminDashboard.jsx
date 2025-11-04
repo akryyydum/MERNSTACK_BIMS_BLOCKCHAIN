@@ -14,7 +14,8 @@ const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 export default function AdminDashboard() {
   const [data, setData] = useState({
     residents: [], officials: [], docRequests: [], complaints: [],
-    financialDashboard: null, financialTotal: 0
+    financialDashboard: null, financialTotal: 0,
+    blockchain: null
   });
   const [loading, setLoading] = useState(true);
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -35,16 +36,32 @@ export default function AdminDashboard() {
           `${API_BASE}/api/admin/financial/dashboard`,
           `${API_BASE}/api/admin/financial/transactions?limit=1`
         ];
-        const res = await Promise.all(endpoints.map(url => fetch(url, { headers, signal: abort.signal })));
-        if (!res.every(r => r.ok)) throw new Error('Failed to load dashboard');
-        const [residents, officials, docRequests, complaints, financialDashboard, finTx] = await Promise.all(res.map(r => r.json()));
+        // Load core dashboard data first and tolerate partial failures
+        const settled = await Promise.allSettled(
+          endpoints.map(url => fetch(url, { headers, signal: abort.signal }))
+        );
+        const jsons = await Promise.all(
+          settled.map(async (r) => (r.status === 'fulfilled' && r.value.ok) ? r.value.json() : null)
+        );
+        const [residents, officials, docRequests, complaints, financialDashboard, finTx] = jsons;
+
+        // Fetch blockchain status separately; don't block dashboard if it fails
+        let blockchain = null;
+        try {
+          const r = await fetch(`${API_BASE}/api/blockchain/status`, { headers, signal: abort.signal });
+          blockchain = r.ok ? await r.json() : { ok: false, message: `Status ${r.status}` };
+        } catch (err) {
+          blockchain = { ok: false, message: 'Blockchain unreachable' };
+        }
+
         setData({
           residents: Array.isArray(residents) ? residents : [],
           officials: Array.isArray(officials) ? officials : [],
           docRequests: Array.isArray(docRequests) ? docRequests : [],
           complaints: Array.isArray(complaints) ? complaints : [],
-          financialDashboard,
-          financialTotal: finTx?.total || 0
+          financialDashboard: financialDashboard || null,
+          financialTotal: (finTx && typeof finTx.total === 'number') ? finTx.total : 0,
+          blockchain
         });
       } catch (e) {
         if (e.name !== 'AbortError') message.error(e.message || 'Failed to load dashboard');
@@ -53,7 +70,7 @@ export default function AdminDashboard() {
     return () => abort.abort();
   }, []);
 
-  const { residents, officials, docRequests, complaints, financialDashboard, financialTotal } = data;
+  const { residents, officials, docRequests, complaints, financialDashboard, financialTotal, blockchain } = data;
   const totalResidents = residents.length;
   const activeOfficials = officials.filter(o => o.isActive).length;
   const pendingDocRequests = docRequests.filter(d => d.status === 'pending').length;
@@ -249,21 +266,33 @@ export default function AdminDashboard() {
                 <CardTitle className="text-lg font-bold text-black">Blockchain Network Status</CardTitle>
               </CardHeader>
               <CardContent style={{ height: 280 }}>
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  <div className="text-sm font-medium">All 4 peers active</div>
-                  <Space wrap>
-                    <Tag color="green">Peer 1</Tag>
-                    <Tag color="green">Peer 2</Tag>
-                    <Tag color="green">Peer 3</Tag>
-                    <Tag color="green">Peer 4</Tag>
+                {loading ? (
+                  <div className="flex items-center justify-center h-full"><Spin /></div>
+                ) : blockchain?.ok ? (
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <div className="text-sm font-medium">
+                      {`Peers active: ${Array.isArray(blockchain.peers) ? blockchain.peers.length : 0}`}
+                    </div>
+                    <Space wrap>
+                      {(blockchain.peers || []).map((p, idx) => (
+                        <Tag key={p.name || idx} color="green">{p.name || `Peer ${idx+1}`}</Tag>
+                      ))}
+                    </Space>
+                    <Divider style={{ margin: '8px 0' }} />
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <div>Channel: {blockchain.channel || '—'}</div>
+                      <div>Last block height: {typeof blockchain.blockHeight === 'number' ? blockchain.blockHeight : '—'}</div>
+                      <div>Latency: {typeof blockchain.latencyMs === 'number' ? `${blockchain.latencyMs}ms` : '—'}</div>
+                      <div>Chaincode: {blockchain.chaincode?.name || '—'}</div>
+                      <div className="text-[10px]">Observed: {blockchain.observedAt ? new Date(blockchain.observedAt).toLocaleString() : '—'}</div>
+                    </div>
                   </Space>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <div>Last block height: 1289</div>
-                    <div>Latency: 120ms</div>
-                    <div>Chaincode: barangaycc@1.0</div>
+                ) : (
+                  <div className="flex flex-col items-start justify-center h-full text-gray-500">
+                    <div className="font-medium mb-1">Blockchain unavailable</div>
+                    <div className="text-xs">{blockchain?.message || 'Could not retrieve network status.'}</div>
                   </div>
-                </Space>
+                )}
               </CardContent>
             </Card>
           </div>

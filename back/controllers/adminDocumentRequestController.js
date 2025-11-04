@@ -19,10 +19,13 @@ exports.list = async (req, res) => {
   }
 };
 
-// Approve a document request
+const FinancialTransaction = require('../models/financialTransaction.model');
+
+// Approve a document request (and log financial transaction)
 exports.approve = async (req, res) => {
   try {
     const { id } = req.params;
+    const { amount } = req.body || {};
     
     const request = await DocumentRequest.findByIdAndUpdate(
       id,
@@ -35,6 +38,40 @@ exports.approve = async (req, res) => {
 
     if (!request) {
       return res.status(404).json({ message: "Document request not found" });
+    }
+
+    // Compute document fees and record financial transaction
+    try {
+      const qty = Math.max(Number(request.quantity || 1), 1);
+      const type = request.documentType;
+      let unitAmount = 0;
+      if (type === 'Indigency') unitAmount = 0;
+      else if (type === 'Barangay Clearance') unitAmount = 100;
+      else if (type === 'Business Clearance') unitAmount = Number(amount || request.feeAmount || 0);
+
+      // Save feeAmount chosen by admin when provided
+      if (type === 'Business Clearance' && (amount !== undefined)) {
+        await DocumentRequest.findByIdAndUpdate(id, { feeAmount: unitAmount });
+      }
+
+      const total = unitAmount * qty;
+      // Only create a transaction if total known (>=0). For 0, we can still log for audit
+      await FinancialTransaction.create({
+        type: 'document_fee',
+        category: 'revenue',
+        description: `${type} x ${qty}`,
+        amount: Number(total) || 0,
+        residentId: request.residentId?._id || request.requestedBy?._id,
+        documentRequestId: request._id,
+        status: 'completed',
+        transactionDate: new Date(),
+        paymentMethod: 'cash',
+        createdBy: req.user?.id || req.user?._id,
+        updatedBy: req.user?.id || req.user?._id,
+      });
+    } catch (txErr) {
+      console.error('Error creating financial transaction for document request:', txErr.message);
+      // Non-fatal: proceed to respond with the accepted request
     }
 
     res.json(request);
@@ -90,7 +127,7 @@ exports.delete = async (req, res) => {
 // Create a new document request (admin can create on behalf of residents)
 exports.create = async (req, res) => {
   try {
-    const { residentId, documentType, purpose, businessName } = req.body;
+    const { residentId, documentType, purpose, businessName, quantity } = req.body;
 
     const resident = await Resident.findById(residentId);
     if (!resident) {
@@ -104,6 +141,7 @@ exports.create = async (req, res) => {
       documentType,
       purpose,
       businessName,
+      quantity: Math.max(Number(quantity || 1), 1),
       status: 'pending'
     });
     await newRequest.save();

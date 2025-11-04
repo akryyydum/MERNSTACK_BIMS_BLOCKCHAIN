@@ -7,31 +7,7 @@ import { UserOutlined, SyncOutlined, FileTextOutlined, BarChartOutlined, DeleteO
 import axios from "axios";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
-import { Line, Bar, Pie } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-} from 'chart.js';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
+// Charts removed: react-chartjs-2 and chart.js imports not needed after removing charts section
 
 const { RangePicker } = DatePicker;
 const { TabPane } = Tabs;
@@ -360,7 +336,7 @@ export default function AdminFinancialReports() {
   const revenues = Array.isArray(dashboardData.revenues) ? dashboardData.revenues : statistics.revenues || [];
   const expenses = Array.isArray(dashboardData.expenses) ? dashboardData.expenses : statistics.expenses || [];
   const allocations = Array.isArray(dashboardData.allocations) ? dashboardData.allocations : statistics.allocations || [];
-  const monthlyTrends = Array.isArray(dashboardData.monthlyTrends) ? dashboardData.monthlyTrends : statistics.monthlyTrends || [];
+  // Removed monthlyTrends usage since Monthly Trends chart is removed
 
   const totalRevenue = revenues.length
     ? revenues.reduce((sum, r) => sum + Number(r.total || 0), 0)
@@ -378,44 +354,7 @@ export default function AdminFinancialReports() {
     statistics.netIncome ?? statistics.balance ?? (totalRevenue - totalExpenses)
   );
 
-  // Chart data
-  const revenueChartData = {
-    labels: revenues.map(r => (r._id ? String(r._id).replace(/_/g, ' ').toUpperCase() : '')),
-    datasets: [{
-      label: 'Revenue by Type',
-      data: revenues.map(r => Number(r.total || 0)),
-      backgroundColor: [
-        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
-      ]
-    }]
-  };
-
-  const monthlyTrendData = {
-    labels: monthlyTrends.map(m => {
-      const id = m?._id || {};
-      return `${id.year ?? '----'}-${String(id.month ?? 1).padStart(2, '0')}`;
-    }),
-    datasets: [
-      {
-        label: 'Revenue',
-        data: monthlyTrends
-          .filter(m => m._id?.category === 'revenue')
-          .map(m => Number(m.total || 0)),
-        borderColor: '#10B981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        tension: 0.4
-      },
-      {
-        label: 'Expenses',
-        data: monthlyTrends
-          .filter(m => m._id?.category === 'expense')
-          .map(m => Number(m.total || 0)),
-        borderColor: '#EF4444',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.4
-      }
-    ]
-  };
+  // Chart data removed (Revenue by Type and Monthly Trends)
 
   const handleEditTransaction = async () => {
     try {
@@ -876,36 +815,7 @@ export default function AdminFinancialReports() {
           </div>
         </div>
 
-        {/* Charts Section */}
-        <div className="bg-white rounded-2xl p-4 space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="bg-slate-50 rounded-2xl shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold text-black">Revenue by Type</CardTitle>
-              </CardHeader>
-              <CardContent style={{ height: 300 }}>
-                {dashboardData.revenues?.length > 0 ? (
-                  <Pie data={revenueChartData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">No revenue data available</div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-50 rounded-2xl shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold text-black">Monthly Trends</CardTitle>
-              </CardHeader>
-              <CardContent style={{ height: 300 }}>
-                {dashboardData.monthlyTrends?.length > 0 ? (
-                  <Line data={monthlyTrendData} options={{ responsive: true, maintainAspectRatio: false }} height={300} />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">No trend data available</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        {/* Charts Section removed as requested: Revenue by Type and Monthly Trends */}
 
         {/* Transactions Table Section */}
         <div className="bg-white rounded-2xl p-4 space-y-4">

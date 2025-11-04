@@ -22,9 +22,9 @@ async function main() {
         const wallet = await Wallets.newFileSystemWallet(walletPath);
 
         // Check if user already exists
-        const userIdentity = await wallet.get('appUser2');
+        const userIdentity = await wallet.get('appUser3');
         if (userIdentity) {
-            console.log('✅ User "appUser2" already exists in the wallet');
+            console.log('✅ User "appUser3" already exists in the wallet');
             return;
         }
 
@@ -41,13 +41,13 @@ async function main() {
         // 👉 Proper way: register the user (CA generates secret)
         const secret = await ca.register({
             affiliation: 'org1.department1',
-            enrollmentID: 'appUser2',
+            enrollmentID: 'appUser3',
             role: 'client'
         }, adminUser);
 
         // 👉 Then enroll with that generated secret
         const enrollment = await ca.enroll({
-            enrollmentID: 'appUser2',
+            enrollmentID: 'appUser3',
             enrollmentSecret: secret
         });
 
@@ -59,8 +59,8 @@ async function main() {
             mspId: 'Org1MSP',
             type: 'X.509',
         };
-        await wallet.put('appUser2', x509Identity);
-        console.log('✅ Successfully registered and enrolled "appUser2" and imported it into the wallet');
+        await wallet.put('appUser3', x509Identity);
+        console.log('✅ Successfully registered and enrolled "appUser3" and imported it into the wallet');
 
     } catch (error) {
         console.error(`❌ Failed to register/enroll user: ${error}`);
