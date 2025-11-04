@@ -1019,7 +1019,6 @@ export default function AdminResidentManagement() {
                     options={[
                       { value: "male", label: "Male" },
                       { value: "female", label: "Female" },
-                      { value: "other", label: "Other" },
                     ]}
                   />
                 </Form.Item>
@@ -1226,7 +1225,6 @@ export default function AdminResidentManagement() {
                     options={[
                       { value: "male", label: "Male" },
                       { value: "female", label: "Female" },
-                      { value: "other", label: "Other" },
                     ]}
                   />
                 </Form.Item>

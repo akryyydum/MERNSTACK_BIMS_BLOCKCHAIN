@@ -521,7 +521,6 @@ const Login = () => {
                       options={[ 
                         { value: "male", label: "Male" },
                         { value: "female", label: "Female" },
-                        { value: "other", label: "Prefer not to say" },
                       ]}
                       size="middle"
                     />
