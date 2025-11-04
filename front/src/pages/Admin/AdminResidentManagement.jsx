@@ -89,6 +89,8 @@ export default function AdminResidentManagement() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
   const [exportEthnicityOther, setExportEthnicityOther] = useState(false);
+  const [exportReligionOther, setExportReligionOther] = useState(false);
+  const [exportFilterType, setExportFilterType] = useState(null);
 
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -227,7 +229,7 @@ export default function AdminResidentManagement() {
   // Export to Excel
   const handleExport = async () => {
     try {
-      const { purokFilter, ethnicityFilter, ethnicityOtherText, seniorCitizenFilter } = await exportForm.validateFields();
+      const { purokFilter, filterType, ethnicityValue, ethnicityOtherText, religionValue, religionOtherText, ageValue } = await exportForm.validateFields();
       
       // Helper function to calculate age
       const calculateAge = (birthDate) => {
@@ -248,20 +250,25 @@ export default function AdminResidentManagement() {
         filtered = residents.filter(r => r.address?.purok === purokFilter);
       }
       
-      // Filter by ethnicity if specified
-      if (ethnicityFilter) {
-        const ethnicityToMatch = ethnicityFilter === "Others" ? ethnicityOtherText : ethnicityFilter;
+      // Apply additional filters based on filterType
+      if (filterType === "ethnicity" && ethnicityValue) {
+        const ethnicityToMatch = ethnicityValue === "Others" ? ethnicityOtherText : ethnicityValue;
         filtered = filtered.filter(r => {
           const residentEthnicity = r.ethnicity || "";
           return residentEthnicity.toLowerCase().includes(ethnicityToMatch.toLowerCase());
         });
-      }
-
-      // Filter by senior citizen if specified
-      if (seniorCitizenFilter === "yes") {
-        filtered = filtered.filter(r => calculateAge(r.dateOfBirth) >= 60);
-      } else if (seniorCitizenFilter === "no") {
-        filtered = filtered.filter(r => calculateAge(r.dateOfBirth) < 60);
+      } else if (filterType === "religion" && religionValue) {
+        const religionToMatch = religionValue === "Others" ? religionOtherText : religionValue;
+        filtered = filtered.filter(r => {
+          const residentReligion = r.religion || "";
+          return residentReligion.toLowerCase().includes(religionToMatch.toLowerCase());
+        });
+      } else if (filterType === "age" && ageValue) {
+        if (ageValue === "senior") {
+          filtered = filtered.filter(r => calculateAge(r.dateOfBirth) >= 60);
+        } else if (ageValue === "non-senior") {
+          filtered = filtered.filter(r => calculateAge(r.dateOfBirth) < 60);
+        }
       }
 
       if (!filtered.length) {
@@ -311,11 +318,15 @@ export default function AdminResidentManagement() {
 
       // Generate filename
       const timestamp = dayjs().format("YYYYMMDD_HHmmss");
-      const ethnicityPart = ethnicityFilter 
-        ? `_${ethnicityFilter === "Others" ? ethnicityOtherText.replace(/\s+/g, "_") : ethnicityFilter}`
-        : "";
-      const seniorPart = seniorCitizenFilter === "yes" ? "_SeniorCitizens" : "";
-      const filename = `Residents_${sheetName}${ethnicityPart}${seniorPart}_${timestamp}.xlsx`;
+      let filterPart = "";
+      if (filterType === "ethnicity" && ethnicityValue) {
+        filterPart = `_${ethnicityValue === "Others" ? ethnicityOtherText.replace(/\s+/g, "_") : ethnicityValue}`;
+      } else if (filterType === "religion" && religionValue) {
+        filterPart = `_${religionValue === "Others" ? religionOtherText.replace(/\s+/g, "_") : religionValue}`;
+      } else if (filterType === "age" && ageValue) {
+        filterPart = ageValue === "senior" ? "_SeniorCitizens" : "_NonSeniorCitizens";
+      }
+      const filename = `Residents_${sheetName}${filterPart}_${timestamp}.xlsx`;
 
       // Download file
       XLSX.writeFile(wb, filename);
@@ -324,6 +335,8 @@ export default function AdminResidentManagement() {
       setExportOpen(false);
       exportForm.resetFields();
       setExportEthnicityOther(false);
+      setExportReligionOther(false);
+      setExportFilterType(null);
     } catch (error) {
       console.error("Export error:", error);
       message.error("Failed to export data");
@@ -759,6 +772,8 @@ export default function AdminResidentManagement() {
             setExportOpen(false); 
             exportForm.resetFields(); 
             setExportEthnicityOther(false);
+            setExportReligionOther(false);
+            setExportFilterType(null);
           }}
           onOk={handleExport}
           okText="Export"
@@ -784,46 +799,113 @@ export default function AdminResidentManagement() {
             </Form.Item>
             
             <Form.Item 
-              name="ethnicityFilter" 
-              label="Filter by Ethnicity (Optional)"
+              name="filterType" 
+              label="Filter By (Optional)"
             >
               <Select
-                placeholder="Select ethnicity"
+                placeholder="Select filter type"
                 allowClear
-                onChange={(value) => setExportEthnicityOther(value === "Others")}
+                onChange={(value) => {
+                  setExportFilterType(value);
+                  setExportEthnicityOther(false);
+                  setExportReligionOther(false);
+                  // Clear related fields when filter type changes
+                  exportForm.setFieldsValue({
+                    ethnicityValue: undefined,
+                    ethnicityOtherText: undefined,
+                    religionValue: undefined,
+                    religionOtherText: undefined,
+                    ageValue: undefined,
+                  });
+                }}
                 options={[
-                  { value: "Ilocano", label: "Ilocano" },
-                  { value: "Tagalog", label: "Tagalog" },
-                  { value: "Ifugao", label: "Ifugao" },
-                  { value: "Igorot", label: "Igorot" },
-                  { value: "Others", label: "Others" },
+                  { value: "ethnicity", label: "Ethnicity" },
+                  { value: "religion", label: "Religion" },
+                  { value: "age", label: "Age" },
                 ]}
               />
             </Form.Item>
             
-            {exportEthnicityOther && (
-              <Form.Item 
-                name="ethnicityOtherText" 
-                label="Specify Ethnicity"
-                rules={[{ required: true, message: "Please specify the ethnicity" }]}
-              >
-                <Input placeholder="Enter ethnicity" />
-              </Form.Item>
+            {/* Ethnicity Filter */}
+            {exportFilterType === "ethnicity" && (
+              <>
+                <Form.Item 
+                  name="ethnicityValue" 
+                  label="Select Ethnicity"
+                  rules={[{ required: true, message: "Please select ethnicity" }]}
+                >
+                  <Select
+                    placeholder="Select ethnicity"
+                    onChange={(value) => setExportEthnicityOther(value === "Others")}
+                    options={[
+                      { value: "Ilocano", label: "Ilocano" },
+                      { value: "Tagalog", label: "Tagalog" },
+                      { value: "Ifugao", label: "Ifugao" },
+                      { value: "Igorot", label: "Igorot" },
+                      { value: "Others", label: "Others" },
+                    ]}
+                  />
+                </Form.Item>
+                
+                {exportEthnicityOther && (
+                  <Form.Item 
+                    name="ethnicityOtherText" 
+                    label="Specify Ethnicity"
+                    rules={[{ required: true, message: "Please specify the ethnicity" }]}
+                  >
+                    <Input placeholder="Enter ethnicity" />
+                  </Form.Item>
+                )}
+              </>
             )}
             
-            <Form.Item 
-              name="seniorCitizenFilter" 
-              label="Filter by Age (Optional)"
-            >
-              <Select
-                placeholder="Select age group"
-                allowClear
-                options={[
-                  { value: "yes", label: "Senior Citizens (60 years and above)" },
-                  { value: "no", label: "Non-Senior Citizens (Below 60 years)" },
-                ]}
-              />
-            </Form.Item>
+            {/* Religion Filter */}
+            {exportFilterType === "religion" && (
+              <>
+                <Form.Item 
+                  name="religionValue" 
+                  label="Select Religion"
+                  rules={[{ required: true, message: "Please select religion" }]}
+                >
+                  <Select
+                    placeholder="Select religion"
+                    onChange={(value) => setExportReligionOther(value === "Others")}
+                    options={[
+                      { value: "Roman Catholic", label: "Roman Catholic" },
+                      { value: "Islam", label: "Islam" },
+                      { value: "Others", label: "Others" },
+                    ]}
+                  />
+                </Form.Item>
+                
+                {exportReligionOther && (
+                  <Form.Item 
+                    name="religionOtherText" 
+                    label="Specify Religion"
+                    rules={[{ required: true, message: "Please specify the religion" }]}
+                  >
+                    <Input placeholder="Enter religion" />
+                  </Form.Item>
+                )}
+              </>
+            )}
+            
+            {/* Age Filter */}
+            {exportFilterType === "age" && (
+              <Form.Item 
+                name="ageValue" 
+                label="Select Age Group"
+                rules={[{ required: true, message: "Please select age group" }]}
+              >
+                <Select
+                  placeholder="Select age group"
+                  options={[
+                    { value: "senior", label: "Senior Citizens (60 years and above)" },
+                    { value: "non-senior", label: "Non-Senior Citizens (Below 60 years)" },
+                  ]}
+                />
+              </Form.Item>
+            )}
             
             <div className="text-sm text-gray-500 mt-2">
               <p><strong>Export includes:</strong></p>
