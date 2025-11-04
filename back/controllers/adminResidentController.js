@@ -21,7 +21,7 @@ exports.create = async (req, res) => {
       suffix,
       dateOfBirth,
       birthPlace,
-      gender,
+      sex,
       civilStatus,
       religion,
       ethnicity,
@@ -29,6 +29,7 @@ exports.create = async (req, res) => {
       citizenship,
       occupation,
       sectoralInformation,
+      employmentStatus,
       registeredVoter,
       contact = {},
       idFiles,
@@ -66,7 +67,7 @@ exports.create = async (req, res) => {
       lastName: typeof lastName === "string" ? lastName.trim() : lastName,
       suffix: typeof suffix === "string" ? suffix.trim() : suffix,
       birthPlace: typeof birthPlace === "string" ? birthPlace.trim() : birthPlace,
-      gender: typeof gender === "string" ? gender.trim().toLowerCase() : gender,
+      sex: typeof sex === "string" ? sex.trim().toLowerCase() : sex,
       civilStatus:
         typeof civilStatus === "string" ? civilStatus.trim().toLowerCase() : civilStatus,
       religion: typeof religion === "string" ? religion.trim() : religion,
@@ -77,6 +78,7 @@ exports.create = async (req, res) => {
           : DEFAULT_CITIZENSHIP,
       occupation: typeof occupation === "string" ? occupation.trim() : occupation,
       sectoralInformation: typeof sectoralInformation === "string" ? sectoralInformation.trim() : sectoralInformation,
+      employmentStatus: typeof employmentStatus === "string" ? employmentStatus.trim() : employmentStatus,
     };
 
     const requiredMissing =
@@ -84,7 +86,7 @@ exports.create = async (req, res) => {
       !sanitized.lastName ||
       !dob ||
       !sanitized.birthPlace ||
-      !sanitized.gender ||
+      !sanitized.sex ||
       !sanitized.civilStatus ||
       !sanitized.ethnicity ||
       !normalizedAddress?.purok ||
@@ -117,7 +119,7 @@ exports.create = async (req, res) => {
       suffix: sanitized.suffix,
       dateOfBirth: dob,
       birthPlace: sanitized.birthPlace,
-      gender: sanitized.gender,
+      sex: sanitized.sex,
       civilStatus: sanitized.civilStatus,
       religion: sanitized.religion,
       ethnicity: sanitized.ethnicity,
@@ -125,6 +127,7 @@ exports.create = async (req, res) => {
       citizenship: sanitized.citizenship,
       occupation: sanitized.occupation,
       sectoralInformation: sanitized.sectoralInformation,
+      employmentStatus: sanitized.employmentStatus,
       registeredVoter: typeof registeredVoter === 'boolean' ? registeredVoter : false,
       contact: sanitizedContact,
       idFiles,
