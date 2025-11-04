@@ -27,7 +27,7 @@ exports.getBlockchainStatus = async (req, res) => {
       }
     } catch (innerErr) {
       // Non-fatal: still return a status payload so the dashboard can render
-      console.warn('⚠️ Partial blockchain status (skipping channel details):', innerErr.message);
+      console.warn('Partial blockchain status (skipping channel details):', innerErr.message);
     } finally {
       await gateway.disconnect();
     }
@@ -44,7 +44,7 @@ exports.getBlockchainStatus = async (req, res) => {
       host: os.hostname(),
     });
   } catch (error) {
-    console.error("❌ Blockchain status error:", error);
+    console.error("Blockchain status error:", error);
     res.status(500).json({
       ok: false,
       message: error.message || "Failed to retrieve blockchain status",
@@ -69,7 +69,7 @@ exports.getAllBlockchainRequests = async (req, res) => {
 
     res.json(sorted);
   } catch (error) {
-    console.error("❌ Error fetching blockchain requests:", error);
+    console.error("Error fetching blockchain requests:", error);
     res.status(500).json({ message: "Failed to load blockchain requests", error: error.message });
   }
 };
@@ -80,23 +80,71 @@ const DocumentRequest = require("../models/document.model");
 exports.syncFromDB = async (req, res) => {
   try {
     const { gateway, contract } = await getContract();
-    const requests = await DocumentRequest.find({});
 
+    // Populate to get human-readable names instead of ObjectId hashes
+    const requests = await DocumentRequest.find({})
+      .populate('residentId')
+      .populate('requestedBy');
+
+    // Helper to format resident full name safely
+    const formatName = (person) => {
+      if (!person || typeof person !== 'object') return '';
+      const parts = [person.firstName, person.middleName, person.lastName, person.suffix]
+        .filter(Boolean)
+        .map(String);
+      return parts.join(' ').trim();
+    };
+
+    let synced = 0;
     for (const r of requests) {
-      await contract.submitTransaction(
-        "createRequest",
-        r._id.toString(),
-        r.requestedBy?.toString() || "",
-        r.documentType,
-        r.purpose || "",
-        r.status || "pending"
-      );
+  const requestId = r._id.toString();
+  const residentIdStr = r.residentId?._id?.toString?.() || '';
+  const requestedByName = formatName(r.requestedBy || r.residentId);
+
+  try {
+    // 1️⃣ Check if the request already exists on chain
+    const existing = await contract.evaluateTransaction('getRequest', requestId);
+
+    if (existing && existing.length > 0) {
+      console.log(`Skipping existing blockchain record ${requestId}`);
+      continue; // do not overwrite
     }
 
+    // 2️⃣ Create only if not found
+    await contract.submitTransaction(
+      'createRequest',
+      requestId,
+      residentIdStr,
+      requestedByName,
+      r.documentType,
+      r.purpose || '',
+      r.status || 'pending'
+    );
+    synced += 1;
+  } catch (err) {
+    if (err.message.includes('does not exist')) {
+      // Only create if truly missing
+      await contract.submitTransaction(
+        'createRequest',
+        requestId,
+        residentIdStr,
+        requestedByName,
+        r.documentType,
+        r.purpose || '',
+        r.status || 'pending'
+      );
+      synced += 1;
+    } else {
+      console.warn(`Failed to sync ${requestId}:`, err.message);
+    }
+  }
+}
+
+
     await gateway.disconnect();
-    res.json({ message: "✅ Sync complete", count: requests.length });
+    res.json({ message: 'Sync complete', count: synced });
   } catch (error) {
-    console.error("❌ Error syncing from DB:", error);
-    res.status(500).json({ message: "Sync failed", error: error.message });
+    console.error('Error syncing from DB:', error);
+    res.status(500).json({ message: 'Sync failed', error: error.message });
   }
 };
