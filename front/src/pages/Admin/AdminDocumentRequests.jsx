@@ -781,6 +781,8 @@ const handleExport = async () => {
                 enterButton
                 className="min-w-[180px] max-w-xs"
               />
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Button type="primary" onClick={() => setCreateOpen(true)}>
                 Create Request Document
               </Button>
