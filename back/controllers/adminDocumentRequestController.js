@@ -1,6 +1,8 @@
 const DocumentRequest = require('../models/document.model');
 const Resident = require('../models/resident.model');
 const mongoose = require('mongoose');
+const { getContract } = require('../utils/fabricClient');
+
 
 // List all document requests for admin
 exports.list = async (req, res) => {
@@ -90,23 +92,36 @@ exports.create = async (req, res) => {
   try {
     const { residentId, documentType, purpose, businessName } = req.body;
 
-    // Validate resident exists
     const resident = await Resident.findById(residentId);
     if (!resident) {
       return res.status(404).json({ message: "Resident not found" });
     }
 
+    // 1️⃣ Save to MongoDB first
     const newRequest = new DocumentRequest({
       residentId,
-      requestedBy: residentId, // Admin creating on behalf of resident
+      requestedBy: residentId,
       documentType,
       purpose,
       businessName,
       status: 'pending'
     });
-
     await newRequest.save();
-    
+
+    // 2️⃣ Save to blockchain
+    const { gateway, contract } = await getContract(); // <-- get both gateway & contract
+    await contract.submitTransaction(
+      'createRequest',
+      newRequest._id.toString(),
+      residentId.toString(),
+      `${resident.firstName} ${resident.lastName}`,
+      documentType,
+      purpose,
+      'pending'
+    );
+    await gateway.disconnect(); // <-- cleanly close the gateway connection ✅
+
+    // 3️⃣ Respond with populated MongoDB entry
     const populatedRequest = await DocumentRequest.findById(newRequest._id)
       .populate('residentId')
       .populate('requestedBy');
@@ -114,9 +129,11 @@ exports.create = async (req, res) => {
     res.status(201).json(populatedRequest);
   } catch (error) {
     console.error("Error creating document request:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 
 // Accept a document request (alias for approve)
 exports.acceptRequest = async (req, res) => {
