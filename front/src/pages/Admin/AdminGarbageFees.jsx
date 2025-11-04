@@ -1150,13 +1150,17 @@ export default function AdminGarbageFees() {
                     <Select
                       showSearch
                       placeholder="Search by household ID, head of household, or Purok"
-                      optionFilterProp="children"
+                      optionFilterProp="label"
                       filterOption={(input, option) =>
-                        option?.children?.toLowerCase().includes(input.toLowerCase())
+                        (option?.label || '').toLowerCase().includes(input.toLowerCase())
                       }
                     >
                       {households.map(household => (
-                        <Select.Option key={household._id} value={household._id}>
+                        <Select.Option
+                          key={household._id}
+                          value={household._id}
+                          label={`${household.householdId} - ${fullName(household.headOfHousehold)} ${household.address?.street || ''} ${household.address?.purok || ''}`.trim()}
+                        >
                           <div className="flex flex-col">
                             <span className="font-medium">
                               {household.householdId} - {fullName(household.headOfHousehold)}
