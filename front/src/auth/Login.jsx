@@ -7,12 +7,16 @@ const SECTORAL_OPTIONS = [
   { value: "Solo Parent", label: "Solo Parent" },
   { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
   { value: "PWD", label: "PWD (Person with Disability)" },
-  { value: "Unemployed", label: "Unemployed" },
-  { value: "Labor Force", label: "Labor Force" },
   { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
   { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
   { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
   { value: "None", label: "None" }
+];
+
+// Employment Status options
+const EMPLOYMENT_STATUS_OPTIONS = [
+  { value: "Unemployed", label: "Unemployed" },
+  { value: "Labor Force", label: "Labor Force" }
 ];
 
 const Login = () => {
@@ -34,7 +38,7 @@ const Login = () => {
     2: [
       ["address","purok"],
       ["address","barangay"],["address","municipality"],["address","province"],["address","zipCode"],
-  "citizenship","occupation","sectoralInformation","registeredVoter",["contact","mobile"],["contact","email"]
+  "citizenship","occupation","sectoralInformation","employmentStatus","registeredVoter",["contact","mobile"],["contact","email"]
     ],
     3: [
       "username",
@@ -214,6 +218,7 @@ const Login = () => {
         citizenship: values.citizenship,
         occupation: values.occupation,
         sectoralInformation: values.sectoralInformation,
+        employmentStatus: values.employmentStatus,
         registeredVoter: values.registeredVoter || false,
         role: "resident",
       };
@@ -611,6 +616,15 @@ const Login = () => {
                   />
                 </Form.Item>
 
+                <Form.Item label="Employment Status" name="employmentStatus" rules={[{ required: false }]} className="mb-2">
+                  <Select
+                    size="middle"
+                    placeholder="Select employment status (optional)"
+                    options={EMPLOYMENT_STATUS_OPTIONS}
+                    allowClear
+                  />
+                </Form.Item>
+
                 <Form.Item label="Registered Voter" name="registeredVoter" rules={[{ required: false }]} className="mb-2" valuePropName="checked">
                   <Switch checkedChildren="Yes" unCheckedChildren="No" />
                 </Form.Item>
@@ -738,6 +752,7 @@ const Login = () => {
                     <Descriptions.Item label="Citizenship" span={1}>{regForm.getFieldValue('citizenship')}</Descriptions.Item>
                     <Descriptions.Item label="Occupation" span={1}>{regForm.getFieldValue('occupation')}</Descriptions.Item>
                     <Descriptions.Item label="Sectoral Information" span={2}>{regForm.getFieldValue('sectoralInformation') || 'None'}</Descriptions.Item>
+                    <Descriptions.Item label="Employment Status" span={2}>{regForm.getFieldValue('employmentStatus') || 'Not specified'}</Descriptions.Item>
                     <Descriptions.Item label="Registered Voter" span={2}>{regForm.getFieldValue('registeredVoter') ? 'Yes' : 'No'}</Descriptions.Item>
                     {/* ...existing code... */}
                     <Descriptions.Item label="Mobile" span={2}>{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>

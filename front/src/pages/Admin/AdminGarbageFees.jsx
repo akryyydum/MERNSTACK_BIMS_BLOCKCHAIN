@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined } from "@ant-design/icons";
 import axios from "axios";
 import * as XLSX from 'xlsx';
 
@@ -947,14 +947,14 @@ export default function AdminGarbageFees() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
+            <Input.Search
+              placeholder="Search households..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: 300 }}
+              allowClear
+            />
             <div className="flex flex-wrap gap-2">
-              <Input.Search
-                placeholder="Search households..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ width: 300 }}
-                allowClear
-              />
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
@@ -979,7 +979,7 @@ export default function AdminGarbageFees() {
                 showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total} households`,
+                  `${range[0]}-${range[1]} of ${total}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
                 defaultPageSize: 10,
                 size: 'default'
@@ -1106,32 +1106,36 @@ export default function AdminGarbageFees() {
             </Button>
           ]}
           okText={showMemberSelection ? "Proceed to Payment" : "Select Member"}
-          width={700}
+          width={900}
         >
-          <Form form={addPaymentForm} layout="vertical">
+          <Form form={addPaymentForm} layout="vertical" size="large">
             {!showMemberSelection ? (
               <div className="space-y-4">
                 {/* Search Type Selection */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm font-medium mb-3">How would you like to search?</div>
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <div className="text-base font-medium mb-4">How would you like to search?</div>
                   <div className="flex gap-4">
                     <Button 
                       type={searchType === 'household' ? 'primary' : 'default'}
+                      icon={<HomeOutlined />}
+                      size="large"
                       onClick={() => {
                         setSearchType('household');
                         addPaymentForm.resetFields();
                       }}
                     >
-                      🏠 Search by Household
+                      Search by Household
                     </Button>
                     <Button 
                       type={searchType === 'member' ? 'primary' : 'default'}
+                      icon={<UserOutlined />}
+                      size="large"
                       onClick={() => {
                         setSearchType('member');
                         addPaymentForm.resetFields();
                       }}
                     >
-                      👤 Search by Member Name
+                      Search by Member Name
                     </Button>
                   </div>
                 </div>
@@ -1155,16 +1159,9 @@ export default function AdminGarbageFees() {
                         <Select.Option
                           key={household._id}
                           value={household._id}
-                          label={`${household.householdId} - ${fullName(household.headOfHousehold)} ${household.address?.street || ''} ${household.address?.purok || ''}`.trim()}
+                          label={`${household.householdId} - ${fullName(household.headOfHousehold)}${household.address?.purok ? ` - ${household.address.purok}` : ''}`.trim()}
                         >
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {household.householdId} - {fullName(household.headOfHousehold)}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {household.address?.street}{household.address?.purok ? `, ${household.address?.purok}` : ""}
-                            </span>
-                          </div>
+                          <span className="font-bold">{household.householdId}</span> - {fullName(household.headOfHousehold)}{household.address?.purok ? ` - ${household.address.purok}` : ''}
                         </Select.Option>
                       ))}
                     </Select>
@@ -1187,17 +1184,10 @@ export default function AdminGarbageFees() {
                     >
                       {getAllMembersWithHousehold().map(memberData => (
                         <Select.Option key={memberData.id} value={memberData.id}>
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{memberData.name}</span>
-                              {memberData.isHead && (
-                                <Tag color="blue" size="small">Head of Household</Tag>
-                              )}
-                            </div>
-                            <span className="text-sm text-gray-500">
-                              Household: {memberData.household.householdId} | {memberData.household.address?.street}{memberData.household.address?.purok ? `, ${memberData.household.address?.purok}` : ""}
-                            </span>
-                          </div>
+                          <span className="font-medium">{memberData.name}</span>
+                          {memberData.isHead && <> <Tag color="blue" size="small">Head of Household</Tag></>}
+                          {' - '}<span className="font-bold">{memberData.household.householdId}</span>
+                          {memberData.household.address?.purok && ` - ${memberData.household.address.purok}`}
                         </Select.Option>
                       ))}
                     </Select>
@@ -1277,17 +1267,18 @@ export default function AdminGarbageFees() {
           onOk={submitPayFee}
           okText="Record Payment"
           confirmLoading={payLoading}
-          width={720}
+          width={850}
         >
           <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
-            <Form.Item label="Fee Type">
-              <Input disabled value="Garbage Collection Fee" />
+            <Form.Item label="Fee Type" className="mb-3">
+              <Input disabled value="Garbage Collection Fee" size="small" />
             </Form.Item>
             <Form.Item
               name="hasBusiness"
               label="Business Status"
+              className="mb-3"
             >
-              <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <input 
                     type="radio" 
@@ -1314,7 +1305,7 @@ export default function AdminGarbageFees() {
                     P50 - With Business
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 mt-2 italic">
+                <div className="text-xs text-gray-500 italic">
                   📝 Business status is determined from household registration and cannot be changed here.
                 </div>
               </div>
@@ -1323,8 +1314,9 @@ export default function AdminGarbageFees() {
               name="selectedMonths"
               label="Select Months to Pay (Current Year Only)"
               rules={[{ required: true, message: "Select at least one month" }]}
+              className="mb-3"
             >
-              <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-2">
                 {Object.keys(monthPaymentStatus)
                   .sort()
                   .map(monthKey => {
@@ -1336,7 +1328,7 @@ export default function AdminGarbageFees() {
                     return (
                       <div
                         key={monthKey}
-                        className={`p-2 border rounded ${
+                        className={`p-2 border rounded-lg ${
                           isPaid 
                             ? 'bg-green-50 border-green-200 text-green-700' 
                             : selectedMonths.includes(monthKey)
@@ -1365,9 +1357,9 @@ export default function AdminGarbageFees() {
                             className="mr-2"
                           />
                           <div className="flex-1">
-                            <div className="font-medium text-xs">{monthName}</div>
+                            <div className="font-medium text-sm">{monthName}</div>
                             {isPaid ? (
-                              <div className="text-xs text-green-600">✓ Paid</div>
+                              <div className="text-xs text-green-600 font-medium">✓ Paid</div>
                             ) : (
                               <div className="text-xs text-gray-500">₱{balance.toFixed(0)}</div>
                             )}
@@ -1379,7 +1371,7 @@ export default function AdminGarbageFees() {
                 }
               </div>
               {selectedMonths.length > 0 && (
-                <div className="mt-2 text-sm text-blue-600">
+                <div className="mt-1 text-sm text-blue-600">
                   Selected: {selectedMonths.length} month(s)
                 </div>
               )}
@@ -1388,8 +1380,9 @@ export default function AdminGarbageFees() {
               name="totalCharge"
               label={`Total Charge (${selectedMonths.length} month${selectedMonths.length !== 1 ? 's' : ''})`}
               rules={[{ required: true, message: "Total charge calculated automatically" }]}
+              className="mb-3"
             >
-              <InputNumber className="w-full" disabled />
+              <InputNumber className="w-full" disabled size="small" />
             </Form.Item>
             <Form.Item
               name="amount"
@@ -1409,21 +1402,22 @@ export default function AdminGarbageFees() {
                   },
                 }),
               ]}
+              className="mb-3"
             >
-              <InputNumber className="w-full" min={0} step={50} />
+              <InputNumber className="w-full" min={0} step={50} size="small" />
             </Form.Item>
-            <Form.Item name="method" label="Payment Method">
-              <Input value="Cash" disabled />
+            <Form.Item name="method" label="Payment Method" className="mb-3">
+              <Input value="Cash" disabled size="small" />
             </Form.Item>
 
             {selectedMonths.length > 0 && (
-              <div className="p-3 rounded border border-blue-200 bg-blue-50 text-sm">
-                <div className="font-semibold text-blue-800 mb-2">Payment Summary:</div>
-                <div className="space-y-1">
+              <div className="p-2 rounded border border-blue-200 bg-blue-50 text-sm">
+                <div className="font-semibold text-blue-800 mb-1">Payment Summary:</div>
+                <div className="space-y-0.5 text-xs">
                   <div>Selected Months: {selectedMonths.length}</div>
                   <div>Fee per Month: ₱{payForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
                   <div>Total Amount: ₱{(selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
-                  <div className="text-xs text-blue-600 mt-2">
+                  <div className="text-xs text-blue-600 mt-1">
                     {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                   </div>
                 </div>
