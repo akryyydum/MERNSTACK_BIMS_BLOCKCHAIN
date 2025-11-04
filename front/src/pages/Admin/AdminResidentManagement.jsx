@@ -435,29 +435,36 @@ export default function AdminResidentManagement() {
     },
   ];
 
-  const filteredResidents = residents.filter(r =>
-    [
-      r.firstName,
-      r.middleName,
-      r.lastName,
-      r.suffix,
-      r.contact?.email,
-      r.contact?.mobile,
-      r.address?.barangay,
-      r.address?.municipality,
-      r.address?.province,
-      r.citizenship,
-      r.religion,
-      r.ethnicity,
-      r.occupation,
-      r.sectoralInformation,
-      r.employmentStatus,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const filteredResidents = residents
+    .filter(r =>
+      [
+        r.firstName,
+        r.middleName,
+        r.lastName,
+        r.suffix,
+        r.contact?.email,
+        r.contact?.mobile,
+        r.address?.barangay,
+        r.address?.municipality,
+        r.address?.province,
+        r.citizenship,
+        r.religion,
+        r.ethnicity,
+        r.occupation,
+        r.sectoralInformation,
+        r.employmentStatus,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      return b._id.localeCompare(a._id);
+    });
 
   const openView = (resident) => {
     setViewResident(resident);
