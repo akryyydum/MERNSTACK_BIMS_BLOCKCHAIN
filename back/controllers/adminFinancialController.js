@@ -20,6 +20,10 @@ const getDashboard = async (req, res) => {
 
     // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter);
+    // Exclude utility types here to avoid double counting when we also pull UtilityPayment
+    const nonUtilityTransactions = transactions.filter(
+      (t) => !['garbage_fee', 'streetlight_fee'].includes(t.type)
+    );
 
     // Calculate utility revenue using the same logic as individual pages
     const currentYear = new Date().getFullYear();
@@ -47,7 +51,7 @@ const getDashboard = async (req, res) => {
     console.log('Garbage payments found:', garbagePayments.length, 'Revenue:', garbageRevenue);
     console.log('Streetlight payments found:', streetlightPayments.length, 'Revenue:', streetlightRevenue);
     
-    // Fetch ALL utility payments for transaction details
+  // Fetch ALL utility payments for transaction details
     console.log('Fetching utility payments for transactions...');
     const allUtilityPayments = await UtilityPayment.find({})
       .populate({
@@ -84,11 +88,11 @@ const getDashboard = async (req, res) => {
       }));
     });
 
-    // Combine all transactions for calculations
-    const allTransactions = [...transactions, ...utilityTransactions];
+  // Combine non-utility transactions with utility transactions for calculations
+  const allTransactions = [...nonUtilityTransactions, ...utilityTransactions];
 
     // Calculate statistics using correct totals
-    const regularTransactionRevenue = transactions
+    const regularTransactionRevenue = nonUtilityTransactions
       .filter(t => t.category === 'revenue')
       .reduce((sum, t) => sum + t.amount, 0);
     
@@ -137,9 +141,11 @@ const getDashboard = async (req, res) => {
     const revenueByType = {
       garbage_fee: garbageRevenue,
       streetlight_fee: streetlightRevenue,
-      document_fee: transactions.filter(t => t.type === 'document_fee').reduce((sum, t) => sum + t.amount, 0),
-      permit_fee: transactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
-      other: transactions.filter(t => !['document_fee', 'permit_fee'].includes(t.type) && t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0)
+      document_fee: nonUtilityTransactions.filter(t => t.type === 'document_fee').reduce((sum, t) => sum + t.amount, 0),
+      permit_fee: nonUtilityTransactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
+      other: nonUtilityTransactions
+        .filter(t => !['document_fee', 'permit_fee'].includes(t.type) && t.category === 'revenue')
+        .reduce((sum, t) => sum + t.amount, 0)
     };
 
     res.json({
@@ -180,7 +186,7 @@ const getTransactions = async (req, res) => {
       officialId
     } = req.query;
 
-    let allTransactions = [];
+  let allTransactions = [];
 
     // Fetch regular financial transactions
     const filter = {};
@@ -202,8 +208,12 @@ const getTransactions = async (req, res) => {
       .populate('officialId', 'firstName lastName position')
       .populate('createdBy', 'username fullName')
       .sort({ transactionDate: -1 });
+    // Remove utility transactions to avoid duplicates when we add synthesized utility transactions below
+    const nonUtilityTransactions = transactions.filter(
+      (t) => !['garbage_fee', 'streetlight_fee'].includes(t.type)
+    );
 
-    allTransactions = [...transactions];
+    allTransactions = [...nonUtilityTransactions];
 
     // Fetch utility payments (garbage and streetlight fees)
     const utilityFilter = {};
@@ -255,6 +265,10 @@ const getTransactions = async (req, res) => {
         const transactionType = payment.type === 'garbage' ? 'garbage_fee' : 
                                 payment.type === 'streetlight' ? 'streetlight_fee' : 
                                 'utility_fee';
+
+        const residentFullName = payment.household?.headOfHousehold 
+          ? `${payment.household.headOfHousehold.firstName} ${payment.household.headOfHousehold.lastName}` 
+          : 'Unknown Resident';
         
         return {
           _id: `${payment.type}_${payment._id}_${index}`,
@@ -267,9 +281,9 @@ const getTransactions = async (req, res) => {
           status: 'completed',
           paymentMethod: paymentEntry.method || 'Cash',
           referenceNumber: paymentEntry.reference || '',
-          resident: payment.household?.headOfHousehold ? 
-            `${payment.household.headOfHousehold.firstName} ${payment.household.headOfHousehold.lastName}` : 
-            'Unknown Resident',
+          resident: residentFullName,
+          residentName: residentFullName,
+          // residentId left out on purpose: this is a synthesized row from UtilityPayment
           official: 'System Generated',
           blockchain: 'Pending',
           createdAt: paymentEntry.paidAt,

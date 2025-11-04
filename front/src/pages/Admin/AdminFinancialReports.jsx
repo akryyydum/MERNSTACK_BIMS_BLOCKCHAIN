@@ -221,7 +221,7 @@ export default function AdminFinancialReports() {
       if (feeType === 'garbage_fees') {
         filteredData = transactions.filter(t => t.type === 'garbage_fee');
       } else if (feeType === 'streetlight_fees') {
-        filteredData = transactions.filter(t => t.type === 'electric_fee');
+        filteredData = transactions.filter(t => t.type === 'streetlight_fee');
       } else if (feeType === 'document_request_fees') {
         if (documentType === 'certificate_of_indigency') {
           filteredData = transactions.filter(t => 
@@ -253,7 +253,7 @@ export default function AdminFinancialReports() {
         'Category': t.category,
         'Description': t.description,
         'Amount': t.amount,
-        'Resident': t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : '-',
+        'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
         'Payment Method': t.paymentMethod,
         'Status': t.status,
         'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm')
@@ -526,7 +526,8 @@ export default function AdminFinancialReports() {
       filters: [
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
-        { text: 'Document Request Fee', value: 'document_request_fee' },
+        { text: 'Electric Fee', value: 'electric_fee' },
+        { text: 'Document Fee', value: 'document_fee' },
       ],
       onFilter: (value, record) => record.type === value,
     },
@@ -558,6 +559,7 @@ export default function AdminFinancialReports() {
         // Use stored name first, fallback to populated data
         if (record.residentName) return record.residentName;
         if (record.residentId) return `${record.residentId.firstName} ${record.residentId.lastName}`;
+        if (record.resident) return record.resident; // synthesized utility payment field
         return '-';
       }
     },
@@ -633,7 +635,9 @@ export default function AdminFinancialReports() {
       t.type,
       t.category,
       t.residentId?.firstName,
-      t.residentId?.lastName
+      t.residentId?.lastName,
+      t.residentName,
+      t.resident
     ]
       .filter(Boolean)
       .join(' ')
@@ -749,6 +753,7 @@ export default function AdminFinancialReports() {
               >
                 <Select.Option value="document_fee">Document Fee</Select.Option>
                 <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
+                <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                 <Select.Option value="electric_fee">Electric Fee</Select.Option>
                 <Select.Option value="permit_fee">Permit Fee</Select.Option>
                 <Select.Option value="other">Other</Select.Option>
@@ -1042,7 +1047,7 @@ export default function AdminFinancialReports() {
               {/* NEW: Show resident name */}
               <Descriptions.Item label="Resident">
                 {viewTransaction.residentName || 
-                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : '-')}
+                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
               </Descriptions.Item>
               
               {/* NEW: Show official name */}
