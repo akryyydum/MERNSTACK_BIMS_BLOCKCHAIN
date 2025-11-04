@@ -16,37 +16,6 @@ export default function AdminStreetLightFees() {
   const [streetlightPayments, setStreetlightPayments] = useState([]);
   const [search, setSearch] = useState("");
   const [payOpen, setPayOpen] = useState(false);
-  // State to store payment status for each household
-  const [householdPaymentStatuses, setHouseholdPaymentStatuses] = useState({});
-  // Precompute payment status for each household for the current year
-  useEffect(() => {
-    const fetchStatuses = async () => {
-      const currentYear = dayjs().year();
-      const statuses = {};
-      for (const household of households) {
-        let allPaid = true;
-        let anyPaid = false;
-        for (let month = 1; month <= 12; month++) {
-          const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
-          try {
-            const res = await axios.get(`${API_BASE}/api/admin/households/${household._id}/streetlight`, {
-              headers: authHeaders(),
-              params: { month: monthStr },
-            });
-            if (res.data.status !== 'paid') allPaid = false;
-            if (res.data.status === 'paid' || res.data.status === 'partial') anyPaid = true;
-          } catch {
-            allPaid = false;
-          }
-        }
-        if (allPaid) statuses[household._id] = 'paid';
-        else if (anyPaid) statuses[household._id] = 'partial';
-        else statuses[household._id] = 'unpaid';
-      }
-      setHouseholdPaymentStatuses(statuses);
-    };
-    if (households.length > 0) fetchStatuses();
-  }, [households]);
   const [payForm] = Form.useForm();
   const [payLoading, setPayLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -646,11 +615,35 @@ export default function AdminStreetLightFees() {
       title: "Payment Status",
       key: "paymentStatus",
       render: (_, record) => {
-        const status = householdPaymentStatuses[record._id];
-        if (!status) return <Tag color="default">Loading...</Tag>;
-        if (status === 'paid') return <Tag color="green">Fully Paid</Tag>;
-        if (status === 'partial') return <Tag color="orange">Partially Paid</Tag>;
-        return <Tag color="red">Unpaid</Tag>;
+        // Calculate overall payment status for current year
+        const defaultFee = 10;
+        const currentYear = dayjs().year();
+        let totalExpected = 0;
+        let totalPaid = 0;
+        
+        // Check all months of current year
+        for (let month = 1; month <= 12; month++) {
+          const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+          totalExpected += defaultFee;
+          
+          const monthPayment = streetlightPayments.find(payment => 
+            payment.household?._id === record._id && payment.month === monthStr
+          );
+          
+          if (monthPayment) {
+            totalPaid += Number(monthPayment.amountPaid || 0);
+          }
+        }
+        
+        const balance = totalExpected - totalPaid;
+        
+        if (balance <= 0) {
+          return <Tag color="green">Fully Paid</Tag>;
+        } else if (totalPaid > 0) {
+          return <Tag color="orange">Partially Paid</Tag>;
+        } else {
+          return <Tag color="red">Unpaid</Tag>;
+        }
       },
     },
     {
