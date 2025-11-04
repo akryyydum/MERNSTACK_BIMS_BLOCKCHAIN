@@ -8,7 +8,7 @@ const residentSchema = new mongoose.Schema({
     suffix: { type: String, required: false },
     dateOfBirth: { type: Date, required: true },
     birthPlace: { type: String, required: true },
-    gender: { type: String, enum: ['male', 'female', 'other'], required: true },
+    sex: { type: String, enum: ['male', 'female', 'other'], required: true },
     civilStatus: { type: String, enum: ['single', 'married', 'widowed', 'separated'], required: true },
     religion: { type: String, required: false },
     ethnicity: { type: String, required: true },
@@ -23,9 +23,14 @@ const residentSchema = new mongoose.Schema({
     occupation: { type: String, required: true },
     sectoralInformation: { 
         type: String, 
-        enum: ['Solo Parent', 'OFW', 'PWD', 'Unemployed', 'Labor Force', 'OSC - Out of School Children', 'OSC - Out of School Youth', 'OSC - Out of School Adult', 'None'], 
+        enum: ['Solo Parent', 'OFW', 'PWD', 'OSC - Out of School Children', 'OSC - Out of School Youth', 'OSC - Out of School Adult', 'None'], 
         required: false,
         default: 'None'
+    },
+    employmentStatus: {
+        type: String,
+        enum: ['Unemployed', 'Labor Force'],
+        required: false
     },
     registeredVoter: { type: Boolean, required: true, default: false },
     contact: {

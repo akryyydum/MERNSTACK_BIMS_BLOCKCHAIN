@@ -52,13 +52,19 @@ const SECTORAL_OPTIONS = [
   { value: "Solo Parent", label: "Solo Parent" },
   { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
   { value: "PWD", label: "PWD (Person with Disability)" },
-  { value: "Unemployed", label: "Unemployed" },
-  { value: "Labor Force", label: "Labor Force" },
   { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
   { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
   { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
   { value: "None", label: "None" }
 ];
+
+// Employment Status options
+const EMPLOYMENT_STATUS_OPTIONS = [
+  { value: "Unemployed", label: "Unemployed" },
+  { value: "Labor Force", label: "Labor Force" }
+];
+
+
 
 // NEW: Consistent API base
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
@@ -221,7 +227,20 @@ export default function AdminResidentManagement() {
   // Export to Excel
   const handleExport = async () => {
     try {
-      const { purokFilter, ethnicityFilter, ethnicityOtherText } = await exportForm.validateFields();
+      const { purokFilter, ethnicityFilter, ethnicityOtherText, seniorCitizenFilter } = await exportForm.validateFields();
+      
+      // Helper function to calculate age
+      const calculateAge = (birthDate) => {
+        if (!birthDate) return 0;
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        return age;
+      };
       
       // Filter residents by purok
       let filtered = residents;
@@ -238,6 +257,13 @@ export default function AdminResidentManagement() {
         });
       }
 
+      // Filter by senior citizen if specified
+      if (seniorCitizenFilter === "yes") {
+        filtered = filtered.filter(r => calculateAge(r.dateOfBirth) >= 60);
+      } else if (seniorCitizenFilter === "no") {
+        filtered = filtered.filter(r => calculateAge(r.dateOfBirth) < 60);
+      }
+
       if (!filtered.length) {
         message.warning("No residents found for the selected filters.");
         return;
@@ -246,7 +272,8 @@ export default function AdminResidentManagement() {
       // Prepare data for Excel
       const excelData = filtered.map(r => ({
         "Full Name": [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" "),
-        "Gender": r.gender || "",
+        "Sex": r.sex || "",
+        "Age": calculateAge(r.dateOfBirth),
         "Date of Birth": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString() : "",
         "Birth Place": r.birthPlace || "",
         "Civil Status": r.civilStatus || "",
@@ -255,6 +282,7 @@ export default function AdminResidentManagement() {
         "Citizenship": r.citizenship || "",
         "Occupation": r.occupation || "",
         "Sectoral Information": r.sectoralInformation || "",
+        "Employment Status": r.employmentStatus || "",
         "Registered Voter": r.registeredVoter ? "Yes" : "No",
         "Mobile": r.contact?.mobile || "",
         "Email": r.contact?.email || "",
@@ -286,7 +314,8 @@ export default function AdminResidentManagement() {
       const ethnicityPart = ethnicityFilter 
         ? `_${ethnicityFilter === "Others" ? ethnicityOtherText.replace(/\s+/g, "_") : ethnicityFilter}`
         : "";
-      const filename = `Residents_${sheetName}${ethnicityPart}_${timestamp}.xlsx`;
+      const seniorPart = seniorCitizenFilter === "yes" ? "_SeniorCitizens" : "";
+      const filename = `Residents_${sheetName}${ethnicityPart}${seniorPart}_${timestamp}.xlsx`;
 
       // Download file
       XLSX.writeFile(wb, filename);
@@ -303,8 +332,8 @@ export default function AdminResidentManagement() {
 
   // Statistics
   const totalResidents = residents.length;
-  const maleResidents = residents.filter(r => r.gender === "male").length;
-  const femaleResidents = residents.filter(r => r.gender === "female").length;
+  const maleResidents = residents.filter(r => r.sex === "male").length;
+  const femaleResidents = residents.filter(r => r.sex === "female").length;
   const activeResidents = residents.filter(r => r.status === "verified").length;
   const inactiveResidents = residents.filter(r => r.status !== "verified").length;
 
@@ -324,7 +353,7 @@ export default function AdminResidentManagement() {
           .filter(Boolean)
           .join(" "),
     },
-  { title: "Gender", dataIndex: "gender", key: "gender" },
+  { title: "Sex", dataIndex: "sex", key: "sex" },
   { title: "Date of Birth", dataIndex: "dateOfBirth", key: "dateOfBirth", render: v => v ? new Date(v).toLocaleDateString() : "" },
   { title: "Civil Status", dataIndex: "civilStatus", key: "civilStatus" },
   { title: "Religion", dataIndex: "religion", key: "religion" },
@@ -346,6 +375,7 @@ export default function AdminResidentManagement() {
   { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
   { title: "Occupation", dataIndex: "occupation", key: "occupation" },
   { title: "Sectoral Info", dataIndex: "sectoralInformation", key: "sectoralInformation" },
+  { title: "Employment Status", dataIndex: "employmentStatus", key: "employmentStatus", render: (value) => value || "-" },
   { 
     title: "Registered Voter", 
     dataIndex: "registeredVoter", 
@@ -408,6 +438,7 @@ export default function AdminResidentManagement() {
       r.ethnicity,
       r.occupation,
       r.sectoralInformation,
+      r.employmentStatus,
     ]
       .filter(Boolean)
       .join(" ")
@@ -431,7 +462,7 @@ export default function AdminResidentManagement() {
         "suffix",
         "dateOfBirth",
         "birthPlace",
-        "gender",
+        "sex",
         "civilStatus",
         "religion",
         "ethnicity",
@@ -669,6 +700,37 @@ export default function AdminResidentManagement() {
               >
                 Export Excel
               </Button>
+              <Button
+  onClick={async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xlsx,.csv";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        message.success(res.data.message || "Residents imported successfully!");
+        fetchResidents();
+      } catch (err) {
+        console.error("Import error:", err);
+        message.error(err.response?.data?.message || "Failed to import residents");
+      }
+    };
+    input.click();
+  }}
+>
+  Import Residents
+</Button>
+
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -749,10 +811,24 @@ export default function AdminResidentManagement() {
               </Form.Item>
             )}
             
+            <Form.Item 
+              name="seniorCitizenFilter" 
+              label="Filter by Age (Optional)"
+            >
+              <Select
+                placeholder="Select age group"
+                allowClear
+                options={[
+                  { value: "yes", label: "Senior Citizens (60 years and above)" },
+                  { value: "no", label: "Non-Senior Citizens (Below 60 years)" },
+                ]}
+              />
+            </Form.Item>
+            
             <div className="text-sm text-gray-500 mt-2">
               <p><strong>Export includes:</strong></p>
               <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Personal information (name, gender, birth date)</li>
+                <li>Personal information (name, sex, age, birth date)</li>
                 <li>Contact details (mobile, email)</li>
                 <li>Address information</li>
               </ul>
@@ -856,7 +932,7 @@ export default function AdminResidentManagement() {
                     placeholder="Select date of birth"
                   />
                 </Form.Item>
-                <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                <Form.Item name="sex" label="Sex" rules={[{ required: true }]}>
                   <Select
                     options={[
                       { value: "male", label: "Male" },
@@ -931,18 +1007,25 @@ export default function AdminResidentManagement() {
                 <Input disabled />
               </Form.Item>
               
-              <div className="form-row">
-                <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                  <Input placeholder="e.g., Teacher, Engineer, Farmer" />
-                </Form.Item>
-                <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
-                  <Select
-                    placeholder="Select sectoral information"
-                    options={SECTORAL_OPTIONS}
-                    allowClear
-                  />
-                </Form.Item>
-              </div>
+              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
+              </Form.Item>
+              
+              <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
+                <Select
+                  placeholder="Select sectoral information"
+                  options={SECTORAL_OPTIONS}
+                  allowClear
+                />
+              </Form.Item>
+              
+              <Form.Item name="employmentStatus" label="Employment Status" rules={[{ required: false }]}>
+                <Select
+                  placeholder="Select employment status"
+                  options={EMPLOYMENT_STATUS_OPTIONS}
+                  allowClear
+                />
+              </Form.Item>
               
               <Form.Item name="registeredVoter" label="Registered Voter" rules={[{ required: false }]} valuePropName="checked">
                 <Switch checkedChildren="Yes" unCheckedChildren="No" />
@@ -1056,7 +1139,7 @@ export default function AdminResidentManagement() {
                     placeholder="Select date of birth"
                   />
                 </Form.Item>
-                <Form.Item name="gender" label="Gender" rules={[{ required: true }]}>
+                <Form.Item name="sex" label="Sex" rules={[{ required: true }]}>
                   <Select
                     options={[
                       { value: "male", label: "Male" },
@@ -1131,18 +1214,25 @@ export default function AdminResidentManagement() {
                 <Input disabled />
               </Form.Item>
               
-              <div className="form-row">
-                <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                  <Input placeholder="e.g., Teacher, Engineer, Farmer" />
-                </Form.Item>
-                <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
-                  <Select
-                    placeholder="Select sectoral information"
-                    options={SECTORAL_OPTIONS}
-                    allowClear
-                  />
-                </Form.Item>
-              </div>
+              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
+              </Form.Item>
+              
+              <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
+                <Select
+                  placeholder="Select sectoral information"
+                  options={SECTORAL_OPTIONS}
+                  allowClear
+                />
+              </Form.Item>
+              
+              <Form.Item name="employmentStatus" label="Employment Status" rules={[{ required: false }]}>
+                <Select
+                  placeholder="Select employment status"
+                  options={EMPLOYMENT_STATUS_OPTIONS}
+                  allowClear
+                />
+              </Form.Item>
               
               <Form.Item name="registeredVoter" label="Registered Voter" rules={[{ required: false }]} valuePropName="checked">
                 <Switch checkedChildren="Yes" unCheckedChildren="No" />
@@ -1173,7 +1263,7 @@ export default function AdminResidentManagement() {
                 {[viewResident.firstName, viewResident.middleName, viewResident.lastName, viewResident.suffix].filter(Boolean).join(" ")}
               </Descriptions.Item>
               <Descriptions.Item label="Username">{viewResident.user?.username || "-"}</Descriptions.Item>
-              <Descriptions.Item label="Gender">{viewResident.gender}</Descriptions.Item>
+              <Descriptions.Item label="Sex">{viewResident.sex}</Descriptions.Item>
               <Descriptions.Item label="Date of Birth">{viewResident.dateOfBirth ? new Date(viewResident.dateOfBirth).toLocaleDateString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Civil Status">{viewResident.civilStatus}</Descriptions.Item>
               <Descriptions.Item label="Birth Place">{viewResident.birthPlace}</Descriptions.Item>
@@ -1182,6 +1272,7 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Citizenship">{viewResident.citizenship}</Descriptions.Item>
               <Descriptions.Item label="Occupation">{viewResident.occupation}</Descriptions.Item>
               <Descriptions.Item label="Sectoral Information">{viewResident.sectoralInformation || "None"}</Descriptions.Item>
+              <Descriptions.Item label="Employment Status">{viewResident.employmentStatus || "Not Specified"}</Descriptions.Item>
               <Descriptions.Item label="Registered Voter">{viewResident.registeredVoter ? "Yes" : "No"}</Descriptions.Item>
               {viewResident.contact?.mobile && (
                 <Descriptions.Item label="Mobile Number">{viewResident.contact.mobile}</Descriptions.Item>
