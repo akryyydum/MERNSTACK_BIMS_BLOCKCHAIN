@@ -227,7 +227,20 @@ export default function AdminResidentManagement() {
   // Export to Excel
   const handleExport = async () => {
     try {
-      const { purokFilter, ethnicityFilter, ethnicityOtherText } = await exportForm.validateFields();
+      const { purokFilter, ethnicityFilter, ethnicityOtherText, seniorCitizenFilter } = await exportForm.validateFields();
+      
+      // Helper function to calculate age
+      const calculateAge = (birthDate) => {
+        if (!birthDate) return 0;
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        return age;
+      };
       
       // Filter residents by purok
       let filtered = residents;
@@ -244,6 +257,13 @@ export default function AdminResidentManagement() {
         });
       }
 
+      // Filter by senior citizen if specified
+      if (seniorCitizenFilter === "yes") {
+        filtered = filtered.filter(r => calculateAge(r.dateOfBirth) >= 60);
+      } else if (seniorCitizenFilter === "no") {
+        filtered = filtered.filter(r => calculateAge(r.dateOfBirth) < 60);
+      }
+
       if (!filtered.length) {
         message.warning("No residents found for the selected filters.");
         return;
@@ -253,6 +273,7 @@ export default function AdminResidentManagement() {
       const excelData = filtered.map(r => ({
         "Full Name": [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" "),
         "Sex": r.sex || "",
+        "Age": calculateAge(r.dateOfBirth),
         "Date of Birth": r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString() : "",
         "Birth Place": r.birthPlace || "",
         "Civil Status": r.civilStatus || "",
@@ -293,7 +314,8 @@ export default function AdminResidentManagement() {
       const ethnicityPart = ethnicityFilter 
         ? `_${ethnicityFilter === "Others" ? ethnicityOtherText.replace(/\s+/g, "_") : ethnicityFilter}`
         : "";
-      const filename = `Residents_${sheetName}${ethnicityPart}_${timestamp}.xlsx`;
+      const seniorPart = seniorCitizenFilter === "yes" ? "_SeniorCitizens" : "";
+      const filename = `Residents_${sheetName}${ethnicityPart}${seniorPart}_${timestamp}.xlsx`;
 
       // Download file
       XLSX.writeFile(wb, filename);
@@ -678,6 +700,37 @@ export default function AdminResidentManagement() {
               >
                 Export Excel
               </Button>
+              <Button
+  onClick={async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xlsx,.csv";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        message.success(res.data.message || "Residents imported successfully!");
+        fetchResidents();
+      } catch (err) {
+        console.error("Import error:", err);
+        message.error(err.response?.data?.message || "Failed to import residents");
+      }
+    };
+    input.click();
+  }}
+>
+  Import Residents
+</Button>
+
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -758,10 +811,24 @@ export default function AdminResidentManagement() {
               </Form.Item>
             )}
             
+            <Form.Item 
+              name="seniorCitizenFilter" 
+              label="Filter by Age (Optional)"
+            >
+              <Select
+                placeholder="Select age group"
+                allowClear
+                options={[
+                  { value: "yes", label: "Senior Citizens (60 years and above)" },
+                  { value: "no", label: "Non-Senior Citizens (Below 60 years)" },
+                ]}
+              />
+            </Form.Item>
+            
             <div className="text-sm text-gray-500 mt-2">
               <p><strong>Export includes:</strong></p>
               <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Personal information (name, gender, birth date)</li>
+                <li>Personal information (name, sex, age, birth date)</li>
                 <li>Contact details (mobile, email)</li>
                 <li>Address information</li>
               </ul>

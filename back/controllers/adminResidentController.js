@@ -1,6 +1,8 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
 const Resident = require("../models/resident.model");
+const multer = require("multer");
+const XLSX = require("xlsx");
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -11,7 +13,9 @@ const ADDRESS_DEFAULTS = {
 const DEFAULT_CITIZENSHIP = "Filipino";
 const ALLOWED_STATUSES = new Set(["verified", "pending", "rejected"]);
 
-// POST /api/admin/residents
+// =============================
+// 🟢 CREATE RESIDENT
+// =============================
 exports.create = async (req, res) => {
   try {
     const {
@@ -77,8 +81,10 @@ exports.create = async (req, res) => {
           ? citizenship.trim()
           : DEFAULT_CITIZENSHIP,
       occupation: typeof occupation === "string" ? occupation.trim() : occupation,
-      sectoralInformation: typeof sectoralInformation === "string" ? sectoralInformation.trim() : sectoralInformation,
-      employmentStatus: typeof employmentStatus === "string" ? employmentStatus.trim() : employmentStatus,
+      sectoralInformation:
+        typeof sectoralInformation === "string" ? sectoralInformation.trim() : sectoralInformation,
+      employmentStatus:
+        typeof employmentStatus === "string" ? employmentStatus.trim() : employmentStatus,
     };
 
     const requiredMissing =
@@ -128,7 +134,7 @@ exports.create = async (req, res) => {
       occupation: sanitized.occupation,
       sectoralInformation: sanitized.sectoralInformation,
       employmentStatus: sanitized.employmentStatus,
-      registeredVoter: typeof registeredVoter === 'boolean' ? registeredVoter : false,
+      registeredVoter: typeof registeredVoter === "boolean" ? registeredVoter : false,
       contact: sanitizedContact,
       idFiles,
       status: resolvedStatus,
@@ -145,51 +151,12 @@ exports.create = async (req, res) => {
   }
 };
 
-// GET /api/admin/residents
+// =============================
+// 🟢 LIST RESIDENTS
+// =============================
 exports.list = async (req, res) => {
   try {
-    console.log("Admin residents list request:", {
-      user: req.user,
-      query: req.query,
-      headers: {
-        authorization: req.headers.authorization ? "Present" : "Missing"
-      }
-    });
-    
-    const filter = {};
-    if (String(req.query.unlinked) === "true") {
-      // Get all residents
-      const allResidents = await Resident.find({});
-      const unlinkedResidents = [];
-      
-      // Check each resident to see if they're truly unlinked
-      for (const resident of allResidents) {
-        if (!resident.user) {
-          // No user reference at all
-          unlinkedResidents.push(resident);
-        } else {
-          // Check if the referenced user actually exists
-          const User = require("../models/user.model");
-          const userExists = await User.findById(resident.user);
-          if (!userExists) {
-            // Broken reference - clean it up and include in unlinked list
-            await Resident.updateOne(
-              { _id: resident._id },
-              { $unset: { user: 1 } }
-            );
-            resident.user = undefined; // Update local object
-            unlinkedResidents.push(resident);
-          }
-        }
-      }
-      
-      console.log(`Found ${unlinkedResidents.length} unlinked residents`);
-      return res.json(unlinkedResidents);
-    }
-    
-    const residents = await Resident.find(filter).populate("user", "username fullName contact");
-    
-    console.log(`Found ${residents.length} residents`);
+    const residents = await Resident.find({}).populate("user", "username fullName contact");
     res.json(residents);
   } catch (err) {
     console.error("Error in residents list:", err);
@@ -197,7 +164,9 @@ exports.list = async (req, res) => {
   }
 };
 
-// PATCH /api/admin/residents/:id
+// =============================
+// 🟢 UPDATE RESIDENT
+// =============================
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
@@ -213,13 +182,14 @@ exports.update = async (req, res) => {
   }
 };
 
-// DELETE /api/admin/residents/:id
+// =============================
+// 🟢 DELETE RESIDENT
+// =============================
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
     const resident = await Resident.findByIdAndDelete(id);
     if (!resident) return res.status(404).json({ message: "Resident not found" });
-    // Optionally delete the linked user:
     await User.findByIdAndDelete(resident.user);
     res.json({ message: "Resident deleted" });
   } catch (err) {
@@ -227,7 +197,9 @@ exports.remove = async (req, res) => {
   }
 };
 
-// PATCH /api/admin/residents/:id/verify
+// =============================
+// 🟢 VERIFY RESIDENT
+// =============================
 exports.verify = async (req, res) => {
   try {
     const { id } = req.params;
@@ -243,3 +215,109 @@ exports.verify = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// =============================
+// 📥 IMPORT RESIDENTS (Excel/CSV)
+// =============================
+const upload = multer({ dest: "uploads/" });
+exports.importResidentsMiddleware = upload.single("file");
+
+exports.importResidents = async (req, res) => {
+  try {
+    if (!req.file)
+      return res.status(400).json({ message: "No file uploaded" });
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (!rows.length)
+      return res.status(400).json({ message: "No data found in file" });
+
+    const inserted = [];
+    const skipped = [];
+
+    for (const row of rows) {
+      // 🧩 Extract only what’s needed
+      const residentData = {
+        firstName: row["FIRST NAME"]?.trim(),
+        middleName: row["MIDDLE NAME"]?.trim(),
+        lastName: row["LAST NAME"]?.trim(),
+        suffix: row["SUFFIX"]?.trim() || "",
+        birthPlace: row["BIRTH PLACE"]?.trim() || "Bayombong",
+        dateOfBirth: new Date(row["BIRTHDATE (YYYY-MM-DD)"]),
+        sex: (row["SEX"] || "").toLowerCase(),
+        civilStatus: (row["CIVIL STATUS"] || "").toLowerCase(),
+        citizenship: row["CITIZENSHIP"]?.trim() || "Filipino",
+        occupation: row["PROFESSION/ OCCUPATION"]?.trim() || "Unemployed",
+        sectoralInformation: (() => {
+          const secInfo = row["SEC. INFO"]?.trim() || "";
+          const secInfoLower = secInfo.toLowerCase();
+          const isLaborForce = secInfoLower.includes("labor") && secInfoLower.includes("force");
+          const isUnemployed = secInfoLower === "unemployed";
+          if (isLaborForce || isUnemployed) return "None";
+          return secInfo || "None";
+        })(),
+        employmentStatus: (() => {
+          const secInfo = row["SEC. INFO"]?.trim() || "";
+          const secInfoLower = secInfo.toLowerCase();
+          const isLaborForce = secInfoLower.includes("labor") && secInfoLower.includes("force");
+          const isUnemployed = secInfoLower === "unemployed";
+          if (isLaborForce) return "Labor Force";
+          if (isUnemployed) return "Unemployed";
+          return undefined;
+        })(),
+        registeredVoter:
+          (row["VOTER"] || "").toString().toLowerCase() === "yes",
+        address: {
+          purok: "Purok 1", // Excel doesn’t include purok, set default
+          barangay: "La Torre North",
+          municipality: "Bayombong",
+          province: "Nueva Vizcaya",
+          zipCode: "3700",
+        },
+        ethnicity: "Ilocano", // optional default
+        religion: "",
+        contact: {}, // No contact info in file
+        status: "pending",
+      };
+
+      // Validate required fields
+      if (
+        !residentData.firstName ||
+        !residentData.lastName ||
+        !residentData.dateOfBirth ||
+        Number.isNaN(residentData.dateOfBirth.getTime())
+      ) {
+        skipped.push(row);
+        continue;
+      }
+
+      // Prevent duplicates (same full name + birthdate)
+      const duplicate = await Resident.findOne({
+        firstName: residentData.firstName,
+        lastName: residentData.lastName,
+        dateOfBirth: residentData.dateOfBirth,
+      });
+      if (duplicate) {
+        skipped.push(row);
+        continue;
+      }
+
+      await Resident.create(residentData);
+      inserted.push(residentData);
+    }
+
+    res.json({
+      message: `✅ Import complete: ${inserted.length} added, ${skipped.length} skipped.`,
+      inserted: inserted.length,
+      skipped: skipped.length,
+    });
+  } catch (err) {
+    console.error("Import residents error:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to import residents", error: err.message });
+  }
+};
+

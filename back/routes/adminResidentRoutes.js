@@ -1,14 +1,22 @@
 const express = require("express");
 const router = express.Router();
+const controller = require("../controllers/adminResidentController");
 const { auth, authorize } = require("../middleware/authMiddleware");
-const adminResidentCtrl = require("../controllers/adminResidentController");
 
-router.use(auth, authorize("admin"));
+// CRUD routes
+router.get("/", auth, authorize("admin"), controller.list);
+router.post("/", auth, authorize("admin"), controller.create);
+router.patch("/:id", auth, authorize("admin"), controller.update);
+router.delete("/:id", auth, authorize("admin"), controller.remove);
+router.patch("/:id/verify", auth, authorize("admin"), controller.verify);
 
-router.post("/", adminResidentCtrl.create);
-router.get("/", adminResidentCtrl.list); // <-- Added line
-router.patch("/:id", adminResidentCtrl.update);      // Edit resident
-router.delete("/:id", adminResidentCtrl.remove);     // Delete resident
-router.patch("/:id/verify", adminResidentCtrl.verify); // Verify resident
+// ✅ Import route
+router.post(
+  "/import",
+  auth,
+  authorize("admin"),
+  controller.importResidentsMiddleware,
+  controller.importResidents
+);
 
 module.exports = router;
