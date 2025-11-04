@@ -46,7 +46,7 @@ exports.createRequest = async (req, res) => {
       });
     }
 
-    const { documentType, purpose, businessName } = req.body;
+    const { documentType, purpose, businessName, quantity } = req.body;
 
     if (!documentType) {
       return res.status(400).json({ message: 'Document type is required' });
@@ -60,7 +60,8 @@ exports.createRequest = async (req, res) => {
       requestedBy: resident._id,    // requester is also the resident
       documentType,
       purpose,
-      businessName
+      businessName,
+      quantity: Math.max(Number(quantity || 1), 1)
     });
 
     res.status(201).json(doc);

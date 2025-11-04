@@ -1,31 +1,109 @@
-import React, { useState } from "react";
-import { Table, Input, Button, Tag, message } from "antd";
-import { SearchOutlined, FileTextOutlined } from "@ant-design/icons";
+import React, { useMemo, useState, useEffect } from "react";
+import { Table, Input, Button, Tag, message, Space, Typography, Tabs } from "antd";
+import { SearchOutlined, FileTextOutlined, ReloadOutlined, CloudSyncOutlined, FolderOpenOutlined, DollarOutlined, BlockOutlined, UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
-import AdminSidebar from "./AdminSidebar";
+import { AdminLayout } from "./AdminSidebar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowUpRight } from "lucide-react";
 
 export default function AdminBlockchainNetwork() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
+  const [activeTab, setActiveTab] = useState("requests");
+  const [results, setResults] = useState([]); // on-chain document requests
   const [loading, setLoading] = useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = useState(null);
+
+  // Frontend-only demo data
+  const [publicDocs] = useState(() => ([
+    { id: "PD-001", title: "Barangay Ordinance 2025-01", category: "Ordinance", originalName: "ordinance-2025-01.pdf", size: 245678, visibility: "public", uploadedBy: "Admin", createdAt: new Date().toISOString() },
+    { id: "PD-002", title: "Community Guidelines", category: "Guidelines", originalName: "community-guidelines.pdf", size: 102400, visibility: "public", uploadedBy: "Admin", createdAt: new Date(Date.now()-86400000*3).toISOString() },
+    { id: "PD-003", title: "Barangay Annual Report 2024", category: "Report", originalName: "annual-report-2024.pdf", size: 1048576, visibility: "public", uploadedBy: "Treasurer", createdAt: new Date(Date.now()-86400000*40).toISOString() },
+  ]));
+  const [financeRows] = useState(() => ([
+    { transactionId: "DOC-2025-000123", type: "document_fee", category: "revenue", description: "Barangay Clearance", amount: 100, status: "completed", transactionDate: new Date().toISOString() },
+    { transactionId: "GRB-2025-000045", type: "garbage_fee", category: "revenue", description: "Quarterly Garbage Fee", amount: 300, status: "completed", transactionDate: new Date(Date.now()-86400000*2).toISOString() },
+    { transactionId: "STL-2025-000010", type: "streetlight_fee", category: "revenue", description: "Streetlight Maintenance", amount: 200, status: "completed", transactionDate: new Date(Date.now()-86400000*7).toISOString() },
+    { transactionId: "TXN-2025-000020", type: "other", category: "expense", description: "Printer ink and supplies", amount: 1500, status: "completed", transactionDate: new Date(Date.now()-86400000*10).toISOString() },
+  ]));
 
   const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+  const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+  const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   const handleSearch = async () => {
+    if (activeTab !== "requests") return; // only fetch for requests tab
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${baseURL}/api/requests?type=${query}`, {
+      const res = await axios.get(`${baseURL}/api/blockchain/requests`, {
+        // back-end ignores filter for now; we'll filter client-side
         headers: { Authorization: `Bearer ${token}` },
       });
-      setResults(res.data);
+      setResults(Array.isArray(res.data) ? res.data : []);
+      setLastFetchedAt(new Date());
     } catch (err) {
       console.error(err);
       message.error("Search failed, please try again.");
     }
     setLoading(false);
   }; 
+  const handleSync = async () => {
+    if (activeTab !== "requests") return; // only valid for requests tab
+    setLoading(true);
+    try {
+      await axios.post(`${baseURL}/api/blockchain/sync-from-db`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      message.success('Sync complete');
+      await handleSearch();
+    } catch (err) {
+      console.error(err);
+      message.error(err?.response?.data?.message || 'Sync failed');
+    }
+    setLoading(false);
+  };
+  // Load on mount and when switching back to requests tab
+  useEffect(() => {
+    if (activeTab === "requests") {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Derived filtered data per tab
+  const filteredRequests = useMemo(() => {
+    if (!query) return results;
+    const q = query.toLowerCase();
+    return (results || []).filter(r => {
+      const type = (r.documentType || '').toString().toLowerCase();
+      const resident = (r.residentId || '').toString().toLowerCase();
+      const status = (r.status || '').toString().toLowerCase();
+      const id = (r.requestId || r._id || '').toString().toLowerCase();
+      return type.includes(q) || resident.includes(q) || status.includes(q) || id.includes(q);
+    });
+  }, [results, query]);
+
+  const filteredPublicDocs = useMemo(() => {
+    if (!query) return publicDocs;
+    const q = query.toLowerCase();
+    return (publicDocs || []).filter(d => (
+      d.title.toLowerCase().includes(q) ||
+      (d.category || '').toLowerCase().includes(q) ||
+      (d.originalName || '').toLowerCase().includes(q)
+    ));
+  }, [publicDocs, query]);
+
+  const filteredFinance = useMemo(() => {
+    if (!query) return financeRows;
+    const q = query.toLowerCase();
+    return (financeRows || []).filter(t => (
+      (t.transactionId || '').toLowerCase().includes(q) ||
+      (t.type || '').toLowerCase().includes(q) ||
+      (t.category || '').toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q)
+    ));
+  }, [financeRows, query]);
 
   const columns = [
     {
@@ -47,8 +125,8 @@ export default function AdminBlockchainNetwork() {
     },
     {
       title: "Resident",
-      dataIndex: "residentId",
-      key: "residentId",
+      dataIndex: "requestedBy",
+      key: "requestedBy",
       render: (v) => <span>{v}</span>,
     },
     {
@@ -56,12 +134,15 @@ export default function AdminBlockchainNetwork() {
       dataIndex: "status",
       key: "status",
       render: (v) => {
+        const s = (v || '').toString();
+        const k = s.toLowerCase();
         let color = "default";
-        if (v === "Pending") color = "orange";
-        if (v === "Accepted") color = "green";
-        if (v === "Declined") color = "red";
-        if (v === "Completed") color = "blue";
-        return <Tag color={color}>{v}</Tag>;
+        if (k === "pending") color = "orange";
+        if (k === "accepted") color = "green";
+        if (k === "declined") color = "red";
+        if (k === "completed") color = "blue";
+        const label = s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+        return <Tag color={color}>{label}</Tag>;
       },
     },
     {
@@ -75,40 +156,198 @@ export default function AdminBlockchainNetwork() {
     },
   ];
 
+  const publicDocColumns = [
+    { title: "Doc ID", dataIndex: "id", key: "id", render: (v) => <Space><FolderOpenOutlined />{v}</Space> },
+    { title: "Title", dataIndex: "title", key: "title" },
+    { title: "Category", dataIndex: "category", key: "category", render: (v) => <Tag color="purple">{v}</Tag> },
+    { title: "File", dataIndex: "originalName", key: "originalName" },
+    { title: "Size", dataIndex: "size", key: "size", render: (n) => n ? `${(n/1024).toFixed(1)} KB` : "-" },
+    { title: "Uploaded", dataIndex: "createdAt", key: "createdAt", render: (v) => v ? dayjs(v).format("YYYY-MM-DD") : "-" },
+  ];
+
+  const financeColumns = [
+    { title: "Transaction ID", dataIndex: "transactionId", key: "transactionId", render: (v) => <Space><DollarOutlined />{v}</Space> },
+    { title: "Type", dataIndex: "type", key: "type", render: (v) => <Tag color="geekblue">{v}</Tag> },
+    { title: "Category", dataIndex: "category", key: "category", render: (v) => <Tag color={v === 'revenue' ? 'green' : v === 'expense' ? 'red' : 'gold'}>{v}</Tag> },
+    { title: "Description", dataIndex: "description", key: "description" },
+    { title: "Amount", dataIndex: "amount", key: "amount", render: (n) => `₱${Number(n).toLocaleString()}` },
+    { title: "Status", dataIndex: "status", key: "status", render: (v) => <Tag color={v === 'completed' ? 'green' : 'orange'}>{v}</Tag> },
+    { title: "Date", dataIndex: "transactionDate", key: "transactionDate", render: (v) => v ? dayjs(v).format("YYYY-MM-DD") : "-" },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminSidebar />
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-bold">Search Document Requests</h1>
-        <div className="flex gap-2 flex-wrap">
-          <Input
-            placeholder="Enter document type (e.g. Barangay Clearance)"
-            allowClear
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="max-w-xs"
-            prefix={<SearchOutlined />}
-          />
-          <Button
-            type="primary"
-            icon={<SearchOutlined />}
-            onClick={handleSearch}
-            loading={loading}
-          >
-            Search
-          </Button>
+    <AdminLayout>
+      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
+        {/* Navbar */}
+        <div>
+          <nav className="px-5 h-20 flex items-center justify-between p-15">
+            <div>
+              <span className="text-2xl md:text-4xl font-bold text-gray-800">Blockchain Network</span>
+            </div>
+            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
+              <UserOutlined className="text-2xl text-blue-600" />
+              <div className="flex flex-col items-start">
+                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
+                <span className="text-xs text-gray-500">{username}</span>
+              </div>
+            </div>
+          </nav>
+
+          {/* Statistics Section */}
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Requests</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {filteredRequests?.length || 0}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{filteredRequests?.length || 0}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Public Documents</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {filteredPublicDocs?.length || 0}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{filteredPublicDocs?.length || 0}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Finance Records</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {filteredFinance?.length || 0}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{filteredFinance?.length || 0}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Last Fetched</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {lastFetchedAt ? dayjs(lastFetchedAt).format('HH:mm') : '—'}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{lastFetchedAt ? dayjs(lastFetchedAt).format('HH:mm') : '—'}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <Table
-            rowKey="requestId"
-            loading={loading}
-            dataSource={results}
-            columns={columns}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 800 }}
-          />
+
+        {/* Tables Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <hr className="border-t border-gray-300" />
+          <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <Input.Search
+                allowClear
+                placeholder={activeTab === 'requests' ? 'Search requests' : activeTab === 'publicdocs' ? 'Search public documents' : 'Search finance'}
+                onSearch={(v) => setQuery(v.trim())}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                enterButton
+                className="min-w-[200px] max-w-md"
+              />
+              {activeTab === 'requests' && (
+                <>
+                  <Button icon={<ReloadOutlined />} onClick={handleSearch} loading={loading}>Refresh</Button>
+                  <Button icon={<CloudSyncOutlined />} onClick={handleSync} loading={loading}>Sync from DB</Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                {
+                  key: 'requests',
+                  label: 'Document Requests',
+                  children: (
+                    <>
+                      <Table
+                        rowKey={(r) => r.requestId || r._id || r.id || r.key}
+                        loading={loading}
+                        dataSource={filteredRequests}
+                        columns={columns}
+                        pagination={{ pageSize: 10 }}
+                        scroll={{ x: 800 }}
+                      />
+                      {!loading && (!filteredRequests || filteredRequests.length === 0) && (
+                        <div className="pt-4 text-sm text-gray-500">
+                          <Typography.Text type="secondary">
+                            No on-chain requests found. Try creating a document request or click "Sync from DB" to backfill existing records.
+                          </Typography.Text>
+                        </div>
+                      )}
+                    </>
+                  )
+                },
+                {
+                  key: 'publicdocs',
+                  label: 'Public Documents (Frontend)',
+                  children: (
+                    <>
+                      <Table
+                        rowKey={(r) => r.id}
+                        dataSource={filteredPublicDocs}
+                        columns={publicDocColumns}
+                        pagination={{ pageSize: 10 }}
+                        scroll={{ x: 800 }}
+                      />
+                      {(!filteredPublicDocs || filteredPublicDocs.length === 0) && (
+                        <div className="pt-4 text-sm text-gray-500">
+                          <Typography.Text type="secondary">
+                            No public documents to display.
+                          </Typography.Text>
+                        </div>
+                      )}
+                    </>
+                  )
+                },
+                {
+                  key: 'finance',
+                  label: 'Financial Reports (Frontend)',
+                  children: (
+                    <>
+                      <Table
+                        rowKey={(r) => r.transactionId}
+                        dataSource={filteredFinance}
+                        columns={financeColumns}
+                        pagination={{ pageSize: 10 }}
+                        scroll={{ x: 900 }}
+                      />
+                      {(!filteredFinance || filteredFinance.length === 0) && (
+                        <div className="pt-4 text-sm text-gray-500">
+                          <Typography.Text type="secondary">
+                            No finance records to display.
+                          </Typography.Text>
+                        </div>
+                      )}
+                    </>
+                  )
+                }
+              ]}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

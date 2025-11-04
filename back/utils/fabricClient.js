@@ -12,7 +12,7 @@ async function getContract() {
     const gateway = new Gateway();
     await gateway.connect(ccp, {
         wallet,
-        identity: 'appUser2',
+        identity: 'appUser3',
         discovery: { enabled: true, asLocalhost: true }
     });
 

@@ -69,6 +69,9 @@ app.use("/api/resident/complaints", residentComplaintRoutes);
 const residentProfileRoutes = require("./routes/residentProfileRoutes");
 app.use("/api/resident", residentProfileRoutes);
 const residentPaymentsController = require("./controllers/residentPaymentsController");
+// Blockchain status routes
+const blockchainRoutes = require('./routes/blockchainRoutes');
+app.use('/api/blockchain', blockchainRoutes);
 
 // Additional admin routes for garbage management
 const adminHouseholdController = require("./controllers/adminHouseholdController");
@@ -91,6 +94,7 @@ app.use((req, res, next) => {
   if (res.headersSent) return next();
   res.status(404).json({ message: 'Route not found' });
 });
+app.use("/api/blockchain", require("./routes/blockchainRoutes"));
 
 // Error handler
 // eslint-disable-next-line no-unused-vars

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs, Pagination } from "antd";
+import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs, Pagination } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { 
@@ -28,6 +28,8 @@ export default function ResidentRequest() {
   const [resident, setResident] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [paymentsSummary, setPaymentsSummary] = useState(null);
+  const [monthsStatus, setMonthsStatus] = useState({ garbage: { paid: [], unpaid: [] }, streetlight: { paid: [], unpaid: [] } });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -40,6 +42,7 @@ export default function ResidentRequest() {
     // Only fetch requests on initial load
     fetchRequests();
     checkPaymentStatus();
+    fetchPaymentsSummary();
     // We'll get the resident info from localStorage instead of API
     const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
     setResident(userProfile);
@@ -83,6 +86,36 @@ export default function ResidentRequest() {
       }
     }
     setCheckingPayment(false);
+  };
+
+  // Fetch resident payment records to show paid/unpaid months for current year
+  const fetchPaymentsSummary = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/payments`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPaymentsSummary(res.data);
+
+      const currentYear = new Date().getFullYear();
+      const months = Array.from({ length: new Date().getMonth() + 1 }, (_, i) => `${currentYear}-${String(i + 1).padStart(2, '0')}`);
+      const mark = (items = [], type) => {
+        const map = new Map(items.filter(p => p.type === type).map(p => [p.month, p]));
+        const paid = []; const unpaid = [];
+        months.forEach(m => {
+          const rec = map.get(m);
+          if (rec && (rec.status === 'paid' || Number(rec.balance) <= 0)) paid.push(m); else unpaid.push(m);
+        });
+        return { paid, unpaid };
+      };
+      const g = mark([...(res.data.utilityPayments || [])], 'garbage');
+      const s = mark([...(res.data.streetlightPayments || [])], 'streetlight');
+      setMonthsStatus({ garbage: g, streetlight: s });
+    } catch (e) {
+      // ignore
+    }
   };
 
   // (Removed unused fetchUserInfo function)
@@ -208,6 +241,29 @@ export default function ResidentRequest() {
               onPaymentClick={handleGoToPayments}
             />
           </div>
+        )}
+
+        {/* Paid/Unpaid Months Summary */}
+        {paymentsSummary && (
+          <Card className="w-full">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-3">
+                  <div className="text-sm font-semibold mb-2">Garbage Fee (Current Year)</div>
+                  <div className="text-xs text-green-700 mb-1">Paid: {monthsStatus.garbage.paid.join(', ') || 'None'}</div>
+                  <div className="text-xs text-rose-700">Unpaid: {monthsStatus.garbage.unpaid.join(', ') || 'None'}</div>
+                </div>
+                <div className="border rounded-lg p-3">
+                  <div className="text-sm font-semibold mb-2">Streetlight Fee (Current Year)</div>
+                  <div className="text-xs text-green-700 mb-1">Paid: {monthsStatus.streetlight.paid.join(', ') || 'None'}</div>
+                  <div className="text-xs text-rose-700">Unpaid: {monthsStatus.streetlight.unpaid.join(', ') || 'None'}</div>
+                </div>
+              </div>
+              {paymentStatus?.canRequestDocuments === false && (
+                <div className="text-xs text-rose-700">You must settle unpaid Garbage and Streetlight fees (previous and current months) before requesting a document.</div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         <Card className="w-full">
@@ -687,6 +743,14 @@ export default function ResidentRequest() {
                 <Input placeholder="Enter registered business name" />
               </Form.Item>
             )}
+            <Form.Item 
+              name="quantity" 
+              label={<span className="text-gray-700 font-medium">Quantity</span>} 
+              initialValue={1}
+              rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity (min 1)' }]}
+            >
+              <InputNumber min={1} className="w-full" />
+            </Form.Item>
             
             <Form.Item 
               name="purpose" 
@@ -717,6 +781,7 @@ export default function ResidentRequest() {
                 htmlType="submit"
                 loading={creating}
                 className="bg-blue-600 hover:bg-blue-700"
+                disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
               >
                 Submit Request
               </Button>
