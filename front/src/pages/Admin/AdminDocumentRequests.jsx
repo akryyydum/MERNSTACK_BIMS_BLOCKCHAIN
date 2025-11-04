@@ -236,6 +236,16 @@ export default function AdminDocumentRequests() {
       .includes(search.toLowerCase())
 );
 
+  // Unique list of Puroks for export filtering
+  const uniquePuroks = Array.from(
+    new Set(
+      [
+        ...(residents || []).map((res) => res?.address?.purok).filter(Boolean),
+        ...(requests || []).map((req) => req?.residentId?.address?.purok).filter(Boolean),
+      ]
+    )
+  ).sort((a, b) => String(a).localeCompare(String(b)));
+
   // Helper: find the household that contains a given resident ID
   const findHouseholdByResident = (residentId) => {
     if (!residentId) return null;
@@ -567,7 +577,7 @@ function toCsv(rows) {
 
 const handleExport = async () => {
   try {
-      const { rangeType, period, reportType, docTypeFilter } = await exportForm.validateFields();
+  const { rangeType, period, reportType, docTypeFilter, purokFilter } = await exportForm.validateFields();
       const { start, end } = getRange(rangeType, period);
 
       // Date range filter
@@ -580,6 +590,12 @@ const handleExport = async () => {
       const docFilter = docTypeFilter || 'all';
       if (docFilter && docFilter !== 'all') {
         filtered = filtered.filter(r => r.documentType === docFilter);
+      }
+
+      // Purok filter
+      const purokVal = purokFilter || 'all';
+      if (purokVal && purokVal !== 'all') {
+        filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === purokVal.toString());
       }
 
       if (!filtered.length) {
@@ -609,6 +625,7 @@ const handleExport = async () => {
           ResidentId: entry.id,
           Requests: entry.count,
           DocumentTypeFilter: docFilter,
+          PurokFilter: purokVal,
         }));
         filenamePrefix = 'TopRequesters';
       } else {
@@ -635,8 +652,9 @@ const handleExport = async () => {
           : dayjs(period).format("YYYYMM");
 
       const docSlug = (docFilter || 'all').replace(/\s+/g, '_').toLowerCase();
+      const purokSlug = (purokVal || 'all').toString().replace(/\s+/g, '_').toLowerCase();
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      saveAs(blob, `${filenamePrefix}-${docSlug}-${rangeType}-${filenameBase}.csv`);
+      saveAs(blob, `${filenamePrefix}-${docSlug}-${purokSlug}-${rangeType}-${filenameBase}.csv`);
       message.success("Export generated.");
       setExportOpen(false);
   } catch (e) {
@@ -770,7 +788,7 @@ const handleExport = async () => {
                 onClick={() => {
                   setExportOpen(true);
                   // initialize default export values
-                  exportForm.setFieldsValue({ reportType: 'detailed', docTypeFilter: 'all', rangeType: "month", period: dayjs() });
+                  exportForm.setFieldsValue({ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() });
                 }}
               >
                 Export
@@ -1025,7 +1043,7 @@ const handleExport = async () => {
           okText="Export"
           width={420}
         >
-          <Form form={exportForm} layout="vertical" initialValues={{ reportType: 'detailed', docTypeFilter: 'all', rangeType: "month", period: dayjs() }}>
+          <Form form={exportForm} layout="vertical" initialValues={{ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() }}>
             <Form.Item name="reportType" label="Report Type" rules={[{ required: true }]}>
               <Select
                 options={[
@@ -1041,6 +1059,16 @@ const handleExport = async () => {
                   { value: 'Indigency', label: 'Indigency' },
                   { value: 'Barangay Clearance', label: 'Barangay Clearance' },
                   { value: 'Business Clearance', label: 'Business Clearance' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="purokFilter" label="Purok">
+              <Select
+                showSearch
+                optionFilterProp="label"
+                options={[
+                  { value: 'all', label: 'All' },
+                  ...uniquePuroks.map((p) => ({ value: p, label: String(p) })),
                 ]}
               />
             </Form.Item>
