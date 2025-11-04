@@ -12,12 +12,14 @@ async function getContract() {
     const gateway = new Gateway();
     await gateway.connect(ccp, {
         wallet,
-        identity: 'appUser1',
-        discovery: { enabled: false, asLocalhost: false }
+        identity: 'appUser2',
+        discovery: { enabled: true, asLocalhost: true }
     });
 
     const network = await gateway.getNetwork('mychannel');
-    return network.getContract('documentrequest');
+    const contract = network.getContract('documentrequest');
+    return { gateway, contract };
 }
+
 
 module.exports = { getContract };
