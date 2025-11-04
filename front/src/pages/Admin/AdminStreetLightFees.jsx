@@ -283,11 +283,9 @@ export default function AdminStreetLightFees() {
     },
     collectionRate: 0
   });
-  const [statsRefreshing, setStatsRefreshing] = useState(false);
   
   // Fetch statistics
   const fetchStatistics = async () => {
-    setStatsRefreshing(true);
     try {
       const currentYear = new Date().getFullYear();
       const currentMonth = dayjs().format('YYYY-MM');
@@ -382,7 +380,6 @@ export default function AdminStreetLightFees() {
         collectionRate: 0
       });
     }
-    setStatsRefreshing(false);
   };
   
   useEffect(() => {
@@ -604,7 +601,15 @@ export default function AdminStreetLightFees() {
           return purok.replace(/purok\s*/i, "").trim();
         }
         return purok;
-      }
+      },
+      filters: [
+        { text: "Purok 1", value: "Purok 1" },
+        { text: "Purok 2", value: "Purok 2" },
+        { text: "Purok 3", value: "Purok 3" },
+        { text: "Purok 4", value: "Purok 4" },
+        { text: "Purok 5", value: "Purok 5" },
+      ],
+      onFilter: (value, record) => record.address?.purok === value,
     },
     {
       title: "Monthly Fee",
@@ -877,15 +882,6 @@ export default function AdminStreetLightFees() {
               >
                 Export Excel
               </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-                <Button
-                  loading={statsRefreshing}
-                  onClick={() => { fetchHouseholds(); fetchStreetlightPayments(); fetchStatistics(); }}
-                  size="small"
-                >
-                  Refresh
-                </Button>
             </div>
           </div>
 

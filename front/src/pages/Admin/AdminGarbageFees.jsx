@@ -314,11 +314,9 @@ export default function AdminGarbageFees() {
     },
     collectionRate: 0
   });
-   const [statsRefreshing, setStatsRefreshing] = useState(false);
   
   // Fetch statistics
   const fetchStatistics = async () => {
-    setStatsRefreshing(true);
     try {
       const res = await axios.get(`${API_BASE}/api/admin/garbage-statistics`, { headers: authHeaders() });
       const apiStats = res.data;
@@ -430,7 +428,6 @@ export default function AdminGarbageFees() {
         collectionRate: parseFloat(collectionRate.toFixed(1))
       });
     }
-    setStatsRefreshing(false);
   };
   
   useEffect(() => {
@@ -654,7 +651,15 @@ export default function AdminGarbageFees() {
           return purok.replace(/purok\s*/i, "").trim();
         }
         return purok;
-      }
+      },
+      filters: [
+        { text: "Purok 1", value: "Purok 1" },
+        { text: "Purok 2", value: "Purok 2" },
+        { text: "Purok 3", value: "Purok 3" },
+        { text: "Purok 4", value: "Purok 4" },
+        { text: "Purok 5", value: "Purok 5" },
+      ],
+      onFilter: (value, record) => record.address?.purok === value,
     },
     {
       title: "Business",
@@ -961,15 +966,6 @@ export default function AdminGarbageFees() {
               >
                 Export Excel
               </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-                <Button
-                  loading={statsRefreshing}
-                  onClick={fetchStatistics}
-                  size="small"
-                >
-                  Refresh
-                </Button>
             </div>
           </div>
           <div className="overflow-x-auto">
