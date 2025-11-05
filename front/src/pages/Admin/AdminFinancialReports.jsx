@@ -1033,7 +1033,7 @@ export default function AdminFinancialReports() {
                   option.children.toLowerCase().includes(input.toLowerCase())
                 }
               >
-                <Select.Option value="all">✨ All Months</Select.Option>
+                <Select.Option value="all">All Months</Select.Option>
                 {/* Generate months for selected year */}
                 {Array.from({ length: 12 }, (_, i) => {
                   const month = dayjs().year(selectedYear).month(i);
