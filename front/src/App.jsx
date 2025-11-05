@@ -55,13 +55,9 @@ function App() {
           <Route path="/admin/settings" element={<AdminSettings />} />
         </Route>
 
-        {/* Official only */}
-        <Route element={<ProtectedRoute allowedRoles={["official"]} />}>
-          {/* <Route path="/official-dashboard" element={<OfficialDashboard />} /> */}
-        </Route>
 
-        {/* Resident only */}
-        <Route element={<ProtectedRoute allowedRoles={["resident"]} />}>
+        {/* Resident and Official only */}
+        <Route element={<ProtectedRoute allowedRoles={["resident", "official"]} />}>
           <Route path="/resident-dashboard" element={<ResidentDashboard />} />
           <Route path="/resident/dashboard" element={<ResidentDashboard />} />
           <Route path="/resident/profile" element={<ResidentProfile />} />

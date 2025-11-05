@@ -78,9 +78,7 @@ const Login = () => {
       // Role-based redirect
       if (res.data.role === "admin") {
         window.location.href = "/admin-dashboard";
-      } else if (res.data.role === "official") {
-        window.location.href = "/official-dashboard";
-      } else if (res.data.role === "resident") {
+      } else if (res.data.role === "official" || res.data.role === "resident") {
         window.location.href = "/resident-dashboard";
       } else {
         window.location.href = "/";
@@ -108,7 +106,6 @@ const Login = () => {
       setRegError("");
       
       if (step === 4) {
-        // If it's the confirmation step, proceed directly to registration
         const values = regForm.getFieldsValue(true);
         await handleRegister(values);
       } else {
