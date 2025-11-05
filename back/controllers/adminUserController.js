@@ -31,7 +31,18 @@ exports.list = async (req, res) => {
       User.countDocuments(q),
     ]);
 
-    res.json({ items, total, page, limit });
+    // Populate resident status for each user
+    const itemsWithResidentStatus = await Promise.all(
+      items.map(async (user) => {
+        const resident = await Resident.findOne({ user: user._id }).select('status').lean();
+        return {
+          ...user,
+          residentStatus: resident?.status || null
+        };
+      })
+    );
+
+    res.json({ items: itemsWithResidentStatus, total, page, limit });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -122,7 +133,7 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-  const { role, isActive, isVerified, fullName, contact } = req.body;
+  const { role, isActive, isVerified, fullName, contact, residentStatus } = req.body;
 
   const update = {};
   let unset = {};
@@ -168,6 +179,19 @@ exports.update = async (req, res) => {
   if (Object.keys(update).length) updateOps.$set = update;
   if (Object.keys(unset).length) updateOps.$unset = unset;
   await User.updateOne({ _id: id }, updateOps);
+    
+    // Update resident status if provided
+    if (residentStatus) {
+      if (!['pending', 'verified', 'rejected'].includes(residentStatus)) {
+        return res.status(400).json({ message: "Invalid resident status. Must be pending, verified, or rejected" });
+      }
+      
+      await Resident.updateOne(
+        { user: id },
+        { $set: { status: residentStatus } }
+      );
+    }
+    
     res.json({ message: "Updated" });
   } catch (err) {
     res.status(500).json({ message: err.message });

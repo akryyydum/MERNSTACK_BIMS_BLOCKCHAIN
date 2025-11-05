@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Table, Tag, Progress, Space, Divider, Spin, message, Button } from 'antd';
 import { UserOutlined, TeamOutlined, FileProtectOutlined, DollarCircleOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const COLORS = ['#1677FF', '#13C2C2', '#69C0FF', '#FFC53D', '#F759AB'];
+const PUROK_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#a855f7', '#ef4444'];
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
 const chartConfig = {
@@ -36,13 +36,33 @@ const chartConfig = {
     label: "Value",
     color: "#22c55e",
   },
+  purok1: {
+    label: "Purok 1",
+    color: "#3b82f6",
+  },
+  purok2: {
+    label: "Purok 2",
+    color: "#22c55e",
+  },
+  purok3: {
+    label: "Purok 3",
+    color: "#eab308",
+  },
+  purok4: {
+    label: "Purok 4",
+    color: "#a855f7",
+  },
+  purok5: {
+    label: "Purok 5",
+    color: "#ef4444",
+  },
 };
 
 
 export default function AdminDashboard() {
   const [data, setData] = useState({
     residents: [], officials: [], docRequests: [], complaints: [],
-    financialDashboard: null, financialTotal: 0,
+    financialDashboard: null,
     payments: [],
     blockchain: null
   });
@@ -64,7 +84,6 @@ export default function AdminDashboard() {
           `${API_BASE}/api/admin/document-requests`,
           `${API_BASE}/api/admin/complaints`,
           `${API_BASE}/api/admin/financial/dashboard`,
-          `${API_BASE}/api/admin/financial/transactions?limit=1`,
           `${API_BASE}/api/admin/financial/transactions?limit=10`
         ];
         // Load core dashboard data first and tolerate partial failures
@@ -74,7 +93,7 @@ export default function AdminDashboard() {
         const jsons = await Promise.all(
           settled.map(async (r) => (r.status === 'fulfilled' && r.value.ok) ? r.value.json() : null)
         );
-        const [residents, officials, docRequests, complaints, financialDashboard, finTx, paymentsResponse] = jsons;
+        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = jsons;
 
         // Fetch blockchain status separately; don't block dashboard if it fails
         let blockchain = null;
@@ -91,7 +110,6 @@ export default function AdminDashboard() {
           docRequests: Array.isArray(docRequests) ? docRequests : [],
           complaints: Array.isArray(complaints) ? complaints : [],
           financialDashboard: financialDashboard || null,
-          financialTotal: (finTx && typeof finTx.total === 'number') ? finTx.total : 0,
           payments: paymentsResponse?.transactions || [],
           blockchain
         });
@@ -102,10 +120,11 @@ export default function AdminDashboard() {
     return () => abort.abort();
   }, []);
 
-  const { residents, officials, docRequests, complaints, financialDashboard, financialTotal, payments, blockchain } = data;
+  const { residents, officials, docRequests, complaints, financialDashboard, payments, blockchain } = data;
   const totalResidents = residents.length;
   const activeOfficials = officials.filter(o => o.isActive).length;
   const pendingDocRequests = docRequests.filter(d => d.status === 'pending').length;
+  const financialTotal = financialDashboard?.totalTransactions || 0;
 
   // Calculate statistics with trends
   const statsData = useMemo(() => {
@@ -135,56 +154,62 @@ export default function AdminDashboard() {
     }).length;
     const ordersChange = ordersLastWeek > 0 ? ((ordersThisWeek - ordersLastWeek) / ordersLastWeek * 100).toFixed(1) : (ordersThisWeek > 0 ? 100 : 0);
     
-    // Average order revenue (average financial transactions this week)
-    const financialThisWeek = (financialDashboard?.revenues || [])
-      .filter(r => r.date && new Date(r.date) >= lastWeekStart)
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
-    const ordersThisWeekCount = ordersThisWeek || 1;
-    const avgOrderRevenue = Math.round(financialThisWeek / ordersThisWeekCount);
-    
-    const financialLastWeek = (financialDashboard?.revenues || [])
-      .filter(r => {
-        if (!r.date) return false;
-        const dt = new Date(r.date);
-        return dt >= new Date(lastWeekStart.getTime() - 7*24*60*60*1000) && dt < lastWeekStart;
-      })
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
-    const ordersLastWeekCount = ordersLastWeek || 1;
-    const avgLastWeek = Math.round(financialLastWeek / ordersLastWeekCount);
-    const avgChange = avgLastWeek > 0 ? ((avgOrderRevenue - avgLastWeek) / avgLastWeek * 100).toFixed(1) : (avgOrderRevenue > 0 ? 100 : 0);
-    
-    // Total revenue this month
+    // Total financial transactions (from financial dashboard)
+    // Note: We show total count, but calculate change based on revenue trend since transaction timestamps aren't available
     const currentMonth = now.getMonth();
-    const totalRevenue = (financialDashboard?.revenues || [])
-      .filter(r => r.date && new Date(r.date).getMonth() === currentMonth)
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
+    const currentYear = now.getFullYear();
     
-    const lastMonthRevenue = (financialDashboard?.revenues || [])
-      .filter(r => {
-        if (!r.date) return false;
-        const dt = new Date(r.date);
-        return dt.getMonth() === (currentMonth === 0 ? 11 : currentMonth - 1);
-      })
-      .reduce((sum, r) => sum + (r.amount || 0), 0);
-    const revenueChange = lastMonthRevenue > 0 ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1) : (totalRevenue > 0 ? 100 : 0);
+    // Calculate current month revenue from monthlyTrends
+    const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    const lastMonthKey = currentMonth === 0 
+      ? `${currentYear - 1}-12` 
+      : `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    
+    const currentMonthRevenue = financialDashboard?.monthlyTrends?.[currentMonthKey]?.revenue || 0;
+    const lastMonthRevenueValue = financialDashboard?.monthlyTrends?.[lastMonthKey]?.revenue || 0;
+    
+    const transactionChange = lastMonthRevenueValue > 0 
+      ? ((currentMonthRevenue - lastMonthRevenueValue) / lastMonthRevenueValue * 100).toFixed(1) 
+      : (currentMonthRevenue > 0 ? 100 : 0);
+    
+    // Total revenue (using statistics from financial dashboard)
+    const totalRevenue = financialDashboard?.statistics?.totalRevenue || 0;
+    
+    // Calculate revenue change from last month to current month
+    const revenueChange = lastMonthRevenueValue > 0 
+      ? ((currentMonthRevenue - lastMonthRevenueValue) / lastMonthRevenueValue * 100).toFixed(1) 
+      : (currentMonthRevenue > 0 ? 100 : 0);
     
     return {
       totalResidents: { value: totalResidents, change: parseFloat(residentsChange), sinceLast: 'Since Last week' },
       pendingRequests: { value: ordersThisWeek, change: parseFloat(ordersChange), sinceLast: 'Since Last week' },
-      totalTransactions: { value: financialTotal, change: parseFloat(avgChange), sinceLast: 'Since Last week' },
+      totalTransactions: { value: financialTotal, change: parseFloat(transactionChange), sinceLast: 'from last month' },
       totalRevenue: { value: totalRevenue, change: parseFloat(revenueChange), sinceLast: 'from last month' }
     };
-  }, [residents, docRequests, financialDashboard, financialTotal]);
+  }, [residents, docRequests, financialDashboard, financialTotal, totalResidents]);
 
-  // Revenue trend for line chart (last 12 months)
+  // Revenue trend for line chart (last 12 months) - using monthlyTrends from financial dashboard
   const revenueTrendData = useMemo(() => {
-    const monthlyData = new Map(MONTHS.map(m => [m, 0]));
-    (financialDashboard?.revenues || []).forEach(r => {
-      if (!r.date) return;
-      const monthLabel = MONTHS[new Date(r.date).getMonth()];
-      monthlyData.set(monthLabel, (monthlyData.get(monthLabel) || 0) + (r.amount || 0));
+    if (!financialDashboard?.monthlyTrends) {
+      return MONTHS.map(m => ({ month: m, value: 0 }));
+    }
+    
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    // Generate last 12 months of data
+    return MONTHS.map((monthLabel, index) => {
+      // Calculate year for this month (might be previous year for months after current month)
+      const monthOffset = index - currentMonth;
+      const year = monthOffset > 0 ? currentYear - 1 : currentYear;
+      const monthKey = `${year}-${String(index + 1).padStart(2, '0')}`;
+      
+      return {
+        month: monthLabel,
+        value: financialDashboard.monthlyTrends[monthKey]?.revenue || 0
+      };
     });
-    return MONTHS.map(m => ({ month: m, value: monthlyData.get(m) }));
   }, [financialDashboard]);
 
   // Request trend data (dual area chart showing document requests and complaints over months)
@@ -265,6 +290,32 @@ export default function AdminDashboard() {
     ];
   }, [residents]);
 
+  // Purok demographics data (pie chart showing distribution across puroks)
+  const purokDemographicsData = useMemo(() => {
+    const counts = {
+      'Purok 1': 0,
+      'Purok 2': 0,
+      'Purok 3': 0,
+      'Purok 4': 0,
+      'Purok 5': 0
+    };
+    
+    residents.forEach(r => {
+      const purok = r.address?.purok;
+      if (purok && counts.hasOwnProperty(purok)) {
+        counts[purok] += 1;
+      }
+    });
+    
+    return [
+      { name: 'Purok 1', value: counts['Purok 1'], percentage: residents.length > 0 ? ((counts['Purok 1'] / residents.length) * 100).toFixed(1) : 0 },
+      { name: 'Purok 2', value: counts['Purok 2'], percentage: residents.length > 0 ? ((counts['Purok 2'] / residents.length) * 100).toFixed(1) : 0 },
+      { name: 'Purok 3', value: counts['Purok 3'], percentage: residents.length > 0 ? ((counts['Purok 3'] / residents.length) * 100).toFixed(1) : 0 },
+      { name: 'Purok 4', value: counts['Purok 4'], percentage: residents.length > 0 ? ((counts['Purok 4'] / residents.length) * 100).toFixed(1) : 0 },
+      { name: 'Purok 5', value: counts['Purok 5'], percentage: residents.length > 0 ? ((counts['Purok 5'] / residents.length) * 100).toFixed(1) : 0 }
+    ];
+  }, [residents]);
+
   const populationData = useMemo(() => {
     if (!residents.length) return [];
     const counts = { male:0, female:0 };
@@ -315,24 +366,30 @@ export default function AdminDashboard() {
       docRequestsTrend.push({ x: 6 - i, y: count });
     }
     
-    // Revenue trend (last 7 days)
+    // Revenue trend (last 7 months instead of days, since we have monthly data)
     const revenueTrend = [];
-    for (let i = 6; i >= 0; i--) {
-      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const total = (financialDashboard?.revenues || [])
-        .filter(r => {
-          if (!r.date) return false;
-          const rDate = new Date(r.date);
-          return rDate.toDateString() === targetDate.toDateString();
-        })
-        .reduce((sum, r) => sum + (r.amount || 0), 0);
-      revenueTrend.push({ x: 6 - i, y: total });
+    if (financialDashboard?.monthlyTrends) {
+      for (let i = 6; i >= 0; i--) {
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+        const revenue = financialDashboard.monthlyTrends[monthKey]?.revenue || 0;
+        revenueTrend.push({ x: 6 - i, y: revenue });
+      }
+    } else {
+      // Fallback: create empty trend
+      for (let i = 6; i >= 0; i--) {
+        revenueTrend.push({ x: 6 - i, y: 0 });
+      }
     }
+    
+    // Total Revenue trend for the revenue card (last 7 months)
+    const totalRevenueTrend = revenueTrend; // Same data, reused for the revenue card
     
     return {
       residents: residentsTrend,
       docRequests: docRequestsTrend,
-      revenue: revenueTrend
+      revenue: revenueTrend,
+      totalRevenue: totalRevenueTrend
     };
   }, [residents, docRequests, financialDashboard]);
 
@@ -391,7 +448,7 @@ export default function AdminDashboard() {
   }), [payments]);
 
   // Card rendering helper
-  const MetricCard = ({ icon, title, value, change, sinceLast, trendData, showInfo = true }) => {
+  const MetricCard = ({ icon, title, value, change, sinceLast, trendData, showInfo = true, isRevenue = false }) => {
     const isPositive = change >= 0;
     const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
     const TrendIcon = isPositive ? ArrowUpOutlined : ArrowDownOutlined;
@@ -423,13 +480,12 @@ export default function AdminDashboard() {
           
           <div className="mb-3">
             <div className="text-3xl font-bold text-gray-900">
-              {loading ? <Spin size="small" /> : value.toLocaleString()}
+              {loading ? <Spin size="small" /> : isRevenue ? `₱${value.toLocaleString()}` : value.toLocaleString()}
             </div>
             <div className="text-xs text-gray-500 mt-1">{sinceLast}</div>
           </div>
           
           <div className="flex items-center gap-1">
-            <span className="text-sm font-medium">Details</span>
             <span className={`text-sm font-semibold ml-auto flex items-center gap-1 ${changeColor}`}>
               {Math.abs(change).toFixed(1)}%
               <TrendIcon className="text-xs" />
@@ -439,8 +495,7 @@ export default function AdminDashboard() {
           {/* Mini trend line */}
           <div className="mt-3 h-8">
             <ChartContainer config={chartConfig} className="h-full w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={normalizedTrend}>
+                <LineChart width={254} height={32} data={normalizedTrend}>
                   <Line 
                     type="monotone" 
                     dataKey="y" 
@@ -449,7 +504,6 @@ export default function AdminDashboard() {
                     dot={false}
                   />
                 </LineChart>
-              </ResponsiveContainer>
             </ChartContainer>
           </div>
         </CardContent>
@@ -462,7 +516,7 @@ export default function AdminDashboard() {
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         {/* Header */}
         <nav className="px-5 h-20 flex items-center justify-between p-15">
-          <span className="text-2xl md:text-4xl font-bold text-gray-800">Dashboard</span>
+          <span className="text-2xl md:text-4xl font-bold text-gray-800">Admin Dashboard</span>
           <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
             <UserOutlined className="text-2xl text-blue-600" />
             <div className="flex flex-col items-start">
@@ -507,35 +561,15 @@ export default function AdminDashboard() {
           />
           
           {/* Total Revenue */}
-          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="mb-4">
-                <div className="text-sm font-medium text-gray-600 mb-2">Total Revenue</div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {loading ? <Spin size="small" /> : `₱${statsData.totalRevenue.value.toLocaleString()}`}
-                </div>
-                <div className="text-xs text-green-600 font-medium">
-                  +{statsData.totalRevenue.change}% {statsData.totalRevenue.sinceLast}
-                </div>
-              </div>
-              
-              <div className="h-16">
-                <ChartContainer config={chartConfig} className="h-full w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={revenueTrendData}>
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="var(--color-revenue)" 
-                        strokeWidth={2} 
-                        dot={{ r: 2 }} 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            icon={<DollarCircleOutlined />}
+            title="Total Revenue"
+            value={statsData.totalRevenue.value}
+            change={statsData.totalRevenue.change}
+            sinceLast={statsData.totalRevenue.sinceLast}
+            trendData={generateTrendData.totalRevenue}
+            isRevenue={true}
+          />
           </div>
 
           {/* Request Trend - Full Width */}
@@ -548,23 +582,31 @@ export default function AdminDashboard() {
                     <h3 className="text-lg font-bold text-gray-900">Total Request Trend</h3>
                     <p className="text-sm text-gray-500">
                       {requestTrendPeriod === '7days' ? 'Document requests and complaints in the last 7 days' :
-                       'Document requests and complaints from January to December'}
+                      'Document requests and complaints from January to December'}
                     </p>
                   </div>
-                  <Space>
-                    <Button
-                      type={requestTrendPeriod === '7days' ? 'primary' : 'default'}
+                  <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                    <button
                       onClick={() => setRequestTrendPeriod('7days')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 font-['Poppins'] ${
+                        requestTrendPeriod === '7days'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
                     >
                       Last 7 days
-                    </Button>
-                    <Button
-                      type={requestTrendPeriod === '12months' ? 'primary' : 'default'}
+                    </button>
+                    <button
                       onClick={() => setRequestTrendPeriod('12months')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 font-['Poppins'] ${
+                        requestTrendPeriod === '12months'
+                          ? 'bg-white text-blue-600 shadow-md'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
                     >
                       Last 12 months
-                    </Button>
-                  </Space>
+                    </button>
+                  </div>
                 </div>
               
               <div className="h-80">
@@ -572,53 +614,53 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-center h-full"><Spin /></div>
                 ) : (
                   <ChartContainer config={chartConfig} className="h-full w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart 
-                        data={filteredRequestTrendData} 
-                        margin={{ 
-                          top: 10, 
-                          right: 30, 
-                          left: 0, 
-                          bottom: 0 
-                        }}
-                      >
-                        <defs>
-                          <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--color-requests)" stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor="var(--color-requests)" stopOpacity={0.1}/>
-                          </linearGradient>
-                          <linearGradient id="colorComplaints" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--color-complaints)" stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor="var(--color-complaints)" stopOpacity={0.1}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis 
-                          dataKey="month" 
-                          tick={{ fontSize: 12 }}
-                        />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Area 
-                          type="monotone" 
-                          dataKey="requests" 
-                          stroke="var(--color-requests)" 
-                          strokeWidth={2}
-                          fillOpacity={1} 
-                          fill="url(#colorRequests)" 
-                          name="Document Requests"
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="complaints" 
-                          stroke="var(--color-complaints)" 
-                          strokeWidth={2}
-                          fillOpacity={1} 
-                          fill="url(#colorComplaints)" 
-                          name="Complaints"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <AreaChart 
+                      width={800}
+                      height={320}
+                      data={filteredRequestTrendData} 
+                      margin={{ 
+                        top: 10, 
+                        right: 30, 
+                        left: 0, 
+                        bottom: 0 
+                      }}
+                    >
+                      <defs>
+                        <linearGradient id="colorRequests" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--color-requests)" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="var(--color-requests)" stopOpacity={0.1}/>
+                        </linearGradient>
+                        <linearGradient id="colorComplaints" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--color-complaints)" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="var(--color-complaints)" stopOpacity={0.1}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis 
+                        dataKey="month" 
+                        tick={{ fontSize: 12 }}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="requests" 
+                        stroke="var(--color-requests)" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorRequests)" 
+                        name="Document Requests"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="complaints" 
+                        stroke="var(--color-complaints)" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorComplaints)" 
+                        name="Complaints"
+                      />
+                    </AreaChart>
                   </ChartContainer>
                 )}
               </div>
@@ -626,8 +668,8 @@ export default function AdminDashboard() {
           </Card>
           </div>
 
-          {/* Male/Female Demographics and Blockchain Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Male/Female Demographics, Purok Distribution, and Blockchain Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Male and Female Residents */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <CardContent className="p-6">
@@ -640,10 +682,10 @@ export default function AdminDashboard() {
                   {loading ? (
                     <div className="flex items-center justify-center h-full"><Spin /></div>
                   ) : genderDemographicsData.length && genderDemographicsData.some(d => d.value > 0) ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="w-1/2 h-full">
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="w-full h-64">
                         <ChartContainer config={chartConfig} className="h-full w-full">
-                          <PieChart width={249} height={320}>
+                          <PieChart width={249} height={256}>
                             <ChartTooltip content={<ChartTooltipContent />} />
                             <Pie 
                               data={genderDemographicsData} 
@@ -651,8 +693,8 @@ export default function AdminDashboard() {
                               nameKey="name" 
                               cx="50%" 
                               cy="50%" 
-                              innerRadius={80} 
-                              outerRadius={120} 
+                              innerRadius={60} 
+                              outerRadius={90} 
                               paddingAngle={3}
                               label={({ name, percentage }) => `${name}: ${percentage}%`}
                             >
@@ -662,27 +704,90 @@ export default function AdminDashboard() {
                           </PieChart>
                         </ChartContainer>
                       </div>
-                      <div className="ml-8">
-                        <Space direction="vertical" size={16}>
+                      <div className="mt-4">
+                        <Space direction="horizontal" size={24}>
                           {genderDemographicsData.map((item, index) => (
-                            <div key={item.name} className="flex items-center gap-3">
+                            <div key={item.name} className="flex items-center gap-2">
                               <span 
                                 style={{ 
                                   display: 'inline-block', 
-                                  width: 16, 
-                                  height: 16, 
-                                  background: index === 0 ? '#60a5fa' : index === 1 ? '#f472b6' : '#a78bfa', 
-                                  borderRadius: 4 
+                                  width: 12, 
+                                  height: 12, 
+                                  background: index === 0 ? '#60a5fa' : '#f472b6', 
+                                  borderRadius: 3 
                                 }} 
                               />
                               <div>
-                                <div className="text-sm font-medium text-gray-700">{item.name}</div>
-                                <div className="text-lg font-bold text-gray-900">{item.value.toLocaleString()}</div>
-                                <div className="text-xs text-gray-500">{item.percentage}% of total</div>
+                                <div className="text-xs text-gray-500">{item.name}</div>
+                                <div className="text-sm font-bold text-gray-900">{item.value.toLocaleString()}</div>
                               </div>
                             </div>
                           ))}
                         </Space>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-500">No data available</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Purok Distribution */}
+            <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Purok Distribution</h3>
+                  <p className="text-sm text-gray-500">Residents by purok area</p>
+                </div>
+                
+                <div className="h-80">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-full"><Spin /></div>
+                  ) : purokDemographicsData.length && purokDemographicsData.some(d => d.value > 0) ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="w-full h-56">
+                        <ChartContainer config={chartConfig} className="h-full w-full">
+                          <PieChart width={249} height={224}>
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Pie 
+                              data={purokDemographicsData} 
+                              dataKey="value" 
+                              nameKey="name" 
+                              cx="50%" 
+                              cy="50%" 
+                              innerRadius={50} 
+                              outerRadius={80} 
+                              paddingAngle={2}
+                              label={({ percentage }) => `${percentage}%`}
+                            >
+                              {purokDemographicsData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={PUROK_COLORS[index]} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ChartContainer>
+                      </div>
+                      <div className="mt-2 w-full">
+                        <div className="grid grid-cols-2 gap-2">
+                          {purokDemographicsData.map((item, index) => (
+                            <div key={item.name} className="flex items-center gap-2">
+                              <span 
+                                style={{ 
+                                  display: 'inline-block', 
+                                  width: 10, 
+                                  height: 10, 
+                                  background: PUROK_COLORS[index], 
+                                  borderRadius: 2 
+                                }} 
+                              />
+                              <div className="flex-1">
+                                <div className="text-xs text-gray-500">{item.name}</div>
+                                <div className="text-sm font-bold text-gray-900">{item.value.toLocaleString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ) : (

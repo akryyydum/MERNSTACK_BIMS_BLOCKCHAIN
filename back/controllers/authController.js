@@ -29,7 +29,7 @@ async function register(req, res) {
       suffix,
       dateOfBirth,
       birthPlace,
-      gender,
+      sex,
       civilStatus,
       religion,
       ethnicity,
@@ -50,7 +50,7 @@ async function register(req, res) {
     }
 
     // Validate required resident fields
-    if (!birthPlace || !gender || !civilStatus || !address?.purok || !address?.barangay || 
+    if (!birthPlace || !sex || !civilStatus || !address?.purok || !address?.barangay || 
         !address?.municipality || !address?.province || !citizenship || !occupation) {
       return res.status(400).json({ message: 'All resident fields are required' });
     }
@@ -105,7 +105,7 @@ async function register(req, res) {
       suffix,
       dateOfBirth: new Date(dateOfBirth),
       birthPlace,
-      gender,
+      sex,
       civilStatus,
       religion,
       ethnicity,

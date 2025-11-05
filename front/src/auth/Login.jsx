@@ -33,7 +33,7 @@ const Login = () => {
 
   const stepFieldNames = {
     1: [
-      "firstName","middleName","lastName","dateOfBirth","birthPlace","gender","civilStatus","religion","ethnicity"
+      "firstName","middleName","lastName","dateOfBirth","birthPlace","sex","civilStatus","religion","ethnicity"
     ],
     2: [
       ["address","purok"],
@@ -200,7 +200,7 @@ const Login = () => {
         suffix: values.suffix,
         dateOfBirth: values.dateOfBirth?.format("YYYY-MM-DD"),
         birthPlace: values.birthPlace,
-        gender: values.gender,
+        sex: values.sex,
         civilStatus: values.civilStatus,
         religion: values.religion,
         ethnicity: values.ethnicity,
@@ -521,7 +521,7 @@ const Login = () => {
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Gender" name="gender" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Gender" name="sex" rules={[{ required: true }]} className="mb-2">
                     <Select
                       options={[ 
                         { value: "male", label: "Male" },

@@ -47,29 +47,15 @@ export default function AdminUserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(pageSize),
-        ...(search ? { search } : {}),
-        ...(roleFilter ? { role: roleFilter } : {}),
-      });
-      const res = await fetch(`${API_BASE}/api/admin/users?${params.toString()}`, {
+      // Fetch all users without pagination (like resident management)
+      const res = await fetch(`${API_BASE}/api/admin/users?limit=1000`, {
         headers: authHeaders,
       });
       if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
       const data = await res.json();
-      setUsers(data.items);
-      setTotal(data.total);
-      
-      // Fetch all users for statistics (without pagination)
-      const allParams = new URLSearchParams({ limit: "1000" }); // Get all users
-      const allRes = await fetch(`${API_BASE}/api/admin/users?${allParams.toString()}`, {
-        headers: authHeaders,
-      });
-      if (allRes.ok) {
-        const allData = await allRes.json();
-        setAllUsers(allData.items || []);
-      }
+      setUsers(data.items || []);
+      setAllUsers(data.items || []);
+      setTotal(data.total || (data.items || []).length);
     } catch (err) {
       message.error(err.message || "Failed to load users");
     } finally {
@@ -80,14 +66,7 @@ export default function AdminUserManagement() {
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, roleFilter]);
-
-  const onSearch = (v) => {
-    setSearch(v.trim());
-    setPage(1);
-    // fetch immediately
-    setTimeout(fetchUsers, 0);
-  };
+  }, [roleFilter]);
 
   const handleRoleChange = async (userId, nextRole) => {
     try {
@@ -212,6 +191,7 @@ export default function AdminUserManagement() {
       role: record.role,
       isActive: record.isActive,
       isVerified: record.isVerified,
+      residentStatus: record.residentStatus || 'pending',
       contact: {
         email: record.contact?.email,
         mobile: record.contact?.mobile,
@@ -232,6 +212,7 @@ export default function AdminUserManagement() {
           role: values.role,
           isActive: values.isActive,
           isVerified: values.isVerified,
+          residentStatus: values.residentStatus,
           contact: {
             email: values.contact?.email,
             mobile: values.contact?.mobile,
@@ -253,6 +234,28 @@ export default function AdminUserManagement() {
       setSavingEdit(false);
     }
   };
+
+  // Filter users based on search input (client-side filtering like resident management)
+  const filteredUsers = users
+    .filter(user =>
+      [
+        user.fullName,
+        user.username,
+        user.contact?.email,
+        user.contact?.mobile,
+        user.role,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      return b._id.localeCompare(a._id);
+    });
 
   const columns = [
     {
@@ -302,9 +305,31 @@ export default function AdminUserManagement() {
     },
     {
       title: "Verified",
-      dataIndex: "isVerified",
-      key: "isVerified",
-      render: (v) => (v ? <Tag color="green">Verified</Tag> : <Tag color="orange">Unverified</Tag>),
+      key: "verified",
+      render: (_, r) => {
+        const status = r.residentStatus || 'pending';
+        const statusColors = {
+          'verified': 'green',
+          'pending': 'orange',
+          'rejected': 'red'
+        };
+        const statusLabels = {
+          'verified': 'Verified',
+          'pending': 'Pending',
+          'rejected': 'Rejected'
+        };
+        return (
+          <Tag color={statusColors[status]}>
+            {statusLabels[status]}
+          </Tag>
+        );
+      },
+      filters: [
+        { text: "Verified", value: "verified" },
+        { text: "Pending", value: "pending" },
+        { text: "Rejected", value: "rejected" },
+      ],
+      onFilter: (value, record) => (record.residentStatus || 'pending') === value,
     },
     {
       title: "Active",
@@ -355,7 +380,8 @@ export default function AdminUserManagement() {
           </nav>
           {/* Statistics Section */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Row 1: Total Users, Total Officials, Total Residents, Verified Users */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
@@ -404,86 +430,106 @@ export default function AdminUserManagement() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-3">
-                <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Verified Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {users.filter(u => u.isVerified === true).length}
+                    {users.filter(u => u.residentStatus === 'verified').length}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {users.filter(u => u.isVerified === true).length}
+                    {users.filter(u => u.residentStatus === 'verified').length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            </div>
+            
+            {/* Row 2: Pending Users, Active Users, Inactive Users, Rejected Users */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Unverified Users
+                    Pending Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {users.filter(u => u.isVerified === false).length}
+                    {users.filter(u => (u.residentStatus || 'pending') === 'pending').length}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {users.filter(u => u.isVerified === false).length}
+                    {users.filter(u => (u.residentStatus || 'pending') === 'pending').length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Rejected Users
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {users.filter(u => u.residentStatus === 'rejected').length}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {users.filter(u => u.residentStatus === 'rejected').length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Active Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {users.filter(u => u.isActive === true).length}
+                    {users.filter(u => u.isActive).length}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {users.filter(u => u.isActive === true).length}
+                    {users.filter(u => u.isActive).length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
                     Inactive Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {users.filter(u => u.isActive === false).length}
+                    {users.filter(u => !u.isActive).length}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {users.filter(u => u.isActive === false).length}
+                    {users.filter(u => !u.isActive).length}
                   </div>
                 </CardContent>
               </Card>
-              </div>
+            </div>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-4  space-y-4">
           <hr className="border-t border-gray-300" />
 
         <div className="flex flex-col md:flex-row flex-wrap gap-2  md:items-center md:justify-between">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <Search
               allowClear
-              placeholder="Search name, username, email"
-              onSearch={onSearch}
+              placeholder="Search using name, username, or email"
+              onSearch={v => setSearch(v.trim())}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
               enterButton
-              className="min-w-[180px] max-w-xs"
+              className="w-full sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -496,17 +542,14 @@ export default function AdminUserManagement() {
           <Table
             rowKey="_id"
             loading={loading}
-            dataSource={users}
+            dataSource={filteredUsers}
             columns={columns}
             pagination={{
-              current: page,
-              pageSize,
-              total,
-              showSizeChanger: true,
-              onChange: (p, ps) => {
-                setPage(p);
-                setPageSize(ps);
-              },
+              pageSize: 10,
+              showSizeChanger: false,
+              showQuickJumper: false,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              simple: false,
             }}
             scroll={{ x: 800 }}
           />
@@ -613,7 +656,7 @@ export default function AdminUserManagement() {
               label="Full name"
               rules={[{ required: true, message: "Full name is required" }]}
             >
-              <Input />
+              <Input disabled />
             </Form.Item>
 
             <Form.Item
@@ -645,12 +688,18 @@ export default function AdminUserManagement() {
               <Input />
             </Form.Item>
 
-            <Form.Item name="isVerified" label="Verified" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-
-            <Form.Item name="isActive" label="Active" valuePropName="checked">
-              <Switch />
+            <Form.Item
+              name="residentStatus"
+              label="Resident Status"
+              rules={[{ required: true, message: "Status is required" }]}
+            >
+              <Select
+                options={[
+                  { value: "pending", label: "Pending" },
+                  { value: "verified", label: "Verified" },
+                  { value: "rejected", label: "Rejected" },
+                ]}
+              />
             </Form.Item>
           </Form>
         </Modal>

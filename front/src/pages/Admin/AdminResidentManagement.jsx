@@ -195,6 +195,22 @@ export default function AdminResidentManagement() {
     setEditing(false);
   };
 
+  // Reject Resident
+  const handleReject = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.patch(
+        `${API_BASE}/api/admin/residents/${id}/verify`,
+        { status: "rejected" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      message.success("Resident rejected!");
+      fetchResidents();
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to reject resident");
+    }
+  };
+
   // Delete Resident
   const handleDelete = async (id) => {
     try {
@@ -216,10 +232,10 @@ export default function AdminResidentManagement() {
       const token = localStorage.getItem("token");
       await axios.patch(
         `${API_BASE}/api/admin/residents/${id}/verify`,
-        { status: next ? "verified" : "unverified" },
+        { status: next ? "verified" : "pending" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      message.success(next ? "Resident verified!" : "Resident unverified!");
+      message.success(next ? "Resident verified!" : "Resident status set to pending!");
       fetchResidents();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to update verification");
@@ -348,7 +364,8 @@ export default function AdminResidentManagement() {
   const maleResidents = residents.filter(r => r.sex === "male").length;
   const femaleResidents = residents.filter(r => r.sex === "female").length;
   const activeResidents = residents.filter(r => r.status === "verified").length;
-  const inactiveResidents = residents.filter(r => r.status !== "verified").length;
+  const pendingResidents = residents.filter(r => r.status === "pending").length;
+  const rejectedResidents = residents.filter(r => r.status === "rejected").length;
 
   // Purok statistics
   const purok1Count = residents.filter(r => r.address?.purok === "Purok 1").length;
@@ -414,6 +431,12 @@ export default function AdminResidentManagement() {
           className="bg-transparent"
         />
       ),
+      filters: [
+        { text: "Verified", value: "verified" },
+        { text: "Pending", value: "pending" },
+        { text: "Rejected", value: "rejected" },
+      ],
+      onFilter: (value, record) => record.status === value,
     },
     {
       title: "Actions",
@@ -422,14 +445,32 @@ export default function AdminResidentManagement() {
         <div className="flex gap-2">
           <Button size="small" onClick={() => openView(r)}>View</Button>
           <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
-          <Popconfirm
-            title="Delete resident?"
-            description="This action cannot be undone."
-            okButtonProps={{ danger: true }}
-            onConfirm={() => handleDelete(r._id)}
-          >
-            <Button danger size="small">Delete</Button>
-          </Popconfirm>
+          
+          {/* Only show reject/delete buttons when status is NOT verified */}
+          {r.status !== "verified" && (
+            r.status === "rejected" ? (
+              // If already rejected, allow deletion
+              <Popconfirm
+                title="Delete rejected resident?"
+                description="This action cannot be undone."
+                okButtonProps={{ danger: true }}
+                onConfirm={() => handleDelete(r._id)}
+              >
+                <Button danger size="small">Delete</Button>
+              </Popconfirm>
+            ) : (
+              // If pending, show reject option
+              <Popconfirm
+                title="Reject this resident?"
+                description="This will mark the resident as rejected. You can delete them after rejection."
+                okButtonProps={{ danger: true }}
+                okText="Reject"
+                onConfirm={() => handleReject(r._id)}
+              >
+                <Button danger size="small">Reject</Button>
+              </Popconfirm>
+            )
+          )}
         </div>
       ),
     },
@@ -602,23 +643,39 @@ export default function AdminResidentManagement() {
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Unverified Residents
+                    Pending Residents
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    {inactiveResidents}
+                    {pendingResidents}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    {inactiveResidents}
+                    {pendingResidents}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Purok Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
+            {/* Second Row: Rejected + Purok Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 mt-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Rejected
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {rejectedResidents}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {rejectedResidents}
+                  </div>
+                </CardContent>
+              </Card>
               <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
@@ -667,7 +724,7 @@ export default function AdminResidentManagement() {
                   <div className="text-3xl font-bold text-black">{purok4Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">Purok 5</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -686,15 +743,15 @@ export default function AdminResidentManagement() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <Input.Search
                 allowClear
-                placeholder="Search residents"
+                placeholder="Search for residents"
                 onSearch={v => setSearch(v.trim())}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="min-w-[180px] max-w-xs"
+                className="w-full sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
               />
             </div>
             <div className="flex flex-wrap gap-2">
