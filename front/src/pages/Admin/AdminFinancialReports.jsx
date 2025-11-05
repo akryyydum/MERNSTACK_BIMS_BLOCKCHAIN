@@ -57,6 +57,9 @@ export default function AdminFinancialReports() {
   
   // Export state
   const [selectedExportType, setSelectedExportType] = useState(null);
+  const [selectedExportTypes, setSelectedExportTypes] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(dayjs().year());
+  const [selectedMonths, setSelectedMonths] = useState([]);
   
   // Loading states
   const [creating, setCreating] = useState(false);
@@ -213,38 +216,59 @@ export default function AdminFinancialReports() {
       
       // Get form values
       const values = await exportForm.validateFields();
-      const { feeType, documentType } = values;
+      const { exportTypes, months, documentTypes } = values;
       
-      // Filter transactions based on selected fee type
+      // Filter transactions based on selected fee types (multiple)
       let filteredData = transactions;
       
-      if (feeType === 'garbage_fees') {
-        filteredData = transactions.filter(t => t.type === 'garbage_fee');
-      } else if (feeType === 'streetlight_fees') {
-        filteredData = transactions.filter(t => t.type === 'streetlight_fee');
-      } else if (feeType === 'document_request_fees') {
-        if (documentType === 'certificate_of_indigency') {
-          filteredData = transactions.filter(t => 
-            t.type === 'document_fee' && 
-            (t.description?.toLowerCase().includes('indigency') || 
-             t.description?.toLowerCase().includes('certificate of indigency'))
-          );
-        } else if (documentType === 'barangay_clearance') {
-          filteredData = transactions.filter(t => 
-            t.type === 'document_fee' && 
-            (t.description?.toLowerCase().includes('barangay clearance') ||
-             t.description?.toLowerCase().includes('brgy clearance'))
-          );
-        } else if (documentType === 'business_clearance') {
-          filteredData = transactions.filter(t => 
-            t.type === 'document_fee' && 
-            (t.description?.toLowerCase().includes('business clearance') ||
-             t.description?.toLowerCase().includes('bus clearance'))
-          );
-        } else {
-          // All document fees if no specific document type
-          filteredData = transactions.filter(t => t.type === 'document_fee');
-        }
+      // Filter by transaction types (skip if "all" is selected)
+      if (exportTypes && exportTypes.length > 0 && !exportTypes.includes('all')) {
+        filteredData = filteredData.filter(t => {
+          // Map export types to transaction types
+          const typeMatches = exportTypes.some(exportType => {
+            if (exportType === 'garbage_fees') return t.type === 'garbage_fee';
+            if (exportType === 'streetlight_fees') return t.type === 'streetlight_fee';
+            if (exportType === 'electric_fees') return t.type === 'electric_fee';
+            if (exportType === 'permit_fees') return t.type === 'permit_fee';
+            if (exportType === 'document_request_fees') {
+              // If specific document types are selected
+              if (documentTypes && documentTypes.length > 0) {
+                return t.type === 'document_fee' && documentTypes.some(docType => {
+                  const desc = t.description?.toLowerCase() || '';
+                  if (docType === 'certificate_of_indigency') {
+                    return desc.includes('indigency') || desc.includes('certificate of indigency');
+                  }
+                  if (docType === 'barangay_clearance') {
+                    return desc.includes('barangay clearance') || desc.includes('brgy clearance');
+                  }
+                  if (docType === 'business_clearance') {
+                    return desc.includes('business clearance') || desc.includes('bus clearance');
+                  }
+                  return false;
+                });
+              }
+              // If no specific document types, include all document fees
+              return t.type === 'document_fee';
+            }
+            if (exportType === 'other') return t.type === 'other';
+            return false;
+          });
+          return typeMatches;
+        });
+      }
+      
+      // Filter by months (skip if "all" is selected)
+      if (months && months.length > 0 && !months.includes('all')) {
+        filteredData = filteredData.filter(t => {
+          const transactionMonth = dayjs(t.transactionDate).format('YYYY-MM');
+          return months.includes(transactionMonth);
+        });
+      }
+      
+      if (filteredData.length === 0) {
+        message.warning('No transactions found with the selected filters');
+        setExporting(false);
+        return;
       }
       
       const excelData = filteredData.map(t => ({
@@ -256,7 +280,8 @@ export default function AdminFinancialReports() {
         'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
         'Payment Method': t.paymentMethod,
         'Status': t.status,
-        'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm')
+        'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
+        'Month': dayjs(t.transactionDate).format('MMMM YYYY')
       }));
 
       const wb = XLSX.utils.book_new();
@@ -270,14 +295,18 @@ export default function AdminFinancialReports() {
 
       XLSX.utils.book_append_sheet(wb, ws, 'Financial_Transactions');
       
-      const filename = `Financial_Report_${feeType}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
+      const typesText = (exportTypes?.includes('all') || !exportTypes?.length) ? 'all_types' : exportTypes.join('_');
+      const monthsText = (months?.includes('all') || !months?.length) ? 'all_months' : months.map(m => dayjs(m).format('MMM_YYYY')).join('_');
+      const filename = `Financial_Report_${typesText}_${monthsText}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
       XLSX.writeFile(wb, filename);
       
-      message.success('Financial report exported successfully!');
+      message.success(`Financial report exported successfully! (${filteredData.length} transactions)`);
       setExportOpen(false);
       exportForm.resetFields();
-      setSelectedExportType(null);
+      setSelectedExportTypes([]);
+      setSelectedMonths([]);
     } catch (error) {
+      console.error('Export error:', error);
       message.error('Failed to export data');
     }
     setExporting(false);
@@ -867,45 +896,78 @@ export default function AdminFinancialReports() {
           onCancel={() => { 
             setExportOpen(false); 
             exportForm.resetFields(); 
-            setSelectedExportType(null);
+            setSelectedExportTypes([]);
+            setSelectedYear(dayjs().year());
+            setSelectedMonths([]);
           }}
           onOk={handleExportData}
           okText="Export"
           confirmLoading={exporting}
-          width={500}
+          width={600}
         >
           <Form 
             form={exportForm} 
-            layout="vertical" 
-            initialValues={{ feeType: 'garbage_fees' }}
+            layout="vertical"
+            initialValues={{ 
+              exportTypes: ['all'],
+              year: dayjs().year(),
+              months: ['all']
+            }}
           >
             <Form.Item 
-              name="feeType" 
-              label="Select Fee Type" 
-              rules={[{ required: true, message: "Please select a fee type" }]}
+              name="exportTypes" 
+              label="Select Fee Types (Multiple Selection)" 
+              rules={[{ required: true, message: "Please select at least one fee type" }]}
             >
               <Select
-                placeholder="Choose fee type to export"
-                onChange={(value) => {
-                  setSelectedExportType(value);
-                  if (value !== 'document_request_fees') {
-                    exportForm.setFieldsValue({ documentType: undefined });
+                mode="multiple"
+                placeholder="Choose fee types to export"
+                onChange={(values) => {
+                  setSelectedExportTypes(values);
+                  
+                  // If "All" is selected with other options, keep only "All"
+                  if (values.includes('all') && values.length > 1) {
+                    const allIndex = values.indexOf('all');
+                    // If "All" was just added, clear others and keep only "All"
+                    if (allIndex === values.length - 1) {
+                      exportForm.setFieldsValue({ exportTypes: ['all'] });
+                      setSelectedExportTypes(['all']);
+                    } else {
+                      // If other option was added after "All", remove "All"
+                      const filtered = values.filter(v => v !== 'all');
+                      exportForm.setFieldsValue({ exportTypes: filtered });
+                      setSelectedExportTypes(filtered);
+                    }
+                  }
+                  
+                  // Clear document types if document_request_fees is not selected
+                  const currentValues = exportForm.getFieldValue('exportTypes');
+                  if (!currentValues?.includes('document_request_fees') && !currentValues?.includes('all')) {
+                    exportForm.setFieldsValue({ documentTypes: [] });
                   }
                 }}
+                maxTagCount="responsive"
               >
+                <Select.Option value="all">All</Select.Option>
                 <Select.Option value="garbage_fees">Garbage Fees</Select.Option>
                 <Select.Option value="streetlight_fees">Streetlight Fees</Select.Option>
+                <Select.Option value="electric_fees">Electric Fees</Select.Option>
+                <Select.Option value="permit_fees">Permit Fees</Select.Option>
                 <Select.Option value="document_request_fees">Document Request Fees</Select.Option>
+                <Select.Option value="other">Other</Select.Option>
               </Select>
             </Form.Item>
             
-            {selectedExportType === 'document_request_fees' && (
+            {selectedExportTypes.includes('document_request_fees') && (
               <Form.Item 
-                name="documentType" 
-                label="Select Document Type"
-                rules={[{ required: true, message: "Please select a document type" }]}
+                name="documentTypes" 
+                label="Select Document Types (Optional - Multiple Selection)"
               >
-                <Select placeholder="Choose document type">
+                <Select 
+                  mode="multiple" 
+                  placeholder="Choose specific document types or leave empty for all"
+                  maxTagCount="responsive"
+                >
                   <Select.Option value="certificate_of_indigency">Certificate of Indigency</Select.Option>
                   <Select.Option value="barangay_clearance">Barangay Clearance</Select.Option>
                   <Select.Option value="business_clearance">Business Clearance</Select.Option>
@@ -913,14 +975,89 @@ export default function AdminFinancialReports() {
               </Form.Item>
             )}
             
-            <div className="text-sm text-gray-500 mt-4 p-3 rounded">
-              <p><strong>Export includes:</strong></p>
+            <Form.Item 
+              name="year" 
+              label="Select Year" 
+              rules={[{ required: true, message: "Please select a year" }]}
+            >
+              <Select
+                placeholder="Choose year"
+                onChange={(value) => {
+                  setSelectedYear(value);
+                  // Reset months when year changes
+                  exportForm.setFieldsValue({ months: ['all'] });
+                  setSelectedMonths(['all']);
+                }}
+              >
+                {/* Generate years from 2020 to current year + 1 */}
+                {Array.from({ length: dayjs().year() - 2019 + 1 }, (_, i) => {
+                  const year = dayjs().year() + 1 - i;
+                  return (
+                    <Select.Option key={year} value={year}>
+                      {year}
+                    </Select.Option>
+                  );
+                })}
+              </Select>
+            </Form.Item>
+            
+            <Form.Item 
+              name="months" 
+              label="Select Months (Multiple Selection)" 
+              rules={[{ required: true, message: "Please select at least one month" }]}
+            >
+              <Select
+                mode="multiple"
+                placeholder="Choose months to export"
+                onChange={(values) => {
+                  // If "All" is selected with other options, keep only "All"
+                  if (values.includes('all') && values.length > 1) {
+                    const allIndex = values.indexOf('all');
+                    // If "All" was just added, clear others and keep only "All"
+                    if (allIndex === values.length - 1) {
+                      exportForm.setFieldsValue({ months: ['all'] });
+                      setSelectedMonths(['all']);
+                    } else {
+                      // If other option was added after "All", remove "All"
+                      const filtered = values.filter(v => v !== 'all');
+                      exportForm.setFieldsValue({ months: filtered });
+                      setSelectedMonths(filtered);
+                    }
+                  } else {
+                    setSelectedMonths(values);
+                  }
+                }}
+                maxTagCount="responsive"
+                showSearch
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                <Select.Option value="all">✨ All Months</Select.Option>
+                {/* Generate months for selected year */}
+                {Array.from({ length: 12 }, (_, i) => {
+                  const month = dayjs().year(selectedYear).month(i);
+                  const monthValue = month.format('YYYY-MM');
+                  return (
+                    <Select.Option 
+                      key={monthValue} 
+                      value={monthValue}
+                    >
+                      {month.format('MMMM YYYY')}
+                    </Select.Option>
+                  );
+                })}
+              </Select>
+            </Form.Item>
+            
+            <div className="text-sm text-gray-500 mt-4 p-3 bg-blue-50 rounded">
+              <p><strong>📊 Export Information:</strong></p>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Transaction ID and Type</li>
-                <li>Category and Description</li>
-                <li>Amount and Payment Method</li>
-                <li>Resident Information</li>
-                <li>Status and Date</li>
+                <li><strong>Default:</strong> "All" options export entire financial transactions</li>
+                <li>Select a year first, then choose specific months for that year</li>
+                <li>Select specific types and months for filtered exports</li>
+                <li>Selecting "All" with other options will keep only "All"</li>
+                <li>Export includes: Transaction ID, Type, Category, Description, Amount, Resident Info, Payment Method, Status, Date, and Month</li>
               </ul>
             </div>
           </Form>
