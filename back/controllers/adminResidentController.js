@@ -279,6 +279,12 @@ const enumOr = (value, allowed, fallback) => {
 exports.bulkImport = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    
+    // Get purok from form selection (required)
+    const selectedPurok = normPurok(req.body.purok);
+    if (!selectedPurok) {
+      return res.status(400).json({ message: "Purok selection is required" });
+    }
 
     const wb = XLSX.read(req.file.buffer, { type: "buffer", cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -300,16 +306,16 @@ exports.bulkImport = async (req, res) => {
       let lastName =
         row["last name"] || row["lastname"] || (fullName ? fullName.split(" ").slice(-1)[0] : "");
       const middleName = row["middle name"] || row["middlename"] || "";
-      const suffix = row["suffix"] || "";
+      const suffix = row["suffix"] || row["ext"] || "";
 
-      const gender = enumOr(
-        (row["gender"] || "").toString().toLowerCase(),
+      const sex = enumOr(
+        (row["sex"] || row["gender"] || "").toString().toLowerCase(),
         ["male", "female", "other"],
         undefined
       );
 
       const dateOfBirth =
-        row["date of birth"] || row["dob"] || row["birthdate"] || row["birth date"];
+        row["birthdate (yyyy-mm-dd)"] || row["birthdate"] || row["date of birth"] || row["dob"] || row["birth date"];
       const dob = parseDate(dateOfBirth);
 
       const birthPlace = row["birth place"] || row["birthplace"] || "";
@@ -319,35 +325,87 @@ exports.bulkImport = async (req, res) => {
         undefined
       );
       const religion = row["religion"] || "";
-      const ethnicity = row["ethnicity"] || "";
+      const ethnicity = row["ethnicity"] || ""; // No default - leave blank if not in file
 
-      const purok = normPurok(row["purok"]);
+      // Use the selected purok from the form
+      const purok = selectedPurok;
       const barangay = row["barangay"] || ADDRESS_DEFAULTS.barangay;
       const municipality = row["municipality"] || ADDRESS_DEFAULTS.municipality;
       const province = row["province"] || ADDRESS_DEFAULTS.province;
       const zipCode = row["zip code"] || row["zipcode"] || ADDRESS_DEFAULTS.zipCode;
 
       const citizenship = row["citizenship"] || DEFAULT_CITIZENSHIP;
-      const occupation = row["occupation"] || "";
+      const occupation = row["profession/ occupation"] || row["occupation"] || "N/A"; // Default occupation if not provided
 
-      const sectoralRaw = row["sectoral information"] || row["sectoral"] || "";
-      const sectoralInformation = enumOr(
-        sectoralRaw,
-        [
-          "Solo Parent",
-          "OFW",
-          "PWD",
-          "Unemployed",
-          "Labor Force",
-          "OSC - Out of School Children",
-          "OSC - Out of School Youth",
-          "OSC - Out of School Adult",
-          "None",
-        ],
-        "None"
-      );
+      // Collect all SEC. INFO values from all columns (there might be multiple columns)
+      const sectoralValues = [];
+      Object.keys(row).forEach(key => {
+        const lowerKey = key.toLowerCase();
+        // Match any column that contains "sec" (for SEC. INFO columns)
+        if (lowerKey.includes("sec")) {
+          const val = String(row[key]).trim();
+          console.log(`Found sectoral column: "${key}" = "${val}"`);
+          if (val && val !== "" && val !== "None") {
+            sectoralValues.push(val);
+          }
+        }
+      });
+      
+      console.log(`Row ${i + 2}: Sectoral values found:`, sectoralValues);
+      
+      // Separate employment status from sectoral information
+      let employmentStatus = undefined;
+      let sectoralInformation = undefined;
+      
+      // Process each sectoral value
+      for (const val of sectoralValues) {
+        const lowerVal = val.toLowerCase();
+        
+        if (lowerVal === "labor force" || lowerVal === "unemployed") {
+          // This is an employment status
+          employmentStatus = lowerVal === "labor force" ? "Labor Force" : "Unemployed";
+          console.log(`  -> Employment status: ${employmentStatus}`);
+        } else {
+          // This is sectoral information - normalize the value for matching
+          let normalizedVal = val;
+          
+          // Convert common variations to proper enum values
+          if (lowerVal === "solo parent") normalizedVal = "Solo Parent";
+          else if (lowerVal === "ofw") normalizedVal = "OFW";
+          else if (lowerVal === "pwd") normalizedVal = "PWD";
+          else if (lowerVal.includes("out of school")) {
+            if (lowerVal.includes("children")) normalizedVal = "OSC - Out of School Children";
+            else if (lowerVal.includes("youth")) normalizedVal = "OSC - Out of School Youth";
+            else if (lowerVal.includes("adult")) normalizedVal = "OSC - Out of School Adult";
+          }
+          
+          const mapped = enumOr(
+            normalizedVal,
+            [
+              "Solo Parent",
+              "OFW",
+              "PWD",
+              "OSC - Out of School Children",
+              "OSC - Out of School Youth",
+              "OSC - Out of School Adult",
+            ],
+            undefined
+          );
+          console.log(`  -> Trying to map "${val}" (normalized: "${normalizedVal}") to sectoral info: ${mapped}`);
+          if (mapped) {
+            sectoralInformation = mapped;
+          }
+        }
+      }
+      
+      // Set default to None if nothing was found
+      if (!sectoralInformation) {
+        sectoralInformation = "None";
+      }
+      
+      console.log(`Row ${i + 2}: Final - Employment: ${employmentStatus}, Sectoral: ${sectoralInformation}`);
 
-      const registeredVoter = toBool(row["registered voter"] || row["registeredvoter"]);
+      const registeredVoter = toBool(row["voter"] || row["registered voter"] || row["registeredvoter"]);
       const mobile = row["mobile"] || row["mobile number"] || row["phone"] || "";
       const email = (row["email"] || "").toString().trim().toLowerCase();
 
@@ -356,25 +414,21 @@ exports.bulkImport = async (req, res) => {
         ? statusRaw
         : undefined;
 
-      // Validate required fields
-      const missing =
-        !firstName ||
-        !lastName ||
-        !dob ||
-        !birthPlace ||
-        !gender ||
-        !civilStatus ||
-        !ethnicity ||
-        !purok ||
-        !barangay ||
-        !municipality ||
-        !province ||
-        !citizenship ||
-        !occupation;
+      // Validate required fields (ethnicity and citizenship have defaults)
+      const missing = [];
+      if (!firstName) missing.push("firstName");
+      if (!lastName) missing.push("lastName");
+      if (!dob) missing.push("dateOfBirth");
+      if (!birthPlace) missing.push("birthPlace");
+      if (!sex) missing.push("sex");
+      if (!civilStatus) missing.push("civilStatus");
 
-      if (missing) {
+      if (missing.length > 0) {
         results.skipped++;
-        results.errors.push({ row: i + 2, message: "Missing required fields" }); // +2 accounts for header + 1-index
+        results.errors.push({ 
+          row: i + 2, 
+          message: `Missing required fields: ${missing.join(", ")}` 
+        });
         continue;
       }
 
@@ -385,10 +439,10 @@ exports.bulkImport = async (req, res) => {
         suffix: String(suffix || "").trim() || undefined,
         dateOfBirth: dob,
         birthPlace: String(birthPlace).trim(),
-        gender,
+        sex,
         civilStatus,
         religion: religion ? String(religion).trim() : undefined,
-        ethnicity: String(ethnicity).trim(),
+        ethnicity: ethnicity ? String(ethnicity).trim() : undefined,
         address: {
           purok,
           barangay: String(barangay).trim(),
@@ -399,6 +453,7 @@ exports.bulkImport = async (req, res) => {
         citizenship: String(citizenship).trim(),
         occupation: String(occupation).trim(),
         sectoralInformation,
+        employmentStatus,
         registeredVoter,
         contact: {
           ...(mobile ? { mobile: String(mobile).trim() } : {}),
@@ -425,9 +480,11 @@ exports.bulkImport = async (req, res) => {
     }
 
     res.json({
-      message: `✅ Import complete: ${inserted.length} added, ${skipped.length} skipped.`,
-      inserted: inserted.length,
-      skipped: skipped.length,
+      message: `✅ Import complete: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`,
+      created: results.created,
+      updated: results.updated,
+      skipped: results.skipped,
+      errors: results.errors,
     });
   } catch (err) {
     console.error("Import error:", err);

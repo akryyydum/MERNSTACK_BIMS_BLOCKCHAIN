@@ -53,8 +53,8 @@ const SECTORAL_OPTIONS = [
   { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
   { value: "PWD", label: "PWD (Person with Disability)" },
   { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
-  { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
-  { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
+  { value: "OSY - Out of School Youth", label: "OSY - Out of School Youth" },
+  { value: "OSA - Out of School Adult", label: "OSA - Out of School Adult" },
   { value: "None", label: "None" }
 ];
 
@@ -321,12 +321,19 @@ export default function AdminResidentManagement() {
       
       if (!importFile) {
         message.error("Please select a file to import");
+        setImporting(false);
         return;
       }
 
       const formData = new FormData();
       formData.append("file", importFile);
       formData.append("purok", values.purok);
+
+      console.log("Importing residents:", {
+        fileName: importFile.name,
+        fileSize: importFile.size,
+        purok: values.purok,
+      });
 
       const token = localStorage.getItem("token");
       const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
@@ -336,13 +343,31 @@ export default function AdminResidentManagement() {
         },
       });
 
-      message.success(res.data.message || "Residents imported successfully!");
+      console.log("Import response:", res.data);
+      
+      const { created, updated, skipped, errors } = res.data;
+      
+      if (created > 0 || updated > 0) {
+        message.success(`Import complete! Created: ${created}, Updated: ${updated}, Skipped: ${skipped}`, 5);
+      } else if (skipped > 0) {
+        message.warning(`All rows skipped (${skipped}). Check details below.`, 5);
+      }
+      
+      if (errors && errors.length > 0) {
+        console.warn("Import errors:", errors);
+        errors.forEach(err => {
+          console.error(`Row ${err.row}: ${err.message}`);
+        });
+        message.error(`${errors.length} row(s) had errors. Check console for details.`, 5);
+      }
+      
       setImportOpen(false);
       importForm.resetFields();
       setImportFile(null);
       fetchResidents();
     } catch (err) {
       console.error("Import error:", err);
+      console.error("Error details:", err.response?.data);
       message.error(err.response?.data?.message || "Failed to import residents");
     } finally {
       setImporting(false);
@@ -869,35 +894,34 @@ export default function AdminResidentManagement() {
                 Export Excel
               </Button>
               <Button
-  onClick={async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".xlsx,.csv";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        message.success(res.data.message || "Residents imported successfully!");
-        fetchResidents();
-      } catch (err) {
-        console.error("Import error:", err);
-        message.error(err.response?.data?.message || "Failed to import residents");
-      }
-    };
-    input.click();
-  }}
->
-  Import Residents
-</Button>
+                onClick={() => {
+                  setImportOpen(true);
+                }}
+              >
+                Import Residents
+              </Button>
+
+              <Button onClick={handleSelectAll} type="default">
+                Select All ({filteredResidents.length})
+              </Button>
+
+              {selectedRowKeys.length > 0 && (
+                <>
+                  <Button onClick={handleClearSelection}>
+                    Clear Selection
+                  </Button>
+                  <Popconfirm
+                    title={`Delete ${selectedRowKeys.length} resident(s)?`}
+                    description="This action cannot be undone."
+                    okButtonProps={{ danger: true }}
+                    onConfirm={handleBulkDelete}
+                  >
+                    <Button danger>
+                      Delete Selected ({selectedRowKeys.length})
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
 
             </div>
           </div>
@@ -1494,7 +1518,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: false }]}>
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>
