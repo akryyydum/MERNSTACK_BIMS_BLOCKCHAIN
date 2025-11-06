@@ -2,7 +2,13 @@ const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
 const fs = require('fs');
 
-async function getContract() {
+/**
+ * Connects to Fabric and returns a contract handle.
+ * @param {string} [chaincodeName='documentrequest'] - The chaincode ID installed on the channel.
+ * @param {string} [contractName] - Optional contract namespace/class name.
+ * @returns {Promise<{gateway: import('fabric-network').Gateway, contract: import('fabric-network').Contract}>}
+ */
+async function getContract(chaincodeName = 'documentrequest', contractName) {
     const ccpPath = path.resolve(__dirname, '../fabric/connection-org1.json');
     const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
 
@@ -17,9 +23,10 @@ async function getContract() {
     });
 
     const network = await gateway.getNetwork('mychannel');
-    const contract = network.getContract('documentrequest');
+    const contract = contractName
+        ? network.getContract(chaincodeName, contractName)
+        : network.getContract(chaincodeName);
     return { gateway, contract };
 }
-
 
 module.exports = { getContract };

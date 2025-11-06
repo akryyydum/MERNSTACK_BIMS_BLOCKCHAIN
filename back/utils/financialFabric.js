@@ -2,14 +2,13 @@ const { getContract } = require('./fabricClient');
 
 /**
  * Submits a financial transaction to Hyperledger Fabric.
- * Mirrors your Express transaction creation to blockchain.
- * @param {Object} transaction - Transaction object from MongoDB
+ * @param {Object} transaction
  */
+
 async function submitFinancialTransactionToFabric(transaction) {
   try {
     const { gateway, contract } = await getContract('documentrequest');
 
-    // Use your FinancialTransactionContract
     const result = await contract.submitTransaction(
       'FinancialTransactionContract:createTransaction',
       transaction._id?.toString() || `TX-${Date.now()}`,        // txId

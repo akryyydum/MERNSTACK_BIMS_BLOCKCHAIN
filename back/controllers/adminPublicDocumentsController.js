@@ -1,27 +1,27 @@
 const fs = require("fs");
 const path = require("path");
 const PublicDocument = require("../models/publicdocs.model");
+const { submitPublicDocumentToFabric, getAllPublicDocumentsFromFabric } = require("../utils/publicDocFabric");
 
 exports.listAdmin = async (req, res) => {
   try {
-    const q = (req.query.q || "").trim();
-    const filter = q
-      ? {
-          $or: [
-            { title: new RegExp(q, "i") },
-            { description: new RegExp(q, "i") },
-            { category: new RegExp(q, "i") },
-          ],
-        }
-      : {};
-    const docs = await PublicDocument.find(filter)
-      .sort({ createdAt: -1 })
-      .populate("uploadedBy", "username role");
-    res.json(docs);
-  } catch (e) {
-    res.status(500).json({ message: "Failed to fetch documents" });
+    const mongoDocs = await PublicDocument.find().sort({ createdAt: -1 });
+
+    // optional blockchain merge
+    const blockchainDocs = await getAllPublicDocumentsFromFabric();
+
+    res.json({
+      mongoDocs,
+      blockchainDocs,
+      total: mongoDocs.length,
+      blockchainCount: blockchainDocs.length
+    });
+  } catch (err) {
+    console.error("Error listing public docs:", err);
+    res.status(500).json({ message: "Failed to fetch public documents" });
   }
 };
+
 
 exports.listPublic = async (_req, res) => {
   try {
@@ -33,30 +33,39 @@ exports.listPublic = async (_req, res) => {
     res.status(500).json({ message: "Failed to fetch documents" });
   }
 };
-
 exports.create = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "File required" });
-    const { title, description, category } = req.body;
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: "File is required" });
 
-    const doc = await PublicDocument.create({
-      title,
-      description: description || "",
-      category: category || "General",
-      originalName: req.file.originalname,
-      storedFilename: req.file.filename,
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-      path: req.file.path,
-      uploadedBy: req.user.id || req.user._id,
+    const doc = new PublicDocument({
+      title: req.body.title,
+      description: req.body.description,
+      category: req.body.category || "General",
+      originalName: file.originalname,
+      storedFilename: file.filename,
+      mimeType: file.mimetype,
+      size: file.size,
+      path: file.path,
+      uploadedBy: req.user.id,
     });
 
-    res.status(201).json(doc);
-  } catch (e) {
-    res.status(500).json({ message: "Failed to upload", error: e.message });
+    await doc.save();
+
+    // 🔗 Mirror to Hyperledger Fabric
+    const fabricResult = await submitPublicDocumentToFabric(doc);
+    if (fabricResult.ok) {
+      console.log("Public doc recorded on Fabric:", fabricResult.result);
+    } else {
+      console.warn("Fabric mirror failed:", fabricResult.error);
+    }
+
+    res.status(201).json({ message: "Document uploaded successfully", doc });
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
 exports.remove = async (req, res) => {
   try {
     const doc = await PublicDocument.findById(req.params.id);
