@@ -30,6 +30,8 @@ export default function HouseholdManagement() {
 
   // State for export Excel functionality
   const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportForm] = Form.useForm();
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -185,33 +187,78 @@ export default function HouseholdManagement() {
   const exportToExcel = async () => {
     setExporting(true);
     try {
-      // Prepare export data
-      const exportData = households.map(household => {
-        const head = typeof household.headOfHousehold === "object" 
-          ? household.headOfHousehold 
-          : residents.find(r => r._id === household.headOfHousehold);
-        
-        const membersList = (household.members || []).map(m => {
-          const memberId = m?._id || m;
-          const memberObj = typeof m === "object" ? m : residents.find(r => r._id === memberId);
-          return fullName(memberObj) || "Unknown Member";
-        }).join(", ");
+      const values = await exportForm.validateFields();
+      const { exportType, householdId } = values;
 
-        return {
-          'Household ID': household.householdId,
-          'Head of Household': fullName(head) || 'Not specified',
-          'Purok': household.address?.purok || 'N/A',
-          'Street': household.address?.street || 'N/A',
-          'Members Count': household.members?.length || 0,
-          'Members': membersList || 'None',
-          'Has Business': household.hasBusiness ? 'Yes' : 'No',
-          'Business Type': household.businessType || 'N/A',
-          'Created Date': household.createdAt ? new Date(household.createdAt).toLocaleDateString() : 'N/A',
-        };
+      // Helper function to calculate age
+      const calculateAge = (birthDate) => {
+        if (!birthDate) return 0;
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        return age;
+      };
+
+      // Determine which households to export
+      let householdsToExport = [];
+      if (exportType === 'single') {
+        const household = households.find(h => h._id === householdId);
+        if (!household) {
+          message.error('Selected household not found');
+          return;
+        }
+        householdsToExport = [household];
+      } else {
+        householdsToExport = households;
+      }
+
+      // Flatten household members into individual rows with resident details
+      const exportData = [];
+      
+      householdsToExport.forEach(household => {
+        const headId = household.headOfHousehold?._id || household.headOfHousehold;
+        
+        (household.members || []).forEach(m => {
+          const memberId = m?._id || m;
+          const resident = typeof m === "object" ? m : residents.find(r => r._id === memberId);
+          
+          if (resident) {
+            // Combine sectoral information and employment status
+            const sectoralInfo = [];
+            if (resident.sectoralInformation && resident.sectoralInformation !== 'None') {
+              sectoralInfo.push(resident.sectoralInformation);
+            }
+            if (resident.employmentStatus) {
+              sectoralInfo.push(resident.employmentStatus);
+            }
+            
+            exportData.push({
+              'HOUSEHOLD ID': household.householdId || 'N/A',
+              'PUROK': household.address?.purok || 'N/A',
+              'ROLE': String(memberId) === String(headId) ? 'Head of Household' : 'Member',
+              'LAST NAME': (resident.lastName || '').toUpperCase(),
+              'FIRST NAME': (resident.firstName || '').toUpperCase(),
+              'MIDDLE NAME': (resident.middleName || '').toUpperCase(),
+              'EXT': (resident.suffix || '').toUpperCase(),
+              'PLACE OF BIRTH': resident.birthPlace || '',
+              'DATE OF BIRTH': resident.dateOfBirth ? new Date(resident.dateOfBirth).toISOString().split('T')[0] : '',
+              'AGE': calculateAge(resident.dateOfBirth),
+              'SEX': resident.sex ? resident.sex.charAt(0).toUpperCase() + resident.sex.slice(1) : '',
+              'CIVIL STATUS': resident.civilStatus ? resident.civilStatus.charAt(0).toUpperCase() + resident.civilStatus.slice(1) : '',
+              'CITIZENSHIP': resident.citizenship || '',
+              'OCCUPATION': resident.occupation || '',
+              'SEC. INFO': sectoralInfo.join(', ') || 'None',
+            });
+          }
+        });
       });
 
       if (exportData.length === 0) {
-        message.warning('No household data available for export');
+        message.warning('No household member data available for export');
         return;
       }
 
@@ -220,29 +267,51 @@ export default function HouseholdManagement() {
       const ws = XLSX.utils.json_to_sheet(exportData);
 
       // Auto-fit columns
-      const colWidths = exportData.reduce((acc, row) => {
-        Object.keys(row).forEach((key, idx) => {
-          const value = row[key] ? row[key].toString() : '';
-          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
-        });
-        return acc;
-      }, []);
+      const colWidths = [
+        { wch: 15 }, // HOUSEHOLD ID
+        { wch: 10 }, // PUROK
+        { wch: 18 }, // ROLE
+        { wch: 15 }, // LAST NAME
+        { wch: 15 }, // FIRST NAME
+        { wch: 15 }, // MIDDLE NAME
+        { wch: 8 },  // EXT
+        { wch: 20 }, // PLACE OF BIRTH
+        { wch: 15 }, // DATE OF BIRTH
+        { wch: 5 },  // AGE
+        { wch: 10 }, // SEX
+        { wch: 15 }, // CIVIL STATUS
+        { wch: 15 }, // CITIZENSHIP
+        { wch: 20 }, // OCCUPATION
+        { wch: 25 }, // SEC. INFO
+      ];
       
-      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+      ws['!cols'] = colWidths;
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Households Report');
+      XLSX.utils.book_append_sheet(wb, ws, 'Household Members');
       
       // Generate filename with current date
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0];
-      const filename = `Households_Report_${dateStr}.xlsx`;
+      let filename;
+      if (exportType === 'single') {
+        const household = householdsToExport[0];
+        filename = `Household_${household.householdId}_Members_${dateStr}.xlsx`;
+      } else {
+        filename = `All_Households_Members_${dateStr}.xlsx`;
+      }
       
       XLSX.writeFile(wb, filename);
       
-      message.success('Households exported to Excel successfully!');
+      message.success('Household members exported to Excel successfully!');
+      setExportOpen(false);
+      exportForm.resetFields();
     } catch (error) {
+      if (error.errorFields) {
+        // Form validation error, don't show additional message
+        return;
+      }
       console.error('Export error:', error);
-      message.error('Failed to export households to Excel');
+      message.error('Failed to export household members to Excel');
     } finally {
       setExporting(false);
     }
@@ -584,8 +653,7 @@ export default function HouseholdManagement() {
                 Add Household
               </Button>
               <Button 
-                onClick={exportToExcel}
-                loading={exporting}
+                onClick={() => setExportOpen(true)}
               >
                 Export Excel
               </Button>
@@ -832,6 +900,85 @@ export default function HouseholdManagement() {
               </Descriptions.Item>
             </Descriptions>
           )}
+        </Modal>
+
+        {/* Export Options Modal */}
+        <Modal
+          title="Export Household Members"
+          open={exportOpen}
+          onCancel={() => {
+            setExportOpen(false);
+            exportForm.resetFields();
+          }}
+          onOk={exportToExcel}
+          confirmLoading={exporting}
+          okText="Export"
+          width={500}
+        >
+          <Form form={exportForm} layout="vertical">
+            <Form.Item
+              name="exportType"
+              label="Export Type"
+              rules={[{ required: true, message: 'Please select export type' }]}
+              initialValue="all"
+            >
+              <Select
+                options={[
+                  { value: 'all', label: 'All Households with Members' },
+                  { value: 'single', label: 'Single Household' },
+                ]}
+                onChange={(value) => {
+                  if (value === 'all') {
+                    exportForm.setFieldsValue({ householdId: undefined });
+                  }
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item
+              noStyle
+              shouldUpdate={(prevValues, currentValues) => 
+                prevValues.exportType !== currentValues.exportType
+              }
+            >
+              {({ getFieldValue }) =>
+                getFieldValue('exportType') === 'single' ? (
+                  <Form.Item
+                    name="householdId"
+                    label="Select Household"
+                    rules={[{ required: true, message: 'Please select a household' }]}
+                  >
+                    <Select
+                      showSearch
+                      placeholder="Select a household"
+                      optionFilterProp="label"
+                      options={households.map(h => {
+                        const head = typeof h.headOfHousehold === "object"
+                          ? h.headOfHousehold
+                          : residents.find(r => r._id === h.headOfHousehold);
+                        const headName = fullName(head) || 'Unknown';
+                        return {
+                          value: h._id,
+                          label: `${h.householdId} - ${headName} (${h.address?.purok || 'N/A'})`,
+                        };
+                      })}
+                    />
+                  </Form.Item>
+                ) : null
+              }
+            </Form.Item>
+
+            <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded">
+              <strong>Export Format:</strong>
+              <ul className="list-disc ml-5 mt-2">
+                <li>HOUSEHOLD ID, PUROK, ROLE</li>
+                <li>LAST NAME, FIRST NAME, MIDDLE NAME, EXT</li>
+                <li>PLACE OF BIRTH, DATE OF BIRTH, AGE</li>
+                <li>SEX, CIVIL STATUS, CITIZENSHIP</li>
+                <li>OCCUPATION, SEC. INFO</li>
+              </ul>
+            </div>
+          </Form>
         </Modal>
       </div>
     </AdminLayout>

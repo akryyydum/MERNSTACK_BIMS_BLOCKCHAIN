@@ -92,6 +92,12 @@ export default function AdminResidentManagement() {
   const [exportReligionOther, setExportReligionOther] = useState(false);
   const [exportFilterType, setExportFilterType] = useState(null);
 
+  // Import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importForm] = Form.useForm();
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
@@ -239,6 +245,42 @@ export default function AdminResidentManagement() {
       fetchResidents();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to update verification");
+    }
+  };
+
+  // Import Residents
+  const handleImport = async () => {
+    try {
+      setImporting(true);
+      const values = await importForm.validateFields();
+      
+      if (!importFile) {
+        message.error("Please select a file to import");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("purok", values.purok);
+
+      const token = localStorage.getItem("token");
+      const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      message.success(res.data.message || "Residents imported successfully!");
+      setImportOpen(false);
+      importForm.resetFields();
+      setImportFile(null);
+      fetchResidents();
+    } catch (err) {
+      console.error("Import error:", err);
+      message.error(err.response?.data?.message || "Failed to import residents");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -778,35 +820,14 @@ export default function AdminResidentManagement() {
                 Export Excel
               </Button>
               <Button
-  onClick={async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".xlsx,.csv";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        message.success(res.data.message || "Residents imported successfully!");
-        fetchResidents();
-      } catch (err) {
-        console.error("Import error:", err);
-        message.error(err.response?.data?.message || "Failed to import residents");
-      }
-    };
-    input.click();
-  }}
->
-  Import Residents
-</Button>
+                onClick={() => {
+                  importForm.resetFields();
+                  setImportFile(null);
+                  setImportOpen(true);
+                }}
+              >
+                Import Residents
+              </Button>
 
             </div>
           </div>
@@ -982,6 +1003,70 @@ export default function AdminResidentManagement() {
           </Form>
         </Modal>
 
+        {/* Import Modal */}
+        <Modal
+          title="Import Residents from Excel"
+          open={importOpen}
+          onCancel={() => {
+            setImportOpen(false);
+            importForm.resetFields();
+            setImportFile(null);
+          }}
+          onOk={handleImport}
+          confirmLoading={importing}
+          okText="Import"
+          width={500}
+        >
+          <Form form={importForm} layout="vertical">
+            <Form.Item
+              name="purok"
+              label="Select Purok"
+              rules={[{ required: true, message: "Please select a purok for imported residents" }]}
+            >
+              <Select
+                placeholder="Choose purok for imported residents"
+                options={[
+                  { value: "Purok 1", label: "Purok 1" },
+                  { value: "Purok 2", label: "Purok 2" },
+                  { value: "Purok 3", label: "Purok 3" },
+                  { value: "Purok 4", label: "Purok 4" },
+                  { value: "Purok 5", label: "Purok 5" },
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="Select Excel File"
+              rules={[{ required: true, message: "Please select a file" }]}
+            >
+              <Input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  setImportFile(file);
+                }}
+              />
+            </Form.Item>
+
+            {importFile && (
+              <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded">
+                <strong>Selected file:</strong> {importFile.name}
+              </div>
+            )}
+
+            <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded">
+              <strong>Import Instructions:</strong>
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>All imported residents will be assigned to the selected Purok</li>
+                <li>File should contain columns: LAST NAME, FIRST NAME, MIDDLE NAME, etc.</li>
+                <li>Date format should be YYYY-MM-DD or MM/DD/YYYY</li>
+                <li>Required fields: First Name, Last Name, Date of Birth, Sex</li>
+              </ul>
+            </div>
+          </Form>
+        </Modal>
+
         {/* Add Resident Modal */}
         <Modal
           title="Add Resident"
@@ -1108,7 +1193,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: false }]}>
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>

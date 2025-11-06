@@ -227,6 +227,12 @@ exports.importResidents = async (req, res) => {
     if (!req.file)
       return res.status(400).json({ message: "No file uploaded" });
 
+    // Get purok from request body
+    const importPurok = req.body.purok;
+    if (!importPurok) {
+      return res.status(400).json({ message: "Purok is required for import" });
+    }
+
     const workbook = XLSX.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
@@ -270,7 +276,7 @@ exports.importResidents = async (req, res) => {
         registeredVoter:
           (row["VOTER"] || "").toString().toLowerCase() === "yes",
         address: {
-          purok: "Purok 1", // Excel doesn’t include purok, set default
+          purok: importPurok, // Use the selected purok from the import form
           barangay: "La Torre North",
           municipality: "Bayombong",
           province: "Nueva Vizcaya",
@@ -309,9 +315,10 @@ exports.importResidents = async (req, res) => {
     }
 
     res.json({
-      message: `✅ Import complete: ${inserted.length} added, ${skipped.length} skipped.`,
+      message: `✅ Import complete: ${inserted.length} added to ${importPurok}, ${skipped.length} skipped.`,
       inserted: inserted.length,
       skipped: skipped.length,
+      purok: importPurok,
     });
   } catch (err) {
     console.error("Import residents error:", err);

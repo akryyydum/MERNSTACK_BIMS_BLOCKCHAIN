@@ -41,8 +41,8 @@ exports.list = async (req, res) => {
       ];
     }
     const items = await Household.find(q)
-      .populate("headOfHousehold", "firstName middleName lastName")
-      .populate("members", "firstName middleName lastName")
+      .populate("headOfHousehold", "firstName middleName lastName suffix dateOfBirth birthPlace sex civilStatus citizenship occupation sectoralInformation employmentStatus")
+      .populate("members", "firstName middleName lastName suffix dateOfBirth birthPlace sex civilStatus citizenship occupation sectoralInformation employmentStatus")
       .lean();
     res.json(items);
   } catch (err) {
