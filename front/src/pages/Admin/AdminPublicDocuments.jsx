@@ -86,7 +86,14 @@ export default function AdminPublicDocuments() {
       const res = await axios.get(`${baseURL}/api/admin/public-documents`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setDocs(res.data);
+      // API returns { mongoDocs, blockchainDocs, total, blockchainCount }
+      const payload = res.data;
+      const nextDocs = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.mongoDocs)
+        ? payload.mongoDocs
+        : [];
+      setDocs(nextDocs);
     } catch (err) {
       console.error("Fetch admin public docs error", err?.response?.status, err?.response?.data);
       message.error("Failed to fetch documents");
@@ -106,7 +113,7 @@ export default function AdminPublicDocuments() {
     };
   }, [previewUrl]);
 
-  const filtered = docs.filter(d =>
+  const filtered = (Array.isArray(docs) ? docs : []).filter(d =>
     [
       d.title,
       d.description,
@@ -120,13 +127,13 @@ export default function AdminPublicDocuments() {
       .includes(search.toLowerCase())
   );
 
-  const totalDocs = docs.length;
-  const totalSize = docs.reduce((a, b) => a + (b.size || 0), 0);
-  const categories = [...new Set(docs.map(d => d.category || "General"))];
+  const totalDocs = (Array.isArray(docs) ? docs : []).length;
+  const totalSize = (Array.isArray(docs) ? docs : []).reduce((a, b) => a + (b.size || 0), 0);
+  const categories = [...new Set((Array.isArray(docs) ? docs : []).map(d => d.category || "General"))];
   const topCat = categories
     .map(c => ({
       c,
-      count: docs.filter(d => d.category === c).length,
+      count: (Array.isArray(docs) ? docs : []).filter(d => d.category === c).length,
     }))
     .sort((a, b) => b.count - a.count)[0]?.c;
 
