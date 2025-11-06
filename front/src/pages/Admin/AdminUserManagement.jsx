@@ -88,10 +88,13 @@ export default function AdminUserManagement() {
       const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
         method: "PATCH",
         headers: authHeaders,
-        body: JSON.stringify({ isActive: next }),
+        body: JSON.stringify({ 
+          isActive: next,
+          residentStatus: next ? "verified" : "pending"
+        }),
       });
       if (!res.ok) throw new Error("Failed to update status");
-      message.success("Status updated");
+      message.success(next ? "User activated and verified!" : "User deactivated and set to pending!");
       fetchUsers();
     } catch (e) {
       message.error(e.message);
@@ -335,7 +338,18 @@ export default function AdminUserManagement() {
       title: "Active",
       dataIndex: "isActive",
       key: "isActive",
-      render: (v, r) => <Switch checked={v} onChange={(next) => handleToggleActive(r._id, next)} />,
+      render: (v, r) => (
+        <div style={{ fontFamily: 'inherit', fontSize: 'inherit' }}>
+          <Switch
+            checked={v}
+            onChange={(next) => handleToggleActive(r._id, next)}
+            checkedChildren={null}
+            unCheckedChildren={null}
+            className="bg-transparent"
+            style={{ fontFamily: 'inherit' }}
+          />
+        </div>
+      ),
     },
     {
       title: "Actions",

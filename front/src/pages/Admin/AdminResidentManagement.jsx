@@ -2,11 +2,20 @@ import React, { useEffect, useState } from "react";
 import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions, Steps } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Set your fixed location defaults here
 const ADDRESS_DEFAULTS = {
@@ -100,6 +109,35 @@ export default function AdminResidentManagement() {
   const [importForm] = Form.useForm();
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
+
+  // Column visibility state with localStorage persistence
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem('residentColumnsVisibility');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      fullName: true,
+      sex: true,
+      dateOfBirth: true,
+      civilStatus: true,
+      religion: true,
+      mobile: true,
+      purok: true,
+      citizenship: true,
+      ethnicity: true,
+      occupation: true,
+      sectoralInfo: true,
+      employmentStatus: true,
+      registeredVoter: true,
+      actions: true,
+    };
+  });
+
+  // Save column visibility to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('residentColumnsVisibility', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -206,21 +244,7 @@ export default function AdminResidentManagement() {
     setEditing(false);
   };
 
-  // Reject Resident
-  const handleReject = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API_BASE}/api/admin/residents/${id}/verify`,
-        { status: "rejected" },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      message.success("Resident rejected!");
-      fetchResidents();
-    } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to reject resident");
-    }
-  };
+  // Reject Resident - REMOVED, moved to AdminUserManagement
 
   // Delete Resident
   const handleDelete = async (id) => {
@@ -297,21 +321,7 @@ export default function AdminResidentManagement() {
     message.info("Cleared all selections");
   };
 
-  // Verify Resident
-  const handleToggleVerify = async (id, next) => {
-    try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API_BASE}/api/admin/residents/${id}/verify`,
-        { status: next ? "verified" : "pending" },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      message.success(next ? "Resident verified!" : "Resident status set to pending!");
-      fetchResidents();
-    } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to update verification");
-    }
-  };
+  // Verify Resident - REMOVED, moved to AdminUserManagement
 
   // Import Residents
   const handleImport = async () => {
@@ -446,7 +456,6 @@ export default function AdminResidentManagement() {
         "Municipality": r.address?.municipality || "",
         "Province": r.address?.province || "",
         "ZIP Code": r.address?.zipCode || "",
-        "Status": r.status || "",
         "Created At": r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
       }));
 
@@ -495,9 +504,6 @@ export default function AdminResidentManagement() {
   const totalResidents = residents.length;
   const maleResidents = residents.filter(r => r.sex === "male").length;
   const femaleResidents = residents.filter(r => r.sex === "female").length;
-  const activeResidents = residents.filter(r => r.status === "verified").length;
-  const pendingResidents = residents.filter(r => r.status === "pending").length;
-  const rejectedResidents = residents.filter(r => r.status === "rejected").length;
 
   // Purok statistics
   const purok1Count = residents.filter(r => r.address?.purok === "Purok 1").length;
@@ -506,23 +512,53 @@ export default function AdminResidentManagement() {
   const purok4Count = residents.filter(r => r.address?.purok === "Purok 4").length;
   const purok5Count = residents.filter(r => r.address?.purok === "Purok 5").length;
 
-  const columns = [
+  // Define all columns with visibility keys
+  const allColumns = [
     {
       title: "Full Name",
       key: "fullName",
+      columnKey: "fullName",
       render: (_, r) =>
         [r.firstName, r.middleName, r.lastName, r.suffix]
           .filter(Boolean)
           .join(" "),
     },
-  { title: "Sex", dataIndex: "sex", key: "sex" },
-  { title: "Date of Birth", dataIndex: "dateOfBirth", key: "dateOfBirth", render: v => v ? new Date(v).toLocaleDateString() : "" },
-  { title: "Civil Status", dataIndex: "civilStatus", key: "civilStatus" },
-  { title: "Religion", dataIndex: "religion", key: "religion" },
-  { title: "Mobile Number", dataIndex: ["contact", "mobile"], key: "mobile", render: (_, r) => r.contact?.mobile },
+  { 
+    title: "Sex", 
+    dataIndex: "sex", 
+    key: "sex",
+    columnKey: "sex",
+  },
+  { 
+    title: "Date of Birth", 
+    dataIndex: "dateOfBirth", 
+    key: "dateOfBirth",
+    columnKey: "dateOfBirth",
+    render: v => v ? new Date(v).toLocaleDateString() : "" 
+  },
+  { 
+    title: "Civil Status", 
+    dataIndex: "civilStatus", 
+    key: "civilStatus",
+    columnKey: "civilStatus",
+  },
+  { 
+    title: "Religion", 
+    dataIndex: "religion", 
+    key: "religion",
+    columnKey: "religion",
+  },
+  { 
+    title: "Mobile Number", 
+    dataIndex: ["contact", "mobile"], 
+    key: "mobile",
+    columnKey: "mobile",
+    render: (_, r) => r.contact?.mobile 
+  },
   { 
     title: "Purok", 
-    key: "purok", 
+    key: "purok",
+    columnKey: "purok",
     render: (_, r) => r.address?.purok ? r.address.purok.replace("Purok ", "") : "",
     filters: [
       { text: "Purok 1", value: "Purok 1" },
@@ -533,15 +569,42 @@ export default function AdminResidentManagement() {
     ],
     onFilter: (value, record) => record.address?.purok === value,
   },
-  { title: "Citizenship", dataIndex: "citizenship", key: "citizenship" },
-  { title: "Ethnicity", dataIndex: "ethnicity", key: "ethnicity" },
-  { title: "Occupation", dataIndex: "occupation", key: "occupation" },
-  { title: "Sectoral Info", dataIndex: "sectoralInformation", key: "sectoralInformation" },
-  { title: "Employment Status", dataIndex: "employmentStatus", key: "employmentStatus", render: (value) => value || "-" },
+  { 
+    title: "Citizenship", 
+    dataIndex: "citizenship", 
+    key: "citizenship",
+    columnKey: "citizenship",
+  },
+  { 
+    title: "Ethnicity", 
+    dataIndex: "ethnicity", 
+    key: "ethnicity",
+    columnKey: "ethnicity",
+  },
+  { 
+    title: "Occupation", 
+    dataIndex: "occupation", 
+    key: "occupation",
+    columnKey: "occupation",
+  },
+  { 
+    title: "Sectoral Info", 
+    dataIndex: "sectoralInformation", 
+    key: "sectoralInformation",
+    columnKey: "sectoralInfo",
+  },
+  { 
+    title: "Employment Status", 
+    dataIndex: "employmentStatus", 
+    key: "employmentStatus",
+    columnKey: "employmentStatus",
+    render: (value) => value || "-" 
+  },
   { 
     title: "Registered Voter", 
     dataIndex: "registeredVoter", 
     key: "registeredVoter",
+    columnKey: "registeredVoter",
     render: (value) => value ? "Yes" : "No",
     filters: [
       { text: "Yes", value: true },
@@ -550,29 +613,10 @@ export default function AdminResidentManagement() {
     onFilter: (value, record) => record.registeredVoter === value,
   },
   // ...existing code...
-     {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (v, r) => (
-        <Switch
-          checked={v === "verified"}
-          onChange={next => handleToggleVerify(r._id, next)}
-          checkedChildren={null}
-          unCheckedChildren={null}
-          className="bg-transparent"
-        />
-      ),
-      filters: [
-        { text: "Verified", value: "verified" },
-        { text: "Pending", value: "pending" },
-        { text: "Rejected", value: "rejected" },
-      ],
-      onFilter: (value, record) => record.status === value,
-    },
     {
       title: "Actions",
       key: "actions",
+      columnKey: "actions",
       width: 200,
       fixed: 'right',
       render: (_, r) => (
@@ -591,6 +635,9 @@ export default function AdminResidentManagement() {
       ),
     },
   ];
+
+  // Filter columns based on visibility
+  const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
   const filteredResidents = residents
     .filter(r =>
@@ -691,7 +738,7 @@ export default function AdminResidentManagement() {
             </div>
           </nav>
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
@@ -740,58 +787,10 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Verified Residents
-                  </CardTitle>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {activeResidents}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {activeResidents}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Pending Residents
-                  </CardTitle>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {pendingResidents}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {pendingResidents}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
-            {/* Second Row: Rejected + Purok Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 mt-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Rejected
-                  </CardTitle>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {rejectedResidents}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {rejectedResidents}
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Second Row: Purok Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
               <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
@@ -859,7 +858,7 @@ export default function AdminResidentManagement() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
               <Input.Search
                 allowClear
                 placeholder="Search for residents"
@@ -867,9 +866,148 @@ export default function AdminResidentManagement() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="w-full sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
+                className="flex-1 sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
               />
+              
+              {/* Customize Columns Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="flex items-center gap-2 whitespace-nowrap">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="7" height="7" x="3" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="14" rx="1" />
+                      <rect width="7" height="7" x="3" y="14" rx="1" />
+                    </svg>
+                    Customize Columns
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-white" onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.sex}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, sex: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Sex
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.dateOfBirth}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, dateOfBirth: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Date of Birth
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.civilStatus}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, civilStatus: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Civil Status
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.religion}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, religion: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Religion
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.mobile}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, mobile: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Mobile Number
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.purok}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, purok: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Purok
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.citizenship}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, citizenship: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Citizenship
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.ethnicity}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, ethnicity: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Ethnicity
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.occupation}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, occupation: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Occupation
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.sectoralInfo}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, sectoralInfo: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Sectoral Info
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.employmentStatus}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, employmentStatus: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Employment Status
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.registeredVoter}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, registeredVoter: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Registered Voter
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+            
             <div className="flex flex-wrap gap-2">
               <Button
                 type="primary"
@@ -1258,19 +1396,19 @@ export default function AdminResidentManagement() {
             <div style={{ display: addStep === 0 ? "block" : "none" }}>
               <div className="form-row">
                 <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
-                  <Input />
+                  <Input placeholder="e.g., JUAN" />
                 </Form.Item>
                 <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
-                  <Input />
+                  <Input placeholder="e.g., CRUZ" />
                 </Form.Item>
               </div>
               
               <div className="form-row">
                 <Form.Item name="middleName" label="Middle Name">
-                  <Input />
+                  <Input placeholder="e.g., DELA" />
                 </Form.Item>
                 <Form.Item name="suffix" label="Suffix">
-                  <Input />
+                  <Input placeholder="e.g., Jr., Sr., III" />
                 </Form.Item>
               </div>
               
@@ -1284,6 +1422,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
                 <Form.Item name="sex" label="Sex" rules={[{ required: true }]}>
                   <Select
+                    placeholder="Select sex"
                     options={[
                       { value: "male", label: "Male" },
                       { value: "female", label: "Female" },
@@ -1293,12 +1432,13 @@ export default function AdminResidentManagement() {
               </div>
               
               <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
-                <Input />
+                <Input placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA" />
               </Form.Item>
               
               <div className="form-row">
                 <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
                   <Select
+                    placeholder="Select civil status"
                     options={[
                       { value: "single", label: "Single" },
                       { value: "married", label: "Married" },
@@ -1308,7 +1448,7 @@ export default function AdminResidentManagement() {
                   />
                 </Form.Item>
                 <Form.Item name="religion" label="Religion">
-                  <Input placeholder="e.g., Catholic, Protestant, Islam" />
+                  <Input placeholder="e.g., Roman-Catholic" />
                 </Form.Item>
               </div>
               
@@ -1321,6 +1461,7 @@ export default function AdminResidentManagement() {
             <div style={{ display: addStep === 1 ? "block" : "none" }}>
               <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
                 <Select
+                  placeholder="Select purok"
                   options={[
                     { value: "Purok 1", label: "Purok 1" },
                     { value: "Purok 2", label: "Purok 2" },
@@ -1333,19 +1474,19 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-                  <Input disabled />
+                  <Input placeholder="La Torre North" disabled />
                 </Form.Item>
                 <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-                  <Input disabled />
+                  <Input placeholder="3700" disabled />
                 </Form.Item>
               </div>
               
               <div className="form-row">
                 <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-                  <Input disabled />
+                  <Input placeholder="Bayombong" disabled />
                 </Form.Item>
                 <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-                  <Input disabled />
+                  <Input placeholder="Nueva Vizcaya" disabled />
                 </Form.Item>
               </div>
             </div>
@@ -1353,16 +1494,16 @@ export default function AdminResidentManagement() {
             {/* Step 3 - Other & Contact */}
             <div style={{ display: addStep === 2 ? "block" : "none" }}>
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-                <Input disabled />
+                <Input placeholder="e.g., Filipino" disabled />
               </Form.Item>
               
               <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
+                <Input placeholder="e.g., Teacher" />
               </Form.Item>
               
               <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
                 <Select
-                  placeholder="Select sectoral information"
+                  placeholder="Select sectoral information (optional)"
                   options={SECTORAL_OPTIONS}
                   allowClear
                 />
@@ -1370,7 +1511,7 @@ export default function AdminResidentManagement() {
               
               <Form.Item name="employmentStatus" label="Employment Status" rules={[{ required: false }]}>
                 <Select
-                  placeholder="Select employment status"
+                  placeholder="Select employment status (optional)"
                   options={EMPLOYMENT_STATUS_OPTIONS}
                   allowClear
                 />
@@ -1382,10 +1523,10 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
-                  <Input />
+                  <Input placeholder="e.g., 09123456789" />
                 </Form.Item>
                 <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
-                  <Input />
+                  <Input placeholder="e.g., juan.delacruz@email.com" />
                 </Form.Item>
               </div>
             </div>
