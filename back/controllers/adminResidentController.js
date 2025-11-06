@@ -434,3 +434,8 @@ exports.bulkImport = async (req, res) => {
     return res.status(500).json({ message: err.message || "Import failed" });
   }
 };
+
+exports.importResidents = exports.bulkImport;
+
+// Optional: placeholder if you plan to add file upload middleware later
+exports.importResidentsMiddleware = (req, res, next) => next();
