@@ -321,12 +321,19 @@ export default function AdminResidentManagement() {
       
       if (!importFile) {
         message.error("Please select a file to import");
+        setImporting(false);
         return;
       }
 
       const formData = new FormData();
       formData.append("file", importFile);
       formData.append("purok", values.purok);
+
+      console.log("Importing residents:", {
+        fileName: importFile.name,
+        fileSize: importFile.size,
+        purok: values.purok,
+      });
 
       const token = localStorage.getItem("token");
       const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
@@ -336,13 +343,27 @@ export default function AdminResidentManagement() {
         },
       });
 
-      message.success(res.data.message || "Residents imported successfully!");
+      console.log("Import response:", res.data);
+      
+      const { results } = res.data;
+      const successMsg = results 
+        ? `Imported successfully! Created: ${results.created}, Updated: ${results.updated}, Skipped: ${results.skipped}`
+        : res.data.message || "Residents imported successfully!";
+      
+      message.success(successMsg, 5);
+      
+      if (results?.errors?.length > 0) {
+        console.warn("Import errors:", results.errors);
+        message.warning(`${results.errors.length} row(s) had errors. Check console for details.`, 5);
+      }
+      
       setImportOpen(false);
       importForm.resetFields();
       setImportFile(null);
       fetchResidents();
     } catch (err) {
       console.error("Import error:", err);
+      console.error("Error details:", err.response?.data);
       message.error(err.response?.data?.message || "Failed to import residents");
     } finally {
       setImporting(false);
@@ -869,35 +890,12 @@ export default function AdminResidentManagement() {
                 Export Excel
               </Button>
               <Button
-  onClick={async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".xlsx,.csv";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        message.success(res.data.message || "Residents imported successfully!");
-        fetchResidents();
-      } catch (err) {
-        console.error("Import error:", err);
-        message.error(err.response?.data?.message || "Failed to import residents");
-      }
-    };
-    input.click();
-  }}
->
-  Import Residents
-</Button>
+                onClick={() => {
+                  setImportOpen(true);
+                }}
+              >
+                Import Residents
+              </Button>
 
             </div>
           </div>
