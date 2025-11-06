@@ -897,6 +897,28 @@ export default function AdminResidentManagement() {
                 Import Residents
               </Button>
 
+              <Button onClick={handleSelectAll} type="default">
+                Select All ({filteredResidents.length})
+              </Button>
+
+              {selectedRowKeys.length > 0 && (
+                <>
+                  <Button onClick={handleClearSelection}>
+                    Clear Selection
+                  </Button>
+                  <Popconfirm
+                    title={`Delete ${selectedRowKeys.length} resident(s)?`}
+                    description="This action cannot be undone."
+                    okButtonProps={{ danger: true }}
+                    onConfirm={handleBulkDelete}
+                  >
+                    <Button danger>
+                      Delete Selected ({selectedRowKeys.length})
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
+
             </div>
           </div>
           <div className="overflow-x-auto">
