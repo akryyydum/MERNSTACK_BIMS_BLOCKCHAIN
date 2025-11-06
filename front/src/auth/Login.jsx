@@ -337,10 +337,10 @@ const Login = () => {
               label="Username"
               name="username"
               rules={[
-                { required: true, message: "Please input your username or email!" },
+                { required: true, message: "Please input your username!" },
               ]}
             >
-              <Input size="large" placeholder="Enter your username or email" />
+              <Input size="large" placeholder="Enter your username" />
             </Form.Item>
             <Form.Item
               label="Password"
