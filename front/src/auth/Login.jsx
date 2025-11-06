@@ -8,8 +8,8 @@ const SECTORAL_OPTIONS = [
   { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
   { value: "PWD", label: "PWD (Person with Disability)" },
   { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
-  { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
-  { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
+  { value: "OSY - Out of School Youth", label: "OSY - Out of School Youth" },
+  { value: "OSA - Out of School Adult", label: "OSA - Out of School Adult" },
   { value: "None", label: "None" }
 ];
 
@@ -20,10 +20,8 @@ const EMPLOYMENT_STATUS_OPTIONS = [
 ];
 
 const Login = () => {
-  const [error, setError] = useState("");
   const [showRegister, setShowRegister] = useState(false);
   const [step, setStep] = useState(1);
-  const [regError, setRegError] = useState("");
   const [regLoading, setRegLoading] = useState(false);
   const [regEmail, setRegEmail] = useState("");
   const [regForm] = Form.useForm();
@@ -53,7 +51,6 @@ const Login = () => {
     import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
   const handleSubmit = async (values) => {
-    setError("");
     try {
       // Send the credential as usernameOrEmail to handle both username and email login
       const res = await axios.post(`${API_BASE}/api/auth/login`, {
@@ -68,7 +65,7 @@ const Login = () => {
 
       // Resident verification check
       if (res.data.role === "resident" && res.data.isVerified === false) {
-        setError("Your information is pending admin verification. Please wait for approval before accessing the resident dashboard.");
+        message.warning("Your information is pending admin verification. Please wait for approval before accessing the resident dashboard.");
         localStorage.removeItem("token");
         localStorage.removeItem("role");
         localStorage.removeItem("userData");
@@ -85,7 +82,7 @@ const Login = () => {
       }
     } catch (err) {
       const status = err.response?.status;
-      const message =
+      const msg =
         status === 503
           ? "Service temporarily unavailable. Please try again later."
           : status >= 500
@@ -93,7 +90,7 @@ const Login = () => {
           : status === 400
           ? "Invalid username/email or password."
           : err.response?.data?.message || "Login failed";
-      setError(message);
+      message.error(msg);
     }
   };
 
@@ -103,7 +100,6 @@ const Login = () => {
       if (fields.length) {
         await regForm.validateFields(fields); // validate current step only
       }
-      setRegError("");
       
       if (step === 4) {
         const values = regForm.getFieldsValue(true);
@@ -127,7 +123,6 @@ const Login = () => {
           // Convert camelCase or snake_case to Title Case
           return name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, s => s.toUpperCase());
         });
-        setRegError(`Please fill in the following required field(s): ${missing.join(", ")}`);
       }
       // keep user on the same step
     }
@@ -139,7 +134,6 @@ const Login = () => {
   const closeRegisterPanel = () => {
     setShowRegister(false);
     setStep(1);
-    setRegError("");
     setRegLoading(false);
     setRegEmail("");
     regForm.resetFields();
@@ -149,7 +143,6 @@ const Login = () => {
   const openRegisterPanel = () => {
     setShowRegister(true);
     setStep(1);
-    setRegError("");
     setRegEmail("");
     regForm.resetFields();
   };
@@ -164,7 +157,6 @@ const Login = () => {
   
   // Registration submit handler
   const handleRegister = async (formValues) => {
-    setRegError("");
     setRegLoading(true);
     message.loading({ content: "Creating your account...", key: "registerLoading" });
     try {
@@ -180,11 +172,6 @@ const Login = () => {
       const email = values?.contact?.email?.trim();
       const password = values?.password;
       const username = values?.username?.trim();
-
-      if (!password || !fullName || !username) {
-        setRegError("Username, password, and full name are required");
-        return;
-      }
 
       const payload = {
         username,
@@ -236,7 +223,7 @@ const Login = () => {
       // Get more detailed error message when available
       let errorDetail = '';
       if (err.response?.data?.message) {
-        errorDetail = `: ${err.response.data.message}`;
+        errorDetail = err.response.data.message;
       }
       
       const msg =
@@ -244,10 +231,7 @@ const Login = () => {
           ? "Service temporarily unavailable. Please try again later."
           : status >= 500
           ? "Server error. Please try again later."
-          : status === 400
-          ? `Registration failed${errorDetail}`
-          : "Registration failed";
-      setRegError(msg);
+          : errorDetail || "An error occurred. Please try again.";
       message.error({ content: msg, key: "registerLoading", duration: 3 });
     } finally {
       setRegLoading(false);
@@ -329,9 +313,6 @@ const Login = () => {
               className="h-30 w-30"
             />
           </div>
-          {error && (
-            <Alert message={error} type="error" showIcon className="mb-4" />
-          )}
           <Form layout="vertical" onFinish={handleSubmit}>
             <Form.Item
               label="Username"
@@ -443,8 +424,6 @@ const Login = () => {
         </div>
 
         <div className="w-full max-w-lg mx-auto">
-          {regError && <Alert message={regError} type="error" showIcon className="mb-3" />}
-
           <Form
             form={regForm}
             layout="vertical"
@@ -466,8 +445,24 @@ const Login = () => {
             {/* STEP 1: Personal Info */}
             {step === 1 && (
               <>
-                <h3 className="text-sm font-semibold mb-2">Personal Info</h3>
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                <Alert
+                  message={<span className="font-semibold text-sm">Welcome to Resident Registration</span>}
+                  description={
+                    <div className="text-sm leading-relaxed">
+                      <p className="mb-3 text-gray-700">Please provide accurate personal information for your barangay registration.</p>
+                      <p className="font-semibold mb-2 text-gray-800">Registration Guidelines:</p>
+                      <ul className="list-disc list-inside space-y-1.5 text-gray-700">
+                        <li>All fields marked with <span className="text-red-500 font-semibold">*</span> are required</li>
+                        <li>Double-check your information before proceeding</li>
+                      </ul>
+                    </div>
+                  }
+                  type="info"
+                  showIcon
+                  className="mb-4"
+                />
+                <h3 className="text-base font-semibold mb-3 text-gray-800">Personal Information</h3>
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <Form.Item
                     label="First Name"
                     name="firstName"
@@ -477,7 +472,7 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" placeholder="e.g., Juan-Carlos" />
+                    <Input size="middle" placeholder="e.g., JUAN" />
                   </Form.Item>
                   <Form.Item
                     label="Middle Name"
@@ -487,7 +482,7 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" placeholder="e.g., Santos-De" />
+                    <Input size="middle" placeholder="e.g., DELA" />
                   </Form.Item>
                   <Form.Item
                     label="Last Name"
@@ -498,14 +493,14 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" placeholder="e.g., Dela-Cruz" />
+                    <Input size="middle" placeholder="e.g., CRUZ" />
                   </Form.Item>
                   <Form.Item label="Suffix" name="suffix" className="mb-2">
                     <Input size="middle" placeholder="e.g., Jr., Sr., III" />
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Date of Birth" name="dateOfBirth" rules={[{ required: true, message: 'Please select your date of birth!' }]} className="mb-2">
+                  <Form.Item label="Date of Birth" name="dateOfBirth" rules={[{ required: true, message: 'Please select your date of birth' }]} className="mb-2">
                     <DatePicker
                       className="w-full"
                       size="middle"
@@ -514,12 +509,13 @@ const Login = () => {
                     />
                   </Form.Item>
                   <Form.Item label="Birth Place" name="birthPlace" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" placeholder="e.g., Bayombong, Nueva Vizcaya" />
+                    <Input size="middle" placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA" />
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Gender" name="sex" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Sex" name="sex" rules={[{ required: true }]} className="mb-2">
                     <Select
+                      placeholder="Select sex"
                       options={[ 
                         { value: "male", label: "Male" },
                         { value: "female", label: "Female" },
@@ -527,8 +523,9 @@ const Login = () => {
                       size="middle"
                     />
                   </Form.Item>
-                  <Form.Item label="Civil Status" name="civilStatus" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Civil Status" name="civilStatus" rules={[{ required: true }]} className="mb-3">
                     <Select
+                      placeholder="Select civil status"
                       options={[ 
                         { value: "single", label: "Single" },
                         { value: "married", label: "Married" },
@@ -546,7 +543,7 @@ const Login = () => {
                     { required: false },
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
                   ]}
-                  className="mb-2"
+                  className="mb-3"
                 >
                   <Input size="middle" placeholder="e.g., Roman-Catholic" />
                 </Form.Item>
@@ -554,10 +551,10 @@ const Login = () => {
                   label="Ethnicity"
                   name="ethnicity"
                   rules={[
-                    { required: true, message: 'Ethnicity is required' },
+                    { required: false },
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Ethnicity may contain letters, spaces, and hyphens (-)' }
                   ]}
-                  className="mb-2"
+                  className="mb-3"
                 >
                   <Input size="middle" placeholder="e.g., Ilocano, Tagalog, Igorot" />
                 </Form.Item>
@@ -571,6 +568,7 @@ const Login = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <Form.Item label="Purok" name={["address", "purok"]} rules={[{ required: true }]} className="mb-2">
                     <Select
+                      placeholder="Select purok"
                       options={[
                         { value: "Purok 1", label: "Purok 1" },
                         { value: "Purok 2", label: "Purok 2" },
@@ -582,16 +580,16 @@ const Login = () => {
                     />
                   </Form.Item>
                   <Form.Item label="Barangay" name={["address", "barangay"]} initialValue="La Torre North" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" disabled />
+                    <Input size="middle" placeholder="La Torre North" disabled />
                   </Form.Item>
                   <Form.Item label="Municipality" name={["address", "municipality"]} initialValue="Bayombong" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" disabled />
+                    <Input size="middle" placeholder="Bayombong" disabled />
                   </Form.Item>
                   <Form.Item label="Province" name={["address", "province"]} initialValue="Nueva Vizcaya" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" disabled />
+                    <Input size="middle" placeholder="Nueva Vizcaya" disabled />
                   </Form.Item>
                   <Form.Item label="ZIP Code" name={["address", "zipCode"]} initialValue="3700" className="mb-2">
-                    <Input size="middle" disabled />
+                    <Input size="middle" placeholder="3700" disabled />
                   </Form.Item>
                 </div>
 
@@ -731,7 +729,7 @@ const Login = () => {
                     <Descriptions.Item label="Suffix" span={1}>{regForm.getFieldValue('suffix') || 'N/A'}</Descriptions.Item>
                     <Descriptions.Item label="Date of Birth" span={1}>{regForm.getFieldValue('dateOfBirth')?.format?.('MMMM D, YYYY') || 'N/A'}</Descriptions.Item>
                     <Descriptions.Item label="Birth Place" span={1}>{regForm.getFieldValue('birthPlace')}</Descriptions.Item>
-                    <Descriptions.Item label="Gender" span={1}>{regForm.getFieldValue('gender')}</Descriptions.Item>
+                    <Descriptions.Item label="Sex" span={1}>{regForm.getFieldValue('sex')}</Descriptions.Item>
                     <Descriptions.Item label="Civil Status" span={1}>{regForm.getFieldValue('civilStatus')}</Descriptions.Item>
                     <Descriptions.Item label="Religion" span={1}>{regForm.getFieldValue('religion')}</Descriptions.Item>
                     <Descriptions.Item label="Ethnicity" span={1}>{regForm.getFieldValue('ethnicity')}</Descriptions.Item>
