@@ -92,6 +92,9 @@ export default function AdminResidentManagement() {
   const [exportReligionOther, setExportReligionOther] = useState(false);
   const [exportFilterType, setExportFilterType] = useState(null);
 
+  // Selection state for bulk operations
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+
   // Import state
   const [importOpen, setImportOpen] = useState(false);
   const [importForm] = Form.useForm();
@@ -133,6 +136,8 @@ export default function AdminResidentManagement() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResidents(res.data);
+      // Clear selection when data refreshes
+      setSelectedRowKeys([]);
     } catch (err) {
       console.error("Fetch residents error:", err);
       console.error("Error response:", err.response?.data);
@@ -230,6 +235,66 @@ export default function AdminResidentManagement() {
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to delete resident");
     }
+  };
+
+  // Bulk Delete Residents
+  const handleBulkDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Please select residents to delete");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      
+      // Delete residents one by one
+      await Promise.all(
+        selectedRowKeys.map(id =>
+          axios.delete(
+            `${API_BASE}/api/admin/residents/${id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+        )
+      );
+      
+      message.success(`${selectedRowKeys.length} resident(s) deleted successfully!`);
+      setSelectedRowKeys([]);
+      fetchResidents();
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to delete selected residents");
+    }
+  };
+
+  // Row selection handlers
+  const onSelectChange = (newSelectedRowKeys) => {
+    setSelectedRowKeys(newSelectedRowKeys);
+  };
+
+  const onSelectAll = (selected, selectedRows, changeRows) => {
+    if (selected) {
+      // Select ALL residents that match the current filter (across all pages)
+      const allKeys = filteredResidents.map(resident => resident._id);
+      setSelectedRowKeys(allKeys);
+      if (allKeys.length > 10) {
+        message.info(`Selected ${allKeys.length} resident(s) across all pages`);
+      }
+    } else {
+      // Deselect all
+      setSelectedRowKeys([]);
+    }
+  };
+
+  // Manual select all function for button
+  const handleSelectAll = () => {
+    const allKeys = filteredResidents.map(resident => resident._id);
+    setSelectedRowKeys(allKeys);
+    message.success(`Selected all ${allKeys.length} resident(s) across all pages`);
+  };
+
+  // Clear all selections
+  const handleClearSelection = () => {
+    setSelectedRowKeys([]);
+    message.info("Cleared all selections");
   };
 
   // Verify Resident
@@ -483,36 +548,20 @@ export default function AdminResidentManagement() {
     {
       title: "Actions",
       key: "actions",
+      width: 200,
+      fixed: 'right',
       render: (_, r) => (
         <div className="flex gap-2">
           <Button size="small" onClick={() => openView(r)}>View</Button>
           <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
-          
-          {/* Only show reject/delete buttons when status is NOT verified */}
-          {r.status !== "verified" && (
-            r.status === "rejected" ? (
-              // If already rejected, allow deletion
-              <Popconfirm
-                title="Delete rejected resident?"
-                description="This action cannot be undone."
-                okButtonProps={{ danger: true }}
-                onConfirm={() => handleDelete(r._id)}
-              >
-                <Button danger size="small">Delete</Button>
-              </Popconfirm>
-            ) : (
-              // If pending, show reject option
-              <Popconfirm
-                title="Reject this resident?"
-                description="This will mark the resident as rejected. You can delete them after rejection."
-                okButtonProps={{ danger: true }}
-                okText="Reject"
-                onConfirm={() => handleReject(r._id)}
-              >
-                <Button danger size="small">Reject</Button>
-              </Popconfirm>
-            )
-          )}
+          <Popconfirm
+            title="Delete resident?"
+            description="This action cannot be undone."
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(r._id)}
+          >
+            <Button danger size="small">Delete</Button>
+          </Popconfirm>
         </div>
       ),
     },
@@ -820,14 +869,35 @@ export default function AdminResidentManagement() {
                 Export Excel
               </Button>
               <Button
-                onClick={() => {
-                  importForm.resetFields();
-                  setImportFile(null);
-                  setImportOpen(true);
-                }}
-              >
-                Import Residents
-              </Button>
+  onClick={async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xlsx,.csv";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        message.success(res.data.message || "Residents imported successfully!");
+        fetchResidents();
+      } catch (err) {
+        console.error("Import error:", err);
+        message.error(err.response?.data?.message || "Failed to import residents");
+      }
+    };
+    input.click();
+  }}
+>
+  Import Residents
+</Button>
 
             </div>
           </div>
@@ -837,14 +907,39 @@ export default function AdminResidentManagement() {
               loading={loading}
               dataSource={filteredResidents}
               columns={columns}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: onSelectChange,
+                onSelectAll: onSelectAll,
+                type: 'checkbox',
+                getCheckboxProps: (record) => ({
+                  name: record.name,
+                }),
+                selections: [
+                  {
+                    key: 'all-pages',
+                    text: 'Select All Pages',
+                    onSelect: () => {
+                      handleSelectAll();
+                    },
+                  },
+                  {
+                    key: 'clear-all',
+                    text: 'Clear All',
+                    onSelect: () => {
+                      handleClearSelection();
+                    },
+                  },
+                ],
+              }}
               pagination={{
                 pageSize: 10,
                 showSizeChanger: false,
                 showQuickJumper: false,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} | Selected: ${selectedRowKeys.length}`,
                 simple: false,
               }}
-              scroll={{ x: 800 }}
+              scroll={{ x: 1400 }}
             />
           </div>
         </div>

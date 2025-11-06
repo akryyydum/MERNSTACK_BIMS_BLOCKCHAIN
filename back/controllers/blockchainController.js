@@ -102,7 +102,6 @@ exports.syncFromDB = async (req, res) => {
   const requestedByName = formatName(r.requestedBy || r.residentId);
 
   try {
-    // 1️⃣ Check if the request already exists on chain
     const existing = await contract.evaluateTransaction('getRequest', requestId);
 
     if (existing && existing.length > 0) {
@@ -110,7 +109,6 @@ exports.syncFromDB = async (req, res) => {
       continue; // do not overwrite
     }
 
-    // 2️⃣ Create only if not found
     await contract.submitTransaction(
       'createRequest',
       requestId,
