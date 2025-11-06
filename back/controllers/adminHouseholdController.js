@@ -5,6 +5,8 @@ const Counter = require("../models/counter.model");
 const UtilityPayment = require("../models/utilityPayment.model");
 const FinancialTransaction = require("../models/financialTransaction.model");
 const dayjs = require("dayjs");
+const { getContract } = require('../utils/fabricClient');
+const { submitFinancialTransactionToFabric } = require('../utils/financialFabric');
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -285,8 +287,9 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
     streetlight: "streetlight_fee",
   };
 
+  let createdTransaction = null;
   try {
-    await FinancialTransaction.create({
+    createdTransaction = await FinancialTransaction.create({
       type: transactionTypeMap[type] || "other",
       category: "revenue",
       description: `${type.charAt(0).toUpperCase() + type.slice(1)} fee payment for ${hh.householdId} (${m})`,
@@ -302,6 +305,55 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
     });
   } catch (err) {
     console.error("Failed to log financial transaction:", err);
+  }
+
+  // Mirror to Fabric blockchain: create a lightweight on-chain request and a financial transaction linked to it
+  try {
+    // resident name for on-chain metadata
+    const resident = await Resident.findById(hh.headOfHousehold).select('firstName lastName');
+    const residentName = resident ? `${resident.firstName} ${resident.lastName}` : 'Unknown Resident';
+
+    const requestId = `UTIL-${type.toUpperCase()}-${hh._id.toString().slice(-8)}-${m.replace(/[^0-9A-Za-z-]/g, '')}`;
+
+    const { gateway, contract } = await getContract();
+
+    // Create a request on-chain (idempotent attempt)
+    try {
+      await contract.submitTransaction(
+        'createRequest',
+        requestId,
+        String(hh.headOfHousehold || ''),
+        residentName,
+        `${type}_payment`,
+        `Utility payment for ${hh.householdId} ${m}`,
+        'completed'
+      );
+    } catch (e) {
+      // non-fatal, maybe already exists
+      console.warn('createRequest on-chain skipped or failed:', e.message || e);
+    }
+
+    // Submit the financial transaction on-chain
+    try {
+      const txId = createdTransaction?._id?.toString() || `TX-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      await contract.submitTransaction(
+        'FinancialTransactionContract:createTransaction',
+        txId,
+        requestId,
+        String(hh.headOfHousehold || ''),
+        residentName,
+        String(Number(amount || 0)),
+        method || 'cash',
+        `Utility ${type} payment for ${hh.householdId} ${m}`
+      );
+      console.log('Submitted utility financial transaction to Fabric:', txId);
+    } catch (e) {
+      console.error('Failed to submit financial transaction to Fabric for utility payment:', e.message || e);
+    }
+
+    await gateway.disconnect();
+  } catch (err) {
+    console.error('Error while attempting to mirror utility payment to Fabric:', err.message || err);
   }
 
   return { summary, status: 201 };

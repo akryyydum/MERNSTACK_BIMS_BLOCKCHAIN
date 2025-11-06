@@ -5,6 +5,7 @@ const Resident = require("../models/resident.model");
 const StreetlightPayment = require("../models/streetlightPayment.model");
 const GasPayment = require("../models/gasPayment.model");
 const UtilityPayment = require("../models/utilityPayment.model");
+const { submitFinancialTransactionToFabric } = require('../utils/financialFabric');
 
 // Get dashboard statistics
 const getDashboard = async (req, res) => {
@@ -415,6 +416,14 @@ const createTransaction = async (req, res) => {
 
     await transaction.save();
 
+    // Attempt to submit to Fabric (non-fatal)
+    try {
+      const result = await submitFinancialTransactionToFabric(transaction);
+      if (!result.ok) console.warn('Fabric submit warning:', result.error);
+    } catch (fbErr) {
+      console.error('Error submitting new financial transaction to Fabric:', fbErr.message || fbErr);
+    }
+
     res.status(201).json({
       message: 'Transaction created successfully',
       transaction
@@ -457,6 +466,14 @@ const syncDocumentFees = async (req, res) => {
       // Update document request with transaction ID
       doc.financialTransactionId = transaction._id;
       await doc.save();
+
+      // Mirror to Fabric (non-blocking)
+      try {
+        const result = await submitFinancialTransactionToFabric(transaction);
+        if (!result.ok) console.warn('Fabric sync warning for document fee:', result.error);
+      } catch (fbErr) {
+        console.error('Error submitting synced document fee to Fabric:', fbErr.message || fbErr);
+      }
 
       syncedCount++;
     }

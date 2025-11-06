@@ -20,6 +20,7 @@ exports.list = async (req, res) => {
 };
 
 const FinancialTransaction = require('../models/financialTransaction.model');
+const { submitFinancialTransactionToFabric } = require('../utils/financialFabric');
 
 // Approve a document request (and log financial transaction)
 exports.approve = async (req, res) => {
@@ -56,7 +57,7 @@ exports.approve = async (req, res) => {
 
       const total = unitAmount * qty;
       // Only create a transaction if total known (>=0). For 0, we can still log for audit
-      await FinancialTransaction.create({
+      const createdTx = await FinancialTransaction.create({
         type: 'document_fee',
         category: 'revenue',
         description: `${type} x ${qty}`,
@@ -69,6 +70,14 @@ exports.approve = async (req, res) => {
         createdBy: req.user?.id || req.user?._id,
         updatedBy: req.user?.id || req.user?._id,
       });
+
+      // Attempt to submit financial transaction to Fabric (non-blocking for main flow)
+      try {
+        const result = await submitFinancialTransactionToFabric(createdTx);
+        if (!result.ok) console.warn('Fabric submit returned error:', result.error);
+      } catch (fbErr) {
+        console.error('Error submitting document fee transaction to Fabric:', fbErr.message || fbErr);
+      }
     } catch (txErr) {
       console.error('Error creating financial transaction for document request:', txErr.message);
       // Non-fatal: proceed to respond with the accepted request
