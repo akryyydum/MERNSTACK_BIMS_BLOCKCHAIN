@@ -266,13 +266,29 @@ export default function AdminResidentManagement() {
 
   const onSelectAll = (selected, selectedRows, changeRows) => {
     if (selected) {
-      // Select all visible residents
+      // Select ALL residents that match the current filter (across all pages)
       const allKeys = filteredResidents.map(resident => resident._id);
       setSelectedRowKeys(allKeys);
+      if (allKeys.length > 10) {
+        message.info(`Selected ${allKeys.length} resident(s) across all pages`);
+      }
     } else {
       // Deselect all
       setSelectedRowKeys([]);
     }
+  };
+
+  // Manual select all function for button
+  const handleSelectAll = () => {
+    const allKeys = filteredResidents.map(resident => resident._id);
+    setSelectedRowKeys(allKeys);
+    message.success(`Selected all ${allKeys.length} resident(s) across all pages`);
+  };
+
+  // Clear all selections
+  const handleClearSelection = () => {
+    setSelectedRowKeys([]);
+    message.info("Cleared all selections");
   };
 
   // Verify Resident
@@ -841,17 +857,26 @@ export default function AdminResidentManagement() {
   Import Residents
 </Button>
 
+              <Button onClick={handleSelectAll} type="default">
+                Select All ({filteredResidents.length})
+              </Button>
+
               {selectedRowKeys.length > 0 && (
-                <Popconfirm
-                  title={`Delete ${selectedRowKeys.length} resident(s)?`}
-                  description="This action cannot be undone."
-                  okButtonProps={{ danger: true }}
-                  onConfirm={handleBulkDelete}
-                >
-                  <Button danger>
-                    Delete Selected ({selectedRowKeys.length})
+                <>
+                  <Button onClick={handleClearSelection}>
+                    Clear Selection
                   </Button>
-                </Popconfirm>
+                  <Popconfirm
+                    title={`Delete ${selectedRowKeys.length} resident(s)?`}
+                    description="This action cannot be undone."
+                    okButtonProps={{ danger: true }}
+                    onConfirm={handleBulkDelete}
+                  >
+                    <Button danger>
+                      Delete Selected ({selectedRowKeys.length})
+                    </Button>
+                  </Popconfirm>
+                </>
               )}
 
             </div>
@@ -870,12 +895,28 @@ export default function AdminResidentManagement() {
                 getCheckboxProps: (record) => ({
                   name: record.name,
                 }),
+                selections: [
+                  {
+                    key: 'all-pages',
+                    text: 'Select All Pages',
+                    onSelect: () => {
+                      handleSelectAll();
+                    },
+                  },
+                  {
+                    key: 'clear-all',
+                    text: 'Clear All',
+                    onSelect: () => {
+                      handleClearSelection();
+                    },
+                  },
+                ],
               }}
               pagination={{
                 pageSize: 10,
                 showSizeChanger: false,
                 showQuickJumper: false,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} | Selected: ${selectedRowKeys.length}`,
                 simple: false,
               }}
               scroll={{ x: 1400 }}
