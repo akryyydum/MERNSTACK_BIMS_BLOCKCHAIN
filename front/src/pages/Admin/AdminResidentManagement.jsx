@@ -53,8 +53,8 @@ const SECTORAL_OPTIONS = [
   { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
   { value: "PWD", label: "PWD (Person with Disability)" },
   { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
-  { value: "OSC - Out of School Youth", label: "OSC - Out of School Youth" },
-  { value: "OSC - Out of School Adult", label: "OSC - Out of School Adult" },
+  { value: "OSY - Out of School Youth", label: "OSY - Out of School Youth" },
+  { value: "OSA - Out of School Adult", label: "OSA - Out of School Adult" },
   { value: "None", label: "None" }
 ];
 
