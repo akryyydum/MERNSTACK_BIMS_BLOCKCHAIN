@@ -74,6 +74,31 @@ exports.getAllBlockchainRequests = async (req, res) => {
   }
 };
 
+// Financial transactions from chaincode (FinancialTransactionContract)
+exports.getAllFinancialTransactions = async (req, res) => {
+  try {
+    const { gateway, contract } = await getContract();
+
+    // Evaluate query on the FinancialTransactionContract within same chaincode package
+    const result = await contract.evaluateTransaction(
+      'FinancialTransactionContract:getAllTransactions'
+    );
+    const txns = JSON.parse(result.toString());
+
+    await gateway.disconnect();
+
+    // Sort newest first by createdAt when available
+    const sorted = Array.isArray(txns)
+      ? txns.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      : [];
+
+    res.json(sorted);
+  } catch (error) {
+    console.error('Error fetching blockchain financial transactions:', error);
+    res.status(500).json({ message: 'Failed to load blockchain financial transactions', error: error.message });
+  }
+};
+
 
 const DocumentRequest = require("../models/document.model");
 

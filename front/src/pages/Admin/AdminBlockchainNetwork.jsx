@@ -20,12 +20,7 @@ export default function AdminBlockchainNetwork() {
     { id: "PD-002", title: "Community Guidelines", category: "Guidelines", originalName: "community-guidelines.pdf", size: 102400, visibility: "public", uploadedBy: "Admin", createdAt: new Date(Date.now()-86400000*3).toISOString() },
     { id: "PD-003", title: "Barangay Annual Report 2024", category: "Report", originalName: "annual-report-2024.pdf", size: 1048576, visibility: "public", uploadedBy: "Treasurer", createdAt: new Date(Date.now()-86400000*40).toISOString() },
   ]));
-  const [financeRows] = useState(() => ([
-    { transactionId: "DOC-2025-000123", type: "document_fee", category: "revenue", description: "Barangay Clearance", amount: 100, status: "completed", transactionDate: new Date().toISOString() },
-    { transactionId: "GRB-2025-000045", type: "garbage_fee", category: "revenue", description: "Quarterly Garbage Fee", amount: 300, status: "completed", transactionDate: new Date(Date.now()-86400000*2).toISOString() },
-    { transactionId: "STL-2025-000010", type: "streetlight_fee", category: "revenue", description: "Streetlight Maintenance", amount: 200, status: "completed", transactionDate: new Date(Date.now()-86400000*7).toISOString() },
-    { transactionId: "TXN-2025-000020", type: "other", category: "expense", description: "Printer ink and supplies", amount: 1500, status: "completed", transactionDate: new Date(Date.now()-86400000*10).toISOString() },
-  ]));
+  const [finance, setFinance] = useState([]); // on-chain financial transactions
 
   const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000";
   const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
@@ -48,6 +43,21 @@ export default function AdminBlockchainNetwork() {
     }
     setLoading(false);
   }; 
+  const handleFinanceFetch = async () => {
+    if (activeTab !== "finance") return; // only fetch for finance tab
+    setLoading(true);
+    try {
+      const res = await axios.get(`${baseURL}/api/blockchain/financial-transactions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFinance(Array.isArray(res.data) ? res.data : []);
+      setLastFetchedAt(new Date());
+    } catch (err) {
+      console.error(err);
+      message.error("Failed to load financial transactions.");
+    }
+    setLoading(false);
+  };
   const handleSync = async () => {
     if (activeTab !== "requests") return; // only valid for requests tab
     setLoading(true);
@@ -67,6 +77,8 @@ export default function AdminBlockchainNetwork() {
   useEffect(() => {
     if (activeTab === "requests") {
       handleSearch();
+    } else if (activeTab === "finance") {
+      handleFinanceFetch();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -95,15 +107,18 @@ export default function AdminBlockchainNetwork() {
   }, [publicDocs, query]);
 
   const filteredFinance = useMemo(() => {
-    if (!query) return financeRows;
+    if (!query) return finance;
     const q = query.toLowerCase();
-    return (financeRows || []).filter(t => (
-      (t.transactionId || '').toLowerCase().includes(q) ||
-      (t.type || '').toLowerCase().includes(q) ||
-      (t.category || '').toLowerCase().includes(q) ||
-      (t.description || '').toLowerCase().includes(q)
+    return (finance || []).filter(t => (
+      (t.txId || '').toLowerCase().includes(q) ||
+      (t.requestId || '').toLowerCase().includes(q) ||
+      (t.residentId || '').toLowerCase().includes(q) ||
+      (t.residentName || '').toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q) ||
+      String(t.amount || '').toLowerCase().includes(q) ||
+      (t.paymentMethod || '').toLowerCase().includes(q)
     ));
-  }, [financeRows, query]);
+  }, [finance, query]);
 
   const columns = [
     {
@@ -166,13 +181,13 @@ export default function AdminBlockchainNetwork() {
   ];
 
   const financeColumns = [
-    { title: "Transaction ID", dataIndex: "transactionId", key: "transactionId", render: (v) => <Space><DollarOutlined />{v}</Space> },
-    { title: "Type", dataIndex: "type", key: "type", render: (v) => <Tag color="geekblue">{v}</Tag> },
-    { title: "Category", dataIndex: "category", key: "category", render: (v) => <Tag color={v === 'revenue' ? 'green' : v === 'expense' ? 'red' : 'gold'}>{v}</Tag> },
-    { title: "Description", dataIndex: "description", key: "description" },
+    { title: "Transaction ID", dataIndex: "txId", key: "txId", render: (v) => <Space><DollarOutlined />{v}</Space> },
+    { title: "Request ID", dataIndex: "requestId", key: "requestId" },
+    { title: "Resident", dataIndex: "residentName", key: "residentName" },
     { title: "Amount", dataIndex: "amount", key: "amount", render: (n) => `₱${Number(n).toLocaleString()}` },
-    { title: "Status", dataIndex: "status", key: "status", render: (v) => <Tag color={v === 'completed' ? 'green' : 'orange'}>{v}</Tag> },
-    { title: "Date", dataIndex: "transactionDate", key: "transactionDate", render: (v) => v ? dayjs(v).format("YYYY-MM-DD") : "-" },
+    { title: "Payment Method", dataIndex: "paymentMethod", key: "paymentMethod" },
+    { title: "Description", dataIndex: "description", key: "description" },
+    { title: "Created", dataIndex: "createdAt", key: "createdAt", render: (v) => v ? dayjs(v).format("YYYY-MM-DD HH:mm") : "-" },
   ];
 
   return (
@@ -255,7 +270,7 @@ export default function AdminBlockchainNetwork() {
             <div className="flex flex-wrap gap-2">
               <Input.Search
                 allowClear
-                placeholder={activeTab === 'requests' ? 'Search requests' : activeTab === 'publicdocs' ? 'Search public documents' : 'Search finance'}
+                placeholder={activeTab === 'requests' ? 'Search requests' : activeTab === 'publicdocs' ? 'Search public documents' : 'Search transactions'}
                 onSearch={(v) => setQuery(v.trim())}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -266,6 +281,11 @@ export default function AdminBlockchainNetwork() {
                 <>
                   <Button icon={<ReloadOutlined />} onClick={handleSearch} loading={loading}>Refresh</Button>
                   <Button icon={<CloudSyncOutlined />} onClick={handleSync} loading={loading}>Sync from DB</Button>
+                </>
+              )}
+              {activeTab === 'finance' && (
+                <>
+                  <Button icon={<ReloadOutlined />} onClick={handleFinanceFetch} loading={loading}>Refresh</Button>
                 </>
               )}
             </div>
@@ -323,20 +343,21 @@ export default function AdminBlockchainNetwork() {
                 },
                 {
                   key: 'finance',
-                  label: 'Financial Reports (Frontend)',
+                  label: 'Financial Transactions',
                   children: (
                     <>
                       <Table
-                        rowKey={(r) => r.transactionId}
+                        rowKey={(r) => r.txId}
+                        loading={loading}
                         dataSource={filteredFinance}
                         columns={financeColumns}
                         pagination={{ pageSize: 10 }}
                         scroll={{ x: 900 }}
                       />
-                      {(!filteredFinance || filteredFinance.length === 0) && (
+                      {(!loading && (!filteredFinance || filteredFinance.length === 0)) && (
                         <div className="pt-4 text-sm text-gray-500">
                           <Typography.Text type="secondary">
-                            No finance records to display.
+                            No on-chain financial transactions found.
                           </Typography.Text>
                         </div>
                       )}
