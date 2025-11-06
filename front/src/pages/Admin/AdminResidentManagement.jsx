@@ -345,16 +345,20 @@ export default function AdminResidentManagement() {
 
       console.log("Import response:", res.data);
       
-      const { results } = res.data;
-      const successMsg = results 
-        ? `Imported successfully! Created: ${results.created}, Updated: ${results.updated}, Skipped: ${results.skipped}`
-        : res.data.message || "Residents imported successfully!";
+      const { created, updated, skipped, errors } = res.data;
       
-      message.success(successMsg, 5);
+      if (created > 0 || updated > 0) {
+        message.success(`Import complete! Created: ${created}, Updated: ${updated}, Skipped: ${skipped}`, 5);
+      } else if (skipped > 0) {
+        message.warning(`All rows skipped (${skipped}). Check details below.`, 5);
+      }
       
-      if (results?.errors?.length > 0) {
-        console.warn("Import errors:", results.errors);
-        message.warning(`${results.errors.length} row(s) had errors. Check console for details.`, 5);
+      if (errors && errors.length > 0) {
+        console.warn("Import errors:", errors);
+        errors.forEach(err => {
+          console.error(`Row ${err.row}: ${err.message}`);
+        });
+        message.error(`${errors.length} row(s) had errors. Check console for details.`, 5);
       }
       
       setImportOpen(false);
@@ -1492,7 +1496,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: false }]}>
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>

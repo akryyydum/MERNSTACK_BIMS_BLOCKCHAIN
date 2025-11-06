@@ -12,20 +12,7 @@ const ADDRESS_DEFAULTS = {
 const DEFAULT_CITIZENSHIP = "Filipino";
 const ALLOWED_STATUSES = new Set(["verified", "pending", "rejected"]);
 
-// ==================== CRUD OPERATIONS ====================
-
-// GET /api/admin/residents - List all residents
-exports.list = async (req, res) => {
-  try {
-    const residents = await Resident.find().sort({ createdAt: -1 });
-    res.json(residents);
-  } catch (err) {
-    console.error("List residents error:", err);
-    res.status(500).json({ message: err.message || "Failed to fetch residents" });
-  }
-};
-
-// POST /api/admin/residents - Create new resident
+// POST /api/admin/residents
 exports.create = async (req, res) => {
   try {
     const {
@@ -35,7 +22,7 @@ exports.create = async (req, res) => {
       suffix,
       dateOfBirth,
       birthPlace,
-      sex,
+      gender,
       civilStatus,
       religion,
       ethnicity,
@@ -43,113 +30,217 @@ exports.create = async (req, res) => {
       citizenship,
       occupation,
       sectoralInformation,
-      employmentStatus,
       registeredVoter,
       contact = {},
+      idFiles,
       status,
     } = req.body;
 
+    const contactData = contact && typeof contact === "object" ? contact : {};
+    const normalizedEmail =
+      typeof contactData.email === "string" && contactData.email.trim()
+        ? contactData.email.toLowerCase().trim()
+        : undefined;
+
+    const rawAddress = address && typeof address === "object" ? address : {};
     const normalizedAddress = {
       ...ADDRESS_DEFAULTS,
-      ...(address || {}),
+      ...rawAddress,
+      purok:
+        typeof rawAddress.purok === "string" ? rawAddress.purok.trim() : rawAddress.purok,
     };
 
+    const dob =
+      typeof dateOfBirth === "string" || typeof dateOfBirth === "number"
+        ? new Date(dateOfBirth)
+        : dateOfBirth instanceof Date
+        ? dateOfBirth
+        : null;
+
+    if (!dob || Number.isNaN(dob.getTime())) {
+      return res.status(400).json({ message: "Invalid date of birth" });
+    }
+
+    const sanitized = {
+      firstName: typeof firstName === "string" ? firstName.trim() : firstName,
+      middleName: typeof middleName === "string" ? middleName.trim() : middleName,
+      lastName: typeof lastName === "string" ? lastName.trim() : lastName,
+      suffix: typeof suffix === "string" ? suffix.trim() : suffix,
+      birthPlace: typeof birthPlace === "string" ? birthPlace.trim() : birthPlace,
+      gender: typeof gender === "string" ? gender.trim().toLowerCase() : gender,
+      civilStatus:
+        typeof civilStatus === "string" ? civilStatus.trim().toLowerCase() : civilStatus,
+      religion: typeof religion === "string" ? religion.trim() : religion,
+      ethnicity: typeof ethnicity === "string" ? ethnicity.trim() : ethnicity,
+      citizenship:
+        typeof citizenship === "string" && citizenship.trim()
+          ? citizenship.trim()
+          : DEFAULT_CITIZENSHIP,
+      occupation: typeof occupation === "string" ? occupation.trim() : occupation,
+      sectoralInformation: typeof sectoralInformation === "string" ? sectoralInformation.trim() : sectoralInformation,
+    };
+
+    const requiredMissing =
+      !sanitized.firstName ||
+      !sanitized.lastName ||
+      !dob ||
+      !sanitized.birthPlace ||
+      !sanitized.gender ||
+      !sanitized.civilStatus ||
+      !sanitized.ethnicity ||
+      !normalizedAddress?.purok ||
+      !normalizedAddress?.barangay ||
+      !normalizedAddress?.municipality ||
+      !normalizedAddress?.province ||
+      !sanitized.citizenship ||
+      !sanitized.occupation;
+
+    if (requiredMissing) {
+      return res.status(400).json({ message: "Missing required resident fields" });
+    }
+
+    const sanitizedContact = {};
+    if (normalizedEmail) sanitizedContact.email = normalizedEmail;
+    if (typeof contactData.mobile === "string" && contactData.mobile.trim()) {
+      sanitizedContact.mobile = contactData.mobile.trim();
+    }
+
+    const statusValue =
+      typeof status === "string" ? status.trim().toLowerCase() : undefined;
+    const resolvedStatus = ALLOWED_STATUSES.has(statusValue)
+      ? statusValue
+      : "verified";
+
     const resident = await Resident.create({
-      firstName,
-      middleName,
-      lastName,
-      suffix,
-      dateOfBirth,
-      birthPlace,
-      sex,
-      civilStatus,
-      religion,
-      ethnicity,
+      firstName: sanitized.firstName,
+      middleName: sanitized.middleName,
+      lastName: sanitized.lastName,
+      suffix: sanitized.suffix,
+      dateOfBirth: dob,
+      birthPlace: sanitized.birthPlace,
+      gender: sanitized.gender,
+      civilStatus: sanitized.civilStatus,
+      religion: sanitized.religion,
+      ethnicity: sanitized.ethnicity,
       address: normalizedAddress,
-      citizenship: citizenship || DEFAULT_CITIZENSHIP,
-      occupation,
-      sectoralInformation,
-      employmentStatus,
-      registeredVoter: registeredVoter || false,
-      contact,
-      status: status || "pending",
+      citizenship: sanitized.citizenship,
+      occupation: sanitized.occupation,
+      sectoralInformation: sanitized.sectoralInformation,
+      registeredVoter: typeof registeredVoter === 'boolean' ? registeredVoter : false,
+      contact: sanitizedContact,
+      idFiles,
+      status: resolvedStatus,
     });
 
-    res.status(201).json(resident);
+    res.status(201).json({ message: "Resident created", resident });
   } catch (err) {
-    console.error("Create resident error:", err);
-    res.status(400).json({ message: err.message || "Failed to create resident" });
+    console.error("Resident creation error:", err);
+    const statusCode = err.name === "ValidationError" ? 400 : 500;
+    res.status(statusCode).json({
+      message: err.message || "Internal server error",
+      error: err.name === "ValidationError" ? err.errors : undefined,
+    });
   }
 };
 
-// PATCH /api/admin/residents/:id - Update resident
+// GET /api/admin/residents
+exports.list = async (req, res) => {
+  try {
+    console.log("Admin residents list request:", {
+      user: req.user,
+      query: req.query,
+      headers: {
+        authorization: req.headers.authorization ? "Present" : "Missing"
+      }
+    });
+    
+    const filter = {};
+    if (String(req.query.unlinked) === "true") {
+      // Get all residents
+      const allResidents = await Resident.find({});
+      const unlinkedResidents = [];
+      
+      // Check each resident to see if they're truly unlinked
+      for (const resident of allResidents) {
+        if (!resident.user) {
+          // No user reference at all
+          unlinkedResidents.push(resident);
+        } else {
+          // Check if the referenced user actually exists
+          const User = require("../models/user.model");
+          const userExists = await User.findById(resident.user);
+          if (!userExists) {
+            // Broken reference - clean it up and include in unlinked list
+            await Resident.updateOne(
+              { _id: resident._id },
+              { $unset: { user: 1 } }
+            );
+            resident.user = undefined; // Update local object
+            unlinkedResidents.push(resident);
+          }
+        }
+      }
+      
+      console.log(`Found ${unlinkedResidents.length} unlinked residents`);
+      return res.json(unlinkedResidents);
+    }
+    
+    const residents = await Resident.find(filter).populate("user", "username fullName contact");
+    
+    console.log(`Found ${residents.length} residents`);
+    res.json(residents);
+  } catch (err) {
+    console.error("Error in residents list:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PATCH /api/admin/residents/:id
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-
-    const resident = await Resident.findByIdAndUpdate(
-      id,
-      { $set: updates, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
-
-    if (!resident) {
-      return res.status(404).json({ message: "Resident not found" });
+    const update = req.body;
+    if (update.dateOfBirth && typeof update.dateOfBirth === "string") {
+      update.dateOfBirth = new Date(update.dateOfBirth);
     }
-
-    res.json(resident);
+    const resident = await Resident.findByIdAndUpdate(id, update, { new: true });
+    if (!resident) return res.status(404).json({ message: "Resident not found" });
+    res.json({ message: "Resident updated", resident });
   } catch (err) {
-    console.error("Update resident error:", err);
-    res.status(400).json({ message: err.message || "Failed to update resident" });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// DELETE /api/admin/residents/:id - Delete resident
+// DELETE /api/admin/residents/:id
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
     const resident = await Resident.findByIdAndDelete(id);
-
-    if (!resident) {
-      return res.status(404).json({ message: "Resident not found" });
-    }
-
-    res.json({ message: "Resident deleted successfully" });
+    if (!resident) return res.status(404).json({ message: "Resident not found" });
+    // Optionally delete the linked user:
+    await User.findByIdAndDelete(resident.user);
+    res.json({ message: "Resident deleted" });
   } catch (err) {
-    console.error("Delete resident error:", err);
-    res.status(500).json({ message: err.message || "Failed to delete resident" });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// PATCH /api/admin/residents/:id/verify - Verify/reject resident
+// PATCH /api/admin/residents/:id/verify
 exports.verify = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-
-    if (!ALLOWED_STATUSES.has(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
     const resident = await Resident.findByIdAndUpdate(
       id,
-      { $set: { status, updatedAt: new Date() } },
+      { status: status || "verified" },
       { new: true }
     );
-
-    if (!resident) {
-      return res.status(404).json({ message: "Resident not found" });
-    }
-
-    res.json(resident);
+    if (!resident) return res.status(404).json({ message: "Resident not found" });
+    res.json({ message: "Resident status updated", resident });
   } catch (err) {
-    console.error("Verify resident error:", err);
-    res.status(500).json({ message: err.message || "Failed to verify resident" });
+    res.status(500).json({ message: err.message });
   }
 };
-
-// ==================== HELPER FUNCTIONS ====================
 
 // Helpers
 const toBool = (v) => {
@@ -164,11 +255,14 @@ const normPurok = (v) => {
   const m = s.match(/(\d+)/);
   if (!m) return undefined;
   const n = m[1];
-  return `Purok ${n}`;
+  return [`Purok ${n}`, "Purok 1", "Purok 2", "Purok 3", "Purok 4", "Purok 5"].includes(`Purok ${n}`)
+    ? `Purok ${n}`
+    : undefined;
 };
 const parseDate = (v) => {
   if (!v) return null;
   if (v instanceof Date && !isNaN(v)) return v;
+  // Handle Excel serials
   if (typeof v === "number") {
     const epoch = new Date(Date.UTC(1899, 11, 30));
     return new Date(epoch.getTime() + v * 86400000);
@@ -181,111 +275,199 @@ const enumOr = (value, allowed, fallback) => {
   return allowed.includes(v) ? v : fallback;
 };
 
-// 📥 Bulk Excel Import (multi-sheet, uppercase headers)
+// Bulk Import from Excel
 exports.bulkImport = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    
+    // Get purok from form selection (required)
+    const selectedPurok = normPurok(req.body.purok);
+    if (!selectedPurok) {
+      return res.status(400).json({ message: "Purok selection is required" });
+    }
 
     const wb = XLSX.read(req.file.buffer, { type: "buffer", cellDates: true });
-
-    // Combine all sheets into one array
-    const allRows = wb.SheetNames.flatMap(sheetName => {
-      const ws = wb.Sheets[sheetName];
-      return XLSX.utils.sheet_to_json(ws, { defval: "" });
-    });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
     const results = { created: 0, updated: 0, skipped: 0, errors: [] };
 
-    for (let i = 0; i < allRows.length; i++) {
-      const raw = allRows[i];
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i];
+      // normalize headers to lower-case
       const row = Object.fromEntries(
-        Object.entries(raw).map(([k, v]) => [String(k).trim().toUpperCase(), v])
+        Object.entries(raw).map(([k, v]) => [String(k).trim().toLowerCase(), v])
       );
 
-      // Extract fields from uppercase columns
-      const firstName = row["FIRST NAME"] || "";
-      const lastName = row["LAST NAME"] || "";
-      const middleName = row["MIDDLE NAME"] || "";
-      const suffix = row["SUFFIX"] || "";
-      const birthPlace = row["BIRTH PLACE"] || "Bayombong";
-      const dateOfBirth = parseDate(row["BIRTHDATE (YYYY-MM-DD)"]);
-      const gender = enumOr(
-        (row["SEX"] || "").toString().toLowerCase(),
-        ["male", "female"],
+      // Support both your Export headers and canonical names
+      const fullName = (row["full name"] || "").toString().trim();
+      let firstName =
+        row["first name"] || row["firstname"] || (fullName ? fullName.split(" ")[0] : "");
+      let lastName =
+        row["last name"] || row["lastname"] || (fullName ? fullName.split(" ").slice(-1)[0] : "");
+      const middleName = row["middle name"] || row["middlename"] || "";
+      const suffix = row["suffix"] || row["ext"] || "";
+
+      const sex = enumOr(
+        (row["sex"] || row["gender"] || "").toString().toLowerCase(),
+        ["male", "female", "other"],
         undefined
       );
+
+      const dateOfBirth =
+        row["birthdate (yyyy-mm-dd)"] || row["birthdate"] || row["date of birth"] || row["dob"] || row["birth date"];
+      const dob = parseDate(dateOfBirth);
+
+      const birthPlace = row["birth place"] || row["birthplace"] || "";
       const civilStatus = enumOr(
-        (row["CIVIL STATUS"] || "").toString().toLowerCase(),
+        (row["civil status"] || row["civilstatus"] || "").toString().toLowerCase(),
         ["single", "married", "widowed", "separated"],
-        "single"
+        undefined
       );
-      const citizenship = row["CITIZENSHIP"] || DEFAULT_CITIZENSHIP;
-      const occupation =
-        row["PROFESSION/ OCCUPATION"] ||
-        row["OCCUPATION"] ||
-        "Unemployed";
-      const ethnicity = row["ETHNICITY"] || row["ETHNIC GROUP"] || "Not Specified";
-      const religion = row["RELIGION"] || "";
-      
-      // Normalize sectoral information to match enum values
-      const rawSectoral = 
-        row["SEC. INFO"] ||
-        row["SEC INFO"] ||
-        row["SECTORAL INFORMATION"] ||
-        "";
-      const sectoralInformation = enumOr(
-        String(rawSectoral).trim(),
-        ['Solo Parent', 'OFW', 'PWD', 'OSC - Out of School Children', 'OSC - Out of School Youth', 'OSC - Out of School Adult', 'None'],
-        'None'
-      );
-      
-      const registeredVoter = toBool(row["VOTER"]);
-      const purok = normPurok(row["PUROK"]) || req.body.purok || "Purok 1";
+      const religion = row["religion"] || "";
+      const ethnicity = row["ethnicity"] || ""; // No default - leave blank if not in file
 
-      // Validation check
-      const missing =
-        !firstName || !lastName || !dateOfBirth || !gender || !civilStatus || !occupation || !ethnicity;
+      // Use the selected purok from the form
+      const purok = selectedPurok;
+      const barangay = row["barangay"] || ADDRESS_DEFAULTS.barangay;
+      const municipality = row["municipality"] || ADDRESS_DEFAULTS.municipality;
+      const province = row["province"] || ADDRESS_DEFAULTS.province;
+      const zipCode = row["zip code"] || row["zipcode"] || ADDRESS_DEFAULTS.zipCode;
 
-      if (missing) {
+      const citizenship = row["citizenship"] || DEFAULT_CITIZENSHIP;
+      const occupation = row["profession/ occupation"] || row["occupation"] || "N/A"; // Default occupation if not provided
+
+      // Collect all SEC. INFO values from all columns (there might be multiple columns)
+      const sectoralValues = [];
+      Object.keys(row).forEach(key => {
+        const lowerKey = key.toLowerCase();
+        // Match any column that contains "sec" (for SEC. INFO columns)
+        if (lowerKey.includes("sec")) {
+          const val = String(row[key]).trim();
+          console.log(`Found sectoral column: "${key}" = "${val}"`);
+          if (val && val !== "" && val !== "None") {
+            sectoralValues.push(val);
+          }
+        }
+      });
+      
+      console.log(`Row ${i + 2}: Sectoral values found:`, sectoralValues);
+      
+      // Separate employment status from sectoral information
+      let employmentStatus = undefined;
+      let sectoralInformation = undefined;
+      
+      // Process each sectoral value
+      for (const val of sectoralValues) {
+        const lowerVal = val.toLowerCase();
+        
+        if (lowerVal === "labor force" || lowerVal === "unemployed") {
+          // This is an employment status
+          employmentStatus = lowerVal === "labor force" ? "Labor Force" : "Unemployed";
+          console.log(`  -> Employment status: ${employmentStatus}`);
+        } else {
+          // This is sectoral information - normalize the value for matching
+          let normalizedVal = val;
+          
+          // Convert common variations to proper enum values
+          if (lowerVal === "solo parent") normalizedVal = "Solo Parent";
+          else if (lowerVal === "ofw") normalizedVal = "OFW";
+          else if (lowerVal === "pwd") normalizedVal = "PWD";
+          else if (lowerVal.includes("out of school")) {
+            if (lowerVal.includes("children")) normalizedVal = "OSC - Out of School Children";
+            else if (lowerVal.includes("youth")) normalizedVal = "OSC - Out of School Youth";
+            else if (lowerVal.includes("adult")) normalizedVal = "OSC - Out of School Adult";
+          }
+          
+          const mapped = enumOr(
+            normalizedVal,
+            [
+              "Solo Parent",
+              "OFW",
+              "PWD",
+              "OSC - Out of School Children",
+              "OSC - Out of School Youth",
+              "OSC - Out of School Adult",
+            ],
+            undefined
+          );
+          console.log(`  -> Trying to map "${val}" (normalized: "${normalizedVal}") to sectoral info: ${mapped}`);
+          if (mapped) {
+            sectoralInformation = mapped;
+          }
+        }
+      }
+      
+      // Set default to None if nothing was found
+      if (!sectoralInformation) {
+        sectoralInformation = "None";
+      }
+      
+      console.log(`Row ${i + 2}: Final - Employment: ${employmentStatus}, Sectoral: ${sectoralInformation}`);
+
+      const registeredVoter = toBool(row["voter"] || row["registered voter"] || row["registeredvoter"]);
+      const mobile = row["mobile"] || row["mobile number"] || row["phone"] || "";
+      const email = (row["email"] || "").toString().trim().toLowerCase();
+
+      const statusRaw = (row["status"] || "").toString().toLowerCase();
+      const status = ["verified", "pending", "rejected"].includes(statusRaw)
+        ? statusRaw
+        : undefined;
+
+      // Validate required fields (ethnicity and citizenship have defaults)
+      const missing = [];
+      if (!firstName) missing.push("firstName");
+      if (!lastName) missing.push("lastName");
+      if (!dob) missing.push("dateOfBirth");
+      if (!birthPlace) missing.push("birthPlace");
+      if (!sex) missing.push("sex");
+      if (!civilStatus) missing.push("civilStatus");
+
+      if (missing.length > 0) {
         results.skipped++;
-        results.errors.push({
-          row: i + 2,
-          message: `Missing required fields. Row data: ${JSON.stringify({ firstName, lastName, dateOfBirth, gender, civilStatus, occupation, ethnicity })}`,
+        results.errors.push({ 
+          row: i + 2, 
+          message: `Missing required fields: ${missing.join(", ")}` 
         });
         continue;
       }
 
       const doc = {
         firstName: String(firstName).trim(),
-        middleName: String(middleName).trim() || undefined,
+        middleName: String(middleName || "").trim() || undefined,
         lastName: String(lastName).trim(),
-        suffix: String(suffix).trim() || undefined,
-        dateOfBirth,
+        suffix: String(suffix || "").trim() || undefined,
+        dateOfBirth: dob,
         birthPlace: String(birthPlace).trim(),
-        sex: gender,
+        sex,
         civilStatus,
+        religion: religion ? String(religion).trim() : undefined,
+        ethnicity: ethnicity ? String(ethnicity).trim() : undefined,
+        address: {
+          purok,
+          barangay: String(barangay).trim(),
+          municipality: String(municipality).trim(),
+          province: String(province).trim(),
+          zipCode: zipCode ? String(zipCode).trim() : undefined,
+        },
         citizenship: String(citizenship).trim(),
         occupation: String(occupation).trim(),
         sectoralInformation,
+        employmentStatus,
         registeredVoter,
-        address: {
-          purok: purok || "Unspecified",
-          barangay: ADDRESS_DEFAULTS.barangay,
-          municipality: ADDRESS_DEFAULTS.municipality,
-          province: ADDRESS_DEFAULTS.province,
-          zipCode: ADDRESS_DEFAULTS.zipCode,
+        contact: {
+          ...(mobile ? { mobile: String(mobile).trim() } : {}),
+          ...(email ? { email } : {}),
         },
-        religion: String(religion).trim(),
-        ethnicity: String(ethnicity).trim(),
-        contact: {},
-        status: "verified",
+        ...(status ? { status } : {}),
       };
 
-      // Upsert (check existing record by name + DOB)
+      // Upsert by name + dob + birthplace (adjust if you prefer another key)
       const existing = await Resident.findOne({
         firstName: doc.firstName,
         lastName: doc.lastName,
         dateOfBirth: doc.dateOfBirth,
+        birthPlace: doc.birthPlace,
       });
 
       if (existing) {
@@ -299,10 +481,18 @@ exports.bulkImport = async (req, res) => {
 
     res.json({
       message: `✅ Import complete: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`,
-      results,
+      created: results.created,
+      updated: results.updated,
+      skipped: results.skipped,
+      errors: results.errors,
     });
   } catch (err) {
     console.error("Import error:", err);
     return res.status(500).json({ message: err.message || "Import failed" });
   }
 };
+
+exports.importResidents = exports.bulkImport;
+
+// Optional: placeholder if you plan to add file upload middleware later
+exports.importResidentsMiddleware = (req, res, next) => next();
