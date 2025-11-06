@@ -32,6 +32,9 @@ export default function HouseholdManagement() {
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
+  
+  // Selection state for bulk operations
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -165,6 +168,61 @@ export default function HouseholdManagement() {
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to delete household");
     }
+  };
+  
+  // Bulk Delete Households
+  const handleBulkDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Please select households to delete");
+      return;
+    }
+
+    try {
+      // Delete households one by one
+      await Promise.all(
+        selectedRowKeys.map(id =>
+          axios.delete(`${API_BASE}/api/admin/households/${id}`, { headers: authHeaders() })
+        )
+      );
+      
+      message.success(`${selectedRowKeys.length} household(s) deleted successfully!`);
+      setSelectedRowKeys([]);
+      fetchHouseholds();
+    } catch (err) {
+      message.error(err?.response?.data?.message || "Failed to delete selected households");
+    }
+  };
+
+  // Row selection handlers
+  const onSelectChange = (newSelectedRowKeys) => {
+    setSelectedRowKeys(newSelectedRowKeys);
+  };
+
+  const onSelectAll = (selected, selectedRows, changeRows) => {
+    if (selected) {
+      // Select ALL households that match the current filter (across all pages)
+      const allKeys = filteredHouseholds.map(household => household._id);
+      setSelectedRowKeys(allKeys);
+      if (allKeys.length > 10) {
+        message.info(`Selected ${allKeys.length} household(s) across all pages`);
+      }
+    } else {
+      // Deselect all
+      setSelectedRowKeys([]);
+    }
+  };
+
+  // Manual select all function for button
+  const handleSelectAll = () => {
+    const allKeys = filteredHouseholds.map(household => household._id);
+    setSelectedRowKeys(allKeys);
+    message.success(`Selected all ${allKeys.length} household(s) across all pages`);
+  };
+
+  // Clear all selections
+  const handleClearSelection = () => {
+    setSelectedRowKeys([]);
+    message.info("Cleared all selections");
   };
 
   // View Household Details
@@ -328,30 +386,34 @@ export default function HouseholdManagement() {
 
   // Function to render household members
   const renderHouseholdMembers = (record) => {
-    // Get members excluding head
+    // Show ALL members (including head)
     const headId = record.headOfHousehold?._id || record.headOfHousehold;
-    const membersList = (record.members || []).filter(m => {
-      const memberId = m?._id || m;
-      return String(memberId) !== String(headId);
-    });
+    const membersList = record.members || [];
     
     if (membersList.length === 0) {
       return (
-        <div className="p-2 italic text-gray-500">No additional members in this household</div>
+        <div className="p-2 italic text-gray-500">No members in this household</div>
       );
     }
 
     return (
       <div className="p-2 bg-gray-50 rounded">
-        <div className="font-medium mb-2 text-gray-700">Household Members:</div>
+        <div className="font-medium mb-2 text-gray-700">Household Members ({membersList.length}):</div>
         <ul className="list-disc pl-5">
           {membersList.map(m => {
             const memberId = m?._id || m;
             // Get resident details
             const memberObj = typeof m === "object" ? m : residents.find(r => r._id === memberId);
+            const isHead = String(memberId) === String(headId);
+            
             return (
               <li key={memberId} className="py-1">
                 {fullName(memberObj) || "Unknown Member"}
+                {isHead && (
+                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    Head
+                  </span>
+                )}
               </li>
             );
           })}
@@ -657,6 +719,29 @@ export default function HouseholdManagement() {
               >
                 Export Excel
               </Button>
+              <Button 
+                onClick={handleSelectAll}
+              >
+                Select All ({filteredHouseholds.length})
+              </Button>
+
+              {selectedRowKeys.length > 0 && (
+                <>
+                  <Button onClick={handleClearSelection}>
+                    Clear Selection
+                  </Button>
+                  <Popconfirm
+                    title={`Delete ${selectedRowKeys.length} household(s)?`}
+                    description="This action cannot be undone."
+                    okButtonProps={{ danger: true }}
+                    onConfirm={handleBulkDelete}
+                  >
+                    <Button danger>
+                      Delete Selected ({selectedRowKeys.length})
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -665,6 +750,31 @@ export default function HouseholdManagement() {
               loading={loading}
               dataSource={filteredHouseholds}
               columns={columns}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: onSelectChange,
+                onSelectAll: onSelectAll,
+                type: 'checkbox',
+                getCheckboxProps: (record) => ({
+                  name: record.householdId,
+                }),
+                selections: [
+                  {
+                    key: 'all-pages',
+                    text: 'Select All Pages',
+                    onSelect: () => {
+                      handleSelectAll();
+                    },
+                  },
+                  {
+                    key: 'clear-all',
+                    text: 'Clear All',
+                    onSelect: () => {
+                      handleClearSelection();
+                    },
+                  },
+                ],
+              }}
               pagination={{ pageSize: 10 }}
               scroll={{ x: 800 }}
               expandable={{

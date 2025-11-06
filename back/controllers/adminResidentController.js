@@ -290,8 +290,23 @@ exports.bulkImport = async (req, res) => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
+    const results = { 
+      created: 0, 
+      updated: 0, 
+      skipped: 0, 
+      errors: [],
+      householdsCreated: 0,
+      householdsUpdated: 0
+    };
+    
+    // Import Household model
+    const Household = require("../models/household.model");
+    
+    // Track households by NO. column
+    const householdsByNo = new Map();
+    const residentsByRow = new Map();
 
+    // First pass: Create/update all residents
     for (let i = 0; i < rows.length; i++) {
       const raw = rows[i];
       // normalize headers to lower-case
@@ -470,20 +485,168 @@ exports.bulkImport = async (req, res) => {
         birthPlace: doc.birthPlace,
       });
 
+      let residentId;
       if (existing) {
         await Resident.updateOne({ _id: existing._id }, { $set: doc });
         results.updated++;
+        residentId = existing._id;
       } else {
-        await Resident.create(doc);
+        const newResident = await Resident.create(doc);
         results.created++;
+        residentId = newResident._id;
+      }
+      
+      // Store resident info for household creation
+      const householdNo = row["no."] || row["no"] || row["household no"] || "";
+      const role = (row["role"] || "").toString().trim().toUpperCase();
+      
+      console.log(`Row ${i + 2}: Resident ${firstName} ${lastName} - Household No: "${householdNo}", Role: "${role}"`);
+      
+      // Track residents with their role for smart household grouping
+      residentsByRow.set(i, {
+        residentId,
+        householdNo: householdNo ? String(householdNo).trim() : null,
+        role,
+        address: doc.address,
+        firstName,
+        lastName
+      });
+    }
+    
+    // Smart household grouping: 
+    // Check if household numbers are actually used for grouping or just sequential row numbers
+    const householdNumbers = Array.from(residentsByRow.values())
+      .filter(r => r.householdNo)
+      .map(r => parseInt(r.householdNo));
+    
+    // If household numbers are sequential (1,2,3,4...), they're probably row numbers, not household IDs
+    // Use smart grouping instead
+    const isSequential = householdNumbers.length > 1 && 
+      householdNumbers.every((num, idx) => idx === 0 || num === householdNumbers[idx - 1] + 1);
+    
+    const useSmartGrouping = !householdNumbers.length || isSequential;
+    
+    if (!useSmartGrouping) {
+      // Use explicit household numbers from NO. column
+      console.log("Using explicit household numbers from NO. column");
+      residentsByRow.forEach((residentInfo, rowIndex) => {
+        const { residentId, householdNo, role, address } = residentInfo;
+        
+        if (householdNo) {
+          if (!householdsByNo.has(String(householdNo))) {
+            householdsByNo.set(String(householdNo), {
+              head: null,
+              members: [],
+              address: address
+            });
+          }
+          
+          const household = householdsByNo.get(String(householdNo));
+          if (role === "HEAD") {
+            household.head = residentId;
+            household.members.push(residentId);
+            console.log(`  -> Added as HEAD to household ${householdNo}`);
+          } else {
+            household.members.push(residentId);
+            console.log(`  -> Added as MEMBER to household ${householdNo}`);
+          }
+        }
+      });
+    } else {
+      // Smart grouping: HEAD followed by MEMBERs form a household
+      console.log("Using smart grouping based on HEAD->MEMBER pattern");
+      let currentHouseholdId = 1;
+      let currentHousehold = null;
+      
+      Array.from(residentsByRow.entries()).forEach(([rowIndex, residentInfo]) => {
+        const { residentId, role, address, firstName, lastName } = residentInfo;
+        
+        if (role === "HEAD") {
+          // Start a new household
+          const householdKey = `auto-${currentHouseholdId}`;
+          currentHousehold = {
+            head: residentId,
+            members: [residentId],
+            address: address
+          };
+          householdsByNo.set(householdKey, currentHousehold);
+          console.log(`  -> Created new household ${householdKey} with HEAD: ${firstName} ${lastName}`);
+          currentHouseholdId++;
+        } else if (role === "MEMBER" && currentHousehold) {
+          // Add to current household
+          currentHousehold.members.push(residentId);
+          console.log(`  -> Added MEMBER ${firstName} ${lastName} to current household`);
+        } else {
+          console.log(`  -> Skipping resident ${firstName} ${lastName} - no household context`);
+        }
+      });
+    }
+    
+    // Second pass: Create households
+    for (const [householdNo, householdData] of householdsByNo.entries()) {
+      if (!householdData.head) {
+        console.log(`Skipping household ${householdNo}: No HEAD found`);
+        continue;
+      }
+      
+      try {
+        // Check if household already exists with this head
+        const existingHousehold = await Household.findOne({ headOfHousehold: householdData.head });
+        
+        if (existingHousehold) {
+          // Update existing household
+          await Household.updateOne(
+            { _id: existingHousehold._id },
+            { 
+              $set: {
+                members: householdData.members,
+                address: householdData.address
+              }
+            }
+          );
+          results.householdsUpdated++;
+          console.log(`Updated household ${existingHousehold.householdId} with ${householdData.members.length} members`);
+        } else {
+          // Create new household ID
+          const lastHousehold = await Household.findOne().sort({ householdId: -1 });
+          let nextNum = 1;
+          if (lastHousehold && lastHousehold.householdId) {
+            const match = lastHousehold.householdId.match(/HH-(\d+)/);
+            if (match) nextNum = parseInt(match[1]) + 1;
+          }
+          const householdId = `HH-${String(nextNum).padStart(4, "0")}`;
+          
+          console.log(`Creating household ${householdId}:`, {
+            head: householdData.head,
+            membersCount: householdData.members.length,
+            members: householdData.members
+          });
+          
+          await Household.create({
+            householdId,
+            headOfHousehold: householdData.head,
+            members: householdData.members,
+            address: householdData.address
+          });
+          results.householdsCreated++;
+          console.log(`✅ Created household ${householdId} with ${householdData.members.length} members`);
+        }
+      } catch (err) {
+        console.error(`Error creating/updating household ${householdNo}:`, err);
+        results.errors.push({ 
+          row: `Household ${householdNo}`, 
+          message: err.message 
+        });
       }
     }
 
     res.json({
-      message: `✅ Import complete: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`,
+      message: `✅ Import complete: ${results.created} residents created, ${results.updated} updated, ${results.skipped} skipped. ${results.householdsCreated} households created, ${results.householdsUpdated} updated.`,
       created: results.created,
       updated: results.updated,
       skipped: results.skipped,
+      householdsCreated: results.householdsCreated,
+      householdsUpdated: results.householdsUpdated,
       errors: results.errors,
     });
   } catch (err) {
