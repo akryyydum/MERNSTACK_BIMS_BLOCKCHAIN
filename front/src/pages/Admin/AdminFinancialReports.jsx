@@ -74,12 +74,21 @@ export default function AdminFinancialReports() {
   const [residents, setResidents] = useState([]);
   const [officials, setOfficials] = useState([]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     fetchDashboard();
     fetchTransactions();
     fetchResidents();
     fetchOfficials();
   }, [dateRange, filters]);
+
+  // Reset to page 1 when search or date range changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, dateRange]);
 
   // Helper function for auth headers
   const authHeaders = () => {
@@ -145,6 +154,8 @@ export default function AdminFinancialReports() {
           fetchedTransactions.some((tx) => getTransactionKey(tx) === key)
         )
       );
+      // Reset to first page when data is refreshed
+      setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       message.error('Failed to fetch transactions');
@@ -524,6 +535,12 @@ export default function AdminFinancialReports() {
     });
   };
 
+  // Pagination change handler
+  const handleTableChange = (pagination, filters, sorter) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+  };
+
   // Open Edit Modal
   const openEditModal = (record) => {
     setEditTransaction(record);
@@ -879,7 +896,15 @@ export default function AdminFinancialReports() {
                   dataSource={filteredTransactions}
                   loading={loading}
                   rowSelection={rowSelection}
-                  pagination={{ pageSize: 10 }}
+                  pagination={{
+                    current: currentPage,
+                    pageSize: pageSize,
+                    total: filteredTransactions.length,
+                    showSizeChanger: true,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} transactions | Selected: ${selectedRowKeys.length}`,
+                    pageSizeOptions: ['10', '20', '50', '100'],
+                  }}
+                  onChange={handleTableChange}
                   scroll={{ x: 1400 }}
                   size="small"
                   rowKey={(record) => record.__rowKey ?? record._id ?? getTransactionKey(record)}

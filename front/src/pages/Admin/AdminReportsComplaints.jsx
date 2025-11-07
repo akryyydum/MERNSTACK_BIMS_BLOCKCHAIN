@@ -25,6 +25,10 @@ export default function AdminReportsComplaints() {
   const [createForm] = Form.useForm();
   const [responseForm] = Form.useForm();
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
@@ -32,6 +36,11 @@ export default function AdminReportsComplaints() {
     fetchComplaints();
     fetchResidents();
   }, []);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const fetchComplaints = async () => {
     setLoading(true);
@@ -42,6 +51,8 @@ export default function AdminReportsComplaints() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setComplaints(res.data);
+      // Reset to first page when data is refreshed
+      setCurrentPage(1);
     } catch (err) {
       message.error("Failed to load complaints");
     }
@@ -279,6 +290,12 @@ export default function AdminReportsComplaints() {
       .includes(search.toLowerCase())
   );
 
+  // Pagination change handler
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+  };
+
   return (
     <AdminLayout title="Admin">
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
@@ -413,7 +430,15 @@ export default function AdminReportsComplaints() {
               loading={loading}
               dataSource={filteredComplaints}
               columns={columns}
-              pagination={{ pageSize: 10 }}
+              pagination={{
+                current: currentPage,
+                pageSize: pageSize,
+                total: filteredComplaints.length,
+                showSizeChanger: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} reports/complaints`,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
               scroll={{ x: 1200 }}
             />
           </div>

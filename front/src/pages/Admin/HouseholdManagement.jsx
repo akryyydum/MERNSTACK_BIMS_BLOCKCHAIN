@@ -36,6 +36,10 @@ export default function HouseholdManagement() {
   // Selection state for bulk operations
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
@@ -44,6 +48,11 @@ export default function HouseholdManagement() {
     fetchResidents();
     fetchHouseholds();
   }, []);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -63,6 +72,7 @@ export default function HouseholdManagement() {
       setLoading(true);
       const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
       setHouseholds(res.data || []);
+      setCurrentPage(1); // Reset to first page when data is refreshed
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to load households");
     } finally {
@@ -223,6 +233,12 @@ export default function HouseholdManagement() {
   const handleClearSelection = () => {
     setSelectedRowKeys([]);
     message.info("Cleared all selections");
+  };
+
+  // Pagination change handler
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
   };
 
   // View Household Details
@@ -775,7 +791,15 @@ export default function HouseholdManagement() {
                   },
                 ],
               }}
-              pagination={{ pageSize: 10 }}
+              pagination={{ 
+                current: currentPage,
+                pageSize: pageSize,
+                total: filteredHouseholds.length,
+                showSizeChanger: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} households`,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
               scroll={{ x: 800 }}
               expandable={{
                 expandedRowRender: record => renderHouseholdMembers(record),

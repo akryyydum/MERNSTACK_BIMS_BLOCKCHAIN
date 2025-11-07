@@ -56,21 +56,40 @@ export default function AdminGarbageFees() {
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('garbageFeesColumnsVisibility');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    return {
+    const defaultColumns = {
+      householdId: true,
+      headOfHousehold: true,
       purok: true,
       business: true,
       currentFee: true,
       paymentStatus: true,
-      balance: true
+      balance: true,
+      actions: true
     };
+    
+    if (saved) {
+      const parsedSaved = JSON.parse(saved);
+      // Ensure essential columns (householdId, headOfHousehold, actions) are always visible
+      return {
+        ...parsedSaved,
+        householdId: true,
+        headOfHousehold: true,
+        actions: true
+      };
+    }
+    return defaultColumns;
   });
 
   // Save column visibility to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('garbageFeesColumnsVisibility', JSON.stringify(visibleColumns));
+    // Ensure essential columns are always visible before saving
+    const columnsToSave = {
+      ...visibleColumns,
+      householdId: true,
+      headOfHousehold: true,
+      actions: true
+    };
+    localStorage.setItem('garbageFeesColumnsVisibility', JSON.stringify(columnsToSave));
   }, [visibleColumns]);
 
   // Get user info from localStorage
