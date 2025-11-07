@@ -231,6 +231,7 @@ export default function AdminUserManagement() {
     setEditOpen(true);
     editForm.setFieldsValue({
       fullName: record.fullName,
+      username: record.username,
       role: record.role,
       isActive: record.isActive,
       isVerified: record.isVerified,
@@ -252,6 +253,8 @@ export default function AdminUserManagement() {
         headers: authHeaders,
         body: JSON.stringify({
           fullName: values.fullName,
+          username: values.username,
+          password: values.password, // Only included if provided
           role: values.role,
           isActive: values.isActive,
           isVerified: values.isVerified,
@@ -743,6 +746,22 @@ export default function AdminUserManagement() {
               rules={[{ required: true, message: "Full name is required" }]}
             >
               <Input disabled />
+            </Form.Item>
+
+            <Form.Item
+              name="username"
+              label="Username"
+              rules={[{ required: true, message: "Username is required" }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="password"
+              label="Password"
+              rules={[{ min: 6, message: "Password must be at least 6 characters" }]}
+            >
+              <Input.Password placeholder="Leave blank to keep current password" />
             </Form.Item>
 
             <Form.Item
