@@ -30,11 +30,44 @@ export default function ResidentDashboard() {
   const residentData = Object.keys(userData).length > 0 ? userData : userProfile;
   const username = residentData.username || localStorage.getItem("username") || "Resident";
 
+  // Utility function to safely format dates
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "Not available";
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? "Not available" : date.toLocaleDateString();
+  };
+
+  // Fetch resident profile from API
+  const fetchResidentProfile = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.log("No token found, using localStorage data");
+        setResident(residentData);
+        return;
+      }
+
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("Fetched resident profile from API:", res.data);
+      setResident(res.data);
+    } catch (error) {
+      console.error("Error fetching resident profile:", error);
+      // Fallback to localStorage data
+      console.log("Falling back to localStorage data");
+      setResident(residentData);
+    }
+  };
+
   useEffect(() => {
     // Fetch requests and resident info on component mount
     fetchRequests();
     checkPaymentStatus();
     fetchRealPayments(); // Fetch real payment data instead of mock data
+    fetchResidentProfile(); // Fetch full resident profile from API
     // Get resident info from localStorage
     console.log("=== DASHBOARD DEBUG ===");
     console.log("userData from localStorage:", localStorage.getItem("userData"));
@@ -43,7 +76,6 @@ export default function ResidentDashboard() {
     console.log("token from localStorage:", localStorage.getItem("token"));
     console.log("Using residentData:", residentData);
     console.log("========================");
-    setResident(residentData);
   }, []);
 
   // Auto-refresh payment data when user returns to the page
@@ -530,7 +562,9 @@ export default function ResidentDashboard() {
                   <CalendarOutlined className="text-blue-600 text-sm" />
                   <div>
                     <p className="text-xs text-slate-500">Since</p>
-                    <p className="text-sm font-medium text-slate-800">{new Date(resident?.createdAt).toLocaleDateString() || "N/A"}</p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {formatDate(resident?.createdAt)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -545,9 +579,10 @@ export default function ResidentDashboard() {
             <CardDescription>Manage your document requests and track barangay fee payments</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Section Headers Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4">
-              <div className="md:col-span-2 flex flex-row items-center justify-between">
+            {/* Use flexbox with order for mobile, grid for desktop */}
+            <div className="flex flex-col md:grid md:grid-cols-4 gap-4">
+              {/* Document Requests Header */}
+              <div className="md:col-span-2 flex flex-row items-center justify-between order-1 pb-2 md:pb-4">
                 <h3 className="text-md font-semibold text-slate-800 flex items-center">
                   <FileTextOutlined className="mr-2 text-blue-600" /> Document Requests
                 </h3>
@@ -560,7 +595,9 @@ export default function ResidentDashboard() {
                   Make New Request
                 </Button>
               </div>
-              <div className="md:col-span-2 flex flex-row items-center justify-between">
+              
+              {/* Barangay Fee Summary Header - moved after cards on mobile */}
+              <div className="md:col-span-2 flex flex-row items-center justify-between order-5 md:order-2 pb-2 md:pb-4">
                 <h3 className="text-md font-semibold text-slate-800 flex items-center">
                   <DollarOutlined className="mr-2 text-amber-600" /> Barangay Fee Summary
                 </h3>
@@ -584,37 +621,34 @@ export default function ResidentDashboard() {
                   </Button>
                 </div>
               </div>
-            </div>
-            
-            {/* Cards Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              
               {/* All Requests Card */}
-              <Card className="w-full border border-blue-200 bg-blue-50">
-                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+              <Card className="w-full border border-blue-200 bg-blue-50 order-2 md:order-3">
+                <CardContent className="space-y-3 px-3 py-3 md:px-4 md:py-5 sm:px-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-700">All Requests</p>
-                      <p className="text-2xl font-bold text-blue-900 mt-1">{totalRequests}</p>
-                      <p className="text-xs text-blue-600 mt-1">Document requests made</p>
+                    <div className="flex-1">
+                      <p className="text-xs md:text-sm font-medium text-blue-700">All Requests</p>
+                      <p className="text-xl md:text-2xl font-bold text-blue-900 mt-0.5 md:mt-1">{totalRequests}</p>
+                      <p className="text-[10px] md:text-xs text-blue-600 mt-0.5 md:mt-1">Document requests made</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <FileTextOutlined className="text-blue-600" style={{ fontSize: '24px' }} />
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <FileTextOutlined className="text-blue-600 text-lg md:text-2xl" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* New Request Card */}
-              <Card className="w-full border border-emerald-200 bg-emerald-50">
-                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+              <Card className="w-full border border-emerald-200 bg-emerald-50 order-3 md:order-4">
+                <CardContent className="space-y-2 md:space-y-3 px-3 py-3 md:px-4 md:py-5 sm:px-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-emerald-700">New Request</p>
-                      <p className="text-lg font-bold text-emerald-900 mt-1">Request Document</p>
-                      <p className="text-xs text-emerald-600 mt-1">Apply for barangay documents</p>
+                    <div className="flex-1">
+                      <p className="text-xs md:text-sm font-medium text-emerald-700">New Request</p>
+                      <p className="text-base md:text-lg font-bold text-emerald-900 mt-0.5 md:mt-1">Request Document</p>
+                      <p className="text-[10px] md:text-xs text-emerald-600 mt-0.5 md:mt-1">Apply for barangay documents</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <FileTextOutlined className="text-emerald-600" style={{ fontSize: '24px' }} />
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <FileTextOutlined className="text-emerald-600 text-lg md:text-2xl" />
                     </div>
                   </div>
                   <div className="flex justify-end">
@@ -630,7 +664,7 @@ export default function ResidentDashboard() {
                         }
                       }}
                       disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
-                      className={`${
+                      className={`text-xs md:text-sm ${
                         paymentStatus?.canRequestDocuments !== false 
                           ? "bg-emerald-600 hover:bg-emerald-700 border-emerald-600" 
                           : "bg-slate-400 hover:bg-slate-500"
@@ -643,32 +677,32 @@ export default function ResidentDashboard() {
               </Card>
 
               {/* Monthly Balance Due Card */}
-              <Card className="w-full border border-amber-200 bg-amber-50">
-                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+              <Card className="w-full border border-amber-200 bg-amber-50 order-6 md:order-5">
+                <CardContent className="space-y-3 px-3 py-3 md:px-4 md:py-5 sm:px-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-amber-700">Monthly Balance Due</p>
-                      <p className="text-2xl font-bold text-amber-900 mt-1">₱{totalMonthlyDue.toFixed(2)}</p>
-                      <p className="text-xs text-amber-600 mt-1">Current month only</p>
+                    <div className="flex-1">
+                      <p className="text-xs md:text-sm font-medium text-amber-700">Monthly Balance Due</p>
+                      <p className="text-xl md:text-2xl font-bold text-amber-900 mt-0.5 md:mt-1">₱{totalMonthlyDue.toFixed(2)}</p>
+                      <p className="text-[10px] md:text-xs text-amber-600 mt-0.5 md:mt-1">Current month only</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
-                      <DollarOutlined className="text-amber-600" style={{ fontSize: '24px' }} />
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                      <DollarOutlined className="text-amber-600 text-lg md:text-2xl" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Yearly Balance Due Card */}
-              <Card className="w-full border border-red-200 bg-red-50">
-                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
+              <Card className="w-full border border-red-200 bg-red-50 order-7 md:order-6">
+                <CardContent className="space-y-3 px-3 py-3 md:px-4 md:py-5 sm:px-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-red-700">Yearly Balance Due</p>
-                      <p className="text-2xl font-bold text-red-900 mt-1">₱{totalYearlyDue.toFixed(2)}</p>
-                      <p className="text-xs text-red-600 mt-1">Outstanding for {new Date().getFullYear()}</p>
+                    <div className="flex-1">
+                      <p className="text-xs md:text-sm font-medium text-red-700">Yearly Balance Due</p>
+                      <p className="text-xl md:text-2xl font-bold text-red-900 mt-0.5 md:mt-1">₱{totalYearlyDue.toFixed(2)}</p>
+                      <p className="text-[10px] md:text-xs text-red-600 mt-0.5 md:mt-1">Outstanding for {new Date().getFullYear()}</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-                      <CalendarOutlined className="text-red-600" style={{ fontSize: '24px' }} />
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <CalendarOutlined className="text-red-600 text-lg md:text-2xl" />
                     </div>
                   </div>
                 </CardContent>
@@ -741,7 +775,7 @@ export default function ResidentDashboard() {
                             : request.purpose || 'Not specified'}
                         </p>
                         <p className="text-xs text-slate-500">
-                          Requested on {new Date(request.requestedAt).toLocaleDateString()}
+                          Requested on {formatDate(request.requestedAt)}
                         </p>
                       </div>
                       <div className="mt-4 flex justify-between items-center">

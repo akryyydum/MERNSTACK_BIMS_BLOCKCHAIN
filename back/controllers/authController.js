@@ -168,14 +168,25 @@ async function login(req, res) {
     
     if (user.role === 'resident') {
       // Check if resident info exists and is verified
-      const resident = await require('../models/resident.model').findOne({ user: user._id });
-      if (!resident || resident.status !== 'verified') {
+      const resident = await Resident.findOne({ user: user._id });
+      const residentStatus = resident?.status || 'pending';
+      
+      console.log('[AUTH] Resident check:', { 
+        hasResident: !!resident, 
+        status: residentStatus,
+        residentId: resident?._id
+      });
+      
+      // User is only verified if resident exists AND status is 'verified'
+      if (!resident || residentStatus !== 'verified') {
         isVerified = false;
       }
+      
       if (resident) {
         userData.firstName = resident.firstName;
         userData.lastName = resident.lastName;
         userData.residentId = resident._id; // Add resident ID as well
+        userData.residentStatus = residentStatus; // Include status in userData
         tokenPayload.residentId = resident._id; // Include residentId in token
       }
     } else {
@@ -187,7 +198,11 @@ async function login(req, res) {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
-    console.log('[AUTH] Login success', { userId: user._id.toString(), role: user.role });
+    console.log('[AUTH] Login response:', { 
+      userId: user._id.toString(), 
+      role: user.role, 
+      isVerified 
+    });
     res.json({ token, role: user.role, isVerified, userData });
   } catch (err) {
     console.error('[AUTH] Login error', err);

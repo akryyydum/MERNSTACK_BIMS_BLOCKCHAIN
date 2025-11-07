@@ -840,7 +840,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Tables Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -858,32 +858,6 @@ export default function AdminDashboard() {
                     columns={docRequestColumns} 
                     dataSource={docRequestData} 
                     rowKey="key" 
-                    className="text-xs md:text-sm" 
-                    scroll={{ x: 'max-content' }}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
-                <FileProtectOutlined /> Recent Complaints
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              {loading ? (
-                <div className="flex items-center justify-center h-32"><Spin /></div>
-              ) : (
-                <div className="min-w-full">
-                  <Table 
-                    size="small" 
-                    pagination={false} 
-                    columns={complaintColumns} 
-                    dataSource={complaintData} 
-                    rowKey="key" 
-                    locale={{ emptyText: 'No complaints' }} 
                     className="text-xs md:text-sm" 
                     scroll={{ x: 'max-content' }}
                   />
