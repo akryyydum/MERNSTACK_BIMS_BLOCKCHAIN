@@ -435,6 +435,7 @@ export default function AdminReportsComplaints() {
                 pageSize: pageSize,
                 total: filteredComplaints.length,
                 showSizeChanger: true,
+                showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} reports/complaints`,
                 pageSizeOptions: ['10', '20', '50', '100'],
               }}
