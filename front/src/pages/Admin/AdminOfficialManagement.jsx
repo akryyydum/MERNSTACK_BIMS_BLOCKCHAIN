@@ -18,6 +18,28 @@ import { UserOutlined } from "@ant-design/icons";
 
 const API_URL = "/api/admin/officials";
 
+// Position limits configuration
+const POSITION_LIMITS = {
+  // Single positions (limit 1)
+  "Barangay Captain": 1,
+  "Barangay IPMR": 1,
+  "Barangay Secretary": 1,
+  "Barangay Treasurer": 1,
+  "SK Chairman": 1,
+  "Admin Assistant": 1,
+  "Barangay Nutrition Scholar": 1,
+  "Day Care Worker": 1,
+  "Chief Tanod": 1,
+  "SWM Driver": 1,
+  
+  // Multiple positions
+  "Barangay Kagawad": 7,
+  "Barangay Health Worker": 5,
+  "Barangay Utility Worker": 2,
+  "Barangay Tanod": 9,
+  "Garbage Collector": 3,
+};
+
 export default function AdminOfficialManagement() {
   const [officials, setOfficials] = useState([]);
   const [residents, setResidents] = useState([]);
@@ -87,6 +109,34 @@ export default function AdminOfficialManagement() {
   const totalOfficials = officials.length;
   const activeOfficials = officials.filter(o => o.isActive).length;
   const inactiveOfficials = totalOfficials - activeOfficials;
+
+  // Position validation function
+  const validatePositionLimit = (position, excludeOfficialId = null) => {
+    const maxAllowed = POSITION_LIMITS[position];
+    if (!maxAllowed) {
+      return { isValid: false, message: "Invalid position selected" };
+    }
+
+    // Count current officials in this position (excluding the one being edited if applicable)
+    const currentCount = officials.filter(official => 
+      official.position === position && 
+      official.isActive && 
+      official._id !== excludeOfficialId
+    ).length;
+
+    const isValid = currentCount < maxAllowed;
+    const remaining = maxAllowed - currentCount;
+
+    return {
+      isValid,
+      currentCount,
+      maxAllowed,
+      remaining,
+      message: isValid 
+        ? `${remaining} slot(s) remaining for ${position}`
+        : `Position limit reached. Maximum ${maxAllowed} ${position}${maxAllowed > 1 ? 's' : ''} allowed (currently ${currentCount})`
+    };
+  };
 
   // Columns
   const columns = [
@@ -411,24 +461,49 @@ export default function AdminOfficialManagement() {
             <Form.Item
               name="position"
               label="Position"
-              rules={[{ required: true, message: "Position is required" }]}
+              rules={[
+                { required: true, message: "Position is required" },
+                {
+                  validator: async (_, value) => {
+                    if (value) {
+                      const validation = validatePositionLimit(value);
+                      if (!validation.isValid) {
+                        throw new Error(validation.message);
+                      }
+                    }
+                  }
+                }
+              ]}
             >
-              <Select placeholder="Select a position">
-                <Select.Option value="Barangay Captain">Barangay Captain</Select.Option>
-                <Select.Option value="Barangay Kagawad">Barangay Kagawad</Select.Option>
-                <Select.Option value="Barangay IPMR">Barangay IPMR</Select.Option>
-                <Select.Option value="Barangay Secretary">Barangay Secretary</Select.Option>
-                <Select.Option value="Barangay Treasurer">Barangay Treasurer</Select.Option>
-                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
-                <Select.Option value="Admin Assistant">Admin Assistant</Select.Option>
-                <Select.Option value="Barangay Nutrition Scholar">Barangay Nutrition Scholar</Select.Option>
-                <Select.Option value="Day Care Worker">Day Care Worker</Select.Option>
-                <Select.Option value="Barangay Health Worker">Barangay Health Worker</Select.Option>
-                <Select.Option value="Barangay Utility Worker">Barangay Utility Worker</Select.Option>
-                <Select.Option value="Barangay Chief Tanod">Barangay Chief Tanod</Select.Option>
-                <Select.Option value="Barangay Tanod">Barangay Tanod</Select.Option>
-                <Select.Option value="SWM Driver">SWM Driver</Select.Option>
-                <Select.Option value="Garbage Collector">Garbage Collector</Select.Option>
+              <Select 
+                placeholder="Select a position"
+                onChange={(value) => {
+                  const validation = validatePositionLimit(value);
+                  if (!validation.isValid) {
+                    message.warning(validation.message);
+                  } else if (validation.remaining <= 2) {
+                    message.info(validation.message);
+                  }
+                }}
+              >
+                {Object.keys(POSITION_LIMITS).map(position => {
+                  const validation = validatePositionLimit(position);
+                  return (
+                    <Select.Option 
+                      key={position}
+                      value={position} 
+                      disabled={!validation.isValid}
+                      title={!validation.isValid ? validation.message : `${validation.remaining} slot(s) available`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>{position}</span>
+                        <span className={`text-xs ${validation.isValid ? 'text-green-600' : 'text-red-600'}`}>
+                          ({validation.currentCount}/{validation.maxAllowed})
+                        </span>
+                      </div>
+                    </Select.Option>
+                  );
+                })}
               </Select>
             </Form.Item>
             <Form.Item
@@ -484,22 +559,52 @@ export default function AdminOfficialManagement() {
             <Form.Item name="fullName" label="Full Name" rules={[{ required: true }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="position" label="Position" rules={[{ required: true }]}>
-              <Select placeholder="Select a position">
-                <Select.Option value="Barangay Captain">Barangay Captain</Select.Option>
-                <Select.Option value="Barangay Kagawad">Barangay Kagawad</Select.Option>
-                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
-                <Select.Option value="Barangay Secretary">Barangay Secretary</Select.Option>
-                <Select.Option value="Barangay Treasurer">Barangay Treasurer</Select.Option>
-                <Select.Option value="Admin Assistant">Admin Assistant</Select.Option>
-                <Select.Option value="Barangay Nutrition Scholar">Barangay Nutrition Scholar</Select.Option>
-                <Select.Option value="Day Care Worker">Day Care Worker</Select.Option>
-                <Select.Option value="Barangay Health Worker">Barangay Health Worker</Select.Option>
-                <Select.Option value="Barangay Utility Worker">Barangay Utility Worker</Select.Option>
-                <Select.Option value="Barangay Chief Tanod">Barangay Chief Tanod</Select.Option>
-                <Select.Option value="Barangay Tanod">Barangay Tanod</Select.Option>
-                <Select.Option value="SWM Driver">SWM Driver</Select.Option>
-                <Select.Option value="Garbage Collector">Garbage Collector</Select.Option>
+            <Form.Item 
+              name="position" 
+              label="Position" 
+              rules={[
+                { required: true, message: "Position is required" },
+                {
+                  validator: async (_, value) => {
+                    if (value) {
+                      const validation = validatePositionLimit(value, selectedOfficial?._id);
+                      if (!validation.isValid) {
+                        throw new Error(validation.message);
+                      }
+                    }
+                  }
+                }
+              ]}
+            >
+              <Select 
+                placeholder="Select a position"
+                onChange={(value) => {
+                  const validation = validatePositionLimit(value, selectedOfficial?._id);
+                  if (!validation.isValid) {
+                    message.warning(validation.message);
+                  } else if (validation.remaining <= 2) {
+                    message.info(validation.message);
+                  }
+                }}
+              >
+                {Object.keys(POSITION_LIMITS).map(position => {
+                  const validation = validatePositionLimit(position, selectedOfficial?._id);
+                  return (
+                    <Select.Option 
+                      key={position}
+                      value={position} 
+                      disabled={!validation.isValid}
+                      title={!validation.isValid ? validation.message : `${validation.remaining} slot(s) available`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>{position}</span>
+                        <span className={`text-xs ${validation.isValid ? 'text-green-600' : 'text-red-600'}`}>
+                          ({validation.currentCount}/{validation.maxAllowed})
+                        </span>
+                      </div>
+                    </Select.Option>
+                  );
+                })}
               </Select>
             </Form.Item>
             <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
