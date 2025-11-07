@@ -138,6 +138,81 @@ export default function AdminOfficialManagement() {
     };
   };
 
+  // Filter residents that are not already officials
+  const getAvailableResidents = () => {
+    console.log("=== FILTERING DEBUG START ===");
+    console.log("Total officials:", officials.length);
+    console.log("Total residents:", residents.length);
+    
+    // Method 1: Get all official names for comparison (normalize for matching)
+    const officialNames = officials.map(official => {
+      const name = official.fullName?.toLowerCase().replace(/\s+/g, ' ').trim() || '';
+      console.log(`Official: "${official.fullName}" -> normalized: "${name}"`);
+      return name;
+    }).filter(name => name.length > 0);
+    
+    // Method 2: Get residents who have user accounts linked to current officials
+    const currentOfficialUserIds = officials.map(official => official._id);
+    const residentsWithOfficialAccounts = residents.filter(resident => {
+      if (!resident.user) return false;
+      
+      // Handle both cases: user field as ID string or populated object
+      const userId = typeof resident.user === 'string' ? resident.user : resident.user._id;
+      const isLinkedToOfficial = currentOfficialUserIds.includes(userId);
+      
+      if (isLinkedToOfficial) {
+        console.log(`Resident "${resident.fullName || `${resident.firstName} ${resident.lastName}`}" has user account linked to official (${userId})`);
+      }
+      
+      return isLinkedToOfficial;
+    });
+    
+    // Method 3: Check if any official has a residentId that matches
+    const officialResidentIds = officials
+      .map(official => official.residentId)
+      .filter(Boolean);
+    
+    console.log("Current official names:", officialNames);
+    console.log("Current official user IDs:", currentOfficialUserIds);
+    console.log("Residents with official accounts:", residentsWithOfficialAccounts.map(r => r.fullName || `${r.firstName} ${r.lastName}`));
+    console.log("Official resident IDs:", officialResidentIds);
+    
+    // Filter out residents using all methods
+    const availableResidents = residents.filter(resident => {
+      const residentFullName = resident.fullName || 
+        `${resident.firstName || ''} ${resident.middleName || ''} ${resident.lastName || ''}`.replace(/\s+/g, ' ').trim();
+      const residentName = residentFullName.toLowerCase().replace(/\s+/g, ' ').trim();
+      
+      // Method 1: Exclude if name matches an official
+      const isAlreadyOfficialByName = officialNames.includes(residentName);
+      
+      // Method 2: Exclude if resident has a user account that's an official
+      let isAlreadyOfficialByAccount = false;
+      if (resident.user) {
+        const userId = typeof resident.user === 'string' ? resident.user : resident.user._id;
+        isAlreadyOfficialByAccount = currentOfficialUserIds.includes(userId);
+      }
+      
+      // Method 3: Exclude if resident ID is linked to an official
+      const isAlreadyOfficialByResidentId = officialResidentIds.includes(resident._id);
+      
+      const shouldExclude = isAlreadyOfficialByName || isAlreadyOfficialByAccount || isAlreadyOfficialByResidentId;
+      
+      if (shouldExclude) {
+        console.log(`❌ Excluding: "${residentFullName}" | Name match: ${isAlreadyOfficialByName} | Account match: ${isAlreadyOfficialByAccount} | ResidentId match: ${isAlreadyOfficialByResidentId}`);
+      } else {
+        console.log(`✅ Including: "${residentFullName}"`);
+      }
+      
+      return !shouldExclude;
+    });
+    
+    console.log(`RESULT: Available residents: ${availableResidents.length}/${residents.length}`);
+    console.log("=== FILTERING DEBUG END ===");
+    
+    return availableResidents;
+  };
+
   // Columns
   const columns = [
     { 
@@ -214,26 +289,58 @@ export default function AdminOfficialManagement() {
       setCreating(true);
       const values = await addForm.validateFields();
       console.log("Form values:", values);
+      console.log("Selected resident:", selectedResident);
+      
+      // Additional validation logging
+      if (!values.residentId) {
+        throw new Error("No resident selected");
+      }
+      if (!values.position) {
+        throw new Error("No position selected");
+      }
+      
+      // Log contact information status
+      console.log("Email value:", values.email || "(empty)");
+      console.log("Mobile value:", values.mobile || "(empty)");
+      console.log("Will submit with empty contact info:", !values.email && !values.mobile);
       
       const token = localStorage.getItem("token");
+      
+      // Ensure empty strings for missing contact info
+      const submitData = {
+        ...values,
+        email: values.email?.trim() || '',
+        mobile: values.mobile?.trim() || ''
+      };
+      
+      console.log("Data being submitted:", submitData);
+      
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...values })
+        body: JSON.stringify(submitData)
       });
       
       const responseData = await res.json();
       console.log("Server response:", responseData);
       
       if (!res.ok) {
-        throw new Error(responseData.message || "Failed to add official");
+        console.error("Server error details:", {
+          status: res.status,
+          statusText: res.statusText,
+          response: responseData
+        });
+        throw new Error(responseData.message || `Server error: ${res.status} ${res.statusText}`);
       }
       
       message.success("Official added!");
       setAddOpen(false); 
       addForm.resetFields(); 
       setSelectedResident(null);
-      fetchOfficials();
+      
+      // Refresh data and wait for it to complete
+      await fetchOfficials();
+      await fetchResidents();
     } catch (err) { 
       console.error("Error adding official:", err);
       message.error(err?.message || "Failed to add official"); 
@@ -277,7 +384,11 @@ export default function AdminOfficialManagement() {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_URL}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Failed to delete official");
-      message.success("Official deleted!"); fetchOfficials();
+      message.success("Official deleted!"); 
+      
+      // Refresh data and wait for completion
+      await fetchOfficials();
+      await fetchResidents();
     } catch (err) { message.error(err?.message || "Failed to delete official"); }
   };
 
@@ -345,9 +456,21 @@ export default function AdminOfficialManagement() {
               enterButton
               className="min-w-[180px] max-w-xs"
             />
-            <Button type="primary" onClick={() => setAddOpen(true)}>
-              Add Official
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button 
+                type="primary" 
+                onClick={() => setAddOpen(true)}
+                disabled={getAvailableResidents().length === 0}
+                title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
+              >
+                Add Official
+              </Button>
+              {getAvailableResidents().length === 0 && (
+                <span className="text-xs text-gray-500">
+                  All residents are already officials
+                </span>
+              )}
+            </div>
           </div>
           <div className="overflow-x-auto">
             {isMobile ? (
@@ -434,9 +557,35 @@ export default function AdminOfficialManagement() {
                 placeholder="Select a resident"
                 showSearch
                 optionFilterProp="children"
+                notFoundContent={getAvailableResidents().length === 0 ? "All residents are already officials" : "No residents found"}
+                disabled={getAvailableResidents().length === 0}
+                dropdownRender={(menu) => (
+                  <div>
+                    <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Available Residents</span>
+                      <span className="text-xs text-gray-500 font-medium">
+                        {getAvailableResidents().length} available
+                      </span>
+                    </div>
+                    {menu}
+                  </div>
+                )}
                 onDropdownVisibleChange={(open) => {
                   if (open) {
-                    console.log("Dropdown opened, residents available:", residents);
+                    console.log("=== DROPDOWN DEBUG ===");
+                    console.log("Officials in table:");
+                    officials.forEach((official, i) => {
+                      console.log(`  ${i+1}. ${official.fullName} (ID: ${official._id})`);
+                    });
+                    
+                    console.log("\nAll residents:");
+                    residents.forEach((resident, i) => {
+                      const residentName = resident.fullName || `${resident.firstName} ${resident.middleName || ''} ${resident.lastName}`.replace(/\s+/g, ' ').trim();
+                      console.log(`  ${i+1}. ${residentName} (ID: ${resident._id})`);
+                    });
+                    
+                    const available = getAvailableResidents();
+                    console.log("\nFiltering complete!");
                   }
                 }}
                 onChange={(value) => {
@@ -444,18 +593,34 @@ export default function AdminOfficialManagement() {
                   console.log("Selected resident:", resident);
                   if (resident) {
                     setSelectedResident(resident);
+                    const email = resident.contact?.email || '';
+                    const mobile = resident.contact?.mobile || '';
+                    
                     addForm.setFieldsValue({
-                      email: resident.contact?.email || '',
-                      mobile: resident.contact?.mobile || ''
+                      email: email,
+                      mobile: mobile
                     });
+
+                    // Alert if resident doesn't have contact info
+                    if (!email && !mobile) {
+                      message.warning("This resident has no email or mobile number on file. You can add them as an official and update contact information later.");
+                    } else if (!email) {
+                      message.info("This resident has no email on file. You can update it after adding as an official.");
+                    } else if (!mobile) {
+                      message.info("This resident has no mobile number on file. You can update it after adding as an official.");
+                    }
                   }
                 }}
               >
-                {residents.map(resident => (
-                  <Select.Option key={resident._id} value={resident._id}>
-                    {resident.lastName}, {resident.firstName} {resident.middleName || ''}
-                  </Select.Option>
-                ))}
+                {getAvailableResidents().map(resident => {
+                  const fullName = resident.fullName || 
+                    `${resident.firstName || ''} ${resident.middleName || ''} ${resident.lastName || ''}`.replace(/\s+/g, ' ').trim();
+                  return (
+                    <Select.Option key={resident._id} value={resident._id}>
+                      {fullName}
+                    </Select.Option>
+                  );
+                })}
               </Select>
             </Form.Item>
             <Form.Item
@@ -510,16 +675,21 @@ export default function AdminOfficialManagement() {
               name="email"
               label="Email"
               rules={[
-                { type: "email", message: "Enter a valid email" },
+                { 
+                  type: "email", 
+                  message: "Enter a valid email",
+                  required: false
+                },
               ]}
             >
-              <Input />
+              <Input placeholder="Optional" />
             </Form.Item>
             <Form.Item
               name="mobile"
               label="Mobile"
+              rules={[]}
             >
-              <Input />
+              <Input placeholder="Optional" />
             </Form.Item>
           </Form>
         </Modal>
@@ -607,10 +777,10 @@ export default function AdminOfficialManagement() {
                 })}
               </Select>
             </Form.Item>
-            <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
+            <Form.Item name="email" label="Email" rules={[{ type: "email", message: "Enter a valid email" }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="mobile" label="Mobile" rules={[{ required: true }]}>
+            <Form.Item name="mobile" label="Mobile">
               <Input />
             </Form.Item>
             <Form.Item name="isActive" label="Status" initialValue={true}>
