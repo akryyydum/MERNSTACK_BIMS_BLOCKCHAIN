@@ -104,6 +104,10 @@ export default function AdminResidentManagement() {
   // Selection state for bulk operations
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Import state
   const [importOpen, setImportOpen] = useState(false);
   const [importForm] = Form.useForm();
@@ -160,6 +164,11 @@ export default function AdminResidentManagement() {
     fetchResidents();
   }, []);
 
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   const fetchResidents = async () => {
     setLoading(true);
     try {
@@ -174,6 +183,8 @@ export default function AdminResidentManagement() {
       setResidents(res.data);
       // Clear selection when data refreshes
       setSelectedRowKeys([]);
+      // Reset to first page when data is refreshed
+      setCurrentPage(1);
     } catch (err) {
       console.error("Fetch residents error:", err);
       console.error("Error response:", err.response?.data);
@@ -317,6 +328,12 @@ export default function AdminResidentManagement() {
   const handleClearSelection = () => {
     setSelectedRowKeys([]);
     message.info("Cleared all selections");
+  };
+
+  // Pagination change handler
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
   };
 
   // Verify Resident - REMOVED, moved to AdminUserManagement
@@ -1093,12 +1110,14 @@ export default function AdminResidentManagement() {
                 ],
               }}
               pagination={{
-                pageSize: 10,
-                showSizeChanger: false,
-                showQuickJumper: false,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} | Selected: ${selectedRowKeys.length}`,
-                simple: false,
+                current: currentPage,
+                pageSize: pageSize,
+                total: filteredResidents.length,
+                showSizeChanger: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
+                pageSizeOptions: ['10', '20', '50', '100'],
               }}
+              onChange={handleTableChange}
               scroll={{ x: 1400 }}
             />
           </div>

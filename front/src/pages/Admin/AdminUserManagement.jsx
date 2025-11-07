@@ -12,11 +12,13 @@ export default function AdminUserManagement() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState(undefined);
   const [allUsers, setAllUsers] = useState([]); // Store all users for statistics
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm();
@@ -56,6 +58,8 @@ export default function AdminUserManagement() {
       setUsers(data.items || []);
       setAllUsers(data.items || []);
       setTotal(data.total || (data.items || []).length);
+      // Reset to first page when data is refreshed
+      setCurrentPage(1);
     } catch (err) {
       message.error(err.message || "Failed to load users");
     } finally {
@@ -67,6 +71,11 @@ export default function AdminUserManagement() {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleFilter]);
+
+  // Reset to page 1 when search or role filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, roleFilter]);
 
   const handleRoleChange = async (userId, nextRole) => {
     try {
@@ -135,11 +144,17 @@ export default function AdminUserManagement() {
       if (!res.ok) throw new Error("Failed to delete user");
       message.success("User deleted");
       // adjust page if last item removed
-      if (users.length === 1 && page > 1) setPage(page - 1);
+      if (users.length === 1 && currentPage > 1) setCurrentPage(currentPage - 1);
       else fetchUsers();
     } catch (e) {
       message.error(e.message);
     }
+  };
+
+  // Pagination change handler
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
   };
 
   // Unlinked residents to attach when role === 'resident'
@@ -613,12 +628,14 @@ export default function AdminUserManagement() {
             dataSource={filteredUsers}
             columns={columns}
             pagination={{
-              pageSize: 10,
-              showSizeChanger: false,
-              showQuickJumper: false,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              simple: false,
+              current: currentPage,
+              pageSize: pageSize,
+              total: filteredUsers.length,
+              showSizeChanger: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+              pageSizeOptions: ['10', '20', '50', '100'],
             }}
+            onChange={handleTableChange}
             scroll={{ x: 800 }}
           />
         </div>
