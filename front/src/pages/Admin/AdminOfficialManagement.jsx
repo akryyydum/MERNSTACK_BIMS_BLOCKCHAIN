@@ -416,9 +416,10 @@ export default function AdminOfficialManagement() {
               <Select placeholder="Select a position">
                 <Select.Option value="Barangay Captain">Barangay Captain</Select.Option>
                 <Select.Option value="Barangay Kagawad">Barangay Kagawad</Select.Option>
-                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
+                <Select.Option value="Barangay IPMR">Barangay IPMR</Select.Option>
                 <Select.Option value="Barangay Secretary">Barangay Secretary</Select.Option>
                 <Select.Option value="Barangay Treasurer">Barangay Treasurer</Select.Option>
+                <Select.Option value="SK Chairman">SK Chairman</Select.Option>
                 <Select.Option value="Admin Assistant">Admin Assistant</Select.Option>
                 <Select.Option value="Barangay Nutrition Scholar">Barangay Nutrition Scholar</Select.Option>
                 <Select.Option value="Day Care Worker">Day Care Worker</Select.Option>
