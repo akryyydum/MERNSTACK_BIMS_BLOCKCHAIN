@@ -259,7 +259,13 @@ export default function AdminDocumentRequests() {
   ];
 
   // Filter columns based on visibility
-  const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
+  // Show columns by default unless explicitly set to false; keeps Actions visible even if not in the toggle list
+  const columns = allColumns.filter(col => {
+    const key = col.columnKey;
+    if (key === 'actions') return true; // always show actions
+    const v = visibleColumns[key];
+    return v !== false; // hide only when explicitly false
+  });
 
   const sortedRequests = sortByNewest(requests);
   const filteredRequests = sortedRequests.filter(r =>
