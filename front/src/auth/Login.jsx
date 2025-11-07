@@ -28,6 +28,7 @@ const Login = () => {
   const [initializing, setInitializing] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
+  const [pendingAlert, setPendingAlert] = useState(false); // Add state for pending alert
 
   const stepFieldNames = {
     1: [
@@ -52,24 +53,30 @@ const Login = () => {
 
   const handleSubmit = async (values) => {
     try {
+      setPendingAlert(false); // Reset alert
+      
       // Send the credential as usernameOrEmail to handle both username and email login
       const res = await axios.post(`${API_BASE}/api/auth/login`, {
         usernameOrEmail: values.username,
         password: values.password,
       });
+      
+      console.log('Login response:', res.data); // Debug log
+      
+      // Resident verification check - do this BEFORE storing tokens
+      if (res.data.role === "resident" && res.data.isVerified === false) {
+        setPendingAlert(true); // Show the alert
+        message.error({
+          content: "Your account is pending admin verification. Please wait for approval before accessing the resident dashboard.",
+          duration: 10,
+        });
+        return; // Don't store anything
+      }
+
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("role", res.data.role);
       if (res.data.userData) {
         localStorage.setItem("userData", JSON.stringify(res.data.userData));
-      }
-
-      // Resident verification check
-      if (res.data.role === "resident" && res.data.isVerified === false) {
-        message.warning("Your information is pending admin verification. Please wait for approval before accessing the resident dashboard.");
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
-        localStorage.removeItem("userData");
-        return;
       }
 
       // Role-based redirect
@@ -313,6 +320,20 @@ const Login = () => {
               className="h-30 w-30"
             />
           </div>
+          
+          {/* Pending Verification Alert */}
+          {pendingAlert && (
+            <Alert
+              message="Account Pending Verification"
+              description="Your account is pending admin verification. Please wait for approval before accessing the resident dashboard."
+              type="error"
+              showIcon
+              closable
+              onClose={() => setPendingAlert(false)}
+              className="mb-4"
+            />
+          )}
+          
           <Form layout="vertical" onFinish={handleSubmit}>
             <Form.Item
               label="Username"
