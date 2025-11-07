@@ -135,6 +135,8 @@ exports.update = async (req, res) => {
     const { id } = req.params;
   const { role, isActive, isVerified, fullName, contact, residentStatus } = req.body;
 
+  console.log('Update user request:', { id, body: req.body });
+
   const update = {};
   let unset = {};
     if (typeof isActive === "boolean") update.isActive = isActive;
@@ -171,25 +173,26 @@ exports.update = async (req, res) => {
       }
     }
 
-    if (!Object.keys(update).length) {
-      return res.status(400).json({ message: "No valid fields to update" });
-    }
-
-  const updateOps = {};
-  if (Object.keys(update).length) updateOps.$set = update;
-  if (Object.keys(unset).length) updateOps.$unset = unset;
-  await User.updateOne({ _id: id }, updateOps);
-    
     // Update resident status if provided
     if (residentStatus) {
       if (!['pending', 'verified', 'rejected'].includes(residentStatus)) {
         return res.status(400).json({ message: "Invalid resident status. Must be pending, verified, or rejected" });
       }
       
-      await Resident.updateOne(
+      console.log('Updating resident status to:', residentStatus);
+      const result = await Resident.updateOne(
         { user: id },
         { $set: { status: residentStatus } }
       );
+      console.log('Resident update result:', result);
+    }
+
+    // Only update user if there are fields to update
+    if (Object.keys(update).length > 0 || Object.keys(unset).length > 0) {
+      const updateOps = {};
+      if (Object.keys(update).length) updateOps.$set = update;
+      if (Object.keys(unset).length) updateOps.$unset = unset;
+      await User.updateOne({ _id: id }, updateOps);
     }
     
     res.json({ message: "Updated" });

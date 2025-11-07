@@ -89,12 +89,37 @@ export default function AdminUserManagement() {
         method: "PATCH",
         headers: authHeaders,
         body: JSON.stringify({ 
-          isActive: next,
-          residentStatus: next ? "verified" : "pending"
+          isActive: next
         }),
       });
-      if (!res.ok) throw new Error("Failed to update status");
-      message.success(next ? "User activated and verified!" : "User deactivated and set to pending!");
+      if (!res.ok) throw new Error("Failed to update active status");
+      message.success(next ? "User activated!" : "User deactivated!");
+      fetchUsers();
+    } catch (e) {
+      message.error(e.message);
+    }
+  };
+
+  const handleToggleStatus = async (userId, next) => {
+    try {
+      const payload = { 
+        residentStatus: next ? "verified" : "pending"
+      };
+      console.log('Sending status update:', payload);
+      
+      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: authHeaders,
+        body: JSON.stringify(payload),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Status update error:', errorData);
+        throw new Error(errorData.message || "Failed to update status");
+      }
+      
+      message.success(next ? "User verified!" : "User set to pending!");
       fetchUsers();
     } catch (e) {
       message.error(e.message);
@@ -350,6 +375,35 @@ export default function AdminUserManagement() {
           />
         </div>
       ),
+    },
+    {
+      title: "Status",
+      key: "status",
+      render: (_, r) => {
+        const status = r.residentStatus || 'pending';
+        const isVerified = status === 'verified';
+        return (
+          <div style={{ fontFamily: 'inherit', fontSize: 'inherit' }}>
+            <Switch
+              checked={isVerified}
+              onChange={(next) => handleToggleStatus(r._id, next)}
+              checkedChildren={null}
+              unCheckedChildren={null}
+              className="bg-transparent"
+              style={{ fontFamily: 'inherit' }}
+            />
+          </div>
+        );
+      },
+      filters: [
+        { text: "Verified", value: "verified" },
+        { text: "Pending", value: "pending" },
+      ],
+      onFilter: (value, record) => {
+        const status = record.residentStatus || 'pending';
+        if (value === 'verified') return status === 'verified';
+        return status === 'pending';
+      },
     },
     {
       title: "Actions",

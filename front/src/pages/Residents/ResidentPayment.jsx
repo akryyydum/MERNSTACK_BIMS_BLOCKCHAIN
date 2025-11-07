@@ -687,22 +687,22 @@ export default function ResidentPayment() {
                 items={[
                   {
                     key: 'all',
-                    label: `All (${statusCounts.all})`,
+                    label: `All`,
                     children: null,
                   },
                   {
                     key: 'pending',
-                    label: `Pending (${statusCounts.pending})`,
+                    label: `Pending`,
                     children: null,
                   },
                   {
                     key: 'overdue',
-                    label: `Overdue (${statusCounts.overdue})`,
+                    label: `Overdue`,
                     children: null,
                   },
                   {
                     key: 'paid',
-                    label: `Paid (${statusCounts.paid})`,
+                    label: `Paid`,
                     children: null,
                   },
                 ]}

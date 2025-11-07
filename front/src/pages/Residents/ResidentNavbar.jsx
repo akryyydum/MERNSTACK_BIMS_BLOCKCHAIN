@@ -130,6 +130,80 @@ const ResidentNavbar = () => {
     </Menu>
   );
 
+  const renderMobileMenu = () => (
+    <Menu
+      mode="inline"
+      selectedKeys={[location.pathname]}
+    >
+      <Menu.Item
+        key="/resident/dashboard"
+        icon={<DashboardOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline">
+          Dashboard
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/requests"
+        icon={<FileTextOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/requests" className="no-underline hover:no-underline">
+          My Requests
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/payments"
+        icon={<DollarOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/payments" className="no-underline hover:no-underline">
+          Payments
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/reports-complaints"
+        icon={<CommentOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline">
+          Reports & Complaints
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/public-documents"
+        icon={<FileTextOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+          Public Docs
+        </NavLink>
+      </Menu.Item>
+      <Menu.Divider />
+      <Menu.Item
+        key="/resident/profile"
+        icon={<UserOutlined />}
+        onClick={() => {
+          setMobileMenuOpen(false);
+          navigate('/resident/profile');
+        }}
+      >
+        My Profile
+      </Menu.Item>
+      <Menu.Item
+        key="logout"
+        icon={<LogoutOutlined />}
+        onClick={() => {
+          setMobileMenuOpen(false);
+          handleLogout();
+        }}
+      >
+        Logout
+      </Menu.Item>
+    </Menu>
+  );
+
   return (
     <Header
       style={{
@@ -167,11 +241,11 @@ const ResidentNavbar = () => {
         {renderNavigationMenu()}
       </div>
 
-      <div className="ml-auto md:ml-4">
+      <div className="ml-auto md:ml-4 hidden md:flex">
         <Dropdown menu={{ items: profileMenu }} placement="bottomRight">
           <div className="cursor-pointer flex items-center">
             <Avatar icon={<UserOutlined />} />
-            <span className="ml-2 hidden md:inline">
+            <span className="ml-2">
               {residentName ? `Welcome, ${residentName}!` : 'Welcome, Resident'}
             </span>
           </div>
@@ -186,10 +260,18 @@ const ResidentNavbar = () => {
         closeIcon={<MenuFoldOutlined />}
         bodyStyle={{ padding: 0 }}
       >
-        <div className="px-4 py-3">
-          <span className="text-base font-semibold text-gray-700">Menu</span>
+        <div className="px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <Avatar icon={<UserOutlined />} size="large" />
+            <div className="flex flex-col">
+              <span className="text-base font-semibold text-gray-800">
+                {residentName}
+              </span>
+              <span className="text-xs text-gray-500">Resident</span>
+            </div>
+          </div>
         </div>
-        {renderNavigationMenu('inline')}
+        {renderMobileMenu()}
       </Drawer>
     </Header>
   );
