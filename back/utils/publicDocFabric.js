@@ -5,11 +5,11 @@ const { getContract } = require("./fabricClient");
  */
 exports.submitPublicDocumentToFabric = async (doc) => {
   try {
-    // Connect to chaincode 'documentrequest' and the namespaced contract 'PublicDocumentContract'
+    // Use the 'documentrequest' chaincode and the specific PublicDocumentContract
     const { gateway, contract } = await getContract("documentrequest", "PublicDocumentContract");
 
-    const result = await contract.submitTransaction(
-      "createDocument",
+    const tx = contract.createTransaction("createDocument");
+    const result = await tx.submit(
       doc._id.toString(),
       doc.title,
       doc.description || "",

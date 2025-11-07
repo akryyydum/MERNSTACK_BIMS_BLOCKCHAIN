@@ -14,12 +14,8 @@ export default function AdminBlockchainNetwork() {
   const [loading, setLoading] = useState(false);
   const [lastFetchedAt, setLastFetchedAt] = useState(null);
 
-  // Frontend-only demo data
-  const [publicDocs] = useState(() => ([
-    { id: "PD-001", title: "Barangay Ordinance 2025-01", category: "Ordinance", originalName: "ordinance-2025-01.pdf", size: 245678, visibility: "public", uploadedBy: "Admin", createdAt: new Date().toISOString() },
-    { id: "PD-002", title: "Community Guidelines", category: "Guidelines", originalName: "community-guidelines.pdf", size: 102400, visibility: "public", uploadedBy: "Admin", createdAt: new Date(Date.now()-86400000*3).toISOString() },
-    { id: "PD-003", title: "Barangay Annual Report 2024", category: "Report", originalName: "annual-report-2024.pdf", size: 1048576, visibility: "public", uploadedBy: "Treasurer", createdAt: new Date(Date.now()-86400000*40).toISOString() },
-  ]));
+  // On-chain public documents
+  const [publicDocs, setPublicDocs] = useState([]);
   const [finance, setFinance] = useState([]); // on-chain financial transactions
 
   const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -58,6 +54,25 @@ export default function AdminBlockchainNetwork() {
     }
     setLoading(false);
   };
+  const handlePublicDocsFetch = async () => {
+    if (activeTab !== "publicdocs") return;
+    setLoading(true);
+    try {
+      const res = await axios.get(`${baseURL}/api/admin/public-documents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Expecting { mongoDocs, blockchainDocs, ... }
+      const arr = Array.isArray(res.data)
+        ? res.data
+        : (res.data?.blockchainDocs || []);
+      setPublicDocs(arr);
+      setLastFetchedAt(new Date());
+    } catch (err) {
+      console.error(err);
+      message.error("Failed to load public documents from blockchain.");
+    }
+    setLoading(false);
+  };
   const handleSync = async () => {
     if (activeTab !== "requests") return; // only valid for requests tab
     setLoading(true);
@@ -79,6 +94,8 @@ export default function AdminBlockchainNetwork() {
       handleSearch();
     } else if (activeTab === "finance") {
       handleFinanceFetch();
+    } else if (activeTab === "publicdocs") {
+      handlePublicDocsFetch();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -172,7 +189,7 @@ export default function AdminBlockchainNetwork() {
   ];
 
   const publicDocColumns = [
-    { title: "Doc ID", dataIndex: "id", key: "id", render: (v) => <Space><FolderOpenOutlined />{v}</Space> },
+    { title: "Doc ID", dataIndex: "docId", key: "docId", render: (v) => <Space><FolderOpenOutlined />{v}</Space> },
     { title: "Title", dataIndex: "title", key: "title" },
     { title: "Category", dataIndex: "category", key: "category", render: (v) => <Tag color="purple">{v}</Tag> },
     { title: "File", dataIndex: "originalName", key: "originalName" },
@@ -321,20 +338,21 @@ export default function AdminBlockchainNetwork() {
                 },
                 {
                   key: 'publicdocs',
-                  label: 'Public Documents (Frontend)',
+                  label: 'Public Documents (On-chain)',
                   children: (
                     <>
                       <Table
-                        rowKey={(r) => r.id}
+                        rowKey={(r) => r.docId || r._id || r.id}
+                        loading={loading}
                         dataSource={filteredPublicDocs}
                         columns={publicDocColumns}
                         pagination={{ pageSize: 10 }}
                         scroll={{ x: 800 }}
                       />
-                      {(!filteredPublicDocs || filteredPublicDocs.length === 0) && (
+                      {(!loading && (!filteredPublicDocs || filteredPublicDocs.length === 0)) && (
                         <div className="pt-4 text-sm text-gray-500">
                           <Typography.Text type="secondary">
-                            No public documents to display.
+                            No on-chain public documents found.
                           </Typography.Text>
                         </div>
                       )}
