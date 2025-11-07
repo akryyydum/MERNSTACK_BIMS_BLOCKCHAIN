@@ -1115,7 +1115,7 @@ export default function AdminGarbageFees() {
                 showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total}`,
+                  `${range[0]}-${range[1]} of ${total} Garbage fee payments`,
                 pageSizeOptions: ['10', '20', '50', '100'],
                 defaultPageSize: 10,
                 size: 'default'
