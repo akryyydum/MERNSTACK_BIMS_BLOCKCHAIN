@@ -22,6 +22,7 @@ exports.create = async (req, res) => {
       suffix,
       dateOfBirth,
       birthPlace,
+      sex,
       gender,
       civilStatus,
       religion,
@@ -61,13 +62,16 @@ exports.create = async (req, res) => {
       return res.status(400).json({ message: "Invalid date of birth" });
     }
 
+    // Accept both 'sex' and 'gender' field names for compatibility
+    const sexValue = sex || gender;
+    
     const sanitized = {
       firstName: typeof firstName === "string" ? firstName.trim() : firstName,
       middleName: typeof middleName === "string" ? middleName.trim() : middleName,
       lastName: typeof lastName === "string" ? lastName.trim() : lastName,
       suffix: typeof suffix === "string" ? suffix.trim() : suffix,
       birthPlace: typeof birthPlace === "string" ? birthPlace.trim() : birthPlace,
-      gender: typeof gender === "string" ? gender.trim().toLowerCase() : gender,
+      sex: typeof sexValue === "string" ? sexValue.trim().toLowerCase() : sexValue,
       civilStatus:
         typeof civilStatus === "string" ? civilStatus.trim().toLowerCase() : civilStatus,
       religion: typeof religion === "string" ? religion.trim() : religion,
@@ -85,7 +89,7 @@ exports.create = async (req, res) => {
       !sanitized.lastName ||
       !dob ||
       !sanitized.birthPlace ||
-      !sanitized.gender ||
+      !sanitized.sex ||
       !sanitized.civilStatus ||
       !sanitized.ethnicity ||
       !normalizedAddress?.purok ||
@@ -118,7 +122,7 @@ exports.create = async (req, res) => {
       suffix: sanitized.suffix,
       dateOfBirth: dob,
       birthPlace: sanitized.birthPlace,
-      gender: sanitized.gender,
+      sex: sanitized.sex,
       civilStatus: sanitized.civilStatus,
       religion: sanitized.religion,
       ethnicity: sanitized.ethnicity,
