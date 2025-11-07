@@ -46,26 +46,47 @@ exports.create = async (req, res) => {
       await user.save();
     } else {
       // Create new user account for the resident
-      const exists = await User.findOne({
-        $or: [
+      const emailToCheck = String(email || resident.contact?.email || '').toLowerCase().trim();
+      
+      // Only check for existing email if there's actually an email to check
+      const existsQuery = { username: resident.username };
+      if (emailToCheck && emailToCheck.length > 0) {
+        existsQuery.$or = [
           { username: resident.username },
-          { "contact.email": String(email || resident.contact?.email || '').toLowerCase().trim() },
-        ],
-      });
-      if (exists) return res.status(400).json({ message: "Username or email already exists" });
+          { "contact.email": emailToCheck },
+        ];
+      }
+      
+      const exists = await User.findOne(existsQuery);
+      if (exists) {
+        const conflictField = exists.username === resident.username ? "Username" : "Email";
+        return res.status(400).json({ message: `${conflictField} already exists` });
+      }
 
       // Generate a temporary password (they can change it later)
       const tempPassword = Math.random().toString(36).slice(-8);
       const passwordHash = await bcrypt.hash(tempPassword, 10);
       
+      // Generate username more safely
+      let username = resident.username;
+      if (!username) {
+        if (resident.firstName && resident.lastName) {
+          username = `${resident.firstName}${resident.lastName}`.toLowerCase().replace(/\s/g, '');
+        } else if (resident.fullName) {
+          username = resident.fullName.toLowerCase().replace(/\s/g, '');
+        } else {
+          username = `resident_${resident._id}`;
+        }
+      }
+      
       user = await User.create({
-        username: resident.username || `${resident.firstName}${resident.lastName}`.toLowerCase(),
+        username: username,
         passwordHash,
         role: "official",
-        fullName: resident.fullName,
+        fullName: resident.fullName || `${resident.firstName || ''} ${resident.lastName || ''}`.trim(),
         position: position?.trim(),
         contact: {
-          email: String(email || resident.contact?.email || '').toLowerCase().trim(),
+          email: emailToCheck,
           mobile: mobile || resident.contact?.mobile || '',
         },
         isVerified: true,
@@ -105,10 +126,13 @@ exports.update = async (req, res) => {
     if (typeof isActive === "boolean") update.isActive = isActive;
     if (email !== undefined) update["contact.email"] = String(email).toLowerCase().trim();
     if (mobile !== undefined) update["contact.mobile"] = mobile;
-    if (email) {
+    
+    // Only check for email uniqueness if there's actually an email to check
+    if (email && String(email).trim().length > 0) {
+      const emailToCheck = String(email).toLowerCase().trim();
       const exists = await User.findOne({
         _id: { $ne: id },
-        "contact.email": String(email).toLowerCase().trim(),
+        "contact.email": emailToCheck,
       });
       if (exists) return res.status(400).json({ message: "Email already in use" });
     }
