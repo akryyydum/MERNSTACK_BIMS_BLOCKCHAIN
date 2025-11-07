@@ -121,6 +121,7 @@ export default function AdminResidentManagement() {
       return JSON.parse(saved);
     }
     return {
+      fullName: true,
       sex: true,
       dateOfBirth: true,
       civilStatus: true,
@@ -132,7 +133,8 @@ export default function AdminResidentManagement() {
       occupation: true,
       sectoralInfo: true,
       employmentStatus: true,
-      registeredVoter: true
+      registeredVoter: true,
+      actions: true,
     };
   });
 

@@ -60,11 +60,14 @@ export default function AdminGarbageFees() {
       return JSON.parse(saved);
     }
     return {
+      householdId: true,
+      headOfHousehold: true,
       purok: true,
       business: true,
       currentFee: true,
       paymentStatus: true,
-      balance: true
+      balance: true,
+      actions: true
     };
   });
 

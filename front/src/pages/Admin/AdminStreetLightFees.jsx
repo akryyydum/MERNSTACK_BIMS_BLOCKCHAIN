@@ -60,10 +60,13 @@ export default function AdminStreetLightFees() {
       return JSON.parse(saved);
     }
     return {
+      householdId: true,
+      headOfHousehold: true,
       purok: true,
       monthlyFee: true,
       paymentStatus: true,
-      balance: true
+      balance: true,
+      actions: true,
     };
   });
 
