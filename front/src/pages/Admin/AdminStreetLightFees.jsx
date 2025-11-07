@@ -56,10 +56,7 @@ export default function AdminStreetLightFees() {
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('streetlightFeesColumnsVisibility');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    return {
+    const defaultColumns = {
       householdId: true,
       headOfHousehold: true,
       purok: true,
@@ -68,11 +65,30 @@ export default function AdminStreetLightFees() {
       balance: true,
       actions: true,
     };
+    
+    if (saved) {
+      const parsedSaved = JSON.parse(saved);
+      // Ensure essential columns (householdId, headOfHousehold, actions) are always visible
+      return {
+        ...parsedSaved,
+        householdId: true,
+        headOfHousehold: true,
+        actions: true
+      };
+    }
+    return defaultColumns;
   });
 
   // Save column visibility to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('streetlightFeesColumnsVisibility', JSON.stringify(visibleColumns));
+    // Ensure essential columns are always visible before saving
+    const columnsToSave = {
+      ...visibleColumns,
+      householdId: true,
+      headOfHousehold: true,
+      actions: true
+    };
+    localStorage.setItem('streetlightFeesColumnsVisibility', JSON.stringify(columnsToSave));
   }, [visibleColumns]);
 
   // Get user info from localStorage
@@ -1004,7 +1020,7 @@ export default function AdminStreetLightFees() {
                 showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total}`,
+                  `${range[0]}-${range[1]} of ${total} Streetlight fee payments`,
                 pageSizeOptions: ['10', '20', '50', '100'],
                 defaultPageSize: 10,
                 size: 'default'

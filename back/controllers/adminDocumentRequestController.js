@@ -83,6 +83,38 @@ exports.approve = async (req, res) => {
       // Non-fatal: proceed to respond with the accepted request
     }
 
+    // Mirror to blockchain: set status accepted (fallback create if missing)
+    try {
+      const { gateway, contract } = await getContract();
+      try {
+        await contract.submitTransaction('updateStatus', request._id.toString(), 'accepted');
+      } catch (chainErr) {
+        if (/does not exist/i.test(chainErr.message)) {
+          // attempt to create then update
+          try {
+            await contract.submitTransaction(
+              'createRequest',
+              request._id.toString(),
+              (request.residentId?._id || request.residentId || '').toString(),
+              // requestedBy full name fallback
+              [request.requestedBy?.firstName, request.requestedBy?.lastName].filter(Boolean).join(' ') || 'Unknown',
+              request.documentType || '',
+              request.purpose || '',
+              request.status || 'accepted'
+            );
+            await contract.submitTransaction('updateStatus', request._id.toString(), 'accepted');
+          } catch (createErr) {
+            console.warn('Blockchain create+update (accepted) failed:', createErr.message);
+          }
+        } else {
+          console.warn('Blockchain updateStatus(accepted) failed:', chainErr.message);
+        }
+      }
+      await gateway.disconnect();
+    } catch (fabricErr) {
+      console.warn('Fabric gateway error (approve mirror):', fabricErr.message);
+    }
+
     res.json(request);
   } catch (error) {
     console.error("Error approving document request:", error);
@@ -108,6 +140,35 @@ exports.deny = async (req, res) => {
       return res.status(404).json({ message: "Document request not found" });
     }
 
+    // Mirror decline to blockchain
+    try {
+      const { gateway, contract } = await getContract();
+      try {
+        await contract.submitTransaction('updateStatus', request._id.toString(), 'declined');
+      } catch (chainErr) {
+        if (/does not exist/i.test(chainErr.message)) {
+          try {
+            await contract.submitTransaction(
+              'createRequest',
+              request._id.toString(),
+              (request.residentId?._id || request.residentId || '').toString(),
+              [request.requestedBy?.firstName, request.requestedBy?.lastName].filter(Boolean).join(' ') || 'Unknown',
+              request.documentType || '',
+              request.purpose || '',
+              'declined'
+            );
+          } catch (createErr) {
+            console.warn('Blockchain create(declined) failed:', createErr.message);
+          }
+        } else {
+          console.warn('Blockchain updateStatus(declined) failed:', chainErr.message);
+        }
+      }
+      await gateway.disconnect();
+    } catch (fabricErr) {
+      console.warn('Fabric gateway error (deny mirror):', fabricErr.message);
+    }
+
     res.json(request);
   } catch (error) {
     console.error("Error denying document request:", error);
@@ -124,6 +185,35 @@ exports.delete = async (req, res) => {
 
     if (!request) {
       return res.status(404).json({ message: "Document request not found" });
+    }
+    // Mirror deletion by setting status 'deleted'
+    try {
+      const { gateway, contract } = await getContract();
+      try {
+        await contract.submitTransaction('updateStatus', id.toString(), 'deleted');
+      } catch (chainErr) {
+        if (/does not exist/i.test(chainErr.message)) {
+          // create with deleted status (historic trace)
+          try {
+            await contract.submitTransaction(
+              'createRequest',
+              id.toString(),
+              (request.residentId?._id || request.residentId || '').toString(),
+              [request.requestedBy?.firstName, request.requestedBy?.lastName].filter(Boolean).join(' ') || 'Unknown',
+              request.documentType || '',
+              request.purpose || '',
+              'deleted'
+            );
+          } catch (createErr) {
+            console.warn('Blockchain create(deleted) failed:', createErr.message);
+          }
+        } else {
+          console.warn('Blockchain updateStatus(deleted) failed:', chainErr.message);
+        }
+      }
+      await gateway.disconnect();
+    } catch (fabricErr) {
+      console.warn('Fabric gateway error (delete mirror):', fabricErr.message);
     }
 
     res.json({ message: "Document request deleted successfully" });
@@ -221,6 +311,35 @@ exports.completeRequest = async (req, res) => {
 
     if (!request) {
       return res.status(404).json({ message: "Document request not found" });
+    }
+
+    // Mirror completion on-chain
+    try {
+      const { gateway, contract } = await getContract();
+      try {
+        await contract.submitTransaction('updateStatus', request._id.toString(), 'completed');
+      } catch (chainErr) {
+        if (/does not exist/i.test(chainErr.message)) {
+          try {
+            await contract.submitTransaction(
+              'createRequest',
+              request._id.toString(),
+              (request.residentId?._id || request.residentId || '').toString(),
+              [request.requestedBy?.firstName, request.requestedBy?.lastName].filter(Boolean).join(' ') || 'Unknown',
+              request.documentType || '',
+              request.purpose || '',
+              'completed'
+            );
+          } catch (createErr) {
+            console.warn('Blockchain create(completed) failed:', createErr.message);
+          }
+        } else {
+          console.warn('Blockchain updateStatus(completed) failed:', chainErr.message);
+        }
+      }
+      await gateway.disconnect();
+    } catch (fabricErr) {
+      console.warn('Fabric gateway error (complete mirror):', fabricErr.message);
     }
 
     res.json(request);

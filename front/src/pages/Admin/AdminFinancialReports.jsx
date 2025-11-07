@@ -724,7 +724,7 @@ export default function AdminFinancialReports() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-600">
+                  <div className="text-3xl font-bold text-black">
                     ₱{totalRevenue.toLocaleString()}
                   </div>
                 </CardContent>
@@ -740,7 +740,7 @@ export default function AdminFinancialReports() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-red-600">
+                  <div className="text-3xl font-bold text-black">
                     ₱{totalExpenses.toLocaleString()}
                   </div>
                 </CardContent>
@@ -756,7 +756,7 @@ export default function AdminFinancialReports() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-3xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className="text-3xl font-bold text-black">
                     ₱{netIncome.toLocaleString()}
                   </div>
                 </CardContent>
@@ -772,7 +772,7 @@ export default function AdminFinancialReports() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-yellow-600">
+                  <div className="text-3xl font-bold text-black">
                     ₱{totalAllocations.toLocaleString()}
                   </div>
                 </CardContent>
@@ -901,12 +901,13 @@ export default function AdminFinancialReports() {
                     pageSize: pageSize,
                     total: filteredTransactions.length,
                     showSizeChanger: true,
+                    showQuickJumper: true,
                     showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} transactions | Selected: ${selectedRowKeys.length}`,
                     pageSizeOptions: ['10', '20', '50', '100'],
+                    defaultPageSize: 10,
                   }}
                   onChange={handleTableChange}
                   scroll={{ x: 1400 }}
-                  size="small"
                   rowKey={(record) => record.__rowKey ?? record._id ?? getTransactionKey(record)}
                 />
               </div>

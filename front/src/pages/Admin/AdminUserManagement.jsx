@@ -632,6 +632,7 @@ export default function AdminUserManagement() {
               pageSize: pageSize,
               total: filteredUsers.length,
               showSizeChanger: true,
+              showQuickJumper: true,
               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
               pageSizeOptions: ['10', '20', '50', '100'],
             }}

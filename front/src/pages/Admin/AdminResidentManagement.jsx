@@ -1116,6 +1116,7 @@ export default function AdminResidentManagement() {
                 pageSize: pageSize,
                 total: filteredResidents.length,
                 showSizeChanger: true,
+                showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
               }}
