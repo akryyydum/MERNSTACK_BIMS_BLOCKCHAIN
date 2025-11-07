@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Popconfirm } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 import PizZip from "pizzip";
@@ -10,6 +10,14 @@ import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function AdminDocumentRequests() {
 
@@ -41,6 +49,28 @@ export default function AdminDocumentRequests() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
   const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
+
+  // Column visibility state with localStorage persistence
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem('documentRequestColumnsVisibility');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      civilStatus: true,
+      purok: true,
+      documentType: true,
+      quantity: true,
+      purpose: true,
+      status: true,
+      requestedAt: true,
+    };
+  });
+
+  // Save column visibility to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('documentRequestColumnsVisibility', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const userProfile =JSON.parse(localStorage.getItem("userProfile")) || {};
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
@@ -122,10 +152,11 @@ export default function AdminDocumentRequests() {
     }
   };
 
-  const columns = [
+  const allColumns = [
     {
       title: "Resident",
       key: "resident",
+      columnKey: "resident",
       render: (_, r) =>
         r.residentId
           ? [r.residentId.firstName, r.residentId.middleName, r.residentId.lastName].filter(Boolean).join(" ")
@@ -134,22 +165,26 @@ export default function AdminDocumentRequests() {
     {
       title: "Civil Status",
       key: "civilStatus",
+      columnKey: "civilStatus",
       render: (_, r) => r.residentId?.civilStatus || "-",
     },
     {
       title: "Purok",
       key: "purok",
+      columnKey: "purok",
       render: (_, r) => r.residentId?.address?.purok || "-",
     },
     {
       title: "Document Type",
       dataIndex: "documentType",
       key: "documentType",
+      columnKey: "documentType",
     },
     {
       title: "Qty",
       dataIndex: "quantity",
       key: "quantity",
+      columnKey: "quantity",
       width: 70,
       render: (v) => Number(v || 1)
     },
@@ -157,11 +192,13 @@ export default function AdminDocumentRequests() {
       title: "Purpose",
       dataIndex: "purpose",
       key: "purpose",
+      columnKey: "purpose",
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
+      columnKey: "status",
       render: v => {
         let color = "default";
         if (v === "pending") color = "orange";
@@ -175,6 +212,7 @@ export default function AdminDocumentRequests() {
       title: "Requested At",
       dataIndex: "requestedAt",
       key: "requestedAt",
+      columnKey: "requestedAt",
       render: v => (v ? new Date(v).toLocaleString() : ""),
       sorter: (a, b) =>
         new Date(a.requestedAt || 0) - new Date(b.requestedAt || 0),
@@ -184,6 +222,7 @@ export default function AdminDocumentRequests() {
     {
       title: "Actions",
       key: "actions",
+      columnKey: "actions",
       render: (_, r) => (
         <div className="flex gap-2">
           <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
@@ -218,6 +257,9 @@ export default function AdminDocumentRequests() {
       ),
     }
   ];
+
+  // Filter columns based on visibility
+  const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
   const sortedRequests = sortByNewest(requests);
   const filteredRequests = sortedRequests.filter(r =>
@@ -771,7 +813,7 @@ const handleExport = async () => {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
               <Input.Search
                 allowClear
                 placeholder="Search document requests"
@@ -779,8 +821,101 @@ const handleExport = async () => {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="min-w-[180px] max-w-xs"
+                className="flex-1 sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
               />
+              
+              {/* Customize Columns Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="flex items-center gap-2 whitespace-nowrap">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="7" height="7" x="3" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="14" rx="1" />
+                      <rect width="7" height="7" x="3" y="14" rx="1" />
+                    </svg>
+                    Customize Columns
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-white" onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.civilStatus}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, civilStatus: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Civil Status
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.purok}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, purok: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Purok
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.documentType}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, documentType: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Document Type
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.quantity}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, quantity: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Quantity
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.purpose}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, purpose: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Purpose
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.status}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, status: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Status
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.requestedAt}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, requestedAt: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Requested At
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="primary" onClick={() => setCreateOpen(true)}>

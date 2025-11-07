@@ -3,10 +3,18 @@ import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descrip
 import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined } from "@ant-design/icons";
 import axios from "axios";
 import * as XLSX from 'xlsx';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
@@ -44,6 +52,26 @@ export default function AdminGarbageFees() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
   const [exporting, setExporting] = useState(false);
+
+  // Column visibility state with localStorage persistence
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem('garbageFeesColumnsVisibility');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      purok: true,
+      business: true,
+      currentFee: true,
+      paymentStatus: true,
+      balance: true
+    };
+  });
+
+  // Save column visibility to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('garbageFeesColumnsVisibility', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   // Get user info from localStorage
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -623,15 +651,17 @@ export default function AdminGarbageFees() {
     return membersWithHousehold;
   };
 
-  const columns = [
+  const allColumns = [
     {
       title: "Household ID",
       dataIndex: "householdId",
       key: "householdId",
+      columnKey: "householdId",
     },
     {
       title: "Head of Household",
       key: "headOfHousehold",
+      columnKey: "headOfHousehold",
       render: (_, record) => {
         const head = record.headOfHousehold;
         if (!head) return "Not specified";
@@ -644,6 +674,7 @@ export default function AdminGarbageFees() {
     {
       title: "Purok",
       key: "Purok",
+      columnKey: "purok",
       render: (_, record) => {
         // Remove the word 'Purok' if present, show only the number
         const purok = record.address?.purok || "";
@@ -664,6 +695,7 @@ export default function AdminGarbageFees() {
     {
       title: "Business",
       key: "business",
+      columnKey: "business",
       render: (_, record) => {
         if (record.hasBusiness) {
           return <Tag color="blue">With Business</Tag>;
@@ -675,6 +707,7 @@ export default function AdminGarbageFees() {
     {
       title: "Current Month Fee",
       key: "currentFee",
+      columnKey: "currentFee",
       render: (_, record) => {
         const fee = record.hasBusiness ? 50 : 35;
         return `₱${fee.toFixed(2)}`;
@@ -683,6 +716,7 @@ export default function AdminGarbageFees() {
     {
       title: "Payment Status",
       key: "paymentStatus",
+      columnKey: "paymentStatus",
       render: (_, record) => {
         // Calculate overall payment status for current year
         const defaultFee = record.hasBusiness ? 50 : 35;
@@ -718,6 +752,7 @@ export default function AdminGarbageFees() {
     {
       title: "Balance",
       key: "balance",
+      columnKey: "balance",
       render: (_, record) => {
         // Calculate total unpaid balance for current year
         const defaultFee = record.hasBusiness ? 50 : 35;
@@ -770,6 +805,7 @@ export default function AdminGarbageFees() {
     {
       title: "Actions",
       key: "actions",
+      columnKey: "actions",
       render: (_, r) => {
         // Check if household has any payments
         const hasPayments = garbagePayments.some(payment => 
@@ -803,6 +839,9 @@ export default function AdminGarbageFees() {
       },
     },
   ];
+
+  // Filter columns based on visibility
+  const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
   const filteredHouseholds = households.filter(h =>
     [
@@ -947,13 +986,91 @@ export default function AdminGarbageFees() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <Input.Search
-              placeholder="Search households..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 300 }}
-              allowClear
-            />
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
+              <Input.Search
+                placeholder="Search households..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: 300 }}
+                allowClear
+                className="flex-1 sm:min-w-[280px] md:min-w-[300px]"
+              />
+              
+              {/* Customize Columns Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="flex items-center gap-2 whitespace-nowrap">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="7" height="7" x="3" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="14" rx="1" />
+                      <rect width="7" height="7" x="3" y="14" rx="1" />
+                    </svg>
+                    Customize Columns
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-white" onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.purok}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, purok: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Purok
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.business}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, business: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Business
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.currentFee}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, currentFee: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Current Month Fee
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.paymentStatus}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, paymentStatus: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Payment Status
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.balance}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, balance: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Balance
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button 
                 type="primary" 
