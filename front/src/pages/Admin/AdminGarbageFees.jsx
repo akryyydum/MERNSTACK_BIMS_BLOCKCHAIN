@@ -47,6 +47,7 @@ export default function AdminGarbageFees() {
   // State for multiple month payments
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
+  const [isValidSelection, setIsValidSelection] = useState(true);
   
   // State for cross-payment functionality
   const [streetlightPayOpen, setStreetlightPayOpen] = useState(false);
@@ -54,6 +55,8 @@ export default function AdminGarbageFees() {
   const [streetlightSelectedMonths, setStreetlightSelectedMonths] = useState([]);
   const [streetlightMonthPaymentStatus, setStreetlightMonthPaymentStatus] = useState({});
   const [streetlightPayLoading, setStreetlightPayLoading] = useState(false);
+  const [allStreetlightMonthsPaid, setAllStreetlightMonthsPaid] = useState(false);
+  const [isValidStreetlightSelection, setIsValidStreetlightSelection] = useState(true);
 
   // State for export Excel modal
   const [exportOpen, setExportOpen] = useState(false);
@@ -214,6 +217,69 @@ export default function AdminGarbageFees() {
     return { valid: true };
   };
 
+  // Validate entire month selection for sequential compliance
+  const validateEntireSelection = (selectedMonthsList, paymentStatuses) => {
+    for (const monthKey of selectedMonthsList) {
+      const validation = validateSequentialPayment(monthKey, selectedMonthsList, paymentStatuses);
+      if (!validation.valid) {
+        return validation;
+      }
+    }
+    return { valid: true };
+  };
+
+  // Validate if a month can be unchecked (sequential unchecking rule)
+  const validateSequentialUnchecking = (monthToUncheck, currentSelectedMonths) => {
+    if (currentSelectedMonths.length <= 1) {
+      return { valid: true }; // Can always uncheck if it's the only or last selected month
+    }
+
+    // Sort selected months
+    const sortedSelected = [...currentSelectedMonths].sort();
+    
+    // Find the latest (most recent) selected month
+    const latestSelectedMonth = sortedSelected[sortedSelected.length - 1];
+    
+    // Only allow unchecking if this is the latest selected month
+    if (monthToUncheck !== latestSelectedMonth) {
+      const uncheckMonth = dayjs(`${monthToUncheck}-01`).format("MMMM YYYY");
+      const latestMonth = dayjs(`${latestSelectedMonth}-01`).format("MMMM YYYY");
+      return {
+        valid: false,
+        message: `Must uncheck ${latestMonth} first before unchecking ${uncheckMonth}. Uncheck from most recent to oldest.`
+      };
+    }
+
+    return { valid: true };
+  };
+
+  // SEQUENTIAL UNCHECKING VALIDATION FOR STREETLIGHT
+  const validateStreetlightSequentialUnchecking = (targetMonth, currentSelectedMonths) => {
+    if (currentSelectedMonths.length === 0) {
+      return { valid: true };
+    }
+
+    if (currentSelectedMonths.length === 1 && currentSelectedMonths.includes(targetMonth)) {
+      return { valid: true }; // Can uncheck the only selected month
+    }
+
+    // Find the latest (most recent) selected month
+    const sortedSelectedMonths = [...currentSelectedMonths].sort();
+    const latestSelectedMonth = sortedSelectedMonths[sortedSelectedMonths.length - 1];
+
+    // Only allow unchecking the latest month first
+    if (targetMonth !== latestSelectedMonth) {
+      const latestMonthFormatted = dayjs(latestSelectedMonth, 'YYYY-MM').format('MMMM YYYY');
+      const targetMonthFormatted = dayjs(targetMonth, 'YYYY-MM').format('MMMM YYYY');
+      return {
+        valid: false,
+        message: `Must uncheck ${latestMonthFormatted} first before unchecking ${targetMonthFormatted}. Uncheck from most recent to oldest.`
+      };
+    }
+
+    return { valid: true };
+  };
+
   // Get allowed months that can be selected based on sequential payment rule
   const getAllowedMonths = (paymentStatuses, currentSelectedMonths) => {
     const currentYear = dayjs().year();
@@ -322,6 +388,10 @@ export default function AdminGarbageFees() {
     setPayHousehold(household);
     setPayOpen(true);
     
+    // Check if all streetlight months are paid for this household
+    const allPaid = await checkIfAllStreetlightMonthsPaid(household._id);
+    setAllStreetlightMonthsPaid(allPaid);
+    
     // Fetch payment status for all months in the current year
     const yearlyStatus = await fetchYearlyPaymentStatus(household._id);
     
@@ -351,6 +421,44 @@ export default function AdminGarbageFees() {
       if (!selectedMonths || selectedMonths.length === 0) {
         message.error("Please select at least one month to pay");
         return;
+      }
+
+      // STRICT SEQUENTIAL VALIDATION: Check each selected month against the sequential rule
+      for (const monthKey of selectedMonths) {
+        const validation = validateSequentialPayment(monthKey, selectedMonths, monthPaymentStatus);
+        if (!validation.valid) {
+          message.error(`Sequential Payment Violation: ${validation.message}`);
+          setPayLoading(false);
+          return; // Stop submission completely
+        }
+      }
+
+      // Additional validation: Ensure no gaps exist in the selected months sequence
+      const sortedSelectedMonths = [...selectedMonths].sort();
+      const currentYear = dayjs().year();
+      
+      // Check for gaps in previous months that should be paid first
+      for (let month = 1; month <= 12; month++) {
+        const monthKey = `${currentYear}-${String(month).padStart(2, "0")}`;
+        const monthData = monthPaymentStatus[monthKey];
+        const isMonthPaid = monthData?.isPaid || false;
+        const isMonthSelected = selectedMonths.includes(monthKey);
+        
+        // If this month is not paid and not selected, check if any later months are selected
+        if (!isMonthPaid && !isMonthSelected) {
+          const laterSelectedMonths = selectedMonths.filter(selected => {
+            const selectedMonthNum = parseInt(selected.split('-')[1]);
+            return selectedMonthNum > month;
+          });
+          
+          if (laterSelectedMonths.length > 0) {
+            const unpaidMonth = dayjs(`${monthKey}-01`).format("MMMM YYYY");
+            const laterMonth = dayjs(`${laterSelectedMonths[0]}-01`).format("MMMM YYYY");
+            message.error(`Cannot pay ${laterMonth} when ${unpaidMonth} remains unpaid. Please pay previous months first.`);
+            setPayLoading(false);
+            return;
+          }
+        }
       }
       
       const fee = values.hasBusiness ? 50 : 35;
@@ -480,28 +588,54 @@ export default function AdminGarbageFees() {
     }
   };
 
+  // Helper function to check if all streetlight months are paid
+  const checkIfAllStreetlightMonthsPaid = async (householdId) => {
+    try {
+      const yearlyStatus = await fetchStreetlightYearlyPaymentStatus(householdId);
+      const currentYear = dayjs().year();
+      const allMonths = [];
+      
+      // Generate all months for current year
+      for (let month = 1; month <= 12; month++) {
+        allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+      }
+      
+      // Check if all months are paid
+      return allMonths.every(monthKey => yearlyStatus[monthKey]?.isPaid);
+    } catch (error) {
+      console.error("Error checking streetlight payment status:", error);
+      return false;
+    }
+  };
+
   const proceedToStreetlightPayment = async () => {
     if (!payHousehold) return;
     
-    // Fetch streetlight payment status for all months in the current year
-    const yearlyStatus = await fetchStreetlightYearlyPaymentStatus(payHousehold._id);
+    // Close the garbage payment modal first
+    setPayOpen(false);
     
-    // Find unpaid months and set as initial selection
-    const unpaidMonths = Object.keys(yearlyStatus).filter(month => !yearlyStatus[month].isPaid);
-    const initialMonths = unpaidMonths.slice(0, 1); // Start with current month if unpaid
-    setStreetlightSelectedMonths(initialMonths);
-    
-    // Calculate initial totals
-    const totalCharge = initialMonths.length * 10; // Fixed fee for streetlight
-    
-    streetlightForm.setFieldsValue({
-      selectedMonths: initialMonths,
-      totalCharge: totalCharge,
-      amount: totalCharge,
-      method: "Cash",
-    });
-    
-    setStreetlightPayOpen(true);
+    // Very fast transition, then open streetlight modal
+    setTimeout(async () => {
+      // Fetch streetlight payment status for all months in the current year
+      const yearlyStatus = await fetchStreetlightYearlyPaymentStatus(payHousehold._id);
+      
+      // Find unpaid months and set as initial selection
+      const unpaidMonths = Object.keys(yearlyStatus).filter(month => !yearlyStatus[month].isPaid);
+      const initialMonths = unpaidMonths.slice(0, 1); // Start with current month if unpaid
+      setStreetlightSelectedMonths(initialMonths);
+      
+      // Calculate initial totals
+      const totalCharge = initialMonths.length * 10; // Fixed fee for streetlight
+      
+      streetlightForm.setFieldsValue({
+        selectedMonths: initialMonths,
+        totalCharge: totalCharge,
+        amount: totalCharge,
+        method: "Cash",
+      });
+      
+      setStreetlightPayOpen(true);
+    }, 50); // Super fast 50ms transition
   };
 
   const submitBothPayments = async () => {
@@ -521,6 +655,26 @@ export default function AdminGarbageFees() {
       if (!streetlightSelectedMonths || streetlightSelectedMonths.length === 0) {
         message.error("Please select at least one month for streetlight payment");
         return;
+      }
+
+      // STRICT SEQUENTIAL VALIDATION FOR GARBAGE PAYMENTS
+      for (const monthKey of selectedMonths) {
+        const validation = validateSequentialPayment(monthKey, selectedMonths, monthPaymentStatus);
+        if (!validation.valid) {
+          message.error(`Garbage Payment - Sequential Payment Violation: ${validation.message}`);
+          setStreetlightPayLoading(false);
+          return;
+        }
+      }
+
+      // STRICT SEQUENTIAL VALIDATION FOR STREETLIGHT PAYMENTS  
+      for (const monthKey of streetlightSelectedMonths) {
+        const validation = validateStreetlightSequentialPayment(monthKey, streetlightSelectedMonths, streetlightMonthPaymentStatus);
+        if (!validation.valid) {
+          message.error(`Streetlight Payment - Sequential Payment Violation: ${validation.message}`);
+          setStreetlightPayLoading(false);
+          return;
+        }
       }
 
       console.log("Both payment data:", {
@@ -967,26 +1121,26 @@ export default function AdminGarbageFees() {
       
       console.log('Fresh payment data for export:', freshGarbagePayments);
       
-      const { exportType, selectedMonth } = values;
+      const { exportType, selectedMonth, paymentStatus } = values;
       let exportData = [];
       let filename = '';
       
       if (exportType === 'whole-year') {
         // Export whole year data
-        exportData = await generateYearlyExportData(freshGarbagePayments);
-        filename = `Garbage_Fees_${new Date().getFullYear()}_Complete.xlsx`;
+        exportData = await generateYearlyExportData(freshGarbagePayments, paymentStatus);
+        filename = `Garbage_Fees_${new Date().getFullYear()}_${paymentStatus === 'all' ? 'Complete' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       } else if (exportType === 'chosen-month') {
         // Export chosen month data
         const selectedMonthStr = dayjs(selectedMonth).format('YYYY-MM');
-        exportData = await generateMonthlyExportData(selectedMonthStr, freshGarbagePayments);
+        exportData = await generateMonthlyExportData(selectedMonthStr, freshGarbagePayments, paymentStatus);
         const monthName = dayjs(selectedMonth).format('MMMM_YYYY');
-        filename = `Garbage_Fees_${monthName}.xlsx`;
+        filename = `Garbage_Fees_${monthName}_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       } else if (exportType === 'current-month') {
         // Export current month data
         const currentMonth = dayjs().format('YYYY-MM');
-        exportData = await generateMonthlyExportData(currentMonth, freshGarbagePayments);
+        exportData = await generateMonthlyExportData(currentMonth, freshGarbagePayments, paymentStatus);
         const monthName = dayjs().format('MMMM_YYYY');
-        filename = `Garbage_Fees_${monthName}_Current.xlsx`;
+        filename = `Garbage_Fees_${monthName}_Current_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       }
 
       if (exportData.length === 0) {
@@ -1023,7 +1177,7 @@ export default function AdminGarbageFees() {
     }
   };
 
-  const generateYearlyExportData = async (paymentData) => {
+  const generateYearlyExportData = async (paymentData, paymentStatus = 'all') => {
     const exportData = [];
     const currentYear = new Date().getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => 
@@ -1032,8 +1186,21 @@ export default function AdminGarbageFees() {
 
     console.log('Generating yearly export with payments:', paymentData);
     console.log('Households for export:', households);
+    console.log('Payment status filter:', paymentStatus);
 
     for (const household of households) {
+      // Check if household should be included based on payment status filter
+      const householdPayments = paymentData.filter(p => p.household?.householdId === household.householdId);
+      const hasPaidPayments = householdPayments.some(p => p.amountPaid > 0);
+      const hasUnpaidMonths = months.some(month => {
+        const payment = householdPayments.find(p => p.month === month);
+        return !payment || payment.amountPaid === 0;
+      });
+
+      // Apply payment status filter
+      if (paymentStatus === 'paid' && !hasPaidPayments) continue;
+      if (paymentStatus === 'unpaid' && !hasUnpaidMonths) continue;
+
       const baseData = {
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
@@ -1076,13 +1243,14 @@ export default function AdminGarbageFees() {
     return exportData;
   };
 
-  const generateMonthlyExportData = async (monthStr, paymentData) => {
+  const generateMonthlyExportData = async (monthStr, paymentData, paymentStatus = 'all') => {
     const exportData = [];
     const targetMonth = dayjs(monthStr);
 
     console.log('Generating monthly export for:', monthStr);
     console.log('Payment data:', paymentData);
     console.log('Households:', households);
+    console.log('Payment status filter:', paymentStatus);
 
     for (const household of households) {
       const payment = paymentData.find(p => 
@@ -1096,6 +1264,10 @@ export default function AdminGarbageFees() {
       const paidAmount = payment ? payment.amountPaid : 0;
       const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
       const balance = expectedFee - paidAmount;
+
+      // Apply payment status filter
+      if (paymentStatus === 'paid' && status !== 'Paid') continue;
+      if (paymentStatus === 'unpaid' && status !== 'Unpaid') continue;
 
       // Get the latest payment date from payments array
       let paymentDate = 'Not Paid';
@@ -1894,7 +2066,12 @@ export default function AdminGarbageFees() {
               key="streetlight"
               type="default"
               onClick={proceedToStreetlightPayment}
-              className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700"
+              disabled={allStreetlightMonthsPaid}
+              className={`${allStreetlightMonthsPaid 
+                ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed' 
+                : 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700'
+              }`}
+              title={allStreetlightMonthsPaid ? 'All streetlight months are already paid' : ''}
             >
               Proceed to Streetlight Payment
             </Button>,
@@ -1902,7 +2079,10 @@ export default function AdminGarbageFees() {
               key="submit" 
               type="primary" 
               loading={payLoading}
+              disabled={!isValidSelection || selectedMonths.length === 0}
               onClick={submitPayFee}
+              className={!isValidSelection ? 'opacity-50 cursor-not-allowed' : ''}
+              title={!isValidSelection ? 'Please select months sequentially (no gaps allowed)' : ''}
             >
               Record Garbage Payment
             </Button>
@@ -2028,6 +2208,11 @@ export default function AdminGarbageFees() {
                                 
                                 const newSelectedMonths = [...selectedMonths, monthKey];
                                 setSelectedMonths(newSelectedMonths);
+                                
+                                // Update validation state
+                                const entireSelectionValid = validateEntireSelection(newSelectedMonths, monthPaymentStatus);
+                                setIsValidSelection(entireSelectionValid.valid);
+                                
                                 payForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
                                 // Update total charge calculation
@@ -2036,8 +2221,19 @@ export default function AdminGarbageFees() {
                                 payForm.setFieldValue("totalCharge", totalCharge);
                                 payForm.setFieldValue("amount", totalCharge);
                               } else {
+                                // SEQUENTIAL UNCHECKING VALIDATION
+                                const uncheckValidation = validateSequentialUnchecking(monthKey, selectedMonths);
+                                if (!uncheckValidation.valid) {
+                                  message.error(uncheckValidation.message);
+                                  return; // Prevent unchecking
+                                }
+                                
                                 const newSelectedMonths = selectedMonths.filter(m => m !== monthKey);
                                 setSelectedMonths(newSelectedMonths);
+                                
+                                // Update validation state
+                                const entireSelectionValid = validateEntireSelection(newSelectedMonths, monthPaymentStatus);
+                                setIsValidSelection(entireSelectionValid.valid);
                                 payForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
                                 // Update total charge calculation
@@ -2166,6 +2362,16 @@ export default function AdminGarbageFees() {
               Cancel
             </Button>,
             <Button 
+              key="back" 
+              onClick={() => {
+                setStreetlightPayOpen(false);
+                setPayOpen(true);
+              }}
+              className="bg-gray-500 hover:bg-gray-600 text-white border-gray-500 hover:border-gray-600"
+            >
+              ← Back to Garbage
+            </Button>,
+            <Button 
               key="submit" 
               type="primary" 
               loading={streetlightPayLoading}
@@ -2278,6 +2484,13 @@ export default function AdminGarbageFees() {
                                 streetlightForm.setFieldValue("totalCharge", totalCharge);
                                 streetlightForm.setFieldValue("amount", totalCharge);
                               } else {
+                                // SEQUENTIAL UNCHECKING VALIDATION FOR STREETLIGHT
+                                const uncheckValidation = validateStreetlightSequentialUnchecking(monthKey, streetlightSelectedMonths);
+                                if (!uncheckValidation.valid) {
+                                  message.error(uncheckValidation.message);
+                                  return; // Prevent unchecking
+                                }
+                                
                                 const newSelectedMonths = streetlightSelectedMonths.filter(m => m !== monthKey);
                                 setStreetlightSelectedMonths(newSelectedMonths);
                                 streetlightForm.setFieldValue("selectedMonths", newSelectedMonths);
@@ -2590,7 +2803,8 @@ export default function AdminGarbageFees() {
             layout="vertical"
             onFinish={exportToExcel}
             initialValues={{
-              exportType: 'current-month'
+              exportType: 'current-month',
+              paymentStatus: 'all'
             }}
           >
             <Form.Item
@@ -2602,6 +2816,18 @@ export default function AdminGarbageFees() {
                 <Select.Option value="current-month">Current Month</Select.Option>
                 <Select.Option value="chosen-month">Chosen Month</Select.Option>
                 <Select.Option value="whole-year">Whole Year</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="paymentStatus"
+              label="Payment Status"
+              rules={[{ required: true, message: 'Please select payment status' }]}
+            >
+              <Select placeholder="Select payment status to export">
+                <Select.Option value="all">All (Paid and Unpaid)</Select.Option>
+                <Select.Option value="paid">Paid Only</Select.Option>
+                <Select.Option value="unpaid">Unpaid Only</Select.Option>
               </Select>
             </Form.Item>
 
@@ -2636,11 +2862,21 @@ export default function AdminGarbageFees() {
                 <Form.Item noStyle shouldUpdate>
                   {({ getFieldValue }) => {
                     const exportType = getFieldValue('exportType');
+                    const paymentStatus = getFieldValue('paymentStatus');
+                    
+                    const getPaymentStatusText = () => {
+                      switch(paymentStatus) {
+                        case 'paid': return 'Paid households only';
+                        case 'unpaid': return 'Unpaid households only';
+                        default: return 'All households (paid and unpaid)';
+                      }
+                    };
+                    
                     if (exportType === 'current-month') {
                       return (
                         <div className="space-y-1">
                           <div>• Current month: {dayjs().format('MMMM YYYY')}</div>
-                          <div>• Includes all households with payment status</div>
+                          <div>• Filter: {getPaymentStatusText()}</div>
                           <div>• Shows payment dates, amounts, and balances</div>
                         </div>
                       );
@@ -2649,7 +2885,7 @@ export default function AdminGarbageFees() {
                       return (
                         <div className="space-y-1">
                           <div>• Selected month: {selectedMonth ? dayjs(selectedMonth).format('MMMM YYYY') : 'Please select month'}</div>
-                          <div>• Includes all households with payment status</div>
+                          <div>• Filter: {getPaymentStatusText()}</div>
                           <div>• Shows payment dates, amounts, and balances</div>
                         </div>
                       );
@@ -2657,7 +2893,8 @@ export default function AdminGarbageFees() {
                       return (
                         <div className="space-y-1">
                           <div>• Full year report: {new Date().getFullYear()}</div>
-                          <div>• Monthly breakdown for all households</div>
+                          <div>• Filter: {getPaymentStatusText()}</div>
+                          <div>• Monthly breakdown for selected households</div>
                           <div>• Shows payment status for each month</div>
                           <div>• Includes yearly totals and balances</div>
                         </div>
