@@ -3,7 +3,7 @@ import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descrip
 import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Info } from "lucide-react";
 import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined } from "@ant-design/icons";
 import axios from "axios";
 import * as XLSX from 'xlsx';
@@ -167,6 +167,124 @@ export default function AdminGarbageFees() {
       message.error("Failed to load payment status for the year");
       return {};
     }
+  };
+
+  // Validate sequential payment: cannot pay future months without paying previous unpaid months
+  const validateSequentialPayment = (monthKey, currentSelectedMonths, paymentStatuses) => {
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const selectedMonth = dayjs(`${monthKey}-01`);
+    const selectedMonthIndex = allMonths.indexOf(monthKey);
+    
+    // Find the earliest unpaid month
+    let earliestUnpaidIndex = -1;
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthData = paymentStatuses[allMonths[i]];
+      const isMonthPaid = monthData?.isPaid || false;
+      const isMonthSelected = currentSelectedMonths.includes(allMonths[i]);
+      
+      if (!isMonthPaid && !isMonthSelected) {
+        earliestUnpaidIndex = i;
+        break;
+      }
+    }
+    
+    // If trying to select a month that comes after an unpaid month, show validation error
+    if (earliestUnpaidIndex !== -1 && selectedMonthIndex > earliestUnpaidIndex) {
+      const earliestUnpaidMonth = dayjs(`${allMonths[earliestUnpaidIndex]}-01`).format("MMMM YYYY");
+      return {
+        valid: false,
+        message: `You must pay ${earliestUnpaidMonth} before selecting ${selectedMonth.format("MMMM YYYY")}`
+      };
+    }
+    
+    return { valid: true };
+  };
+
+  // Get allowed months that can be selected based on sequential payment rule
+  const getAllowedMonths = (paymentStatuses, currentSelectedMonths) => {
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const allowedMonths = new Set();
+    
+    // Find consecutive unpaid months from the beginning
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = paymentStatuses[monthKey];
+      const isPaid = monthData?.isPaid || false;
+      const isSelected = currentSelectedMonths.includes(monthKey);
+      
+      if (isPaid) {
+        // If month is already paid, it's not selectable but continue checking next months
+        continue;
+      } else if (isSelected) {
+        // If month is currently selected, allow it and continue
+        allowedMonths.add(monthKey);
+      } else {
+        // Found first unpaid and unselected month
+        allowedMonths.add(monthKey);
+        break; // Only allow up to this point
+      }
+    }
+    
+    return allowedMonths;
+  };
+
+  // Select all allowed months that can be paid sequentially
+  const selectAllAllowedMonths = () => {
+    // Get all months that could potentially be selected (including currently selected ones)
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const allAllowedMonths = [];
+    
+    // Find all consecutive unpaid months from the beginning
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = monthPaymentStatus[monthKey];
+      const isPaid = monthData?.isPaid || false;
+      
+      if (!isPaid) {
+        allAllowedMonths.push(monthKey);
+      } else if (allAllowedMonths.length > 0) {
+        // If we hit a paid month after finding unpaid months, stop
+        break;
+      }
+    }
+    
+    setSelectedMonths(allAllowedMonths);
+    payForm.setFieldValue("selectedMonths", allAllowedMonths);
+    
+    // Update total charge calculation
+    const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
+    const totalCharge = allAllowedMonths.length * fee;
+    payForm.setFieldValue("totalCharge", totalCharge);
+    payForm.setFieldValue("amount", totalCharge);
+  };
+
+  // Clear all selected months
+  const clearAllSelections = () => {
+    setSelectedMonths([]);
+    payForm.setFieldValue("selectedMonths", []);
+    payForm.setFieldValue("totalCharge", 0);
+    payForm.setFieldValue("amount", 0);
   };
 
   const fetchFeeSummary = async (householdId, monthStr) => {
@@ -1452,6 +1570,34 @@ export default function AdminGarbageFees() {
               rules={[{ required: true, message: "Select at least one month" }]}
               className="mb-3"
             >
+              <div className="mb-3 flex gap-2">
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={selectAllAllowedMonths}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Select All Available {(() => {
+                    const currentYear = dayjs().year();
+                    const allMonths = [];
+                    for (let month = 1; month <= 12; month++) {
+                      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+                    }
+                    const availableCount = allMonths.filter(monthKey => {
+                      const monthData = monthPaymentStatus[monthKey];
+                      return !(monthData?.isPaid);
+                    }).length;
+                    return availableCount > 0 ? `(${availableCount})` : '';
+                  })()}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={clearAllSelections}
+                  disabled={selectedMonths.length === 0}
+                >
+                  Clear All
+                </Button>
+              </div>
               <div className="grid grid-cols-4 gap-2">
                 {Object.keys(monthPaymentStatus)
                   .sort()
@@ -1461,6 +1607,11 @@ export default function AdminGarbageFees() {
                     const monthName = dayjs(`${monthKey}-01`).format("MMM YYYY");
                     const balance = monthData?.balance || 0;
                     
+                    // Check if this month is allowed to be selected based on sequential payment rule
+                    const allowedMonths = getAllowedMonths(monthPaymentStatus, selectedMonths);
+                    const isAllowed = allowedMonths.has(monthKey);
+                    const isDisabled = isPaid || !isAllowed;
+                    
                     return (
                       <div
                         key={monthKey}
@@ -1469,26 +1620,46 @@ export default function AdminGarbageFees() {
                             ? 'bg-green-50 border-green-200 text-green-700' 
                             : selectedMonths.includes(monthKey)
                             ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : !isAllowed
+                            ? 'bg-red-50 border-red-200 text-red-500'
                             : 'bg-white border-gray-200'
                         }`}
+                        title={!isAllowed && !isPaid ? "Must pay previous unpaid months first" : ""}
                       >
-                        <label className="flex items-center cursor-pointer">
+                        <label className={`flex items-center ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                           <input
                             type="checkbox"
-                            disabled={isPaid}
+                            disabled={isDisabled}
                             checked={selectedMonths.includes(monthKey)}
                             onChange={(e) => {
-                              const newSelectedMonths = e.target.checked
-                                ? [...selectedMonths, monthKey]
-                                : selectedMonths.filter(m => m !== monthKey);
-                              setSelectedMonths(newSelectedMonths);
-                              payForm.setFieldValue("selectedMonths", newSelectedMonths);
-                              
-                              // Update total charge calculation
-                              const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
-                              const totalCharge = newSelectedMonths.length * fee;
-                              payForm.setFieldValue("totalCharge", totalCharge);
-                              payForm.setFieldValue("amount", totalCharge);
+                              if (e.target.checked) {
+                                // Validate before adding
+                                const validation = validateSequentialPayment(monthKey, selectedMonths, monthPaymentStatus);
+                                if (!validation.valid) {
+                                  message.error(validation.message);
+                                  return;
+                                }
+                                
+                                const newSelectedMonths = [...selectedMonths, monthKey];
+                                setSelectedMonths(newSelectedMonths);
+                                payForm.setFieldValue("selectedMonths", newSelectedMonths);
+                                
+                                // Update total charge calculation
+                                const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                const totalCharge = newSelectedMonths.length * fee;
+                                payForm.setFieldValue("totalCharge", totalCharge);
+                                payForm.setFieldValue("amount", totalCharge);
+                              } else {
+                                const newSelectedMonths = selectedMonths.filter(m => m !== monthKey);
+                                setSelectedMonths(newSelectedMonths);
+                                payForm.setFieldValue("selectedMonths", newSelectedMonths);
+                                
+                                // Update total charge calculation
+                                const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                const totalCharge = newSelectedMonths.length * fee;
+                                payForm.setFieldValue("totalCharge", totalCharge);
+                                payForm.setFieldValue("amount", totalCharge);
+                              }
                             }}
                             className="mr-2"
                           />
@@ -1511,6 +1682,18 @@ export default function AdminGarbageFees() {
                   Selected: {selectedMonths.length} month(s)
                 </div>
               )}
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2 text-sm">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-blue-800">
+                    <div className="font-semibold">Sequential Payment Rule</div>
+                    <div className="text-xs text-blue-700 mt-1">
+                      You must pay previous unpaid months before paying future months. 
+                      For example, if January is unpaid, you cannot pay February until January is paid first.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </Form.Item>
             <Form.Item
               name="totalCharge"
