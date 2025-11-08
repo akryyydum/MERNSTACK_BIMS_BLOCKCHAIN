@@ -47,6 +47,13 @@ export default function AdminGarbageFees() {
   // State for multiple month payments
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
+  
+  // State for cross-payment functionality
+  const [streetlightPayOpen, setStreetlightPayOpen] = useState(false);
+  const [streetlightForm] = Form.useForm();
+  const [streetlightSelectedMonths, setStreetlightSelectedMonths] = useState([]);
+  const [streetlightMonthPaymentStatus, setStreetlightMonthPaymentStatus] = useState({});
+  const [streetlightPayLoading, setStreetlightPayLoading] = useState(false);
 
   // State for export Excel modal
   const [exportOpen, setExportOpen] = useState(false);
@@ -430,6 +437,357 @@ export default function AdminGarbageFees() {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  // Streetlight payment functions for cross-payment functionality
+  const fetchStreetlightYearlyPaymentStatus = async (householdId) => {
+    try {
+      const currentYear = dayjs().year();
+      const monthStatuses = {};
+      
+      // Check payment status for each month of the current year
+      for (let month = 1; month <= 12; month++) {
+        const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+        try {
+          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/streetlight`, {
+            headers: authHeaders(),
+            params: { month: monthStr },
+          });
+          monthStatuses[monthStr] = {
+            ...res.data,
+            isPaid: res.data.status === 'paid'
+          };
+        } catch (err) {
+          // If no payment record exists, consider it unpaid
+          const defaultFee = 10; // Fixed fee for streetlight
+          monthStatuses[monthStr] = {
+            month: monthStr,
+            totalCharge: defaultFee,
+            amountPaid: 0,
+            balance: defaultFee,
+            status: 'unpaid',
+            isPaid: false
+          };
+        }
+      }
+      
+      setStreetlightMonthPaymentStatus(monthStatuses);
+      return monthStatuses;
+    } catch (err) {
+      console.error("Error fetching streetlight payment status:", err);
+      message.error("Failed to load streetlight payment status for the year");
+      return {};
+    }
+  };
+
+  const proceedToStreetlightPayment = async () => {
+    if (!payHousehold) return;
+    
+    // Fetch streetlight payment status for all months in the current year
+    const yearlyStatus = await fetchStreetlightYearlyPaymentStatus(payHousehold._id);
+    
+    // Find unpaid months and set as initial selection
+    const unpaidMonths = Object.keys(yearlyStatus).filter(month => !yearlyStatus[month].isPaid);
+    const initialMonths = unpaidMonths.slice(0, 1); // Start with current month if unpaid
+    setStreetlightSelectedMonths(initialMonths);
+    
+    // Calculate initial totals
+    const totalCharge = initialMonths.length * 10; // Fixed fee for streetlight
+    
+    streetlightForm.setFieldsValue({
+      selectedMonths: initialMonths,
+      totalCharge: totalCharge,
+      amount: totalCharge,
+      method: "Cash",
+    });
+    
+    setStreetlightPayOpen(true);
+  };
+
+  const submitBothPayments = async () => {
+    try {
+      console.log("Starting combined payment submission...");
+      setStreetlightPayLoading(true);
+      
+      // Validate both forms
+      const garbageValues = await payForm.validateFields();
+      const streetlightValues = await streetlightForm.validateFields();
+      
+      if (!selectedMonths || selectedMonths.length === 0) {
+        message.error("Please select at least one month for garbage payment");
+        return;
+      }
+      
+      if (!streetlightSelectedMonths || streetlightSelectedMonths.length === 0) {
+        message.error("Please select at least one month for streetlight payment");
+        return;
+      }
+
+      console.log("Both payment data:", {
+        garbageValues,
+        streetlightValues,
+        garbageMonths: selectedMonths,
+        streetlightMonths: streetlightSelectedMonths,
+        payHousehold: payHousehold
+      });
+
+      // Process Garbage Payment
+      const garbageFee = garbageValues.hasBusiness ? 50 : 35;
+      const garbageAmountPerMonth = Number(garbageValues.amount) / selectedMonths.length;
+      
+      const garbagePaymentPromises = selectedMonths.map(monthKey => {
+        const payload = {
+          month: monthKey,
+          amount: garbageAmountPerMonth,
+          totalCharge: garbageFee,
+          method: garbageValues.method,
+          reference: garbageValues.reference,
+          hasBusiness: Boolean(garbageValues.hasBusiness),
+          paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
+          paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
+        };
+        
+        console.log("Garbage payment payload for month", monthKey, ":", payload);
+        
+        return axios.post(
+          `${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`,
+          payload,
+          { headers: authHeaders() }
+        );
+      });
+
+      // Process Streetlight Payment
+      const streetlightAmountPerMonth = Number(streetlightValues.amount) / streetlightSelectedMonths.length;
+      
+      const streetlightPaymentPromises = streetlightSelectedMonths.map(monthKey => {
+        const payload = {
+          month: monthKey,
+          amount: streetlightAmountPerMonth,
+          totalCharge: 10,
+          method: streetlightValues.method || "Cash",
+          reference: streetlightValues.reference,
+          paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
+          paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
+        };
+        
+        console.log("Streetlight payment payload for month", monthKey, ":", payload);
+        
+        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`, payload, { headers: authHeaders() });
+      });
+
+      // Submit both payments simultaneously
+      await Promise.all([...garbagePaymentPromises, ...streetlightPaymentPromises]);
+      
+      const garbagePaidMonths = selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      const streetlightPaidMonths = streetlightSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      
+      message.success(`Both payments recorded successfully! Garbage: ${garbagePaidMonths} | Streetlight: ${streetlightPaidMonths}`);
+      
+      // Close both modals and reset all states
+      setPayOpen(false);
+      setStreetlightPayOpen(false);
+      setPaySummary(null);
+      setPayHousehold(null);
+      setSelectedMonths([]);
+      setStreetlightSelectedMonths([]);
+      setMonthPaymentStatus({});
+      setStreetlightMonthPaymentStatus({});
+      payForm.resetFields();
+      streetlightForm.resetFields();
+      
+      // Show refreshing indicator and refresh all data
+      setRefreshing(true);
+      try {
+        await Promise.all([
+          fetchHouseholds(),
+          fetchGarbagePayments(),
+          fetchStatistics()
+        ]);
+        
+        message.success("Payments recorded and table updated successfully!");
+      } catch (refreshError) {
+        console.error("Error refreshing data:", refreshError);
+        message.warning("Payments recorded but there was an issue refreshing the display. Please refresh the page.");
+      } finally {
+        setRefreshing(false);
+      }
+      
+    } catch (err) {
+      console.error("Combined payment error:", err);
+      message.error(err?.response?.data?.message || "Failed to record payments");
+    } finally {
+      setStreetlightPayLoading(false);
+    }
+  };
+
+  const submitStreetlightPayment = async () => {
+    try {
+      console.log("Starting streetlight payment submission...");
+      setStreetlightPayLoading(true);
+      const values = await streetlightForm.validateFields();
+      
+      if (!streetlightSelectedMonths || streetlightSelectedMonths.length === 0) {
+        message.error("Please select at least one month to pay");
+        return;
+      }
+
+      console.log("Streetlight payment data:", {
+        values,
+        selectedMonths: streetlightSelectedMonths,
+        payHousehold: payHousehold
+      });
+
+      const amountPerMonth = Number(values.amount) / streetlightSelectedMonths.length;
+      
+      // Submit payments for each selected month
+      const paymentPromises = streetlightSelectedMonths.map(monthKey => {
+        const payload = {
+          month: monthKey,
+          amount: amountPerMonth,
+          totalCharge: 10,
+          method: values.method || "Cash",
+          reference: values.reference,
+          paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
+          paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
+        };
+        
+        console.log("Streetlight payment payload for month", monthKey, ":", payload);
+        
+        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`, payload, { headers: authHeaders() });
+      });
+
+      await Promise.all(paymentPromises);
+      
+      const paidMonths = streetlightSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      message.success(`Streetlight payment recorded for ${streetlightSelectedMonths.length} month(s): ${paidMonths}`);
+      
+      // Close streetlight modal and reset
+      setStreetlightPayOpen(false);
+      setStreetlightSelectedMonths([]);
+      setStreetlightMonthPaymentStatus({});
+      streetlightForm.resetFields();
+      
+    } catch (err) {
+      console.error("Streetlight payment error:", err);
+      message.error(err?.response?.data?.message || "Failed to record streetlight payment");
+    } finally {
+      setStreetlightPayLoading(false);
+    }
+  };
+
+  // Streetlight validation functions (copied from AdminStreetLightFees)
+  const validateStreetlightSequentialPayment = (monthKey, currentSelectedMonths, paymentStatuses) => {
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const selectedMonth = dayjs(`${monthKey}-01`);
+    const selectedMonthIndex = allMonths.indexOf(monthKey);
+    
+    // Find the earliest unpaid month
+    let earliestUnpaidIndex = -1;
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthData = paymentStatuses[allMonths[i]];
+      const isMonthPaid = monthData?.isPaid || false;
+      const isMonthSelected = currentSelectedMonths.includes(allMonths[i]);
+      
+      if (!isMonthPaid && !isMonthSelected) {
+        earliestUnpaidIndex = i;
+        break;
+      }
+    }
+    
+    // If trying to select a month that comes after an unpaid month, show validation error
+    if (earliestUnpaidIndex !== -1 && selectedMonthIndex > earliestUnpaidIndex) {
+      const earliestUnpaidMonth = dayjs(`${allMonths[earliestUnpaidIndex]}-01`).format("MMMM YYYY");
+      return {
+        valid: false,
+        message: `You must pay ${earliestUnpaidMonth} before selecting ${selectedMonth.format("MMMM YYYY")}`
+      };
+    }
+    
+    return { valid: true };
+  };
+
+  const getStreetlightAllowedMonths = (paymentStatuses, currentSelectedMonths) => {
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const allowedMonths = new Set();
+    
+    // Find consecutive unpaid months from the beginning
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = paymentStatuses[monthKey];
+      const isPaid = monthData?.isPaid || false;
+      const isSelected = currentSelectedMonths.includes(monthKey);
+      
+      if (isPaid) {
+        // If month is already paid, it's not selectable but continue checking next months
+        continue;
+      } else if (isSelected) {
+        // If month is currently selected, allow it and continue
+        allowedMonths.add(monthKey);
+      } else {
+        // Found first unpaid and unselected month
+        allowedMonths.add(monthKey);
+        break; // Only allow up to this point
+      }
+    }
+    
+    return allowedMonths;
+  };
+
+  const selectAllStreetlightAllowedMonths = () => {
+    // Get all months that could potentially be selected
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const allAllowedMonths = [];
+    
+    // Find all consecutive unpaid months from the beginning
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = streetlightMonthPaymentStatus[monthKey];
+      const isPaid = monthData?.isPaid || false;
+      
+      if (!isPaid) {
+        allAllowedMonths.push(monthKey);
+      } else if (allAllowedMonths.length > 0) {
+        // If we hit a paid month after finding unpaid months, stop
+        break;
+      }
+    }
+    
+    setStreetlightSelectedMonths(allAllowedMonths);
+    streetlightForm.setFieldValue("selectedMonths", allAllowedMonths);
+    
+    // Update total charge calculation
+    const fee = 10;
+    const totalCharge = allAllowedMonths.length * fee;
+    streetlightForm.setFieldValue("totalCharge", totalCharge);
+    streetlightForm.setFieldValue("amount", totalCharge);
+  };
+
+  const clearAllStreetlightSelections = () => {
+    setStreetlightSelectedMonths([]);
+    streetlightForm.setFieldValue("selectedMonths", []);
+    streetlightForm.setFieldValue("totalCharge", 0);
+    streetlightForm.setFieldValue("amount", 0);
   };
 
   const openView = (household) => {
@@ -1518,9 +1876,37 @@ export default function AdminGarbageFees() {
             setMonthPaymentStatus({});
             payForm.resetFields();
           }}
-          onOk={submitPayFee}
-          okText="Record Payment"
-          confirmLoading={payLoading}
+          footer={[
+            <Button 
+              key="cancel" 
+              onClick={() => { 
+                setPayOpen(false); 
+                setPayHousehold(null); 
+                setPaySummary(null); 
+                setSelectedMonths([]);
+                setMonthPaymentStatus({});
+                payForm.resetFields();
+              }}
+            >
+              Cancel
+            </Button>,
+            <Button
+              key="streetlight"
+              type="default"
+              onClick={proceedToStreetlightPayment}
+              className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700"
+            >
+              Proceed to Streetlight Payment
+            </Button>,
+            <Button 
+              key="submit" 
+              type="primary" 
+              loading={payLoading}
+              onClick={submitPayFee}
+            >
+              Record Garbage Payment
+            </Button>
+          ]}
           width={850}
         >
           <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
@@ -1738,6 +2124,284 @@ export default function AdminGarbageFees() {
                   <div>Total Amount: ₱{(selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
                   <div className="text-xs text-blue-600 mt-1">
                     {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Form>
+        </Modal>
+
+        {/* Streetlight Payment Modal */}
+        <Modal
+          title={
+            <div>
+              {`Record Streetlight Fee Payment${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
+              {payHousehold?.payingMember && (
+                <div className="text-sm text-gray-600 font-normal mt-1">
+                  Payment by: {fullName(payHousehold.payingMember)}
+                  {payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Head of Household</span>
+                  }
+                </div>
+              )}
+            </div>
+          }
+          open={streetlightPayOpen}
+          onCancel={() => { 
+            setStreetlightPayOpen(false);
+            setStreetlightSelectedMonths([]);
+            setStreetlightMonthPaymentStatus({});
+            streetlightForm.resetFields();
+          }}
+          footer={[
+            <Button 
+              key="cancel" 
+              onClick={() => { 
+                setStreetlightPayOpen(false);
+                setStreetlightSelectedMonths([]);
+                setStreetlightMonthPaymentStatus({});
+                streetlightForm.resetFields();
+              }}
+            >
+              Cancel
+            </Button>,
+            <Button 
+              key="submit" 
+              type="primary" 
+              loading={streetlightPayLoading}
+              onClick={submitBothPayments}
+            >
+              Record Payment for Both
+            </Button>
+          ]}
+          width={850}
+        >
+          <Form form={streetlightForm} layout="vertical" initialValues={{ method: "Cash" }}>
+            <Form.Item label="Fee Type" className="mb-3">
+              <Input disabled value="Streetlight Maintenance Fee" size="small" />
+            </Form.Item>
+            <div className="space-y-2 p-3 bg-gray-50 rounded-lg mb-3">
+              <div className="text-sm font-semibold text-gray-700">Fee Information</div>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Monthly Rate:</span> ₱10.00 (fixed for all households)
+              </div>
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Annual Rate:</span> ₱120.00
+              </div>
+              <div className="text-xs text-gray-500">
+                💡 Streetlight fees are the same for all households regardless of business status
+              </div>
+            </div>
+            <Form.Item
+              name="selectedMonths"
+              label="Select Months to Pay (Current Year Only)"
+              rules={[{ required: true, message: "Select at least one month" }]}
+              className="mb-3"
+            >
+              <div className="mb-3 flex gap-2">
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={selectAllStreetlightAllowedMonths}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Select All Available {(() => {
+                    const currentYear = dayjs().year();
+                    const allMonths = [];
+                    for (let month = 1; month <= 12; month++) {
+                      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+                    }
+                    const availableCount = allMonths.filter(monthKey => {
+                      const monthData = streetlightMonthPaymentStatus[monthKey];
+                      return !(monthData?.isPaid);
+                    }).length;
+                    return availableCount > 0 ? `(${availableCount})` : '';
+                  })()}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={clearAllStreetlightSelections}
+                  disabled={streetlightSelectedMonths.length === 0}
+                >
+                  Clear All
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {Object.keys(streetlightMonthPaymentStatus)
+                  .sort()
+                  .map(monthKey => {
+                    const monthData = streetlightMonthPaymentStatus[monthKey];
+                    const isPaid = monthData?.isPaid;
+                    const monthName = dayjs(`${monthKey}-01`).format("MMM YYYY");
+                    const balance = monthData?.balance || 0;
+                    
+                    // Check if this month is allowed to be selected based on sequential payment rule
+                    const allowedMonths = getStreetlightAllowedMonths(streetlightMonthPaymentStatus, streetlightSelectedMonths);
+                    const isAllowed = allowedMonths.has(monthKey);
+                    const isDisabled = isPaid || !isAllowed;
+                    
+                    return (
+                      <div
+                        key={monthKey}
+                        className={`p-2 border rounded-lg ${
+                          isPaid 
+                            ? 'bg-green-50 border-green-200 text-green-700' 
+                            : streetlightSelectedMonths.includes(monthKey)
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : !isAllowed
+                            ? 'bg-red-50 border-red-200 text-red-500'
+                            : 'bg-white border-gray-200'
+                        }`}
+                        title={!isAllowed && !isPaid ? "Must pay previous unpaid months first" : ""}
+                      >
+                        <label className={`flex items-center ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            disabled={isDisabled}
+                            checked={streetlightSelectedMonths.includes(monthKey)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                // Validate before adding
+                                const validation = validateStreetlightSequentialPayment(monthKey, streetlightSelectedMonths, streetlightMonthPaymentStatus);
+                                if (!validation.valid) {
+                                  message.error(validation.message);
+                                  return;
+                                }
+                                
+                                const newSelectedMonths = [...streetlightSelectedMonths, monthKey];
+                                setStreetlightSelectedMonths(newSelectedMonths);
+                                streetlightForm.setFieldValue("selectedMonths", newSelectedMonths);
+                                
+                                // Update total charge calculation
+                                const fee = 10;
+                                const totalCharge = newSelectedMonths.length * fee;
+                                streetlightForm.setFieldValue("totalCharge", totalCharge);
+                                streetlightForm.setFieldValue("amount", totalCharge);
+                              } else {
+                                const newSelectedMonths = streetlightSelectedMonths.filter(m => m !== monthKey);
+                                setStreetlightSelectedMonths(newSelectedMonths);
+                                streetlightForm.setFieldValue("selectedMonths", newSelectedMonths);
+                                
+                                // Update total charge calculation
+                                const fee = 10;
+                                const totalCharge = newSelectedMonths.length * fee;
+                                streetlightForm.setFieldValue("totalCharge", totalCharge);
+                                streetlightForm.setFieldValue("amount", totalCharge);
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{monthName}</div>
+                            {isPaid ? (
+                              <div className="text-xs text-green-600 font-medium">✓ Paid</div>
+                            ) : (
+                              <div className="text-xs text-gray-500">₱{balance.toFixed(0)}</div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+              {streetlightSelectedMonths.length > 0 && (
+                <div className="mt-1 text-sm text-blue-600">
+                  Selected: {streetlightSelectedMonths.length} month(s)
+                </div>
+              )}
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2 text-sm">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-blue-800">
+                    <div className="font-semibold">Sequential Payment Rule</div>
+                    <div className="text-xs text-blue-700 mt-1">
+                      You must pay previous unpaid months before paying future months. 
+                      For example, if January is unpaid, you cannot pay February until January is paid first.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Form.Item>
+            <Form.Item
+              name="totalCharge"
+              label={`Total Charge (${streetlightSelectedMonths.length} month${streetlightSelectedMonths.length !== 1 ? 's' : ''})`}
+              rules={[{ required: true, message: "Total charge calculated automatically" }]}
+              className="mb-3"
+            >
+              <InputNumber className="w-full" disabled size="small" />
+            </Form.Item>
+            <Form.Item
+              name="amount"
+              label="Amount to Pay"
+              rules={[
+                { required: true, message: "Enter amount to pay" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const total = Number(getFieldValue("totalCharge") || 0);
+                    if (value === undefined) return Promise.reject();
+                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                    if (Number(value) > total + 1e-6) {
+                      return Promise.reject(new Error("Amount cannot exceed total charge"));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}
+              className="mb-3"
+            >
+              <InputNumber className="w-full" min={0} step={10} size="small" />
+            </Form.Item>
+            <Form.Item name="method" label="Payment Method" className="mb-3">
+              <Input value="Cash" disabled size="small" />
+            </Form.Item>
+
+            {streetlightSelectedMonths.length > 0 && (
+              <div className="space-y-3">
+                {/* Combined Payment Summary */}
+                <div className="p-3 rounded border border-green-200 bg-green-50 text-sm">
+                  <div className="font-semibold text-green-800 mb-2">Combined Payment Summary:</div>
+                  
+                  {/* Garbage Payment Info */}
+                  {selectedMonths.length > 0 && (
+                    <div className="bg-white p-2 rounded mb-2 border border-green-200">
+                      <div className="font-medium text-green-700 text-xs mb-1">Garbage Collection Fee:</div>
+                      <div className="space-y-0.5 text-xs text-gray-700">
+                        <div>Selected Months: {selectedMonths.length}</div>
+                        <div>Fee per Month: ₱{payForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
+                        <div>Subtotal: ₱{(selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
+                        <div className="text-xs text-blue-600">
+                          {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Streetlight Payment Info */}
+                  <div className="bg-white p-2 rounded mb-2 border border-green-200">
+                    <div className="font-medium text-green-700 text-xs mb-1">Streetlight Maintenance Fee:</div>
+                    <div className="space-y-0.5 text-xs text-gray-700">
+                      <div>Selected Months: {streetlightSelectedMonths.length}</div>
+                      <div>Fee per Month: ₱10.00</div>
+                      <div>Subtotal: ₱{(streetlightSelectedMonths.length * 10).toFixed(2)}</div>
+                      <div className="text-xs text-blue-600">
+                        {streetlightSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Grand Total */}
+                  <div className="border-t border-green-300 pt-2">
+                    <div className="font-semibold text-green-800">
+                      Grand Total: ₱{(
+                        (selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)) + 
+                        (streetlightSelectedMonths.length * 10)
+                      ).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">
+                      Total Months: {(selectedMonths.length || 0) + streetlightSelectedMonths.length}
+                    </div>
                   </div>
                 </div>
               </div>

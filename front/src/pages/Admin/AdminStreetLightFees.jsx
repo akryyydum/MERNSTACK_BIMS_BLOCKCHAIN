@@ -47,6 +47,13 @@ export default function AdminStreetLightFees() {
   // State for multiple month payments
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [monthPaymentStatus, setMonthPaymentStatus] = useState({});
+  
+  // State for cross-payment functionality
+  const [garbagePayOpen, setGarbagePayOpen] = useState(false);
+  const [garbageForm] = Form.useForm();
+  const [garbageSelectedMonths, setGarbageSelectedMonths] = useState([]);
+  const [garbageMonthPaymentStatus, setGarbageMonthPaymentStatus] = useState({});
+  const [garbagePayLoading, setGarbagePayLoading] = useState(false);
 
   // State for export Excel modal
   const [exportOpen, setExportOpen] = useState(false);
@@ -403,6 +410,361 @@ export default function AdminStreetLightFees() {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  // Garbage payment functions for cross-payment functionality
+  const fetchGarbageYearlyPaymentStatus = async (householdId) => {
+    try {
+      const currentYear = dayjs().year();
+      const monthStatuses = {};
+      
+      // Check payment status for each month of the current year
+      for (let month = 1; month <= 12; month++) {
+        const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
+        try {
+          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/garbage`, {
+            headers: authHeaders(),
+            params: { month: monthStr },
+          });
+          monthStatuses[monthStr] = {
+            ...res.data,
+            isPaid: res.data.status === 'paid'
+          };
+        } catch (err) {
+          // If no payment record exists, consider it unpaid
+          const household = households.find(h => h._id === householdId);
+          const defaultFee = household?.hasBusiness ? 50 : 35;
+          monthStatuses[monthStr] = {
+            month: monthStr,
+            totalCharge: defaultFee,
+            amountPaid: 0,
+            balance: defaultFee,
+            status: 'unpaid',
+            isPaid: false
+          };
+        }
+      }
+      
+      setGarbageMonthPaymentStatus(monthStatuses);
+      return monthStatuses;
+    } catch (err) {
+      console.error("Error fetching garbage payment status:", err);
+      message.error("Failed to load garbage payment status for the year");
+      return {};
+    }
+  };
+
+  const proceedToGarbagePayment = async () => {
+    if (!payHousehold) return;
+    
+    // Fetch garbage payment status for all months in the current year
+    const yearlyStatus = await fetchGarbageYearlyPaymentStatus(payHousehold._id);
+    
+    // Find unpaid months and set as initial selection
+    const unpaidMonths = Object.keys(yearlyStatus).filter(month => !yearlyStatus[month].isPaid);
+    const initialMonths = unpaidMonths.slice(0, 1); // Start with current month if unpaid
+    setGarbageSelectedMonths(initialMonths);
+    
+    // Calculate initial totals
+    const defaultFee = payHousehold?.hasBusiness ? 50 : 35;
+    const totalCharge = initialMonths.length * defaultFee;
+    
+    garbageForm.setFieldsValue({
+      hasBusiness: payHousehold?.hasBusiness || false,
+      selectedMonths: initialMonths,
+      totalCharge: totalCharge,
+      amount: totalCharge,
+      method: "Cash",
+    });
+    
+    setGarbagePayOpen(true);
+  };
+
+  const submitBothPayments = async () => {
+    try {
+      console.log("Starting combined payment submission...");
+      setGarbagePayLoading(true);
+      
+      // Validate both forms
+      const streetlightValues = await payForm.validateFields();
+      const garbageValues = await garbageForm.validateFields();
+      
+      if (!selectedMonths || selectedMonths.length === 0) {
+        message.error("Please select at least one month for streetlight payment");
+        return;
+      }
+      
+      if (!garbageSelectedMonths || garbageSelectedMonths.length === 0) {
+        message.error("Please select at least one month for garbage payment");
+        return;
+      }
+
+      console.log("Both payment data:", {
+        streetlightValues,
+        garbageValues,
+        streetlightMonths: selectedMonths,
+        garbageMonths: garbageSelectedMonths,
+        payHousehold: payHousehold
+      });
+
+      // Process Streetlight Payment
+      const streetlightAmountPerMonth = Number(streetlightValues.amount) / selectedMonths.length;
+      
+      const streetlightPaymentPromises = selectedMonths.map(monthKey => {
+        const payload = {
+          month: monthKey,
+          amount: streetlightAmountPerMonth,
+          totalCharge: 10,
+          method: streetlightValues.method,
+          reference: streetlightValues.reference,
+          paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
+          paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
+        };
+        
+        console.log("Streetlight payment payload for month", monthKey, ":", payload);
+        
+        return axios.post(
+          `${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`,
+          payload,
+          { headers: authHeaders() }
+        );
+      });
+
+      // Process Garbage Payment
+      const garbageFee = garbageValues.hasBusiness ? 50 : 35;
+      const garbageAmountPerMonth = Number(garbageValues.amount) / garbageSelectedMonths.length;
+      
+      const garbagePaymentPromises = garbageSelectedMonths.map(monthKey => {
+        const payload = {
+          month: monthKey,
+          amount: garbageAmountPerMonth,
+          totalCharge: garbageFee,
+          method: garbageValues.method || "Cash",
+          reference: garbageValues.reference,
+          hasBusiness: Boolean(garbageValues.hasBusiness),
+          paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
+          paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
+        };
+        
+        console.log("Garbage payment payload for month", monthKey, ":", payload);
+        
+        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`, payload, { headers: authHeaders() });
+      });
+
+      // Submit both payments simultaneously
+      await Promise.all([...streetlightPaymentPromises, ...garbagePaymentPromises]);
+      
+      const streetlightPaidMonths = selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      const garbagePaidMonths = garbageSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      
+      message.success(`Both payments recorded successfully! Streetlight: ${streetlightPaidMonths} | Garbage: ${garbagePaidMonths}`);
+      
+      // Close both modals and reset all states
+      setPayOpen(false);
+      setGarbagePayOpen(false);
+      setPaySummary(null);
+      setPayHousehold(null);
+      setSelectedMonths([]);
+      setGarbageSelectedMonths([]);
+      setMonthPaymentStatus({});
+      setGarbageMonthPaymentStatus({});
+      payForm.resetFields();
+      garbageForm.resetFields();
+      
+      // Show refreshing indicator and refresh all data
+      setRefreshing(true);
+      try {
+        await Promise.all([
+          fetchHouseholds(),
+          fetchStreetlightPayments(),
+          fetchStatistics()
+        ]);
+        
+        message.success("Payments recorded and table updated successfully!");
+      } catch (refreshError) {
+        console.error("Error refreshing data:", refreshError);
+        message.warning("Payments recorded but there was an issue refreshing the display. Please refresh the page.");
+      } finally {
+        setRefreshing(false);
+      }
+      
+    } catch (err) {
+      console.error("Combined payment error:", err);
+      message.error(err?.response?.data?.message || "Failed to record payments");
+    } finally {
+      setGarbagePayLoading(false);
+    }
+  };
+
+  const submitGarbagePayment = async () => {
+    try {
+      console.log("Starting garbage payment submission...");
+      setGarbagePayLoading(true);
+      const values = await garbageForm.validateFields();
+      
+      if (!garbageSelectedMonths || garbageSelectedMonths.length === 0) {
+        message.error("Please select at least one month to pay");
+        return;
+      }
+
+      console.log("Garbage payment data:", {
+        values,
+        selectedMonths: garbageSelectedMonths,
+        payHousehold: payHousehold
+      });
+
+      const amountPerMonth = Number(values.amount) / garbageSelectedMonths.length;
+      
+      // Submit payments for each selected month
+      const paymentPromises = garbageSelectedMonths.map(monthKey => {
+        const payload = {
+          month: monthKey,
+          amount: amountPerMonth,
+          totalCharge: garbageForm.getFieldValue("hasBusiness") ? 50 : 35,
+          method: values.method || "Cash",
+          reference: values.reference,
+          hasBusiness: Boolean(garbageForm.getFieldValue("hasBusiness")),
+          paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
+          paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
+        };
+        
+        console.log("Garbage payment payload for month", monthKey, ":", payload);
+        
+        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`, payload, { headers: authHeaders() });
+      });
+
+      await Promise.all(paymentPromises);
+      
+      const paidMonths = garbageSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ");
+      message.success(`Garbage payment recorded for ${garbageSelectedMonths.length} month(s): ${paidMonths}`);
+      
+      // Close garbage modal and reset
+      setGarbagePayOpen(false);
+      setGarbageSelectedMonths([]);
+      setGarbageMonthPaymentStatus({});
+      garbageForm.resetFields();
+      
+    } catch (err) {
+      console.error("Garbage payment error:", err);
+      message.error(err?.response?.data?.message || "Failed to record garbage payment");
+    } finally {
+      setGarbagePayLoading(false);
+    }
+  };
+
+  // Garbage validation functions (copied from AdminGarbageFees)
+  const validateGarbageSequentialPayment = (monthKey, currentSelectedMonths, paymentStatuses) => {
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const selectedMonth = dayjs(`${monthKey}-01`);
+    const selectedMonthIndex = allMonths.indexOf(monthKey);
+    
+    // Find the earliest unpaid month
+    let earliestUnpaidIndex = -1;
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthData = paymentStatuses[allMonths[i]];
+      const isMonthPaid = monthData?.isPaid || false;
+      const isMonthSelected = currentSelectedMonths.includes(allMonths[i]);
+      
+      if (!isMonthPaid && !isMonthSelected) {
+        earliestUnpaidIndex = i;
+        break;
+      }
+    }
+    
+    // If trying to select a month that comes after an unpaid month, show validation error
+    if (earliestUnpaidIndex !== -1 && selectedMonthIndex > earliestUnpaidIndex) {
+      const earliestUnpaidMonth = dayjs(`${allMonths[earliestUnpaidIndex]}-01`).format("MMMM YYYY");
+      return {
+        valid: false,
+        message: `You must pay ${earliestUnpaidMonth} before selecting ${selectedMonth.format("MMMM YYYY")}`
+      };
+    }
+    
+    return { valid: true };
+  };
+
+  const getGarbageAllowedMonths = (paymentStatuses, currentSelectedMonths) => {
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const allowedMonths = new Set();
+    
+    // Find consecutive unpaid months from the beginning
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = paymentStatuses[monthKey];
+      const isPaid = monthData?.isPaid || false;
+      const isSelected = currentSelectedMonths.includes(monthKey);
+      
+      if (isPaid) {
+        // If month is already paid, it's not selectable but continue checking next months
+        continue;
+      } else if (isSelected) {
+        // If month is currently selected, allow it and continue
+        allowedMonths.add(monthKey);
+      } else {
+        // Found first unpaid and unselected month
+        allowedMonths.add(monthKey);
+        break; // Only allow up to this point
+      }
+    }
+    
+    return allowedMonths;
+  };
+
+  const selectAllGarbageAllowedMonths = () => {
+    // Get all months that could potentially be selected
+    const currentYear = dayjs().year();
+    const allMonths = [];
+    
+    // Generate all months for current year
+    for (let month = 1; month <= 12; month++) {
+      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+    }
+    
+    const allAllowedMonths = [];
+    
+    // Find all consecutive unpaid months from the beginning
+    for (let i = 0; i < allMonths.length; i++) {
+      const monthKey = allMonths[i];
+      const monthData = garbageMonthPaymentStatus[monthKey];
+      const isPaid = monthData?.isPaid || false;
+      
+      if (!isPaid) {
+        allAllowedMonths.push(monthKey);
+      } else if (allAllowedMonths.length > 0) {
+        // If we hit a paid month after finding unpaid months, stop
+        break;
+      }
+    }
+    
+    setGarbageSelectedMonths(allAllowedMonths);
+    garbageForm.setFieldValue("selectedMonths", allAllowedMonths);
+    
+    // Update total charge calculation
+    const fee = garbageForm.getFieldValue("hasBusiness") ? 50 : 35;
+    const totalCharge = allAllowedMonths.length * fee;
+    garbageForm.setFieldValue("totalCharge", totalCharge);
+    garbageForm.setFieldValue("amount", totalCharge);
+  };
+
+  const clearAllGarbageSelections = () => {
+    setGarbageSelectedMonths([]);
+    garbageForm.setFieldValue("selectedMonths", []);
+    garbageForm.setFieldValue("totalCharge", 0);
+    garbageForm.setFieldValue("amount", 0);
   };
 
   const openView = (household) => {
@@ -1392,9 +1754,37 @@ export default function AdminStreetLightFees() {
             setMonthPaymentStatus({});
             payForm.resetFields();
           }}
-          onOk={submitPayFee}
-          okText="Record Payment"
-          confirmLoading={payLoading}
+          footer={[
+            <Button 
+              key="cancel" 
+              onClick={() => { 
+                setPayOpen(false); 
+                setPayHousehold(null); 
+                setPaySummary(null); 
+                setSelectedMonths([]);
+                setMonthPaymentStatus({});
+                payForm.resetFields();
+              }}
+            >
+              Cancel
+            </Button>,
+            <Button
+              key="garbage"
+              type="default"
+              onClick={proceedToGarbagePayment}
+              className="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
+            >
+              Proceed to Garbage Payment
+            </Button>,
+            <Button 
+              key="submit" 
+              type="primary" 
+              loading={payLoading}
+              onClick={submitPayFee}
+            >
+              Record Streetlight Payment
+            </Button>
+          ]}
           width={850}
         >
           <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
@@ -1573,6 +1963,303 @@ export default function AdminStreetLightFees() {
                   <div>Total Amount: ₱{(selectedMonths.length * 10).toFixed(2)}</div>
                   <div className="text-xs text-blue-600 mt-1">
                     {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Form>
+        </Modal>
+
+        {/* Garbage Payment Modal */}
+        <Modal
+          title={
+            <div>
+              {`Record Garbage Fee Payment${payHousehold ? ` — ${payHousehold.householdId}` : ""}`}
+              {payHousehold?.payingMember && (
+                <div className="text-sm text-gray-600 font-normal mt-1">
+                  Payment by: {fullName(payHousehold.payingMember)}
+                  {payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Head of Household</span>
+                  }
+                </div>
+              )}
+            </div>
+          }
+          open={garbagePayOpen}
+          onCancel={() => { 
+            setGarbagePayOpen(false);
+            setGarbageSelectedMonths([]);
+            setGarbageMonthPaymentStatus({});
+            garbageForm.resetFields();
+          }}
+          footer={[
+            <Button 
+              key="cancel" 
+              onClick={() => { 
+                setGarbagePayOpen(false);
+                setGarbageSelectedMonths([]);
+                setGarbageMonthPaymentStatus({});
+                garbageForm.resetFields();
+              }}
+            >
+              Cancel
+            </Button>,
+            <Button 
+              key="submit" 
+              type="primary" 
+              loading={garbagePayLoading}
+              onClick={submitBothPayments}
+            >
+              Record Payment for Both
+            </Button>
+          ]}
+          width={850}
+        >
+          <Form form={garbageForm} layout="vertical" initialValues={{ method: "Cash" }}>
+            <Form.Item label="Fee Type" className="mb-3">
+              <Input disabled value="Garbage Collection Fee" size="small" />
+            </Form.Item>
+            <Form.Item
+              name="hasBusiness"
+              label="Business Status"
+              className="mb-3"
+            >
+              <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="radio" 
+                    name="businessStatus"
+                    checked={!garbageForm.getFieldValue("hasBusiness")}
+                    disabled
+                    readOnly
+                    className="text-blue-600"
+                  />
+                  <span className={`text-sm ${!garbageForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                    P35 - No Business
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="radio" 
+                    name="businessStatus"
+                    checked={garbageForm.getFieldValue("hasBusiness")}
+                    disabled
+                    readOnly
+                    className="text-blue-600"
+                  />
+                  <span className={`text-sm ${garbageForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                    P50 - With Business
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 italic">
+                  📝 Business status is determined from household registration and cannot be changed here.
+                </div>
+              </div>
+            </Form.Item>
+            <Form.Item
+              name="selectedMonths"
+              label="Select Months to Pay (Current Year Only)"
+              rules={[{ required: true, message: "Select at least one month" }]}
+              className="mb-3"
+            >
+              <div className="mb-3 flex gap-2">
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={selectAllGarbageAllowedMonths}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Select All Available {(() => {
+                    const currentYear = dayjs().year();
+                    const allMonths = [];
+                    for (let month = 1; month <= 12; month++) {
+                      allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
+                    }
+                    const availableCount = allMonths.filter(monthKey => {
+                      const monthData = garbageMonthPaymentStatus[monthKey];
+                      return !(monthData?.isPaid);
+                    }).length;
+                    return availableCount > 0 ? `(${availableCount})` : '';
+                  })()}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={clearAllGarbageSelections}
+                  disabled={garbageSelectedMonths.length === 0}
+                >
+                  Clear All
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {Object.keys(garbageMonthPaymentStatus)
+                  .sort()
+                  .map(monthKey => {
+                    const monthData = garbageMonthPaymentStatus[monthKey];
+                    const isPaid = monthData?.isPaid;
+                    const monthName = dayjs(`${monthKey}-01`).format("MMM YYYY");
+                    const balance = monthData?.balance || 0;
+                    
+                    // Check if this month is allowed to be selected based on sequential payment rule
+                    const allowedMonths = getGarbageAllowedMonths(garbageMonthPaymentStatus, garbageSelectedMonths);
+                    const isAllowed = allowedMonths.has(monthKey);
+                    const isDisabled = isPaid || !isAllowed;
+                    
+                    return (
+                      <div
+                        key={monthKey}
+                        className={`p-2 border rounded-lg ${
+                          isPaid 
+                            ? 'bg-green-50 border-green-200 text-green-700' 
+                            : garbageSelectedMonths.includes(monthKey)
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : !isAllowed
+                            ? 'bg-red-50 border-red-200 text-red-500'
+                            : 'bg-white border-gray-200'
+                        }`}
+                        title={!isAllowed && !isPaid ? "Must pay previous unpaid months first" : ""}
+                      >
+                        <label className={`flex items-center ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            disabled={isDisabled}
+                            checked={garbageSelectedMonths.includes(monthKey)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                // Validate before adding
+                                const validation = validateGarbageSequentialPayment(monthKey, garbageSelectedMonths, garbageMonthPaymentStatus);
+                                if (!validation.valid) {
+                                  message.error(validation.message);
+                                  return;
+                                }
+                                
+                                const newSelectedMonths = [...garbageSelectedMonths, monthKey];
+                                setGarbageSelectedMonths(newSelectedMonths);
+                                garbageForm.setFieldValue("selectedMonths", newSelectedMonths);
+                                
+                                // Update total charge calculation
+                                const fee = garbageForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                const totalCharge = newSelectedMonths.length * fee;
+                                garbageForm.setFieldValue("totalCharge", totalCharge);
+                                garbageForm.setFieldValue("amount", totalCharge);
+                              } else {
+                                const newSelectedMonths = garbageSelectedMonths.filter(m => m !== monthKey);
+                                setGarbageSelectedMonths(newSelectedMonths);
+                                garbageForm.setFieldValue("selectedMonths", newSelectedMonths);
+                                
+                                // Update total charge calculation
+                                const fee = garbageForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                const totalCharge = newSelectedMonths.length * fee;
+                                garbageForm.setFieldValue("totalCharge", totalCharge);
+                                garbageForm.setFieldValue("amount", totalCharge);
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{monthName}</div>
+                            {isPaid ? (
+                              <div className="text-xs text-green-600 font-medium">✓ Paid</div>
+                            ) : (
+                              <div className="text-xs text-gray-500">₱{balance.toFixed(0)}</div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+              {garbageSelectedMonths.length > 0 && (
+                <div className="mt-1 text-sm text-blue-600">
+                  Selected: {garbageSelectedMonths.length} month(s)
+                </div>
+              )}
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2 text-sm">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-blue-800">
+                    <div className="font-semibold">Sequential Payment Rule</div>
+                    <div className="text-xs text-blue-700 mt-1">
+                      You must pay previous unpaid months before paying future months. 
+                      For example, if January is unpaid, you cannot pay February until January is paid first.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Form.Item>
+            <Form.Item
+              name="totalCharge"
+              label={`Total Charge (${garbageSelectedMonths.length} month${garbageSelectedMonths.length !== 1 ? 's' : ''})`}
+              rules={[{ required: true, message: "Total charge calculated automatically" }]}
+              className="mb-3"
+            >
+              <InputNumber className="w-full" disabled size="small" />
+            </Form.Item>
+            <Form.Item
+              name="amount"
+              label="Amount to Pay"
+              rules={[
+                { required: true, message: "Enter amount to pay" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const total = Number(getFieldValue("totalCharge") || 0);
+                    if (value === undefined) return Promise.reject();
+                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                    if (Number(value) > total + 1e-6) {
+                      return Promise.reject(new Error("Amount cannot exceed total charge"));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}
+              className="mb-3"
+            >
+              <InputNumber className="w-full" min={0} step={50} size="small" />
+            </Form.Item>
+            <Form.Item name="method" label="Payment Method" className="mb-3">
+              <Input value="Cash" disabled size="small" />
+            </Form.Item>
+
+            {garbageSelectedMonths.length > 0 && (
+              <div className="p-3 rounded-lg border border-green-300 bg-green-50 text-sm">
+                <div className="font-semibold text-green-800 mb-3 text-center">Combined Payment Summary</div>
+                
+                {/* Streetlight Payment Section */}
+                {selectedMonths.length > 0 && (
+                  <div className="mb-3 p-2 bg-white rounded border border-green-200">
+                    <div className="font-medium text-green-700 mb-2">Streetlight Fees</div>
+                    <div className="space-y-1 text-xs">
+                      <div>Selected Months: {selectedMonths.length}</div>
+                      <div>Fee per Month: ₱10.00</div>
+                      <div className="font-medium">Subtotal: ₱{(selectedMonths.length * 10).toFixed(2)}</div>
+                      <div className="text-xs text-green-600 mt-1">
+                        {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Garbage Payment Section */}
+                <div className="mb-3 p-2 bg-white rounded border border-green-200">
+                  <div className="font-medium text-green-700 mb-2">Garbage Collection Fees</div>
+                  <div className="space-y-1 text-xs">
+                    <div>Selected Months: {garbageSelectedMonths.length}</div>
+                    <div>Fee per Month: ₱{garbageForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
+                    <div className="font-medium">Subtotal: ₱{(garbageSelectedMonths.length * (garbageForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
+                    <div className="text-xs text-green-600 mt-1">
+                      {garbageSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Grand Total */}
+                <div className="border-t border-green-300 pt-2 mt-3">
+                  <div className="font-bold text-green-800 text-center">
+                    GRAND TOTAL: ₱{(
+                      (selectedMonths.length * 10) + 
+                      (garbageSelectedMonths.length * (garbageForm.getFieldValue("hasBusiness") ? 50 : 35))
+                    ).toFixed(2)}
                   </div>
                 </div>
               </div>
