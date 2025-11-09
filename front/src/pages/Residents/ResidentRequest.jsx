@@ -539,17 +539,42 @@ export default function ResidentRequest() {
                         )}
                       </td>
                       <td className="py-4 px-6 hidden lg:table-cell">
-                        {request.documentType === "Business Clearance" && request.status === "accepted" && (request.feeAmount || request.amount) ? (
-                          <span className="text-sm font-medium text-green-600">
-                            ₱{(request.feeAmount || request.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        ) : request.documentType === "Indigency" ? (
-                          <span className="text-sm text-gray-600">Free</span>
-                        ) : request.documentType === "Barangay Clearance" ? (
-                          <span className="text-sm text-gray-600">₱100.00</span>
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
+                        {(() => {
+                          // Calculate total amount based on document type and quantity
+                          const quantity = request.quantity || 1;
+                          let baseAmount = 0;
+                          
+                          if (request.documentType === "Indigency") {
+                            baseAmount = 0;
+                          } else if (request.documentType === "Barangay Clearance") {
+                            baseAmount = 100;
+                          } else if (request.documentType === "Business Clearance") {
+                            // For business clearance, use assigned fee amount or stored amount
+                            if (request.status === "accepted" && (request.feeAmount || request.amount)) {
+                              baseAmount = request.feeAmount || request.amount || 0;
+                              const totalAmount = baseAmount * quantity;
+                              return (
+                                <span className="text-sm font-medium text-green-600">
+                                  ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              );
+                            } else {
+                              return <span className="text-sm text-gray-400">TBD</span>;
+                            }
+                          }
+                          
+                          const totalAmount = baseAmount * quantity;
+                          
+                          if (baseAmount === 0) {
+                            return <span className="text-sm text-gray-600">Free</span>;
+                          } else {
+                            return (
+                              <span className="text-sm text-gray-600">
+                                ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            );
+                          }
+                        })()}
                       </td>
                       <td className="py-4 px-6">
                         <Button
@@ -654,6 +679,11 @@ export default function ResidentRequest() {
                 </div>
                 
                 <div>
+                  <p className="text-sm font-medium text-gray-500">QUANTITY</p>
+                  <p className="mt-1">{viewRequest.quantity || 1}</p>
+                </div>
+                
+                <div>
                   <p className="text-sm font-medium text-gray-500">REQUESTED DATE</p>
                   <p className="mt-1">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                 </div>
@@ -663,29 +693,44 @@ export default function ResidentRequest() {
                   <p className="mt-1">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                 </div>
                 
-                {viewRequest.documentType === "Business Clearance" && (
-                  <>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">BUSINESS NAME</p>
-                      <p className="mt-1">{viewRequest.businessName || "-"}</p>
-                    </div>
+                {/* Total Amount */}
+                <div>
+                  <p className="text-sm font-medium text-gray-500">TOTAL AMOUNT</p>
+                  {(() => {
+                    const quantity = viewRequest.quantity || 1;
+                    let baseAmount = 0;
                     
-                    {/* Show amount if approved */}
-                    {(viewRequest.status === "accepted" || viewRequest.status === "approved") && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">ASSIGNED AMOUNT</p>
-                        {(viewRequest.feeAmount || viewRequest.amount) ? (
-                          <p className="mt-1 text-lg font-semibold text-green-600">
-                            ₱{(viewRequest.feeAmount || viewRequest.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-sm text-amber-600 italic">
-                            Amount to be determined by admin
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </>
+                    if (viewRequest.documentType === "Indigency") {
+                      baseAmount = 0;
+                    } else if (viewRequest.documentType === "Barangay Clearance") {
+                      baseAmount = 100;
+                    } else if (viewRequest.documentType === "Business Clearance") {
+                      if (viewRequest.status === "accepted" && (viewRequest.feeAmount || viewRequest.amount)) {
+                        baseAmount = viewRequest.feeAmount || viewRequest.amount || 0;
+                      } else {
+                        return <p className="mt-1 text-sm text-amber-600 italic">Amount to be determined by admin</p>;
+                      }
+                    }
+                    
+                    const totalAmount = baseAmount * quantity;
+                    
+                    if (baseAmount === 0) {
+                      return <p className="mt-1 text-lg font-semibold text-gray-600">Free</p>;
+                    } else {
+                      return (
+                        <p className="mt-1 text-lg font-semibold text-green-600">
+                          ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      );
+                    }
+                  })()}
+                </div>
+                
+                {viewRequest.documentType === "Business Clearance" && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">BUSINESS NAME</p>
+                    <p className="mt-1">{viewRequest.businessName || "-"}</p>
+                  </div>
                 )}
               </div>
               
@@ -832,10 +877,13 @@ export default function ResidentRequest() {
                 createForm.setFieldsValue({ businessName: undefined });
               }
               
-              // Handle amount updates based on document type
-              if ("documentType" in changed) {
-                const amount = documentPricing[changed.documentType] || 0;
-                createForm.setFieldsValue({ amount: amount });
+              // Handle amount updates based on document type or quantity
+              if ("documentType" in changed || "quantity" in changed) {
+                const currentDocType = changed.documentType || values.documentType;
+                const currentQuantity = changed.quantity || values.quantity || 1;
+                const baseAmount = documentPricing[currentDocType] || 0;
+                const totalAmount = baseAmount * currentQuantity;
+                createForm.setFieldsValue({ amount: totalAmount });
               }
             }}
             onFinish={async (values) => {
@@ -947,9 +995,11 @@ export default function ResidentRequest() {
                 size="large"
                 className="w-full"
                 onChange={(value) => {
-                  // Update the amount field based on document type
-                  const amount = documentPricing[value] || 0;
-                  createForm.setFieldValue("amount", amount);
+                  // Update the amount field based on document type and current quantity
+                  const currentQuantity = createForm.getFieldValue("quantity") || 1;
+                  const baseAmount = documentPricing[value] || 0;
+                  const totalAmount = baseAmount * currentQuantity;
+                  createForm.setFieldValue("amount", totalAmount);
                 }}
                 options={[
                   { value: "Indigency", label: "Certificate of Indigency" },
@@ -964,12 +1014,12 @@ export default function ResidentRequest() {
               name="amount" 
               label={<span className="text-gray-700 font-medium">Amount</span>}
               rules={[{ required: true, message: 'Amount is required' }]}
-              help="Amount is automatically calculated based on document type"
+              help="Amount is automatically calculated based on document type and quantity"
             >
               <InputNumber 
                 min={0} 
                 className="w-full" 
-                readOnly
+                disabled
                 formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
                 placeholder="Amount will be calculated automatically"
@@ -991,7 +1041,18 @@ export default function ResidentRequest() {
               initialValue={1}
               rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity (min 1)' }]}
             >
-              <InputNumber min={1} className="w-full" />
+              <InputNumber 
+                min={1} 
+                className="w-full"
+                onChange={(value) => {
+                  // Update the amount field based on quantity and current document type
+                  const currentDocType = createForm.getFieldValue("documentType");
+                  const currentQuantity = value || 1;
+                  const baseAmount = documentPricing[currentDocType] || 0;
+                  const totalAmount = baseAmount * currentQuantity;
+                  createForm.setFieldValue("amount", totalAmount);
+                }}
+              />
             </Form.Item>
             
             <Form.Item 
