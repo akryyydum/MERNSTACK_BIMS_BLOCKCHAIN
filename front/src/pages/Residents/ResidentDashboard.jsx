@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
-import PaymentStatusAlert from './PaymentStatusAlert';
 import { Button, message } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
@@ -722,7 +721,7 @@ export default function ResidentDashboard() {
                   return (
                     <Card key={`${item.activityType}-${item._id}`} className="w-full border border-slate-200 bg-white shadow-none hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
-                        <div className="flex items-center mb-3">
+                        <div className="flex items-center mb-1">
                           <div className={`h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
                             isRequest ? 'bg-blue-100' : 
                             item.type === 'complaint' ? 'bg-orange-100' : 'bg-purple-100'
@@ -800,17 +799,6 @@ export default function ResidentDashboard() {
                           <p className="text-xs text-slate-500">
                             {isRequest ? 'Requested' : 'Submitted'} on {formatDate(item.createdAt || item.requestedAt)}
                           </p>
-                        </div>
-                        <div className="mt-4 flex justify-between items-center">
-                          <span className="text-xs text-slate-500">Status:</span>
-                          <span className={`text-xs font-medium ${
-                            (item.status === "accepted" || item.status === "resolved") ? "text-emerald-600" : 
-                            (item.status === "declined") ? "text-rose-600" : 
-                            (item.status === "investigating") ? "text-blue-600" :
-                            "text-slate-800"
-                          }`}>
-                            {item.status.toUpperCase()}
-                          </span>
                         </div>
                       </CardContent>
                     </Card>

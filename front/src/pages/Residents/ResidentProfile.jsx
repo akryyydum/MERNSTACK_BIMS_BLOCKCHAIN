@@ -140,14 +140,7 @@ const ResidentProfile = () => {
 
   const formatAddress = (address) => {
     if (!address) return 'N/A';
-    const parts = [
-      address.purok,
-      address.barangay,
-      address.municipality,
-      address.province
-    ].filter(Boolean);
-    if (address.zipCode) parts.push(address.zipCode);
-    return parts.join(', ');
+    return address.purok || 'N/A';
   };
 
   const getFullName = (data = profile) => {
@@ -353,7 +346,6 @@ const ResidentProfile = () => {
                     >
                       <Option value="male">Male</Option>
                       <Option value="female">Female</Option>
-                      <Option value="other">Other</Option>
                     </Select>
                   ) : (profile.sex ? profile.sex.charAt(0).toUpperCase() + profile.sex.slice(1) : 'N/A')}
                 </Descriptions.Item>
@@ -450,36 +442,16 @@ const ResidentProfile = () => {
                   ) : (profile.address?.purok || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Barangay">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.address?.barangay} 
-                      onChange={(e) => handleAddressChange('barangay', e.target.value)}
-                    />
-                  ) : (profile.address?.barangay || 'N/A')}
+                  {profile.address?.barangay || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Municipality">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.address?.municipality} 
-                      onChange={(e) => handleAddressChange('municipality', e.target.value)}
-                    />
-                  ) : (profile.address?.municipality || 'N/A')}
+                  {profile.address?.municipality || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Province">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.address?.province} 
-                      onChange={(e) => handleAddressChange('province', e.target.value)}
-                    />
-                  ) : (profile.address?.province || 'N/A')}
+                  {profile.address?.province || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="ZIP Code">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.address?.zipCode} 
-                      onChange={(e) => handleAddressChange('zipCode', e.target.value)}
-                    />
-                  ) : (profile.address?.zipCode || 'N/A')}
+                  {profile.address?.zipCode || 'N/A'}
                 </Descriptions.Item>
                 {!isEditing && (
                   <Descriptions.Item label="Complete Address">{formatAddress(profile.address)}</Descriptions.Item>
@@ -503,7 +475,7 @@ const ResidentProfile = () => {
                     <Input 
                       value={editedProfile?.contact?.mobile} 
                       onChange={(e) => handleContactChange('mobile', e.target.value)}
-                      placeholder="e.g., 09171234567"
+                      placeholder="e.g., 09123456789"
                     />
                   ) : (profile.contact?.mobile || 'N/A')}
                 </Descriptions.Item>
