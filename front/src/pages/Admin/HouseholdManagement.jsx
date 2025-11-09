@@ -152,7 +152,6 @@ export default function HouseholdManagement() {
         headOfHousehold: values.headOfHousehold,
         members: values.members,
         address: {
-          street: values.address?.street,
           purok: values.address?.purok,
         },
         hasBusiness: values.hasBusiness || false,
@@ -516,11 +515,17 @@ export default function HouseholdManagement() {
   const filteredHouseholds = households.filter(h =>
     [
       h.householdId,
-      h.address?.street,
+      h.address?.purok,
       h.address?.barangay,
       h.address?.municipality,
       h.address?.province,
-      h.address?.purok,
+      // Head of Household
+      h.headOfHousehold?.firstName,
+      h.headOfHousehold?.middleName,
+      h.headOfHousehold?.lastName,
+      h.headOfHousehold?.suffix,
+      // Members
+      ...(Array.isArray(h.members) ? h.members.map(m => [m?.firstName, m?.middleName, m?.lastName, m?.suffix]).flat() : []),
     ]
       .filter(Boolean)
       .join(" ")

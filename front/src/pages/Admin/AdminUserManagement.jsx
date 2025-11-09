@@ -335,9 +335,13 @@ export default function AdminUserManagement() {
           value={role}
           onChange={(val) => handleRoleChange(r._id, val)}
           options={[
-            { value: "admin", label: "Admin" },
-            { value: "official", label: "Official" },
-            { value: "resident", label: "Resident", disabled: true }, // keep disabled here
+            {
+              value: "admin",
+              label: "Admin",
+              disabled: users.filter(u => u.role === "admin").length >= 1 && r.role !== "admin"
+            },
+            { value: "official", label: "Official", disabled: false },
+            { value: "resident", label: "Resident", disabled: false },
           ]}
         />
       ),
