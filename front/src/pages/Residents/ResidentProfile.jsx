@@ -28,6 +28,7 @@ const ResidentProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     fetchProfile();
@@ -61,7 +62,37 @@ const ResidentProfile = () => {
     setEditedProfile({ ...profile });
   };
 
+  // Validation function for fields that should not contain numbers or special characters
+  const isAlphaOnly = (value) => {
+    // Allow spaces and letters only
+    return /^[A-Za-z\s]+$/.test(value || '');
+  };
+
   const handleSave = async () => {
+    // Validate fields before saving
+    const fieldsToValidate = [
+      { key: 'firstName', label: 'First Name', value: editedProfile?.firstName },
+      { key: 'middleName', label: 'Middle Name', value: editedProfile?.middleName },
+      { key: 'lastName', label: 'Last Name', value: editedProfile?.lastName },
+      { key: 'civilStatus', label: 'Civil Status', value: editedProfile?.civilStatus },
+      { key: 'religion', label: 'Religion', value: editedProfile?.religion },
+      { key: 'ethnicity', label: 'Ethnicity', value: editedProfile?.ethnicity },
+      { key: 'citizenship', label: 'Citizenship', value: editedProfile?.citizenship },
+      { key: 'occupation', label: 'Occupation', value: editedProfile?.occupation },
+    ];
+    const newFieldErrors = {};
+    for (const field of fieldsToValidate) {
+      if (field.value && !isAlphaOnly(field.value)) {
+        newFieldErrors[field.key] = `${field.label} should not contain numbers or special characters!"`;
+      }
+    }
+    setFieldErrors(newFieldErrors);
+    if (Object.keys(newFieldErrors).length > 0) {
+      // Optionally show a general error message
+      message.error('Please correct the highlighted errors.');
+      return;
+    }
+
     try {
       setSaving(true);
       const token = localStorage.getItem('token');
@@ -107,6 +138,8 @@ const ResidentProfile = () => {
       ...prev,
       [field]: value
     }));
+    // Clear error for this field on change
+    setFieldErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
   const handleAddressChange = (field, value) => {
@@ -288,26 +321,41 @@ const ResidentProfile = () => {
               <Descriptions column={1} size="middle" bordered>
                 <Descriptions.Item label="First Name">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.firstName} 
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.firstName} 
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      />
+                      {fieldErrors.firstName && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.firstName}</div>
+                      )}
+                    </>
                   ) : (profile.firstName || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Middle Name">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.middleName} 
-                      onChange={(e) => handleInputChange('middleName', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.middleName} 
+                        onChange={(e) => handleInputChange('middleName', e.target.value)}
+                      />
+                      {fieldErrors.middleName && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.middleName}</div>
+                      )}
+                    </>
                   ) : (profile.middleName || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Last Name">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.lastName} 
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.lastName} 
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      />
+                      {fieldErrors.lastName && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.lastName}</div>
+                      )}
+                    </>
                   ) : (profile.lastName || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Suffix">
@@ -351,48 +399,73 @@ const ResidentProfile = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Civil Status">
                   {isEditing ? (
-                    <Select 
-                      value={editedProfile?.civilStatus} 
-                      onChange={(value) => handleInputChange('civilStatus', value)}
-                      style={{ width: '100%' }}
-                    >
-                      <Option value="single">Single</Option>
-                      <Option value="married">Married</Option>
-                      <Option value="widowed">Widowed</Option>
-                      <Option value="separated">Separated</Option>
-                    </Select>
+                    <>
+                      <Select 
+                        value={editedProfile?.civilStatus} 
+                        onChange={(value) => handleInputChange('civilStatus', value)}
+                        style={{ width: '100%' }}
+                      >
+                        <Option value="single">Single</Option>
+                        <Option value="married">Married</Option>
+                        <Option value="widowed">Widowed</Option>
+                        <Option value="separated">Separated</Option>
+                      </Select>
+                      {fieldErrors.civilStatus && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.civilStatus}</div>
+                      )}
+                    </>
                   ) : (profile.civilStatus ? profile.civilStatus.charAt(0).toUpperCase() + profile.civilStatus.slice(1) : 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Religion">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.religion} 
-                      onChange={(e) => handleInputChange('religion', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.religion} 
+                        onChange={(e) => handleInputChange('religion', e.target.value)}
+                      />
+                      {fieldErrors.religion && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.religion}</div>
+                      )}
+                    </>
                   ) : (profile.religion || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Ethnicity">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.ethnicity} 
-                      onChange={(e) => handleInputChange('ethnicity', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.ethnicity} 
+                        onChange={(e) => handleInputChange('ethnicity', e.target.value)}
+                      />
+                      {fieldErrors.ethnicity && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.ethnicity}</div>
+                      )}
+                    </>
                   ) : (profile.ethnicity || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Citizenship">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.citizenship} 
-                      onChange={(e) => handleInputChange('citizenship', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.citizenship} 
+                        onChange={(e) => handleInputChange('citizenship', e.target.value)}
+                      />
+                      {fieldErrors.citizenship && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.citizenship}</div>
+                      )}
+                    </>
                   ) : (profile.citizenship || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Occupation">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.occupation} 
-                      onChange={(e) => handleInputChange('occupation', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.occupation} 
+                        onChange={(e) => handleInputChange('occupation', e.target.value)}
+                      />
+                      {fieldErrors.occupation && (
+                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.occupation}</div>
+                      )}
+                    </>
                   ) : (profile.occupation || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Sectoral Information">

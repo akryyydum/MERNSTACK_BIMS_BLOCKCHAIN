@@ -348,28 +348,6 @@ export default function ResidentRequest() {
           </div>
         )}
 
-        {/* Paid/Unpaid Months Summary */}
-        {paymentsSummary && (
-          <Card className="w-full">
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border rounded-lg p-3">
-                  <div className="text-sm font-semibold mb-2">Garbage Fee (Current Year)</div>
-                  <div className="text-xs text-green-700 mb-1">Paid: {monthsStatus.garbage.paid.join(', ') || 'None'}</div>
-                  <div className="text-xs text-rose-700">Unpaid: {monthsStatus.garbage.unpaid.join(', ') || 'None'}</div>
-                </div>
-                <div className="border rounded-lg p-3">
-                  <div className="text-sm font-semibold mb-2">Streetlight Fee (Current Year)</div>
-                  <div className="text-xs text-green-700 mb-1">Paid: {monthsStatus.streetlight.paid.join(', ') || 'None'}</div>
-                  <div className="text-xs text-rose-700">Unpaid: {monthsStatus.streetlight.unpaid.join(', ') || 'None'}</div>
-                </div>
-              </div>
-              {paymentStatus?.canRequestDocuments === false && (
-                <div className="text-xs text-rose-700">You must settle unpaid Garbage and Streetlight fees (previous and current months) before requesting a document.</div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         <Card className="w-full">
           <CardContent className="space-y-6">
@@ -618,19 +596,19 @@ export default function ResidentRequest() {
 
     {/* View Request Modal */}
     <Modal
-        title={null}
-        open={viewOpen}
-        onCancel={() => setViewOpen(false)}
-        footer={null}
-        width={"90%"}
-        style={{ maxWidth: "800px" }}
-        className="document-tracking-modal"
-        bodyStyle={{ padding: 0 }}
-      >
+      title={null}
+      open={viewOpen}
+      onCancel={() => setViewOpen(false)}
+      footer={null}
+      width={"100%"}
+      style={{ maxWidth: "700px" }}
+      className="document-tracking-modal"
+      bodyStyle={{ padding: 0 }}
+    >
         {viewRequest && (
           <div>
             {/* Header Section */}
-            <div className="bg-gray-50 p-6 border-b">
+            <div className="bg-gray-50 p-4 border-b">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-800">{viewRequest.documentType}</h3>
@@ -664,10 +642,10 @@ export default function ResidentRequest() {
             </div>
             
             {/* Document Details */}
-            <div className="p-6">
+            <div className="p-4">
               <h4 className="text-lg font-medium text-gray-800 mb-3">Request Details</h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500">PURPOSE</p>
                   <p className="mt-1">{viewRequest.purpose}</p>
@@ -735,15 +713,15 @@ export default function ResidentRequest() {
               </div>
               
               {/* Status Timeline */}
-              <div className="mb-8">
-                <h4 className="text-lg font-medium text-gray-800 mb-4">Request Timeline</h4>
+              <div className="mb-4">
+                <h4 className="text-lg font-medium text-gray-800 mb-2">Request Timeline</h4>
                 
                 <div className="relative">
                   {/* Timeline Line */}
                   <div className="absolute left-3.5 top-0 h-full w-0.5 bg-gray-200"></div>
                   
                   {/* Timeline Steps */}
-                  <div className="space-y-6 relative">
+                  <div className="space-y-4 relative">
                     {/* Requested Step (Always shown) */}
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
@@ -811,9 +789,9 @@ export default function ResidentRequest() {
               
               {/* Blockchain Information (if available) */}
               {viewRequest.blockchain?.hash && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h4 className="text-lg font-medium text-gray-800 mb-4">Blockchain Verification</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                <div className="border-t border-gray-200 pt-4">
+                  <h4 className="text-lg font-medium text-gray-800 mb-2">Blockchain Verification</h4>
+                  <div className="bg-gray-50 p-2 rounded-lg space-y-2">
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">HASH</p>
                       <p className="mt-1 font-mono text-sm break-all">{viewRequest.blockchain.hash || "-"}</p>
@@ -836,7 +814,7 @@ export default function ResidentRequest() {
             </div>
             
             {/* Footer with close button */}
-            <div className="bg-gray-50 p-4 flex justify-end border-t">
+            <div className="bg-gray-50 p-2 flex justify-end border-t">
               <Button onClick={() => setViewOpen(false)}>Close</Button>
             </div>
           </div>
