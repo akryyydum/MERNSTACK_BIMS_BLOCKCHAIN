@@ -27,18 +27,35 @@ const ResidentNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Only use firstName from localStorage, fallback to 'Resident'
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      try {
-        const parsedData = JSON.parse(userData);
-        setResidentName(parsedData.firstName || 'Resident');
-      } catch (error) {
+    // Function to load the name from localStorage
+    const loadResidentName = () => {
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        try {
+          const parsedData = JSON.parse(userData);
+          setResidentName(parsedData.firstName || 'Resident');
+        } catch (error) {
+          setResidentName('Resident');
+        }
+      } else {
         setResidentName('Resident');
       }
-    } else {
-      setResidentName('Resident');
-    }
+    };
+
+    // Load name on mount
+    loadResidentName();
+
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      loadResidentName();
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   useEffect(() => {
