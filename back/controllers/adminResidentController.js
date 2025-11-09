@@ -91,7 +91,6 @@ exports.create = async (req, res) => {
       !sanitized.birthPlace ||
       !sanitized.sex ||
       !sanitized.civilStatus ||
-      !sanitized.ethnicity ||
       !normalizedAddress?.purok ||
       !normalizedAddress?.barangay ||
       !normalizedAddress?.municipality ||

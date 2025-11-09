@@ -1472,7 +1472,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity">
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>
@@ -1679,7 +1679,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity">
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>

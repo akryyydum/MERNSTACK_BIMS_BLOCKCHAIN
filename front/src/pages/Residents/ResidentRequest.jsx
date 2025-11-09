@@ -446,6 +446,7 @@ export default function ResidentRequest() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Document For</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Purpose</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
@@ -456,7 +457,7 @@ export default function ResidentRequest() {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-8">
+                    <td colSpan="7" className="text-center py-8">
                       <div className="flex justify-center items-center space-x-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                         <span className="text-gray-500">Loading requests...</span>
@@ -465,7 +466,7 @@ export default function ResidentRequest() {
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-12">
+                    <td colSpan="7" className="text-center py-12">
                       <div className="flex flex-col items-center">
                         <FileTextOutlined style={{ fontSize: '32px' }} className="text-gray-400 mb-2" />
                         <p className="text-gray-500 font-medium">No document requests found</p>
@@ -485,6 +486,25 @@ export default function ResidentRequest() {
                             <p className="font-medium text-gray-800">{request.documentType}</p>
                             <p className="text-xs text-gray-500">ID: {request._id.substring(0, 8)}...</p>
                           </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-700 hidden md:table-cell">
+                        <div className="flex items-center">
+                          {(() => {
+                            const person = request.requestFor || request.residentId;
+                            return person ? (
+                              <div>
+                                <p className="font-medium text-gray-800">
+                                  {[person.firstName, person.lastName].filter(Boolean).join(" ")}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {person._id === resident?._id ? "(You)" : "(Family Member)"}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-700 hidden sm:table-cell">
