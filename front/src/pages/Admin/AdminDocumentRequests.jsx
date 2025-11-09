@@ -24,6 +24,14 @@ export default function AdminDocumentRequests() {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [search, setSearch] = useState("");
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  // Pagination change handler
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+  };
   const [viewOpen, setViewOpen] = useState(false);
   const [viewRequest, setViewRequest] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -857,8 +865,7 @@ const handleExport = async () => {
                 onChange={e => setSearch(e.target.value)}
                 enterButton
                 className="flex-1 sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
-              />
-              
+              />             
               {/* Customize Columns Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -981,7 +988,7 @@ const handleExport = async () => {
                   exportForm.setFieldsValue({ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() });
                 }}
               >
-                Export
+                Export as Excel
               </Button>
             </div>
           </div>
@@ -991,7 +998,16 @@ const handleExport = async () => {
               loading={loading}
               dataSource={filteredRequests}
               columns={columns}
-              pagination={{ pageSize: 10 }}
+              pagination={{
+                current: currentPage,
+                pageSize: pageSize,
+                total: filteredRequests.length,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} requests`,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
               scroll={{ x: 800 }}
             />
           </div>
