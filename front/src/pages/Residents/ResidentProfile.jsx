@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Descriptions, Typography, Layout, message, Spin, Avatar } from 'antd';
+import { Descriptions, Typography, Layout, message, Spin, Avatar, Input, Select, DatePicker, Button } from 'antd';
 import { 
   UserOutlined, 
   HomeOutlined, 
@@ -8,18 +8,26 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
-  BankOutlined
+  BankOutlined,
+  EditOutlined,
+  SaveOutlined,
+  CloseOutlined
 } from '@ant-design/icons';
 import ResidentNavbar from './ResidentNavbar';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import axios from 'axios';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 const { Content } = Layout;
+const { Option } = Select;
 
 const ResidentProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedProfile, setEditedProfile] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -34,12 +42,91 @@ const ResidentProfile = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProfile(response.data);
+      setEditedProfile(response.data);
     } catch (error) {
       console.error('Error fetching profile:', error);
       message.error('Failed to load profile data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditedProfile({ ...profile });
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditedProfile({ ...profile });
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.put(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
+        editedProfile,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      const updatedResident = response.data.resident;
+      setProfile(updatedResident);
+      setEditedProfile(updatedResident);
+      setIsEditing(false);
+      
+      // Update localStorage with new data
+      const userData = {
+        firstName: updatedResident.firstName,
+        middleName: updatedResident.middleName,
+        lastName: updatedResident.lastName,
+        suffix: updatedResident.suffix,
+        email: updatedResident.contact?.email,
+        mobile: updatedResident.contact?.mobile
+      };
+      localStorage.setItem('userData', JSON.stringify(userData));
+      
+      // Dispatch custom event to notify navbar and other components
+      window.dispatchEvent(new Event('profileUpdated'));
+      
+      message.success('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      message.error(error.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleAddressChange = (field, value) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      address: {
+        ...prev.address,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleContactChange = (field, value) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      contact: {
+        ...prev.contact,
+        [field]: value
+      }
+    }));
   };
 
   const formatDate = (dateString) => {
@@ -63,13 +150,13 @@ const ResidentProfile = () => {
     return parts.join(', ');
   };
 
-  const getFullName = () => {
-    if (!profile) return '';
+  const getFullName = (data = profile) => {
+    if (!data) return '';
     const parts = [
-      profile.firstName,
-      profile.middleName,
-      profile.lastName,
-      profile.suffix
+      data.firstName,
+      data.middleName,
+      data.lastName,
+      data.suffix
     ].filter(Boolean);
     return parts.join(' ');
   };
@@ -109,12 +196,50 @@ const ResidentProfile = () => {
         {/* Page Header */}
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-2xl font-semibold text-slate-900">
-              My Profile
-            </CardTitle>
-            <p className="text-slate-600">
-              View your complete resident profile information, contact details, and account status.
-            </p>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-2xl font-semibold text-slate-900">
+                  My Profile
+                </CardTitle>
+                <p className="text-slate-600">
+                  {isEditing 
+                    ? 'Edit your resident profile information' 
+                    : 'View your complete resident profile information, contact details, and account status.'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {!isEditing ? (
+                  <Button 
+                    type="primary" 
+                    icon={<EditOutlined />}
+                    onClick={handleEdit}
+                    size="large"
+                  >
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <>
+                    <Button 
+                      icon={<CloseOutlined />}
+                      onClick={handleCancel}
+                      size="large"
+                      disabled={saving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      onClick={handleSave}
+                      size="large"
+                      loading={saving}
+                    >
+                      Save Changes
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </CardHeader>
         </Card>
 
@@ -168,16 +293,133 @@ const ResidentProfile = () => {
             </CardHeader>
             <CardContent>
               <Descriptions column={1} size="middle" bordered>
-                <Descriptions.Item label="Full Name">{getFullName()}</Descriptions.Item>
-                <Descriptions.Item label="Date of Birth">{formatDate(profile.dateOfBirth)}</Descriptions.Item>
-                <Descriptions.Item label="Birth Place">{profile.birthPlace || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Gender">{profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Civil Status">{profile.civilStatus ? profile.civilStatus.charAt(0).toUpperCase() + profile.civilStatus.slice(1) : 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Religion">{profile.religion || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Ethnicity">{profile.ethnicity || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Citizenship">{profile.citizenship || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Occupation">{profile.occupation || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Sectoral Information">{profile.sectoralInformation || 'None'}</Descriptions.Item>
+                <Descriptions.Item label="First Name">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.firstName} 
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    />
+                  ) : (profile.firstName || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Middle Name">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.middleName} 
+                      onChange={(e) => handleInputChange('middleName', e.target.value)}
+                    />
+                  ) : (profile.middleName || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Last Name">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.lastName} 
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    />
+                  ) : (profile.lastName || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Suffix">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.suffix} 
+                      onChange={(e) => handleInputChange('suffix', e.target.value)}
+                      placeholder="Jr., Sr., III, etc."
+                    />
+                  ) : (profile.suffix || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Date of Birth">
+                  {isEditing ? (
+                    <DatePicker 
+                      value={editedProfile?.dateOfBirth ? dayjs(editedProfile.dateOfBirth) : null}
+                      onChange={(date) => handleInputChange('dateOfBirth', date ? date.toISOString() : null)}
+                      format="YYYY-MM-DD"
+                      style={{ width: '100%' }}
+                    />
+                  ) : formatDate(profile.dateOfBirth)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Birth Place">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.birthPlace} 
+                      onChange={(e) => handleInputChange('birthPlace', e.target.value)}
+                    />
+                  ) : (profile.birthPlace || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Gender">
+                  {isEditing ? (
+                    <Select 
+                      value={editedProfile?.sex} 
+                      onChange={(value) => handleInputChange('sex', value)}
+                      style={{ width: '100%' }}
+                    >
+                      <Option value="male">Male</Option>
+                      <Option value="female">Female</Option>
+                      <Option value="other">Other</Option>
+                    </Select>
+                  ) : (profile.sex ? profile.sex.charAt(0).toUpperCase() + profile.sex.slice(1) : 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Civil Status">
+                  {isEditing ? (
+                    <Select 
+                      value={editedProfile?.civilStatus} 
+                      onChange={(value) => handleInputChange('civilStatus', value)}
+                      style={{ width: '100%' }}
+                    >
+                      <Option value="single">Single</Option>
+                      <Option value="married">Married</Option>
+                      <Option value="widowed">Widowed</Option>
+                      <Option value="separated">Separated</Option>
+                    </Select>
+                  ) : (profile.civilStatus ? profile.civilStatus.charAt(0).toUpperCase() + profile.civilStatus.slice(1) : 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Religion">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.religion} 
+                      onChange={(e) => handleInputChange('religion', e.target.value)}
+                    />
+                  ) : (profile.religion || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ethnicity">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.ethnicity} 
+                      onChange={(e) => handleInputChange('ethnicity', e.target.value)}
+                    />
+                  ) : (profile.ethnicity || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Citizenship">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.citizenship} 
+                      onChange={(e) => handleInputChange('citizenship', e.target.value)}
+                    />
+                  ) : (profile.citizenship || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Occupation">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.occupation} 
+                      onChange={(e) => handleInputChange('occupation', e.target.value)}
+                    />
+                  ) : (profile.occupation || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Sectoral Information">
+                  {isEditing ? (
+                    <Select 
+                      value={editedProfile?.sectoralInformation} 
+                      onChange={(value) => handleInputChange('sectoralInformation', value)}
+                      style={{ width: '100%' }}
+                    >
+                      <Option value="None">None</Option>
+                      <Option value="Solo Parent">Solo Parent</Option>
+                      <Option value="OFW">OFW</Option>
+                      <Option value="PWD">PWD</Option>
+                      <Option value="OSC - Out of School Children">OSC - Out of School Children</Option>
+                      <Option value="OSC - Out of School Youth">OSC - Out of School Youth</Option>
+                      <Option value="OSC - Out of School Adult">OSC - Out of School Adult</Option>
+                    </Select>
+                  ) : (profile.sectoralInformation || 'None')}
+                </Descriptions.Item>
               </Descriptions>
             </CardContent>
           </Card>
@@ -192,12 +434,56 @@ const ResidentProfile = () => {
             </CardHeader>
             <CardContent>
               <Descriptions column={1} size="middle" bordered>
-                <Descriptions.Item label="Purok">{profile.address?.purok || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Barangay">{profile.address?.barangay || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Municipality">{profile.address?.municipality || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Province">{profile.address?.province || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="ZIP Code">{profile.address?.zipCode || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Complete Address">{formatAddress(profile.address)}</Descriptions.Item>
+                <Descriptions.Item label="Purok">
+                  {isEditing ? (
+                    <Select 
+                      value={editedProfile?.address?.purok} 
+                      onChange={(value) => handleAddressChange('purok', value)}
+                      style={{ width: '100%' }}
+                    >
+                      <Option value="Purok 1">Purok 1</Option>
+                      <Option value="Purok 2">Purok 2</Option>
+                      <Option value="Purok 3">Purok 3</Option>
+                      <Option value="Purok 4">Purok 4</Option>
+                      <Option value="Purok 5">Purok 5</Option>
+                    </Select>
+                  ) : (profile.address?.purok || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Barangay">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.address?.barangay} 
+                      onChange={(e) => handleAddressChange('barangay', e.target.value)}
+                    />
+                  ) : (profile.address?.barangay || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Municipality">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.address?.municipality} 
+                      onChange={(e) => handleAddressChange('municipality', e.target.value)}
+                    />
+                  ) : (profile.address?.municipality || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Province">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.address?.province} 
+                      onChange={(e) => handleAddressChange('province', e.target.value)}
+                    />
+                  ) : (profile.address?.province || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="ZIP Code">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.address?.zipCode} 
+                      onChange={(e) => handleAddressChange('zipCode', e.target.value)}
+                    />
+                  ) : (profile.address?.zipCode || 'N/A')}
+                </Descriptions.Item>
+                {!isEditing && (
+                  <Descriptions.Item label="Complete Address">{formatAddress(profile.address)}</Descriptions.Item>
+                )}
               </Descriptions>
             </CardContent>
           </Card>
@@ -212,8 +498,25 @@ const ResidentProfile = () => {
             </CardHeader>
             <CardContent>
               <Descriptions column={1} size="middle" bordered>
-                <Descriptions.Item label="Mobile Number">{profile.contact?.mobile || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Email Address">{profile.contact?.email || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Mobile Number">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.contact?.mobile} 
+                      onChange={(e) => handleContactChange('mobile', e.target.value)}
+                      placeholder="e.g., 09171234567"
+                    />
+                  ) : (profile.contact?.mobile || 'N/A')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Email Address">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.contact?.email} 
+                      onChange={(e) => handleContactChange('email', e.target.value)}
+                      type="email"
+                      placeholder="e.g., email@example.com"
+                    />
+                  ) : (profile.contact?.email || 'N/A')}
+                </Descriptions.Item>
               </Descriptions>
             </CardContent>
           </Card>

@@ -6,4 +6,7 @@ const residentProfileController = require('../controllers/residentProfileControl
 // Get current resident's profile - requires authentication
 router.get('/profile', protect, residentProfileController.getProfile);
 
+// Update current resident's profile - requires authentication
+router.put('/profile', protect, residentProfileController.updateProfile);
+
 module.exports = router;

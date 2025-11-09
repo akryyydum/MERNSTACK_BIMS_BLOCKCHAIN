@@ -28,10 +28,10 @@ export const getDefaultPathByRole = (role) => {
     case "admin":
       return "/admin-dashboard";
     case "official":
-      return "/official-dashboard";
+      return "/resident-dashboard"; // Official uses resident dashboard since /official-dashboard doesn't exist
     case "resident":
       return "/resident-dashboard";
     default:
-      return "/login"; // don’t default to resident if role is missing
+      return "/login"; // don't default to resident if role is missing
   }
 };
