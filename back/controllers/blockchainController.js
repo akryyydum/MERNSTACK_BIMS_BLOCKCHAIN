@@ -100,6 +100,95 @@ exports.getAllFinancialTransactions = async (req, res) => {
 };
 
 
+// Resident-scoped: get only the blockchain requests for the authenticated resident
+exports.getResidentBlockchainRequests = async (req, res) => {
+  try {
+    const Resident = require('../models/resident.model');
+    const resident = await Resident.findOne({ user: req.user.id });
+    if (!resident) return res.status(404).json({ message: 'Resident profile not found' });
+
+    const { gateway, contract } = await getContract();
+    const result = await contract.evaluateTransaction('getAllRequests');
+    const all = JSON.parse(result.toString());
+    await gateway.disconnect();
+
+    // Filter by residentId strictly matching current resident ObjectId string
+    const myId = resident._id.toString();
+    const mine = Array.isArray(all) ? all.filter(r => (r?.residentId || '').toString() === myId) : [];
+
+    // Sort newest first
+    mine.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
+
+    res.json(mine);
+  } catch (error) {
+    console.error('Error fetching resident blockchain requests:', error);
+    res.status(500).json({ message: 'Failed to load resident blockchain requests', error: error.message });
+  }
+};
+
+// Resident-scoped: get only the blockchain financial transactions for the authenticated resident
+exports.getResidentFinancialTransactions = async (req, res) => {
+  try {
+    const Resident = require('../models/resident.model');
+    const Household = require('../models/household.model');
+
+    const resident = await Resident.findOne({ user: req.user.id });
+    if (!resident) return res.status(404).json({ message: 'Resident profile not found' });
+
+    // Many utility payments are attributed to the head of household on-chain.
+    // If the logged-in resident is a member, include the head's ID for the query.
+    const household = await Household.findOne({
+      $or: [
+        { headOfHousehold: resident._id },
+        { members: resident._id },
+      ],
+    }).lean();
+
+    const queryIds = new Set([resident._id.toString()]);
+    if (household?.headOfHousehold) {
+      const headId = household.headOfHousehold.toString();
+      queryIds.add(headId);
+    }
+
+    const { gateway, contract } = await getContract();
+
+    // Fetch transactions for each relevant resident id and merge
+    const results = [];
+    for (const id of Array.from(queryIds)) {
+      try {
+        const buf = await contract.evaluateTransaction(
+          'FinancialTransactionContract:getTransactionsByResident',
+          id
+        );
+        const parsed = JSON.parse(buf.toString());
+        if (Array.isArray(parsed)) results.push(...parsed);
+      } catch (innerErr) {
+        // Non-fatal for secondary IDs
+        console.warn('Resident financial txn query failed for id', id, innerErr.message || innerErr);
+      }
+    }
+    await gateway.disconnect();
+
+    // Deduplicate by txId (fallback to JSON string hash)
+    const seen = new Set();
+    const merged = [];
+    for (const t of results) {
+      const key = t.txId || `${t.requestId || ''}-${t.amount || ''}-${t.createdAt || ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(t);
+    }
+
+    // Sort newest first
+    merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    res.json(merged);
+  } catch (error) {
+    console.error('Error fetching resident blockchain financial transactions:', error);
+    res.status(500).json({ message: 'Failed to load resident blockchain financial transactions', error: error.message });
+  }
+};
+
 const DocumentRequest = require("../models/document.model");
 
 exports.syncFromDB = async (req, res) => {

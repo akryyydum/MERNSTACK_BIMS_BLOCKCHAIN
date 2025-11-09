@@ -25,6 +25,7 @@ import AdminBlockchainNetwork from "./pages/Admin/AdminBlockchainNetwork";
 import AdminSettings from "./pages/Admin/AdminSettings";
 import ResidentPublicDocuments from "./pages/Residents/ResidentPublicDocuments";
 import ResidentReportsComplaints from "./pages/Residents/ResidentReportsComplaints";
+import ResidentBlockchainNetwork from "./pages/Residents/ResidentBlockhainNetwork";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -65,6 +66,7 @@ function App() {
           <Route path="/resident/payments" element={<ResidentPayment />} />
           <Route path="/resident/reports-complaints" element={<ResidentReportsComplaints />} />
           <Route path="/resident/public-documents" element={<ResidentPublicDocuments />} />
+          <Route path="/resident/blockchain" element={<ResidentBlockchainNetwork />} />
         </Route>
 
         {/* Default and 404 handling */}

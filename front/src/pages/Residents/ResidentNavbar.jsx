@@ -11,7 +11,8 @@ import {
   UserOutlined, 
   LogoutOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  CloudSyncOutlined
 } from '@ant-design/icons';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -127,6 +128,15 @@ const ResidentNavbar = () => {
           Public Docs
         </NavLink>
       </Menu.Item>
+      <Menu.Item
+        key="/resident/blockchain"
+        icon={<CloudSyncOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+          Blockchain
+        </NavLink>
+      </Menu.Item>
     </Menu>
   );
 
@@ -178,6 +188,15 @@ const ResidentNavbar = () => {
       >
         <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
           Public Docs
+        </NavLink>
+      </Menu.Item>
+      <Menu.Item
+        key="/resident/blockchain"
+        icon={<CloudSyncOutlined />}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+          Blockchain
         </NavLink>
       </Menu.Item>
       <Menu.Divider />
