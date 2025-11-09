@@ -43,7 +43,7 @@ export default function AdminDocumentRequests() {
 
   const [createForm] = Form.useForm();
   const selectedCreateDocType = Form.useWatch("documentType", createForm); // NEW
-  const selectedResidentId = Form.useWatch("residentId", createForm);
+  const selectedRequestFor = Form.useWatch("requestFor", createForm); // Person document is for
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
@@ -57,6 +57,8 @@ export default function AdminDocumentRequests() {
       return JSON.parse(saved);
     }
     return {
+      requestedBy: true,
+      requestFor: true,
       civilStatus: true,
       purok: true,
       documentType: true,
@@ -154,25 +156,42 @@ export default function AdminDocumentRequests() {
 
   const allColumns = [
     {
-      title: "Resident",
-      key: "resident",
-      columnKey: "resident",
+      title: "Requested By",
+      key: "requestedBy",
+      columnKey: "requestedBy",
       render: (_, r) =>
-        r.residentId
-          ? [r.residentId.firstName, r.residentId.middleName, r.residentId.lastName].filter(Boolean).join(" ")
+        r.requestedBy
+          ? [r.requestedBy.firstName, r.requestedBy.middleName, r.requestedBy.lastName].filter(Boolean).join(" ")
           : "-",
+    },
+    {
+      title: "Document For",
+      key: "requestFor",
+      columnKey: "requestFor",
+      render: (_, r) => {
+        const person = r.requestFor || r.residentId;
+        return person
+          ? [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ")
+          : "-";
+      },
     },
     {
       title: "Civil Status",
       key: "civilStatus",
       columnKey: "civilStatus",
-      render: (_, r) => r.residentId?.civilStatus || "-",
+      render: (_, r) => {
+        const person = r.requestFor || r.residentId;
+        return person?.civilStatus || "-";
+      },
     },
     {
       title: "Purok",
       key: "purok",
       columnKey: "purok",
-      render: (_, r) => r.residentId?.address?.purok || "-",
+      render: (_, r) => {
+        const person = r.requestFor || r.residentId;
+        return person?.address?.purok || "-";
+      },
     },
     {
       title: "Document Type",
@@ -270,6 +289,17 @@ export default function AdminDocumentRequests() {
   const sortedRequests = sortByNewest(requests);
   const filteredRequests = sortedRequests.filter(r =>
     [
+      // Requested By (person who made the request)
+      r.requestedBy?.firstName,
+      r.requestedBy?.middleName,
+      r.requestedBy?.lastName,
+      r.requestedBy?.suffix,
+      // Request For (person the document is for)
+      r.requestFor?.firstName,
+      r.requestFor?.middleName,
+      r.requestFor?.lastName,
+      r.requestFor?.suffix,
+      // Fallback to residentId if requestFor not available
       r.residentId?.firstName,
       r.residentId?.middleName,
       r.residentId?.lastName,
@@ -282,9 +312,7 @@ export default function AdminDocumentRequests() {
       .join(" ")
       .toLowerCase()
       .includes(search.toLowerCase())
-);
-
-  // Unique list of Puroks for export filtering
+  );  // Unique list of Puroks for export filtering
   const uniquePuroks = Array.from(
     new Set(
       [
@@ -370,14 +398,14 @@ export default function AdminDocumentRequests() {
     // reset and recompute when resident changes
     setUnpaidMonths({ garbage: [], streetlight: [] });
     setBlockCreate(false);
-    if (selectedResidentId && households?.length) {
-      const hh = findHouseholdByResident(selectedResidentId);
+    if (selectedRequestFor && households?.length) {
+      const hh = findHouseholdByResident(selectedRequestFor);
       if (hh?._id) {
         computeUnpaidMonths(hh._id);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedResidentId, households, createOpen]);
+  }, [selectedRequestFor, households, createOpen]);
 
    const openView = (request) => {
     setViewRequest(request);
@@ -442,7 +470,8 @@ function capFirst(s) {
 }
 
 function buildTemplateData(docType, record) {
-  const r = record.residentId || {};
+  // Use requestFor (person document is for) instead of residentId (person who requested)
+  const r = record.requestFor || record.residentId || {};
   const fullName = [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ") || "-";
   const requestedAt = record.requestedAt ? new Date(record.requestedAt) : new Date();
 
@@ -858,6 +887,24 @@ const handleExport = async () => {
                   <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
+                    checked={visibleColumns.requestedBy}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, requestedBy: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Requested By
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.requestFor}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, requestFor: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Document For
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
                     checked={visibleColumns.civilStatus}
                     onCheckedChange={(checked) =>
                       setVisibleColumns({ ...visibleColumns, civilStatus: checked })
@@ -959,16 +1006,32 @@ const handleExport = async () => {
         >
           {viewRequest && (
             <Descriptions bordered column={1} size="middle">
-              <Descriptions.Item label="Resident">
-                {viewRequest.residentId
-                  ? [viewRequest.residentId.firstName, viewRequest.residentId.middleName, viewRequest.residentId.lastName, viewRequest.residentId.suffix].filter(Boolean).join(" ")
-                  : "-"}
+              <Descriptions.Item label="Requested By">
+                {viewRequest.requestedBy
+                  ? [viewRequest.requestedBy.firstName, viewRequest.requestedBy.middleName, viewRequest.requestedBy.lastName, viewRequest.requestedBy.suffix].filter(Boolean).join(" ")
+                  : (viewRequest.residentId
+                    ? [viewRequest.residentId.firstName, viewRequest.residentId.middleName, viewRequest.residentId.lastName, viewRequest.residentId.suffix].filter(Boolean).join(" ")
+                    : "-")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Document For">
+                {(() => {
+                  const person = viewRequest.requestFor || viewRequest.residentId;
+                  return person
+                    ? [person.firstName, person.middleName, person.lastName, person.suffix].filter(Boolean).join(" ")
+                    : "-";
+                })()}
               </Descriptions.Item>
               <Descriptions.Item label="Civil Status">
-                {viewRequest.residentId?.civilStatus || "-"}
+                {(() => {
+                  const person = viewRequest.requestFor || viewRequest.residentId;
+                  return person?.civilStatus || "-";
+                })()}
               </Descriptions.Item>
               <Descriptions.Item label="Purok">
-                {viewRequest.residentId?.address?.purok || "-"}
+                {(() => {
+                  const person = viewRequest.requestFor || viewRequest.residentId;
+                  return person?.address?.purok || "-";
+                })()}
               </Descriptions.Item>
               <Descriptions.Item label="Document Type">{viewRequest.documentType}</Descriptions.Item>
               <Descriptions.Item label="Purpose">{viewRequest.purpose}</Descriptions.Item>
@@ -994,10 +1057,24 @@ const handleExport = async () => {
             try {
               setCreating(true);
               const values = await createForm.validateFields();
+              
+              // Calculate amount based on document type for admin requests
+              let amount = 0;
+              if (values.documentType === 'Indigency') amount = 0;
+              else if (values.documentType === 'Barangay Clearance') amount = 100;
+              else if (values.documentType === 'Business Clearance') amount = 0; // Set by admin later
+              
+              const payload = {
+                ...values,
+                amount: amount
+              };
+              
+              console.log("Sending admin create request with payload:", payload);
+              
               const token = localStorage.getItem("token");
               await axios.post(
                 `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
-                values,
+                payload,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               message.success("Document request created!");
@@ -1005,6 +1082,7 @@ const handleExport = async () => {
               createForm.resetFields();
               fetchRequests();
             } catch (err) {
+              console.error("Admin create request error:", err);
               message.error(err?.response?.data?.message || "Failed to create document request");
             }
             setCreating(false);
@@ -1015,10 +1093,10 @@ const handleExport = async () => {
           width={600}
         >
           <Form form={createForm} layout="vertical">
-            <Form.Item name="residentId" label="Resident" rules={[{ required: true }]}>
+            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
               <Select
                 showSearch
-                placeholder="Select resident"
+                placeholder="Select who is making the request"
                 optionFilterProp="children"
                 filterOption={(input, option) =>
                   option.children.toLowerCase().includes(input.toLowerCase())
@@ -1031,7 +1109,25 @@ const handleExport = async () => {
                 ))}
               </Select>
             </Form.Item>
-            {selectedResidentId && (
+            
+            <Form.Item name="requestFor" label="Document For" rules={[{ required: true }]}>
+              <Select
+                showSearch
+                placeholder="Select who the document is for"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  option.children.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {residents.map(r => (
+                  <Select.Option key={r._id} value={r._id}>
+                    {[r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ")}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+            
+            {selectedRequestFor && (
               <div className="mb-3 -mt-2 flex items-center gap-2">
                 <Button size="small" onClick={() => setShowUnpaidModal(true)} disabled={paymentsCheckLoading}>
                   View Unpaid Months
@@ -1045,22 +1141,7 @@ const handleExport = async () => {
                 )}
               </div>
             )}
-            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
-              <Select
-                showSearch
-                placeholder="Select requester"
-                optionFilterProp="children"
-                filterOption={(input, option) =>
-                  option.children.toLowerCase().includes(input.toLowerCase())
-                }
-              >
-                {residents.map(r => (
-                  <Select.Option key={r._id} value={r._id}>
-                    {[r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ")}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
+            
             <Form.Item name="documentType" label="Document Type" rules={[{ required: true }]}>
               <Select
                 options={[
@@ -1099,7 +1180,7 @@ const handleExport = async () => {
           footer={null}
           width={520}
         >
-          {!selectedResidentId ? (
+          {!selectedRequestFor ? (
             <div className="text-sm text-gray-500">Select a resident to view payment status.</div>
           ) : paymentsCheckLoading ? (
             <div className="text-sm text-gray-500">Loading unpaid months…</div>
