@@ -45,8 +45,8 @@ async function register(req, res) {
     if (!username || !password) {
       return res.status(400).json({ message: 'username and password are required' });
     }
-    if (!firstName || !lastName || !dateOfBirth || !ethnicity) {
-      return res.status(400).json({ message: 'firstName, lastName, dateOfBirth, and ethnicity are required' });
+    if (!firstName || !lastName || !dateOfBirth) {
+      return res.status(400).json({ message: 'firstName, lastName, and dateOfBirth are required' });
     }
 
     // Validate required resident fields
