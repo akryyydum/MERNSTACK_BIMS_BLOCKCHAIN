@@ -102,9 +102,17 @@ export default function AdminBlockchainNetwork() {
 
   // Derived filtered data per tab
   const filteredRequests = useMemo(() => {
-    if (!query) return results;
+    // Always exclude synthetic utility payment placeholders (garbage/streetlight/electric)
+    const excludeUtility = (arr) => (arr || []).filter(r => {
+      const t = (r.documentType || '').toString().toLowerCase();
+      // We created these on-chain as `${type}_payment` (e.g., garbage_payment, streetlight_payment, electric_payment)
+      return !t.endsWith('_payment');
+    });
+
+    const base = excludeUtility(results);
+    if (!query) return base;
     const q = query.toLowerCase();
-    return (results || []).filter(r => {
+    return base.filter(r => {
       const type = (r.documentType || '').toString().toLowerCase();
       const resident = (r.residentId || '').toString().toLowerCase();
       const status = (r.status || '').toString().toLowerCase();

@@ -2,6 +2,8 @@ const DocumentRequest = require('../models/document.model');
 const Resident = require('../models/resident.model');
 const mongoose = require('mongoose');
 const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
+// Fabric client for blockchain mirroring
+const { getContract } = require('../utils/fabricClient');
 
 exports.list = async (req, res) => {
   try {
@@ -74,8 +76,39 @@ exports.createRequest = async (req, res) => {
       quantity: Math.max(Number(quantity || 1), 1),
       amount: Number(amount || 0)   // Document fee
     });
+    // Attempt to mirror to blockchain (non-blocking)
+    try {
+      const { gateway, contract } = await getContract();
+      // Determine the subject (who the document is for) for display on-chain
+      let subjectResident;
+      try {
+        subjectResident = await Resident.findById(doc.requestFor).select('firstName lastName');
+      } catch (_) {}
+      try {
+        await contract.submitTransaction(
+          'createRequest',
+          doc._id.toString(),
+          (doc.requestFor?._id || doc.requestFor).toString(), // Use subject of document
+          subjectResident ? [subjectResident.firstName, subjectResident.lastName].filter(Boolean).join(' ') : [resident.firstName, resident.lastName].filter(Boolean).join(' '),
+          documentType,
+          purpose || '',
+          doc.status || 'pending'
+        );
+      } catch (chainErr) {
+        console.error('Blockchain createRequest (resident) failed:', chainErr.message || chainErr);
+      }
+      await gateway.disconnect();
+    } catch (fabricErr) {
+      console.warn('Fabric gateway error (resident create mirror):', fabricErr.message || fabricErr);
+    }
 
-    res.status(201).json(doc);
+    // Return populated document for frontend consistency
+    const populated = await DocumentRequest.findById(doc._id)
+      .populate('residentId')
+      .populate('requestedBy')
+      .populate('requestFor');
+
+    res.status(201).json(populated);
   } catch (error) {
     console.error('Error creating document request:', error);
     res.status(500).json({ message: error.message || 'Failed to create document request' });
