@@ -389,23 +389,23 @@ exports.bulkImport = async (req, res) => {
           
           // Convert common variations to proper enum values
           if (lowerVal === "solo parent") normalizedVal = "Solo Parent";
-          else if (lowerVal === "ofw") normalizedVal = "OFW";
-          else if (lowerVal === "pwd") normalizedVal = "PWD";
+          else if (lowerVal === "ofw" || lowerVal.includes("overseas filipino worker")) normalizedVal = "OFW (Overseas Filipino Worker)";
+          else if (lowerVal === "pwd" || lowerVal.includes("person with disability")) normalizedVal = "PWD (Person with Disability)";
           else if (lowerVal.includes("out of school")) {
-            if (lowerVal.includes("children")) normalizedVal = "OSC - Out of School Children";
-            else if (lowerVal.includes("youth")) normalizedVal = "OSC - Out of School Youth";
-            else if (lowerVal.includes("adult")) normalizedVal = "OSC - Out of School Adult";
+            if (lowerVal.includes("children") || lowerVal === "osc") normalizedVal = "OSC (Out of School Children)";
+            else if (lowerVal.includes("youth") || lowerVal === "osy") normalizedVal = "OSY (Out of School Youth)";
+            else if (lowerVal.includes("adult") || lowerVal === "osa") normalizedVal = "OSA (Out of School Adult)";
           }
           
           const mapped = enumOr(
             normalizedVal,
             [
               "Solo Parent",
-              "OFW",
-              "PWD",
-              "OSC - Out of School Children",
-              "OSC - Out of School Youth",
-              "OSC - Out of School Adult",
+              "OFW (Overseas Filipino Worker)",
+              "PWD (Person with Disability)",
+              "OSC (Out of School Children)",
+              "OSY (Out of School Youth)",
+              "OSA (Out of School Adult)",
             ],
             undefined
           );

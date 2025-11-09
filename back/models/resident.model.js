@@ -23,7 +23,15 @@ const residentSchema = new mongoose.Schema({
     occupation: { type: String, required: true },
     sectoralInformation: { 
         type: String, 
-        enum: ['Solo Parent', 'OFW', 'PWD', 'OSC - Out of School Children', 'OSC - Out of School Youth', 'OSC - Out of School Adult', 'None'], 
+        enum: [
+            'Solo Parent', 
+            'OFW (Overseas Filipino Worker)', 
+            'PWD (Person with Disability)', 
+            'OSC (Out of School Children)', 
+            'OSY (Out of School Youth)', 
+            'OSA (Out of School Adult)', 
+            'None'
+        ], 
         required: false,
         default: 'None'
     },

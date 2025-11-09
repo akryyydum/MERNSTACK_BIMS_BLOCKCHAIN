@@ -5,11 +5,11 @@ import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker,
 // Sectoral Information options
 const SECTORAL_OPTIONS = [
   { value: "Solo Parent", label: "Solo Parent" },
-  { value: "OFW", label: "OFW (Overseas Filipino Worker)" },
-  { value: "PWD", label: "PWD (Person with Disability)" },
-  { value: "OSC - Out of School Children", label: "OSC - Out of School Children" },
-  { value: "OSY - Out of School Youth", label: "OSY - Out of School Youth" },
-  { value: "OSA - Out of School Adult", label: "OSA - Out of School Adult" },
+  { value: "OFW (Overseas Filipino Worker)", label: "OFW (Overseas Filipino Worker)" },
+  { value: "PWD (Person with Disability)", label: "PWD (Person with Disability)" },
+  { value: "OSC (Out of School Children)", label: "OSC (Out of School Children)" },
+  { value: "OSY (Out of School Youth)", label: "OSY (Out of School Youth)" },
+  { value: "OSA (Out of School Adult)", label: "OSA (Out of School Adult)" },
   { value: "None", label: "None" }
 ];
 

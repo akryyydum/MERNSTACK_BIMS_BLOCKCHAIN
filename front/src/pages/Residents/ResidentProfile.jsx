@@ -477,11 +477,11 @@ const ResidentProfile = () => {
                     >
                       <Option value="None">None</Option>
                       <Option value="Solo Parent">Solo Parent</Option>
-                      <Option value="OFW">OFW</Option>
-                      <Option value="PWD">PWD</Option>
-                      <Option value="OSC - Out of School Children">OSC - Out of School Children</Option>
-                      <Option value="OSC - Out of School Youth">OSC - Out of School Youth</Option>
-                      <Option value="OSC - Out of School Adult">OSC - Out of School Adult</Option>
+                      <Option value="OFW (Overseas Filipino Worker)">OFW (Overseas Filipino Worker)</Option>
+                      <Option value="PWD (Person with Disability)">PWD (Person with Disability)</Option>
+                      <Option value="OSC (Out of School Children)">OSC (Out of School Children)</Option>
+                      <Option value="OSY (Out of School Youth)">OSY (Out of School Youth)</Option>
+                      <Option value="OSA (Out of School Adult)">OSA (Out of School Adult)</Option>
                     </Select>
                   ) : (profile.sectoralInformation || 'None')}
                 </Descriptions.Item>
@@ -526,9 +526,6 @@ const ResidentProfile = () => {
                 <Descriptions.Item label="ZIP Code">
                   {profile.address?.zipCode || 'N/A'}
                 </Descriptions.Item>
-                {!isEditing && (
-                  <Descriptions.Item label="Complete Address">{formatAddress(profile.address)}</Descriptions.Item>
-                )}
               </Descriptions>
             </CardContent>
           </Card>
