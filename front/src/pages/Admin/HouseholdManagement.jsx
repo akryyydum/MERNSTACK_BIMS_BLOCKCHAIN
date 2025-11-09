@@ -796,6 +796,7 @@ export default function HouseholdManagement() {
                 pageSize: pageSize,
                 total: filteredHouseholds.length,
                 showSizeChanger: true,
+                showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} households`,
                 pageSizeOptions: ['10', '20', '50', '100'],
               }}

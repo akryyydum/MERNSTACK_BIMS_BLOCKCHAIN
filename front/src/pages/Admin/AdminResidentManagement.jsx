@@ -1116,6 +1116,7 @@ export default function AdminResidentManagement() {
                 pageSize: pageSize,
                 total: filteredResidents.length,
                 showSizeChanger: true,
+                showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
               }}
@@ -1471,7 +1472,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity">
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>
@@ -1678,7 +1679,7 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity" rules={[{ required: true }]}>
+              <Form.Item name="ethnicity" label="Ethnicity">
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>

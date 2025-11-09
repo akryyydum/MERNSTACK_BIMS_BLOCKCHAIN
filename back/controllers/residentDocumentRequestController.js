@@ -13,6 +13,7 @@ exports.list = async (req, res) => {
     })
       .populate('residentId')
       .populate('requestedBy') // include requester info
+      .populate('requestFor') // include who the document is for
       .sort({ requestedAt: -1 });
 
     res.json(requests);
@@ -46,7 +47,7 @@ exports.createRequest = async (req, res) => {
       });
     }
 
-    const { documentType, purpose, businessName, quantity } = req.body;
+    const { documentType, purpose, businessName, quantity, amount, requestFor } = req.body;
 
     if (!documentType) {
       return res.status(400).json({ message: 'Document type is required' });
@@ -55,13 +56,23 @@ exports.createRequest = async (req, res) => {
       return res.status(400).json({ message: 'Business name is required for Business Clearance' });
     }
 
+    // Validate requestFor - if not provided, default to the resident themselves
+    const requestForResident = requestFor || resident._id;
+    
+    // Validate that requestFor is a valid ObjectId if provided
+    if (requestFor && !mongoose.Types.ObjectId.isValid(requestFor)) {
+      return res.status(400).json({ message: 'Invalid requestFor ID' });
+    }
+
     const doc = await DocumentRequest.create({
-      residentId: resident._id,     // use Resident _id
-      requestedBy: resident._id,    // requester is also the resident
+      residentId: resident._id,     // The resident making the request
+      requestedBy: resident._id,    // Who made the request (same as residentId)
+      requestFor: requestForResident, // Who the document is for
       documentType,
       purpose,
       businessName,
-      quantity: Math.max(Number(quantity || 1), 1)
+      quantity: Math.max(Number(quantity || 1), 1),
+      amount: Number(amount || 0)   // Document fee
     });
 
     res.status(201).json(doc);
@@ -83,7 +94,8 @@ exports.getById = async (req, res) => {
 
     const request = await DocumentRequest.findById(requestId)
       .populate('residentId')
-      .populate('requestedBy');
+      .populate('requestedBy')
+      .populate('requestFor');
 
     if (!request) return res.status(404).json({ message: "Document request not found" });
 

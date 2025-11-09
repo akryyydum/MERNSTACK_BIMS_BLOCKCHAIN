@@ -10,6 +10,7 @@ exports.list = async (req, res) => {
     const requests = await DocumentRequest.find({})
       .populate('residentId')
       .populate('requestedBy')
+      .populate('requestFor')  // Add this line to populate who the document is for
       .sort({ requestedAt: -1 });
 
     res.json(requests);
@@ -35,7 +36,7 @@ exports.approve = async (req, res) => {
         updatedAt: new Date()
       },
       { new: true }
-    ).populate('residentId').populate('requestedBy');
+    ).populate('residentId').populate('requestedBy').populate('requestFor');
 
     if (!request) {
       return res.status(404).json({ message: "Document request not found" });
@@ -134,7 +135,7 @@ exports.deny = async (req, res) => {
         updatedAt: new Date()
       },
       { new: true }
-    ).populate('residentId').populate('requestedBy');
+    ).populate('residentId').populate('requestedBy').populate('requestFor');
 
     if (!request) {
       return res.status(404).json({ message: "Document request not found" });
@@ -226,42 +227,86 @@ exports.delete = async (req, res) => {
 // Create a new document request (admin can create on behalf of residents)
 exports.create = async (req, res) => {
   try {
-    const { residentId, documentType, purpose, businessName, quantity } = req.body;
+    console.log("Admin create request - received data:", req.body);
+    
+    const { requestedBy, requestFor, documentType, purpose, businessName, quantity, amount } = req.body;
 
-    const resident = await Resident.findById(residentId);
-    if (!resident) {
-      return res.status(404).json({ message: "Resident not found" });
+    // Validate required fields
+    if (!requestedBy) {
+      return res.status(400).json({ message: "requestedBy is required" });
+    }
+    if (!requestFor) {
+      return res.status(400).json({ message: "requestFor is required" });
+    }
+    if (!documentType) {
+      return res.status(400).json({ message: "documentType is required" });
+    }
+
+    // Validate that both requestedBy and requestFor exist
+    const requesterResident = await Resident.findById(requestedBy);
+    if (!requesterResident) {
+      console.log("Requester not found:", requestedBy);
+      return res.status(404).json({ message: "Requester resident not found" });
+    }
+
+    const forResident = await Resident.findById(requestFor);
+    if (!forResident) {
+      console.log("RequestFor resident not found:", requestFor);
+      return res.status(404).json({ message: "RequestFor resident not found" });
+    }
+
+    console.log("Found requester:", requesterResident.firstName, requesterResident.lastName);
+    console.log("Found document for:", forResident.firstName, forResident.lastName);
+
+    // Calculate amount if not provided
+    let documentAmount = Number(amount || 0);
+    if (!amount) {
+      if (documentType === 'Indigency') documentAmount = 0;
+      else if (documentType === 'Barangay Clearance') documentAmount = 100;
+      else if (documentType === 'Business Clearance') documentAmount = 0; // Set by admin later
     }
 
     // 1️⃣ Save to MongoDB first
     const newRequest = new DocumentRequest({
-      residentId,
-      requestedBy: residentId,
+      residentId: requestedBy,  // Keep for backward compatibility
+      requestedBy: requestedBy, // Who made the request
+      requestFor: requestFor,   // Who the document is for
       documentType,
       purpose,
       businessName,
       quantity: Math.max(Number(quantity || 1), 1),
+      amount: documentAmount,
       status: 'pending'
     });
+    
+    console.log("About to save new request:", newRequest);
     await newRequest.save();
+    console.log("Request saved successfully with ID:", newRequest._id);
 
-    // 2️⃣ Save to blockchain
-    const { gateway, contract } = await getContract(); // <-- get both gateway & contract
-    await contract.submitTransaction(
-      'createRequest',
-      newRequest._id.toString(),
-      residentId.toString(),
-      `${resident.firstName} ${resident.lastName}`,
-      documentType,
-      purpose,
-      'pending'
-    );
-    await gateway.disconnect(); // <-- cleanly close the gateway connection ✅
+    // 2️⃣ Save to blockchain (with error handling)
+    try {
+      const { gateway, contract } = await getContract(); // <-- get both gateway & contract
+      await contract.submitTransaction(
+        'createRequest',
+        newRequest._id.toString(),
+        requestFor.toString(), // Use requestFor for blockchain (document recipient)
+        `${forResident.firstName} ${forResident.lastName}`,
+        documentType,
+        purpose,
+        'pending'
+      );
+      await gateway.disconnect(); // <-- cleanly close the gateway connection ✅
+      console.log("Request saved to blockchain successfully");
+    } catch (blockchainError) {
+      console.error("Blockchain save failed (continuing anyway):", blockchainError.message);
+      // Continue - the MongoDB save was successful
+    }
 
     // 3️⃣ Respond with populated MongoDB entry
     const populatedRequest = await DocumentRequest.findById(newRequest._id)
       .populate('residentId')
-      .populate('requestedBy');
+      .populate('requestedBy')
+      .populate('requestFor');
 
     res.status(201).json(populatedRequest);
   } catch (error) {
@@ -307,7 +352,7 @@ exports.completeRequest = async (req, res) => {
       id,
       updateData,
       { new: true }
-    ).populate('residentId').populate('requestedBy');
+    ).populate('residentId').populate('requestedBy').populate('requestFor');
 
     if (!request) {
       return res.status(404).json({ message: "Document request not found" });

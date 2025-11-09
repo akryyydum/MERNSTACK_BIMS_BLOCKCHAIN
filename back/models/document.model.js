@@ -3,20 +3,24 @@ const mongoose = require('mongoose');
 
 const documentRequestSchema = new mongoose.Schema({
   residentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
-  requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true },
+  requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident', required: true }, // Who made the request
+  requestFor: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident' }, // Who the document is for (temporarily not required)
   documentType: { 
     type: String, 
-    enum: ['Barangay Certificate', 'Indigency', 'Barangay Clearance', 'Residency', 'Business Clearance'], 
+    enum: ['Indigency', 'Barangay Clearance', 'Business Clearance'], 
     required: true 
   },
   // Quantity of copies requested
   quantity: { type: Number, default: 1, min: 1 },
   purpose: { type: String },
+  amount: { type: Number, default: 0 }, // Document fee amount
   status: {
     type: String,
     enum: ['pending', 'accepted', 'declined', 'completed'],
     default: 'pending'
   },
+  // Optional business name for Business Clearance
+  businessName: { type: String },
   // Optional fee amount set by admin (e.g., for Business Clearance)
   feeAmount: { type: Number },
   

@@ -728,19 +728,28 @@ exports.deleteStreetlightPayments = async (req, res) => {
 exports.getResidentHousehold = async (req, res) => {
   try {
     console.log("getResidentHousehold - req.user:", req.user);
-    const residentId = req.user.id || req.user._id || req.user.userId; // Try different possible ID fields
-    console.log("Looking for household with resident ID:", residentId);
+    const userId = req.user.id || req.user._id || req.user.userId; // Try different possible ID fields
+    console.log("Looking for resident with user ID:", userId);
     
-    if (!residentId) {
-      console.log("No resident ID found in token");
-      return res.status(400).json({ message: "No resident ID found in authentication token" });
+    if (!userId) {
+      console.log("No user ID found in token");
+      return res.status(400).json({ message: "No user ID found in authentication token" });
     }
+    
+    // First find the resident record for this user
+    const resident = await Resident.findOne({ user: userId });
+    if (!resident) {
+      console.log("No resident record found for user ID:", userId);
+      return res.status(404).json({ message: "Resident profile not found" });
+    }
+    
+    console.log("Found resident:", resident._id);
     
     // Find household where the resident is either head or member
     const household = await Household.findOne({
       $or: [
-        { headOfHousehold: residentId },
-        { members: residentId }
+        { headOfHousehold: resident._id },
+        { members: resident._id }
       ]
     })
     .populate("headOfHousehold", "firstName middleName lastName")

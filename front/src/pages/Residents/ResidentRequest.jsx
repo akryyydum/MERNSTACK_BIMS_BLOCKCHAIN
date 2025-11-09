@@ -32,6 +32,14 @@ export default function ResidentRequest() {
   const [monthsStatus, setMonthsStatus] = useState({ garbage: { paid: [], unpaid: [] }, streetlight: { paid: [], unpaid: [] } });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  
+  // New state for form enhancements
+  const [householdMembers, setHouseholdMembers] = useState([]);
+  const [documentPricing, setDocumentPricing] = useState({
+    "Indigency": 0,
+    "Barangay Clearance": 100,
+    "Business Clearance": 0 // Will be set by admin
+  });
 
   const navigate = useNavigate();
   const [createForm] = Form.useForm();
@@ -41,12 +49,101 @@ export default function ResidentRequest() {
   useEffect(() => {
     // Only fetch requests on initial load
     fetchRequests();
+    fetchResidentProfile(); // Fetch resident profile
+    fetchHouseholdInfo();
     checkPaymentStatus();
     fetchPaymentsSummary();
-    // We'll get the resident info from localStorage instead of API
-    const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    setResident(userProfile);
   }, []);
+
+  // Fetch resident profile information
+  const fetchResidentProfile = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.log("No token found for resident profile fetch");
+        return;
+      }
+
+      console.log("Fetching resident profile...");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("Resident profile API response:", res.data);
+      
+      if (res.data) {
+        setResident(res.data);
+        // Set default form values when resident data is loaded
+        console.log("Setting form defaults for resident:", res.data._id);
+        createForm.setFieldsValue({
+          residentId: res.data._id,
+          requestFor: res.data._id
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching resident profile:", error);
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+      }
+      // Fallback to localStorage
+      const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+      console.log("Fallback to localStorage userProfile:", userProfile);
+      if (userProfile._id) {
+        setResident(userProfile);
+        createForm.setFieldsValue({
+          residentId: userProfile._id,
+          requestFor: userProfile._id
+        });
+      }
+    }
+  };
+
+  // Fetch household information and members
+  const fetchHouseholdInfo = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.log("No token found for household fetch");
+        return;
+      }
+
+      console.log("Fetching household info...");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/household`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("Household API response:", res.data);
+      
+      if (res.data && res.data.members) {
+        // Filter out the current resident from members list to avoid duplication
+        // The current resident will be shown separately as "You"
+        const currentUserProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+        console.log("Current user profile:", currentUserProfile);
+        
+        // Filter members that aren't the current user
+        const otherMembers = res.data.members.filter(member => {
+          console.log("Checking member:", member);
+          return member._id !== currentUserProfile._id;
+        });
+        
+        console.log("Other household members:", otherMembers);
+        setHouseholdMembers(otherMembers);
+      } else {
+        console.log("No members found in household data");
+        setHouseholdMembers([]);
+      }
+    } catch (error) {
+      console.error("Error fetching household information:", error);
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+        console.error("Error status:", error.response.status);
+      }
+      // Set empty array as fallback
+      setHouseholdMembers([]);
+    }
+  };
 
   // Check payment status to determine if user can request documents
   const checkPaymentStatus = async () => {
@@ -195,6 +292,14 @@ export default function ResidentRequest() {
       message.warning("Please settle your outstanding payments before requesting documents");
       return;
     }
+    // Reset form and set initial values
+    createForm.resetFields();
+    createForm.setFieldsValue({
+      residentId: resident?._id,
+      requestFor: resident?._id,
+      quantity: 1,
+      amount: 0
+    });
     setCreateOpen(true);
   };
 
@@ -341,16 +446,18 @@ export default function ResidentRequest() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Document For</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Purpose</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Amount</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-8">
+                    <td colSpan="7" className="text-center py-8">
                       <div className="flex justify-center items-center space-x-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                         <span className="text-gray-500">Loading requests...</span>
@@ -359,7 +466,7 @@ export default function ResidentRequest() {
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-12">
+                    <td colSpan="7" className="text-center py-12">
                       <div className="flex flex-col items-center">
                         <FileTextOutlined style={{ fontSize: '32px' }} className="text-gray-400 mb-2" />
                         <p className="text-gray-500 font-medium">No document requests found</p>
@@ -379,6 +486,25 @@ export default function ResidentRequest() {
                             <p className="font-medium text-gray-800">{request.documentType}</p>
                             <p className="text-xs text-gray-500">ID: {request._id.substring(0, 8)}...</p>
                           </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-700 hidden md:table-cell">
+                        <div className="flex items-center">
+                          {(() => {
+                            const person = request.requestFor || request.residentId;
+                            return person ? (
+                              <div>
+                                <p className="font-medium text-gray-800">
+                                  {[person.firstName, person.lastName].filter(Boolean).join(" ")}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {person._id === resident?._id ? "(You)" : "(Family Member)"}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-700 hidden sm:table-cell">
@@ -411,6 +537,44 @@ export default function ResidentRequest() {
                             RELEASED
                           </span>
                         )}
+                      </td>
+                      <td className="py-4 px-6 hidden lg:table-cell">
+                        {(() => {
+                          // Calculate total amount based on document type and quantity
+                          const quantity = request.quantity || 1;
+                          let baseAmount = 0;
+                          
+                          if (request.documentType === "Indigency") {
+                            baseAmount = 0;
+                          } else if (request.documentType === "Barangay Clearance") {
+                            baseAmount = 100;
+                          } else if (request.documentType === "Business Clearance") {
+                            // For business clearance, use assigned fee amount or stored amount
+                            if (request.status === "accepted" && (request.feeAmount || request.amount)) {
+                              baseAmount = request.feeAmount || request.amount || 0;
+                              const totalAmount = baseAmount * quantity;
+                              return (
+                                <span className="text-sm font-medium text-green-600">
+                                  ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              );
+                            } else {
+                              return <span className="text-sm text-gray-400">TBD</span>;
+                            }
+                          }
+                          
+                          const totalAmount = baseAmount * quantity;
+                          
+                          if (baseAmount === 0) {
+                            return <span className="text-sm text-gray-600">Free</span>;
+                          } else {
+                            return (
+                              <span className="text-sm text-gray-600">
+                                ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            );
+                          }
+                        })()}
                       </td>
                       <td className="py-4 px-6">
                         <Button
@@ -515,6 +679,11 @@ export default function ResidentRequest() {
                 </div>
                 
                 <div>
+                  <p className="text-sm font-medium text-gray-500">QUANTITY</p>
+                  <p className="mt-1">{viewRequest.quantity || 1}</p>
+                </div>
+                
+                <div>
                   <p className="text-sm font-medium text-gray-500">REQUESTED DATE</p>
                   <p className="mt-1">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                 </div>
@@ -522,6 +691,39 @@ export default function ResidentRequest() {
                 <div>
                   <p className="text-sm font-medium text-gray-500">LAST UPDATED</p>
                   <p className="mt-1">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                </div>
+                
+                {/* Total Amount */}
+                <div>
+                  <p className="text-sm font-medium text-gray-500">TOTAL AMOUNT</p>
+                  {(() => {
+                    const quantity = viewRequest.quantity || 1;
+                    let baseAmount = 0;
+                    
+                    if (viewRequest.documentType === "Indigency") {
+                      baseAmount = 0;
+                    } else if (viewRequest.documentType === "Barangay Clearance") {
+                      baseAmount = 100;
+                    } else if (viewRequest.documentType === "Business Clearance") {
+                      if (viewRequest.status === "accepted" && (viewRequest.feeAmount || viewRequest.amount)) {
+                        baseAmount = viewRequest.feeAmount || viewRequest.amount || 0;
+                      } else {
+                        return <p className="mt-1 text-sm text-amber-600 italic">Amount to be determined by admin</p>;
+                      }
+                    }
+                    
+                    const totalAmount = baseAmount * quantity;
+                    
+                    if (baseAmount === 0) {
+                      return <p className="mt-1 text-lg font-semibold text-gray-600">Free</p>;
+                    } else {
+                      return (
+                        <p className="mt-1 text-lg font-semibold text-green-600">
+                          ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      );
+                    }
+                  })()}
                 </div>
                 
                 {viewRequest.documentType === "Business Clearance" && (
@@ -663,9 +865,25 @@ export default function ResidentRequest() {
             form={createForm} 
             layout="vertical" 
             className="space-y-4"
+            initialValues={{
+              residentId: resident?._id,
+              requestFor: resident?._id,
+              quantity: 1,
+              amount: 0
+            }}
             onValuesChange={(changed, values) => {
+              // Handle business name field visibility
               if ("documentType" in changed && changed.documentType !== "Business Clearance") {
                 createForm.setFieldsValue({ businessName: undefined });
+              }
+              
+              // Handle amount updates based on document type or quantity
+              if ("documentType" in changed || "quantity" in changed) {
+                const currentDocType = changed.documentType || values.documentType;
+                const currentQuantity = changed.quantity || values.quantity || 1;
+                const baseAmount = documentPricing[currentDocType] || 0;
+                const totalAmount = baseAmount * currentQuantity;
+                createForm.setFieldsValue({ amount: totalAmount });
               }
             }}
             onFinish={async (values) => {
@@ -677,12 +895,18 @@ export default function ResidentRequest() {
                   setCreating(false);
                   return;
                 }
-                // Add residentId and requestedBy to the request body
+                
+                // Prepare the payload with new fields
                 const payload = {
-                  ...values,
-                  residentId: resident?._id,
-                  requestedBy: resident?._id
+                  documentType: values.documentType,
+                  quantity: values.quantity,
+                  purpose: values.purpose,
+                  amount: values.amount,
+                  residentId: values.residentId,
+                  requestFor: values.requestFor,
+                  ...(values.businessName && { businessName: values.businessName })
                 };
+                
                 await axios.post(
                   `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
                   payload,
@@ -715,6 +939,52 @@ export default function ResidentRequest() {
               setCreating(false);
             }}
           >
+            {/* Resident Dropdown */}
+            <Form.Item 
+              name="residentId" 
+              label={<span className="text-gray-700 font-medium">Resident</span>}
+              rules={[{ required: true, message: 'Please select a resident' }]}
+            >
+              <Select
+                placeholder={resident ? `${resident.firstName} ${resident.lastName} (You)` : "Loading resident..."}
+                size="large"
+                className="w-full"
+                disabled={!resident}
+              >
+                {resident && (
+                  <Select.Option value={resident._id}>
+                    {resident.firstName} {resident.lastName} (You)
+                  </Select.Option>
+                )}
+              </Select>
+            </Form.Item>
+
+            {/* Request For Dropdown */}
+            <Form.Item 
+              name="requestFor" 
+              label={<span className="text-gray-700 font-medium">Request For</span>}
+              rules={[{ required: true, message: 'Please select who this request is for' }]}
+            >
+              <Select
+                placeholder="Select household member"
+                size="large"
+                className="w-full"
+                loading={!resident}
+              >
+                {resident && (
+                  <Select.Option value={resident._id}>
+                    {resident.firstName} {resident.lastName} (You)
+                  </Select.Option>
+                )}
+                {householdMembers.map((member) => (
+                  <Select.Option key={member._id} value={member._id}>
+                    {member.firstName} {member.lastName}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            {/* Document Type - Updated options */}
             <Form.Item 
               name="documentType" 
               label={<span className="text-gray-700 font-medium">Document Type</span>}
@@ -724,13 +994,35 @@ export default function ResidentRequest() {
                 placeholder="Select document type"
                 size="large"
                 className="w-full"
+                onChange={(value) => {
+                  // Update the amount field based on document type and current quantity
+                  const currentQuantity = createForm.getFieldValue("quantity") || 1;
+                  const baseAmount = documentPricing[value] || 0;
+                  const totalAmount = baseAmount * currentQuantity;
+                  createForm.setFieldValue("amount", totalAmount);
+                }}
                 options={[
-                  { value: "Barangay Certificate", label: "Barangay Certificate" },
                   { value: "Indigency", label: "Certificate of Indigency" },
                   { value: "Barangay Clearance", label: "Barangay Clearance" },
-                  { value: "Residency", label: "Certificate of Residency" },
                   { value: "Business Clearance", label: "Business Clearance" },
                 ]}
+              />
+            </Form.Item>
+
+            {/* Amount Field - Read only */}
+            <Form.Item 
+              name="amount" 
+              label={<span className="text-gray-700 font-medium">Amount</span>}
+              rules={[{ required: true, message: 'Amount is required' }]}
+              help="Amount is automatically calculated based on document type and quantity"
+            >
+              <InputNumber 
+                min={0} 
+                className="w-full" 
+                disabled
+                formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
+                placeholder="Amount will be calculated automatically"
               />
             </Form.Item>
 
@@ -749,7 +1041,18 @@ export default function ResidentRequest() {
               initialValue={1}
               rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity (min 1)' }]}
             >
-              <InputNumber min={1} className="w-full" />
+              <InputNumber 
+                min={1} 
+                className="w-full"
+                onChange={(value) => {
+                  // Update the amount field based on quantity and current document type
+                  const currentDocType = createForm.getFieldValue("documentType");
+                  const currentQuantity = value || 1;
+                  const baseAmount = documentPricing[currentDocType] || 0;
+                  const totalAmount = baseAmount * currentQuantity;
+                  createForm.setFieldValue("amount", totalAmount);
+                }}
+              />
             </Form.Item>
             
             <Form.Item 
