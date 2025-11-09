@@ -43,6 +43,16 @@ export default function AdminGarbageFees() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyHousehold, setHistoryHousehold] = useState(null);
   const [historyData, setHistoryData] = useState([]);
+
+  // Year selection (from 2025 to current)
+  const currentYearValue = dayjs().year();
+  const [garbageYear, setGarbageYear] = useState(currentYearValue);
+  const [streetlightYear, setStreetlightYear] = useState(currentYearValue);
+  const yearOptions = useMemo(() => {
+    const years = [];
+    for (let y = 2025; y <= currentYearValue; y++) years.push(y);
+    return years;
+  }, [currentYearValue]);
   
   // State for multiple month payments
   const [selectedMonths, setSelectedMonths] = useState([]);
@@ -111,6 +121,23 @@ export default function AdminGarbageFees() {
     fetchGarbagePayments();
   }, []);
 
+  // Refetch payment status when selected year changes while modal is open
+  useEffect(() => {
+    if (payOpen && payHousehold) {
+      setSelectedMonths([]);
+      payForm.setFieldValue('selectedMonths', []);
+      fetchYearlyPaymentStatus(payHousehold._id);
+    }
+  }, [garbageYear]);
+
+  useEffect(() => {
+    if (streetlightPayOpen && payHousehold) {
+      setStreetlightSelectedMonths([]);
+      streetlightForm.setFieldValue('selectedMonths', []);
+      fetchStreetlightYearlyPaymentStatus(payHousehold._id);
+    }
+  }, [streetlightYear]);
+
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
   });
@@ -140,7 +167,7 @@ export default function AdminGarbageFees() {
   // Fetch payment status for all months in current year
   const fetchYearlyPaymentStatus = async (householdId) => {
     try {
-      const currentYear = dayjs().year();
+      const currentYear = garbageYear;
       const monthStatuses = {};
       
       // Check payment status for each month of the current year
@@ -181,7 +208,7 @@ export default function AdminGarbageFees() {
 
   // Validate sequential payment: cannot pay future months without paying previous unpaid months
   const validateSequentialPayment = (monthKey, currentSelectedMonths, paymentStatuses) => {
-    const currentYear = dayjs().year();
+    const currentYear = garbageYear;
     const allMonths = [];
     
     // Generate all months for current year
@@ -282,7 +309,7 @@ export default function AdminGarbageFees() {
 
   // Get allowed months that can be selected based on sequential payment rule
   const getAllowedMonths = (paymentStatuses, currentSelectedMonths) => {
-    const currentYear = dayjs().year();
+    const currentYear = garbageYear;
     const allMonths = [];
     
     // Generate all months for current year
@@ -318,7 +345,7 @@ export default function AdminGarbageFees() {
   // Select all allowed months that can be paid sequentially
   const selectAllAllowedMonths = () => {
     // Get all months that could potentially be selected (including currently selected ones)
-    const currentYear = dayjs().year();
+    const currentYear = garbageYear;
     const allMonths = [];
     
     // Generate all months for current year
@@ -393,7 +420,7 @@ export default function AdminGarbageFees() {
     setAllStreetlightMonthsPaid(allPaid);
     
     // Fetch payment status for all months in the current year
-    const yearlyStatus = await fetchYearlyPaymentStatus(household._id);
+  const yearlyStatus = await fetchYearlyPaymentStatus(household._id);
     
     // Find unpaid months and set as initial selection
     const unpaidMonths = Object.keys(yearlyStatus).filter(month => !yearlyStatus[month].isPaid);
@@ -435,7 +462,7 @@ export default function AdminGarbageFees() {
 
       // Additional validation: Ensure no gaps exist in the selected months sequence
       const sortedSelectedMonths = [...selectedMonths].sort();
-      const currentYear = dayjs().year();
+  const currentYear = garbageYear;
       
       // Check for gaps in previous months that should be paid first
       for (let month = 1; month <= 12; month++) {
@@ -550,7 +577,7 @@ export default function AdminGarbageFees() {
   // Streetlight payment functions for cross-payment functionality
   const fetchStreetlightYearlyPaymentStatus = async (householdId) => {
     try {
-      const currentYear = dayjs().year();
+      const currentYear = streetlightYear;
       const monthStatuses = {};
       
       // Check payment status for each month of the current year
@@ -592,7 +619,7 @@ export default function AdminGarbageFees() {
   const checkIfAllStreetlightMonthsPaid = async (householdId) => {
     try {
       const yearlyStatus = await fetchStreetlightYearlyPaymentStatus(householdId);
-      const currentYear = dayjs().year();
+      const currentYear = streetlightYear;
       const allMonths = [];
       
       // Generate all months for current year
@@ -831,7 +858,7 @@ export default function AdminGarbageFees() {
 
   // Streetlight validation functions (copied from AdminStreetLightFees)
   const validateStreetlightSequentialPayment = (monthKey, currentSelectedMonths, paymentStatuses) => {
-    const currentYear = dayjs().year();
+    const currentYear = streetlightYear;
     const allMonths = [];
     
     // Generate all months for current year
@@ -868,7 +895,7 @@ export default function AdminGarbageFees() {
   };
 
   const getStreetlightAllowedMonths = (paymentStatuses, currentSelectedMonths) => {
-    const currentYear = dayjs().year();
+    const currentYear = streetlightYear;
     const allMonths = [];
     
     // Generate all months for current year
@@ -903,7 +930,7 @@ export default function AdminGarbageFees() {
 
   const selectAllStreetlightAllowedMonths = () => {
     // Get all months that could potentially be selected
-    const currentYear = dayjs().year();
+    const currentYear = streetlightYear;
     const allMonths = [];
     
     // Generate all months for current year
@@ -2132,10 +2159,18 @@ export default function AdminGarbageFees() {
             </Form.Item>
             <Form.Item
               name="selectedMonths"
-              label="Select Months to Pay (Current Year Only)"
+              label="Select Months to Pay"
               rules={[{ required: true, message: "Select at least one month" }]}
               className="mb-3"
             >
+              <div className="mb-2">
+                <label className="block text-xs text-gray-600 mb-1">Year</label>
+                <Select size="small" value={garbageYear} onChange={(y)=>{setGarbageYear(y);}} style={{width:180}}>
+                  {yearOptions.map(y => (
+                    <Select.Option key={y} value={y}>{y}{y===currentYearValue?' (current year)':''}</Select.Option>
+                  ))}
+                </Select>
+              </div>
               <div className="mb-3 flex gap-2">
                 <Button
                   type="primary"
@@ -2144,7 +2179,7 @@ export default function AdminGarbageFees() {
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   Select All Available {(() => {
-                    const currentYear = dayjs().year();
+                    const currentYear = garbageYear;
                     const allMonths = [];
                     for (let month = 1; month <= 12; month++) {
                       allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
@@ -2400,10 +2435,18 @@ export default function AdminGarbageFees() {
             </div>
             <Form.Item
               name="selectedMonths"
-              label="Select Months to Pay (Current Year Only)"
+              label="Select Months to Pay"
               rules={[{ required: true, message: "Select at least one month" }]}
               className="mb-3"
             >
+              <div className="mb-2">
+                <label className="block text-xs text-gray-600 mb-1">Year</label>
+                <Select size="small" value={streetlightYear} onChange={(y)=>{setStreetlightYear(y);}} style={{width:180}}>
+                  {yearOptions.map(y => (
+                    <Select.Option key={y} value={y}>{y}{y===currentYearValue?' (current year)':''}</Select.Option>
+                  ))}
+                </Select>
+              </div>
               <div className="mb-3 flex gap-2">
                 <Button
                   type="primary"
@@ -2412,7 +2455,7 @@ export default function AdminGarbageFees() {
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   Select All Available {(() => {
-                    const currentYear = dayjs().year();
+                    const currentYear = streetlightYear;
                     const allMonths = [];
                     for (let month = 1; month <= 12; month++) {
                       allMonths.push(`${currentYear}-${String(month).padStart(2, "0")}`);
