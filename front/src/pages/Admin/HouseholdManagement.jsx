@@ -261,7 +261,7 @@ export default function HouseholdManagement() {
     setExporting(true);
     try {
       const values = await exportForm.validateFields();
-      const { exportType, householdId } = values;
+      const { exportType, householdId, purok } = values;
 
       // Helper function to calculate age
       const calculateAge = (birthDate) => {
@@ -285,6 +285,12 @@ export default function HouseholdManagement() {
           return;
         }
         householdsToExport = [household];
+      } else if (exportType === 'purok') {
+        householdsToExport = households.filter(h => h.address?.purok === purok);
+        if (householdsToExport.length === 0) {
+          message.warning(`No households found in ${purok}`);
+          return;
+        }
       } else {
         householdsToExport = households;
       }
@@ -369,6 +375,8 @@ export default function HouseholdManagement() {
       if (exportType === 'single') {
         const household = householdsToExport[0];
         filename = `Household_${household.householdId}_Members_${dateStr}.xlsx`;
+      } else if (exportType === 'purok') {
+        filename = `${purok.replace(' ', '_')}_Households_Members_${dateStr}.xlsx`;
       } else {
         filename = `All_Households_Members_${dateStr}.xlsx`;
       }
@@ -1065,11 +1073,16 @@ export default function HouseholdManagement() {
               <Select
                 options={[
                   { value: 'all', label: 'All Households with Members' },
+                  { value: 'purok', label: 'By Purok' },
                   { value: 'single', label: 'Single Household' },
                 ]}
                 onChange={(value) => {
                   if (value === 'all') {
+                    exportForm.setFieldsValue({ householdId: undefined, purok: undefined });
+                  } else if (value === 'purok') {
                     exportForm.setFieldsValue({ householdId: undefined });
+                  } else if (value === 'single') {
+                    exportForm.setFieldsValue({ purok: undefined });
                   }
                 }}
               />
@@ -1081,31 +1094,58 @@ export default function HouseholdManagement() {
                 prevValues.exportType !== currentValues.exportType
               }
             >
-              {({ getFieldValue }) =>
-                getFieldValue('exportType') === 'single' ? (
-                  <Form.Item
-                    name="householdId"
-                    label="Select Household"
-                    rules={[{ required: true, message: 'Please select a household' }]}
-                  >
-                    <Select
-                      showSearch
-                      placeholder="Select a household"
-                      optionFilterProp="label"
-                      options={households.map(h => {
-                        const head = typeof h.headOfHousehold === "object"
-                          ? h.headOfHousehold
-                          : residents.find(r => r._id === h.headOfHousehold);
-                        const headName = fullName(head) || 'Unknown';
-                        return {
-                          value: h._id,
-                          label: `${h.householdId} - ${headName} (${h.address?.purok || 'N/A'})`,
-                        };
-                      })}
-                    />
-                  </Form.Item>
-                ) : null
-              }
+              {({ getFieldValue }) => {
+                const exportType = getFieldValue('exportType');
+                
+                if (exportType === 'purok') {
+                  return (
+                    <Form.Item
+                      name="purok"
+                      label="Select Purok"
+                      rules={[{ required: true, message: 'Please select a purok' }]}
+                    >
+                      <Select
+                        placeholder="Select a purok"
+                        options={[
+                          { value: 'Purok 1', label: 'Purok 1' },
+                          { value: 'Purok 2', label: 'Purok 2' },
+                          { value: 'Purok 3', label: 'Purok 3' },
+                          { value: 'Purok 4', label: 'Purok 4' },
+                          { value: 'Purok 5', label: 'Purok 5' },
+                        ]}
+                      />
+                    </Form.Item>
+                  );
+                }
+                
+                if (exportType === 'single') {
+                  return (
+                    <Form.Item
+                      name="householdId"
+                      label="Select Household"
+                      rules={[{ required: true, message: 'Please select a household' }]}
+                    >
+                      <Select
+                        showSearch
+                        placeholder="Select a household"
+                        optionFilterProp="label"
+                        options={households.map(h => {
+                          const head = typeof h.headOfHousehold === "object"
+                            ? h.headOfHousehold
+                            : residents.find(r => r._id === h.headOfHousehold);
+                          const headName = fullName(head) || 'Unknown';
+                          return {
+                            value: h._id,
+                            label: `${h.householdId} - ${headName} (${h.address?.purok || 'N/A'})`,
+                          };
+                        })}
+                      />
+                    </Form.Item>
+                  );
+                }
+                
+                return null;
+              }}
             </Form.Item>
 
             <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded">
@@ -1117,6 +1157,43 @@ export default function HouseholdManagement() {
                 <li>SEX, CIVIL STATUS, CITIZENSHIP</li>
                 <li>OCCUPATION, SEC. INFO</li>
               </ul>
+              
+              <Form.Item noStyle shouldUpdate>
+                {({ getFieldValue }) => {
+                  const exportType = getFieldValue('exportType');
+                  const selectedPurok = getFieldValue('purok');
+                  
+                  if (exportType === 'purok' && selectedPurok) {
+                    const purokHouseholds = households.filter(h => h.address?.purok === selectedPurok);
+                    const totalMembers = purokHouseholds.reduce((acc, h) => acc + (h.members?.length || 0), 0);
+                    
+                    return (
+                      <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                        <strong className="text-blue-800">Selected Purok Summary:</strong>
+                        <div className="text-sm mt-1">
+                          <div>Households: {purokHouseholds.length}</div>
+                          <div>Total Members: {totalMembers}</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  if (exportType === 'all') {
+                    const totalMembers = households.reduce((acc, h) => acc + (h.members?.length || 0), 0);
+                    return (
+                      <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                        <strong className="text-blue-800">All Households Summary:</strong>
+                        <div className="text-sm mt-1">
+                          <div>Total Households: {households.length}</div>
+                          <div>Total Members: {totalMembers}</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                }}
+              </Form.Item>
             </div>
           </Form>
         </Modal>
