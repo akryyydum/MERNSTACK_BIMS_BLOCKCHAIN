@@ -72,7 +72,7 @@ export default function AdminPublicDocuments() {
   const [previewError, setPreviewError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [form] = Form.useForm();
-
+  
   const userProfile = JSON.parse(localStorage.getItem("userProfile")) || {};
   const username =
     userProfile.username || localStorage.getItem("username") || "Admin";
@@ -169,7 +169,9 @@ export default function AdminPublicDocuments() {
       message.error("Upload failed");
     }
     setUploading(false);
+
   };
+  
 
   const handleDelete = async id => {
     try {
@@ -251,6 +253,25 @@ export default function AdminPublicDocuments() {
       );
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  // Verify document integrity against blockchain hash
+  const verifyIntegrity = async (record) => {
+    if (!record?._id) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${baseURL}/api/admin/public-documents/${record._id}/verify`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res?.data?.isValid) {
+        message.success("Document is authentic!");
+      } else {
+        message.error("Document has been tampered!");
+      }
+    } catch (err) {
+      console.error("Verify integrity error", err?.response?.status, err?.response?.data);
+      message.error(err?.response?.data?.message || "Verification failed");
     }
   };
 
@@ -418,6 +439,12 @@ export default function AdminPublicDocuments() {
             onClick={() => download(r)}
           >
             Download
+          </Button>
+          <Button
+            size="small"
+            onClick={() => verifyIntegrity(r)}
+          >
+            Verify
           </Button>
           <Popconfirm
             title="Delete document?"
