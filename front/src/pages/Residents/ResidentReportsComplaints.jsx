@@ -32,6 +32,8 @@ export default function ResidentReportsComplaints() {
   const [editComplaint, setEditComplaint] = useState(null);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [showOtherCategory, setShowOtherCategory] = useState(false);
+  const [showOtherCategoryEdit, setShowOtherCategoryEdit] = useState(false);
 
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -66,15 +68,24 @@ export default function ResidentReportsComplaints() {
       const values = await createForm.validateFields();
       const token = localStorage.getItem("token");
       
+      // If Other category is selected, use the custom category text
+      const submitData = {
+        ...values,
+        category: values.category === 'Other' && values.customCategory 
+          ? values.customCategory 
+          : values.category
+      };
+      
       await axios.post(
         `${API_BASE}/api/resident/complaints`,
-        values,
+        submitData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
       message.success("Complaint submitted successfully!");
       setCreateOpen(false);
       createForm.resetFields();
+      setShowOtherCategory(false);
       fetchComplaints();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to create complaint");
@@ -88,9 +99,17 @@ export default function ResidentReportsComplaints() {
       const values = await editForm.validateFields();
       const token = localStorage.getItem("token");
       
+      // If Other category is selected, use the custom category text
+      const submitData = {
+        ...values,
+        category: values.category === 'Other' && values.customCategory 
+          ? values.customCategory 
+          : values.category
+      };
+      
       await axios.put(
         `${API_BASE}/api/resident/complaints/${editComplaint._id}`,
-        values,
+        submitData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -98,6 +117,7 @@ export default function ResidentReportsComplaints() {
       setEditOpen(false);
       editForm.resetFields();
       setEditComplaint(null);
+      setShowOtherCategoryEdit(false);
       fetchComplaints();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to update complaint");
@@ -121,14 +141,21 @@ export default function ResidentReportsComplaints() {
 
   const openEdit = (complaint) => {
     setEditComplaint(complaint);
+    
+    // Check if category is a custom one (not in predefined list)
+    const isCustomCategory = !categoryOptions.includes(complaint.category);
+    
     editForm.setFieldsValue({
       type: complaint.type,
-      category: complaint.category,
+      category: isCustomCategory ? 'Other' : complaint.category,
+      customCategory: isCustomCategory ? complaint.category : undefined,
       title: complaint.title,
       description: complaint.description,
       location: complaint.location,
       priority: complaint.priority
     });
+    
+    setShowOtherCategoryEdit(isCustomCategory);
     setEditOpen(true);
   };
 
@@ -474,6 +501,7 @@ export default function ResidentReportsComplaints() {
         onCancel={() => {
           setCreateOpen(false);
           createForm.resetFields();
+          setShowOtherCategory(false);
         }}
         confirmLoading={creating}
         width={600}
@@ -492,12 +520,25 @@ export default function ResidentReportsComplaints() {
             label="Category"
             rules={[{ required: true, message: "Please select category" }]}
           >
-            <Select placeholder="Select category">
+            <Select 
+              placeholder="Select category"
+              onChange={(value) => setShowOtherCategory(value === 'Other')}
+            >
               {categoryOptions.map(cat => (
                 <Select.Option key={cat} value={cat}>{cat}</Select.Option>
               ))}
             </Select>
           </Form.Item>
+
+          {showOtherCategory && (
+            <Form.Item
+              name="customCategory"
+              label="Specify Category"
+              rules={[{ required: true, message: "Please specify the category" }]}
+            >
+              <Input placeholder="Enter custom category" />
+            </Form.Item>
+          )}
 
           <Form.Item
             name="title"
@@ -542,6 +583,7 @@ export default function ResidentReportsComplaints() {
           setEditOpen(false);
           editForm.resetFields();
           setEditComplaint(null);
+          setShowOtherCategoryEdit(false);
         }}
         confirmLoading={updating}
         width={600}
@@ -560,12 +602,25 @@ export default function ResidentReportsComplaints() {
             label="Category"
             rules={[{ required: true, message: "Please select category" }]}
           >
-            <Select placeholder="Select category">
+            <Select 
+              placeholder="Select category"
+              onChange={(value) => setShowOtherCategoryEdit(value === 'Other')}
+            >
               {categoryOptions.map(cat => (
                 <Select.Option key={cat} value={cat}>{cat}</Select.Option>
               ))}
             </Select>
           </Form.Item>
+
+          {showOtherCategoryEdit && (
+            <Form.Item
+              name="customCategory"
+              label="Specify Category"
+              rules={[{ required: true, message: "Please specify the category" }]}
+            >
+              <Input placeholder="Enter custom category" />
+            </Form.Item>
+          )}
 
           <Form.Item
             name="title"

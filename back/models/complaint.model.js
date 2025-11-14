@@ -13,17 +13,9 @@ const complaintSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: [
-      'Noise Complaint', 
-      'Property Dispute', 
-      'Public Safety', 
-      'Infrastructure', 
-      'Environmental', 
-      'Animal Control',
-      'Traffic/Parking',
-      'Other'
-    ],
-    required: true
+    required: true,
+    trim: true
+    // Removed enum to allow custom categories when "Other" is selected
   },
   title: { type: String, required: true, trim: true },
   description: { type: String, required: true, trim: true },
