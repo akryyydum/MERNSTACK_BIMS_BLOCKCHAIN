@@ -1035,7 +1035,7 @@ export default function HouseholdManagement() {
               <Descriptions.Item label="Business Status">
                 {viewHousehold.hasBusiness ? (
                   <div>
-                    <span className="text-green-600 font-medium">Has Business</span>
+                    <span className="text-green-600 font-medium">With Business</span>
                     {viewHousehold.businessType && (
                       <div className="text-gray-600 mt-1">
                         Type: {viewHousehold.businessType}
