@@ -539,7 +539,7 @@ export default function AdminPublicDocuments() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
             <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full gap-2 items-center">
                 <Input.Search
                   allowClear
                   placeholder="Search public documents"
@@ -547,7 +547,7 @@ export default function AdminPublicDocuments() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   enterButton
-                  className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                  className="flex-1 min-w-0 sm:min-w-[350px] md:min-w-[500px] max-w-full"
                 />
                 <Button
                   type="primary"
