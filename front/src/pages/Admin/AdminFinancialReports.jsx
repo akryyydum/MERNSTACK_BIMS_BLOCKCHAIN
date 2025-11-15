@@ -239,8 +239,6 @@ export default function AdminFinancialReports() {
           const typeMatches = exportTypes.some(exportType => {
             if (exportType === 'garbage_fees') return t.type === 'garbage_fee';
             if (exportType === 'streetlight_fees') return t.type === 'streetlight_fee';
-            if (exportType === 'electric_fees') return t.type === 'electric_fee';
-            if (exportType === 'permit_fees') return t.type === 'permit_fee';
             if (exportType === 'document_request_fees') {
               // If specific document types are selected
               if (documentTypes && documentTypes.length > 0) {
@@ -572,7 +570,6 @@ export default function AdminFinancialReports() {
       filters: [
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
-        { text: 'Electric Fee', value: 'electric_fee' },
         { text: 'Document Fee', value: 'document_fee' },
       ],
       onFilter: (value, record) => record.type === value,
@@ -800,8 +797,6 @@ export default function AdminFinancialReports() {
                 <Select.Option value="document_fee">Document Fee</Select.Option>
                 <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                 <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-                <Select.Option value="electric_fee">Electric Fee</Select.Option>
-                <Select.Option value="permit_fee">Permit Fee</Select.Option>
                 <Select.Option value="other">Other</Select.Option>
               </Select>
               <Select
@@ -979,8 +974,6 @@ export default function AdminFinancialReports() {
                 <Select.Option value="all">All</Select.Option>
                 <Select.Option value="garbage_fees">Garbage Fees</Select.Option>
                 <Select.Option value="streetlight_fees">Streetlight Fees</Select.Option>
-                <Select.Option value="electric_fees">Electric Fees</Select.Option>
-                <Select.Option value="permit_fees">Permit Fees</Select.Option>
                 <Select.Option value="document_request_fees">Document Request Fees</Select.Option>
                 <Select.Option value="other">Other</Select.Option>
               </Select>
@@ -1107,8 +1100,7 @@ export default function AdminFinancialReports() {
                   <Select>
                     <Select.Option value="document_fee">Document Fee</Select.Option>
                     <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="electric_fee">Electric Fee</Select.Option>
-                    <Select.Option value="permit_fee">Permit Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
@@ -1286,8 +1278,7 @@ export default function AdminFinancialReports() {
                   <Select>
                     <Select.Option value="document_fee">Document Fee</Select.Option>
                     <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="electric_fee">Electric Fee</Select.Option>
-                    <Select.Option value="permit_fee">Permit Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
