@@ -547,7 +547,7 @@ export default function AdminPublicDocuments() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   enterButton
-                  className="min-w-[200px]"
+                  className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
                 />
                 <Button
                   type="primary"
