@@ -319,16 +319,20 @@ export default function AdminResidentManagement() {
     }
   };
 
+
   // Manual select all function for button
+  const [selectAllClicked, setSelectAllClicked] = useState(false);
   const handleSelectAll = () => {
     const allKeys = filteredResidents.map(resident => resident._id);
     setSelectedRowKeys(allKeys);
+    setSelectAllClicked(true);
     message.success(`Selected all ${allKeys.length} resident(s) across all pages`);
   };
 
   // Clear all selections
   const handleClearSelection = () => {
     setSelectedRowKeys([]);
+    setSelectAllClicked(false);
     message.info("Cleared all selections");
   };
 
@@ -337,8 +341,6 @@ export default function AdminResidentManagement() {
     setCurrentPage(pagination.current);
     setPageSize(pagination.pageSize);
   };
-
-  // Verify Resident - REMOVED, moved to AdminUserManagement
 
   // Import Residents
   const handleImport = async () => {
@@ -1056,9 +1058,12 @@ export default function AdminResidentManagement() {
                 Import Residents
               </Button>
 
-              <Button onClick={handleSelectAll} type="default">
-                Select All ({filteredResidents.length})
-              </Button>
+
+              {!selectAllClicked && (
+                <Button onClick={handleSelectAll} type="default">
+                  Select All ({filteredResidents.length})
+                </Button>
+              )}
 
               {selectedRowKeys.length > 0 && (
                 <>
@@ -1787,15 +1792,7 @@ export default function AdminResidentManagement() {
                 <Descriptions.Item label="Mobile Number">{viewResident.contact.mobile}</Descriptions.Item>
               )}
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
-              <Descriptions.Item label="Address">
-                {[
-                  viewResident.address?.barangay,
-                  viewResident.address?.municipality,
-                  viewResident.address?.province,
-                  viewResident.address?.zipCode,
-                ].filter(Boolean).join(", ")}
-              </Descriptions.Item>
-              <Descriptions.Item label="Purok">{viewResident.address?.purok}</Descriptions.Item>
+              {/* Address and Purok fields removed as requested */}
               <Descriptions.Item label="Status">{viewResident.status}</Descriptions.Item>
             </Descriptions>
           )}

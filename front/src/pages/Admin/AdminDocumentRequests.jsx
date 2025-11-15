@@ -449,8 +449,9 @@ function ordinalSuffix(n) {
   }
 }
 
+// Remove zero-padding for day numbers
 function pad2(n) {
-  return String(n).padStart(2, "0");
+  return String(n);
 }
 
 // Derive pronouns from resident sex/gender
@@ -483,9 +484,10 @@ function buildTemplateData(docType, record) {
   const fullName = [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ") || "-";
   const requestedAt = record.requestedAt ? new Date(record.requestedAt) : new Date();
 
+
   const dayNum = requestedAt.getDate();
   const ord = ordinalSuffix(dayNum);
-  const dayOrdinalMixed = `${pad2(dayNum)}${ord}`;   // e.g., 02nd
+  const dayOrdinalMixed = `${dayNum}${ord}`;
   const monthLong = requestedAt.toLocaleString("en-US", { month: "long" });
   const yearStr = String(requestedAt.getFullYear());
 
@@ -545,7 +547,7 @@ const PRONOUN_KEYS = new Set([
   "heShe","himHer","hisHer","himselfHerself","honorific",
   "HE_SHE","HIM_HER","HIS_HER","HIMSELF_HERSELF","HONORIFIC",
   "He_She","Him_Her","His_Her","Himself_Herself","Honorific",
-  "dayOrdinalMixed","issuedLineMixed" // keep these mixed-case overrides
+  "dayOrdinalMixed","issuedLineMixed", "dayOrdinal" // keep these mixed-case overrides
 ]);
 
 // Uppercase all string values recursively, except keys in PRONOUN_KEYS
@@ -1060,9 +1062,6 @@ const handleExport = async () => {
               <Descriptions.Item label="Requested At">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Updated At">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Blockchain Hash">{viewRequest.blockchain?.hash || "-"}</Descriptions.Item>
-              <Descriptions.Item label="Blockchain TxID">{viewRequest.blockchain?.lastTxId || "-"}</Descriptions.Item>
-              <Descriptions.Item label="Issued By">{viewRequest.blockchain?.issuedBy || "-"}</Descriptions.Item>
-              <Descriptions.Item label="Issued At">{viewRequest.blockchain?.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</Descriptions.Item>
             </Descriptions>
           )}
         </Modal>

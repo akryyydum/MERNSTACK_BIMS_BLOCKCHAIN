@@ -447,6 +447,7 @@ export default function AdminOfficialManagement() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
             <Input.Search
               allowClear
               placeholder="Search for Officials"
@@ -456,6 +457,7 @@ export default function AdminOfficialManagement() {
               enterButton
               className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
             />
+            </div>
             <div className="flex flex-col items-end gap-1">
               <Button 
                 type="primary" 

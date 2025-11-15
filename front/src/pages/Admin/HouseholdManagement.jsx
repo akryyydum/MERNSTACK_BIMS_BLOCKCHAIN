@@ -221,16 +221,20 @@ export default function HouseholdManagement() {
     }
   };
 
+
   // Manual select all function for button
+  const [selectAllClicked, setSelectAllClicked] = useState(false);
   const handleSelectAll = () => {
     const allKeys = filteredHouseholds.map(household => household._id);
     setSelectedRowKeys(allKeys);
+    setSelectAllClicked(true);
     message.success(`Selected all ${allKeys.length} household(s) across all pages`);
   };
 
   // Clear all selections
   const handleClearSelection = () => {
     setSelectedRowKeys([]);
+    setSelectAllClicked(false);
     message.info("Cleared all selections");
   };
 
@@ -748,11 +752,14 @@ export default function HouseholdManagement() {
               >
                 Export Excel
               </Button>
-              <Button 
-                onClick={handleSelectAll}
-              >
-                Select All ({filteredHouseholds.length})
-              </Button>
+
+              {!selectAllClicked && (
+                <Button 
+                  onClick={handleSelectAll}
+                >
+                  Select All ({filteredHouseholds.length})
+                </Button>
+              )}
 
               {selectedRowKeys.length > 0 && (
                 <>
