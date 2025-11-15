@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions, Steps } from "antd";
+import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions, Steps, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
@@ -1390,6 +1390,13 @@ export default function AdminResidentManagement() {
             ),
           ]}
         >
+          <Alert
+            message="Add New Resident"
+            description="Complete all required fields across the three steps: Account Details, Personal Information, and Address & Additional Info. Use the Next/Previous buttons to navigate between steps."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Steps
             size="small"
             current={addStep}

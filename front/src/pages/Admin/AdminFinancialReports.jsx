@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Row, Col, Tabs, Popconfirm } from "antd";
+import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Row, Col, Tabs, Popconfirm, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, DollarSign, TrendingUp, TrendingDown, PieChart } from "lucide-react";
@@ -1093,6 +1093,13 @@ export default function AdminFinancialReports() {
           confirmLoading={creating}
           width={700}
         >
+          <Alert
+            message="Add Financial Transaction"
+            description="Record a new financial transaction by selecting the type, category, and amount. You can optionally link it to a resident or official and specify payment details."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash' }}>
             <Row gutter={16}>
               <Col span={12}>

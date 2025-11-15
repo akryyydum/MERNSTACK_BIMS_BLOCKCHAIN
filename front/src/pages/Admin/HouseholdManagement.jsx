@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Checkbox } from "antd";
+import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Checkbox, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
@@ -840,6 +840,13 @@ export default function HouseholdManagement() {
           okText="Add"
           width={600}
         >
+          <Alert
+            message="Create New Household"
+            description="Select a head of household and add household members. Only residents not yet assigned to any household will appear in the lists. You can also include business information if applicable."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form form={addForm} layout="vertical">
             {/* Head of Household (only unassigned residents) */}
             <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true }]}>

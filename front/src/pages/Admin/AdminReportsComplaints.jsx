@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Descriptions } from "antd";
+import { Table, Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Descriptions, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
@@ -454,6 +454,13 @@ export default function AdminReportsComplaints() {
           confirmLoading={creating}
           width={600}
         >
+          <Alert
+            message="Create Report or Complaint"
+            description="Select the resident filing this report or complaint, choose the type, and provide a detailed description. All submissions will be tracked and can be updated with status changes."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form form={createForm} layout="vertical">
             <Form.Item name="residentId" label="Resident" rules={[{ required: true }]}>
               <Select

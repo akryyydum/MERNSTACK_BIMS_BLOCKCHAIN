@@ -12,6 +12,7 @@ import {
   List,
   Tag,
   Space,
+  Alert,
 } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { UserOutlined } from "@ant-design/icons";
@@ -549,6 +550,13 @@ export default function AdminOfficialManagement() {
             </Button>,
           ]}
         >
+          <Alert
+            message="Add New Official"
+            description="Select a resident from the list and assign them a barangay position. Only residents who are not yet officials will appear in the dropdown. Ensure all contact information is complete."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form form={addForm} layout="vertical" autoComplete="off">
             <Form.Item
               name="residentId"

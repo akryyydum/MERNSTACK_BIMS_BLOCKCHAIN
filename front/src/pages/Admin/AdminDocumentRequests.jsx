@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Popconfirm } from "antd";
+import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Popconfirm, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
@@ -1109,6 +1109,13 @@ const handleExport = async () => {
           okButtonProps={{ disabled: blockCreate || paymentsCheckLoading }}
           width={600}
         >
+          <Alert
+            message="Create Document Request"
+            description="Select the resident requesting the document and choose the document type. The system will automatically check for unpaid fees and calculate applicable amounts."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form form={createForm} layout="vertical">
             <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
               <Select

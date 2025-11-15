@@ -582,6 +582,13 @@ export default function AdminPublicDocuments() {
           okText="Upload"
           width={600}
         >
+          <Alert
+            message="Upload Public Document"
+            description="Upload a document that will be visible to all residents. Provide a title, optional description, and select a category. Supported file types include PDF, Word, Excel, and images."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form layout="vertical" form={form}>
             <Form.Item
               name="title"

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm } from "antd";
+import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
@@ -663,6 +663,13 @@ export default function AdminUserManagement() {
             }
           }}
         >
+          <Alert
+            message="Create New User Account"
+            description="Select a role, provide login credentials, and link this user account to an existing resident profile. The selected resident must not already have a user account."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
           <Form
             form={createForm}
             layout="vertical"
