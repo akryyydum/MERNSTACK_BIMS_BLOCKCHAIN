@@ -857,15 +857,17 @@ const handleExport = async () => {
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
-              <Input.Search
-                allowClear
-                placeholder="Search for Document Requests"
-                onSearch={v => setSearch(v.trim())}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                enterButton
-                className="min-w-[500px] max-w-xs"
-              />             
+              <div className="w-full sm:w-auto">
+                <Input.Search
+                  allowClear
+                  placeholder="Search for Document Requests"
+                  onSearch={v => setSearch(v.trim())}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  enterButton
+                  className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                />
+              </div>
               {/* Customize Columns Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -454,7 +454,7 @@ export default function AdminOfficialManagement() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               enterButton
-              className="min-w-[500px] max-w-xs"
+              className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
             />
             <div className="flex flex-col items-end gap-1">
               <Button 
