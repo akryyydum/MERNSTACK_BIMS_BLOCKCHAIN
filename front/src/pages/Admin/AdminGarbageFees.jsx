@@ -1682,12 +1682,13 @@ export default function AdminGarbageFees() {
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
               <Input.Search
-                placeholder="Search households..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ width: 300 }}
                 allowClear
-                className="flex-1 sm:min-w-[280px] md:min-w-[300px]"
+                placeholder="Search for Head Household or Household ID"
+                onSearch={v => setSearch(v.trim())}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                enterButton
+                className="min-w-[500px] max-w-xs"
               />
               
               {/* Customize Columns Dropdown */}

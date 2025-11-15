@@ -295,12 +295,12 @@ export default function AdminBlockchainNetwork() {
             <div className="flex flex-wrap gap-2">
               <Input.Search
                 allowClear
-                placeholder={activeTab === 'requests' ? 'Search requests' : activeTab === 'publicdocs' ? 'Search public documents' : 'Search transactions'}
+                placeholder={activeTab === 'requests' ? 'Search for Document Requests' : activeTab === 'publicdocs' ? 'Search for Public Documents' : 'Search for Transactions'}
                 onSearch={(v) => setQuery(v.trim())}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 enterButton
-                className="min-w-[200px] max-w-md"
+                className="min-w-[500px] max-w-xs"
               />
               {activeTab === 'requests' && (
                 <>

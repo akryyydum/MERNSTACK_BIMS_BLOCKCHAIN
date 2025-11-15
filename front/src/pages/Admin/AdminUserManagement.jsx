@@ -614,12 +614,12 @@ export default function AdminUserManagement() {
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <Search
               allowClear
-              placeholder="Search using name, username, or email"
+              placeholder="Search for Users by Name, Username, or Email"
               onSearch={v => setSearch(v.trim())}
               value={search}
               onChange={e => setSearch(e.target.value)}
               enterButton
-              className="w-full sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
+              className="min-w-[500px] max-w-xs"
             />
           </div>
           <div className="flex flex-wrap gap-2">

@@ -407,12 +407,12 @@ export default function AdminReportsComplaints() {
             <div className="flex flex-wrap gap-2">
               <Input.Search
                 allowClear
-                placeholder="Search reports & complaints"
+                placeholder="Search for Report or Complaint Title or Submitted By"
                 onSearch={v => setSearch(v.trim())}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="min-w-[180px] max-w-xs"
+                className="min-w-[500px] max-w-xs"
               />
             </div>
             <div className="flex flex-wrap gap-2">

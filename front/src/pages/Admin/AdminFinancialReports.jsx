@@ -876,13 +876,15 @@ export default function AdminFinancialReports() {
             </CardHeader>
             <CardContent>
               <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <Input.Search
-                  placeholder="Search transactions..."
-                  allowClear
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="min-w-[180px] max-w-xs"
-                />
+              <Input.Search
+                allowClear
+                placeholder="Search for Resident"
+                onSearch={v => setSearch(v.trim())}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                enterButton
+                className="min-w-[400px] max-w-xs"
+              />
                 <Button
                   loading={exporting}
                   onClick={() => setExportOpen(true)}

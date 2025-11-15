@@ -725,12 +725,12 @@ export default function HouseholdManagement() {
             <div className="flex flex-wrap gap-2">
               <Input.Search
                 allowClear
-                placeholder="Search households"
+                placeholder="Search for Households"
                 onSearch={v => setSearch(v.trim())}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="min-w-[180px] max-w-xs"
+                className="min-w-[500px] max-w-xs"
               />
             </div>
             <div className="flex flex-wrap gap-2">

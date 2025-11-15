@@ -878,12 +878,12 @@ export default function AdminResidentManagement() {
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
               <Input.Search
                 allowClear
-                placeholder="Search for residents"
+                placeholder="Search for Residents"
                 onSearch={v => setSearch(v.trim())}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="flex-1 sm:min-w-[280px] md:min-w-[350px] lg:min-w-[450px] max-w-2xl"
+                className="min-w-[500px] max-w-xs"
               />
               
               {/* Customize Columns Dropdown */}

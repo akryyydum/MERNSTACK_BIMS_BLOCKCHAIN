@@ -449,12 +449,12 @@ export default function AdminOfficialManagement() {
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <Input.Search
               allowClear
-              placeholder="Search officials"
+              placeholder="Search for Officials"
               onSearch={(v) => setSearch(v.trim())}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               enterButton
-              className="min-w-[180px] max-w-xs"
+              className="min-w-[500px] max-w-xs"
             />
             <div className="flex flex-col items-end gap-1">
               <Button 
