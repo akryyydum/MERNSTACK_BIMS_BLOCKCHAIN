@@ -1,5 +1,6 @@
 const DocumentRequest = require('../models/document.model');
 const Resident = require('../models/resident.model');
+const Household = require('../models/household.model');
 const mongoose = require('mongoose');
 const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
 // Fabric client for blockchain mirroring
@@ -30,6 +31,21 @@ exports.createRequest = async (req, res) => {
     // find the resident doc linked to the authenticated user
     const resident = await Resident.findOne({ user: req.user.id });
     if (!resident) return res.status(404).json({ message: "Resident profile not found" });
+
+    // Check if resident is part of a household
+    const household = await Household.findOne({
+      $or: [
+        { headOfHousehold: resident._id },
+        { members: resident._id }
+      ]
+    });
+    
+    if (!household) {
+      return res.status(403).json({ 
+        message: "Cannot request documents. You must be part of a household first.",
+        reason: "NOT_IN_HOUSEHOLD"
+      });
+    }
 
     // Validate payment status before allowing document request
     try {

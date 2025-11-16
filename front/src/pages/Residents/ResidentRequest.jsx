@@ -9,7 +9,8 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined,
   FileOutlined,
-  DownloadOutlined
+  DownloadOutlined,
+  WarningOutlined
 } from "@ant-design/icons";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -35,6 +36,7 @@ export default function ResidentRequest() {
   
   // New state for form enhancements
   const [householdMembers, setHouseholdMembers] = useState([]);
+  const [isInHousehold, setIsInHousehold] = useState(true);
   const [documentPricing, setDocumentPricing] = useState({
     "Indigency": 0,
     "Barangay Clearance": 100,
@@ -105,6 +107,7 @@ export default function ResidentRequest() {
       const token = localStorage.getItem("token");
       if (!token) {
         console.log("No token found for household fetch");
+        setIsInHousehold(false);
         return;
       }
 
@@ -117,6 +120,9 @@ export default function ResidentRequest() {
       console.log("Household API response:", res.data);
       
       if (res.data && res.data.members) {
+        // Resident is in a household
+        setIsInHousehold(true);
+        
         // Filter out the current resident from members list to avoid duplication
         // The current resident will be shown separately as "You"
         const currentUserProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -132,6 +138,7 @@ export default function ResidentRequest() {
         setHouseholdMembers(otherMembers);
       } else {
         console.log("No members found in household data");
+        setIsInHousehold(false);
         setHouseholdMembers([]);
       }
     } catch (error) {
@@ -139,6 +146,11 @@ export default function ResidentRequest() {
       if (error.response) {
         console.error("Error response:", error.response.data);
         console.error("Error status:", error.response.status);
+        
+        // If 404, resident is not in a household
+        if (error.response.status === 404) {
+          setIsInHousehold(false);
+        }
       }
       // Set empty array as fallback
       setHouseholdMembers([]);
@@ -288,6 +300,10 @@ export default function ResidentRequest() {
   };
 
   const handleNewRequest = () => {
+    if (!isInHousehold) {
+      message.error("You must be part of a household to request documents. Please contact the barangay office.");
+      return;
+    }
     if (!paymentStatus?.canRequestDocuments && paymentStatus?.paymentStatus) {
       message.warning("Please settle your outstanding payments before requesting documents");
       return;
@@ -325,18 +341,42 @@ export default function ResidentRequest() {
               size="large" 
               onClick={handleNewRequest}
               className={`shadow-sm flex items-center gap-1 ${
-                paymentStatus?.canRequestDocuments !== false || !paymentStatus?.paymentStatus
-                  ? "bg-blue-600 hover:bg-blue-700" 
-                  : "bg-gray-400 hover:bg-gray-500"
+                (!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus))
+                  ? "bg-gray-400 hover:bg-gray-500" 
+                  : "bg-blue-600 hover:bg-blue-700"
               }`}
               icon={<FileTextOutlined />}
-              disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
+              disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
               loading={checkingPayment}
             >
               New Request
             </Button>
           </CardHeader>
         </Card>
+
+        {/* Household Status Alert */}
+        {!isInHousehold && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-5">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-amber-100 mr-3">
+                  <WarningOutlined className="text-amber-500 text-2xl align-middle" />
+                </span>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-amber-800">
+                  Household Registration Required
+                </h3>
+                <div className="mt-2 text-sm text-amber-700">
+                  <p>
+                    You must be registered as part of a household before you can request documents.<br />
+                    Please visit the barangay office to register your household or to be added to an existing household.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Payment Status Alert */}
         {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
@@ -898,7 +938,14 @@ export default function ResidentRequest() {
                 checkPaymentStatus();
               } catch (err) {
                 console.error("Error creating request:", err);
-                if (err.response?.status === 401 || err.response?.status === 403) {
+                if (err.response?.status === 401) {
+                  message.error("Authentication error. Please log in again.");
+                } else if (err.response?.status === 403 && err.response?.data?.reason === "NOT_IN_HOUSEHOLD") {
+                  // Handle household validation error
+                  message.error(err.response.data.message || "You must be part of a household to request documents");
+                  setCreateOpen(false);
+                  setIsInHousehold(false);
+                } else if (err.response?.status === 403) {
                   message.error("Authentication error. Please log in again.");
                 } else if (err.response?.status === 400 && err.response?.data?.paymentStatus) {
                   // Handle payment validation error
@@ -1062,7 +1109,7 @@ export default function ResidentRequest() {
                 htmlType="submit"
                 loading={creating}
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus}
+                disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
               >
                 Submit Request
               </Button>

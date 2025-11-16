@@ -37,6 +37,7 @@ export default function AdminDocumentRequests() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [residents, setResidents] = useState([]);
+  const [filteredHouseholdMembers, setFilteredHouseholdMembers] = useState([]); // For Document For dropdown
   // Households and payment gating state
   const [households, setHouseholds] = useState([]);
   const [paymentsCheckLoading, setPaymentsCheckLoading] = useState(false);
@@ -342,6 +343,36 @@ export default function AdminDocumentRequests() {
     return null;
   };
 
+  // When requestedBy changes, update Document For options
+  useEffect(() => {
+    if (!createOpen) return;
+    const requestedById = createForm.getFieldValue('requestedBy');
+    if (!requestedById) {
+      setFilteredHouseholdMembers([]);
+      createForm.setFieldsValue({ requestFor: undefined });
+      return;
+    }
+    const household = findHouseholdByResident(requestedById);
+    if (!household) {
+      setFilteredHouseholdMembers([]);
+      createForm.setFieldsValue({ requestFor: undefined });
+      return;
+    }
+    // Get head and members as resident objects
+    const allIds = [household.headOfHousehold, ...(household.members || [])].map(m => (typeof m === 'object' ? m._id : m));
+    const allObjs = residents.filter(r => allIds.includes(r._id));
+    setFilteredHouseholdMembers(allObjs);
+    // If current requestFor is not in this household, reset it
+    const currentRequestFor = createForm.getFieldValue('requestFor');
+    if (!allIds.includes(currentRequestFor)) {
+      createForm.setFieldsValue({ requestFor: undefined });
+    }
+  }, [households, residents, createOpen, createForm.getFieldValue('requestedBy')]);
+
+  // Ensure Document For dropdown enables/disables reactively
+  const [requestedById, setRequestedById] = useState();
+
+
   // Compute unpaid months for garbage and streetlight up to and including current month
   const computeUnpaidMonths = async (householdId) => {
     if (!householdId) {
@@ -477,17 +508,28 @@ function capFirst(s) {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+// Convert "st", "nd", "rd", "th" into real Unicode superscript
+function toSuperscript(suffix) {
+  return suffix
+    .replace("st", "ˢᵗ")
+    .replace("nd", "ⁿᵈ")
+    .replace("rd", "ʳᵈ")
+    .replace("th", "ᵗʰ");
+}
 
 function buildTemplateData(docType, record) {
-  // Use requestFor (person document is for) instead of residentId (person who requested)
   const r = record.requestFor || record.residentId || {};
   const fullName = [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ") || "-";
   const requestedAt = record.requestedAt ? new Date(record.requestedAt) : new Date();
 
+const dayNum = requestedAt.getDate();
 
-  const dayNum = requestedAt.getDate();
-  const ord = ordinalSuffix(dayNum);
-  const dayOrdinalMixed = `${dayNum}${ord}`;
+// Generate normal suffix first (st, nd, rd, th)
+const suffixRaw = ordinalSuffix(dayNum);
+
+// Convert to Unicode superscript
+const suffix = toSuperscript(suffixRaw);
+                           // <--- ADD
   const monthLong = requestedAt.toLocaleString("en-US", { month: "long" });
   const yearStr = String(requestedAt.getFullYear());
 
@@ -504,34 +546,33 @@ function buildTemplateData(docType, record) {
     purok: r.address?.purok || "-",
     purpose: record.purpose || "-",
     docType: record.documentType || "-",
-    // date tokens
-    day: dayNum,
-    dayOrdinal: dayOrdinalMixed,
+
+    // DATE FIELDS
+    day: dayNum,               // normal number, e.g., 21
+    suffix,                    // the superscript token (make THIS superscript in .docx)
+    dayOrdinal: `${dayNum}${suffix}`, // optional combined
+
     month: monthLong,
     year: yearStr,
-    issuedLine: `ISSUED this ${dayOrdinalMixed} day of ${monthLong}, ${yearStr} at ${locationLine}.`,
+    issuedLine: `ISSUED this ${dayNum}${suffix} day of ${monthLong}, ${yearStr} at ${locationLine}.`,
     location: locationLine,
 
-    // lowercase pronouns for inline usage
+    // pronouns...
     heShe: p.subject,
     himHer: p.object,
     hisHer: p.possessive,
     himselfHerself: p.reflexive,
     honorific: p.honorific,
-
-    // uppercase token names but values stay lowercase (per your requirement)
     HE_SHE: p.subject,
     HIM_HER: p.object,
     HIS_HER: p.possessive,
     HIMSELF_HERSELF: p.reflexive,
     HONORIFIC: p.honorific,
-
-    // Capitalized versions for sentence starts (use these right after a period)
     He_She: capFirst(p.subject),
     Him_Her: capFirst(p.object),
     His_Her: capFirst(p.possessive),
     Himself_Herself: capFirst(p.reflexive),
-    Honorific: p.honorific, // usually already capitalized (Mr./Ms.)
+    Honorific: p.honorific,
   };
 
   switch (docType) {
@@ -541,6 +582,7 @@ function buildTemplateData(docType, record) {
       return common;
   }
 }
+
 
 // Keys to skip when uppercasing
 const PRONOUN_KEYS = new Set([
@@ -595,7 +637,7 @@ const handlePrint = async (record) => {
     });
     saveAs(out, `${record.documentType.replace(/\s+/g, "_")}-${safeName}.docx`);
   } catch (err) {
-    console.error("Error generating document:", err);
+    console.error("Docxtemplater error:", err.properties?.errors || err);
     message.error("Failed to generate document.");
   }
 };
@@ -1109,7 +1151,7 @@ const handleExport = async () => {
           />
           <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical">
-            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
+            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}> 
               <Select
                 showSearch
                 placeholder="Select who is making the request"
@@ -1117,6 +1159,8 @@ const handleExport = async () => {
                 filterOption={(input, option) =>
                   option.children.toLowerCase().includes(input.toLowerCase())
                 }
+                onChange={val => setRequestedById(val)}
+                value={requestedById}
               >
                 {residents.map(r => (
                   <Select.Option key={r._id} value={r._id}>
@@ -1125,23 +1169,34 @@ const handleExport = async () => {
                 ))}
               </Select>
             </Form.Item>
-            
-            <Form.Item name="requestFor" label="Document For" rules={[{ required: true }]}>
+
+            <Form.Item name="requestFor" label="Document For" rules={[{ required: true }]}> 
               <Select
                 showSearch
-                placeholder="Select who the document is for"
+                placeholder={requestedById ? "Select head/member of household" : "Select 'Requested By' first"}
                 optionFilterProp="children"
                 filterOption={(input, option) =>
                   option.children.toLowerCase().includes(input.toLowerCase())
                 }
+                disabled={!requestedById}
               >
-                {residents.map(r => (
+                {filteredHouseholdMembers.map(r => (
                   <Select.Option key={r._id} value={r._id}>
                     {[r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ")}
                   </Select.Option>
                 ))}
               </Select>
             </Form.Item>
+
+            {/* Keep requestedById in sync with form value on modal open/reset */}
+            {createOpen && (
+              <React.Fragment>
+                {(() => {
+                  const formRequestedBy = createForm.getFieldValue('requestedBy');
+                  if (formRequestedBy !== requestedById) setRequestedById(formRequestedBy);
+                })()}
+              </React.Fragment>
+            )}
             
             {selectedRequestFor && (
               <div className="mb-3 -mt-2 flex items-center gap-2">
