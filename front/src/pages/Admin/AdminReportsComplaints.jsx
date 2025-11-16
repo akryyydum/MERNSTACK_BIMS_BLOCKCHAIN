@@ -461,6 +461,7 @@ export default function AdminReportsComplaints() {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical">
             <Form.Item name="residentId" label="Resident" rules={[{ required: true }]}>
               <Select

@@ -668,8 +668,9 @@ export default function AdminUserManagement() {
             description="Select a role, provide login credentials, and link this user account to an existing resident profile. The selected resident must not already have a user account."
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-12"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form
             form={createForm}
             layout="vertical"

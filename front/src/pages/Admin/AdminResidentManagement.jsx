@@ -1397,6 +1397,7 @@ export default function AdminResidentManagement() {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Steps
             size="small"
             current={addStep}

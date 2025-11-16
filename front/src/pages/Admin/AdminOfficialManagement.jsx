@@ -557,6 +557,7 @@ export default function AdminOfficialManagement() {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form form={addForm} layout="vertical" autoComplete="off">
             <Form.Item
               name="residentId"

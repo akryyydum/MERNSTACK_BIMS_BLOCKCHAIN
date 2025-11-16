@@ -1100,6 +1100,7 @@ export default function AdminFinancialReports() {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash' }}>
             <Row gutter={16}>
               <Col span={12}>

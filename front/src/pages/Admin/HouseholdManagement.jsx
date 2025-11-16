@@ -847,6 +847,7 @@ export default function HouseholdManagement() {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form form={addForm} layout="vertical">
             {/* Head of Household (only unassigned residents) */}
             <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true }]}>

@@ -1107,6 +1107,7 @@ const handleExport = async () => {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical">
             <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}>
               <Select
