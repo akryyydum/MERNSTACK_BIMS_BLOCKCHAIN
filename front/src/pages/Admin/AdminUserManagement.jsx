@@ -13,7 +13,7 @@ export default function AdminUserManagement() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState(undefined);
+  const [roleFilter, setRoleFilter] = useState(null);
   const [allUsers, setAllUsers] = useState([]); // Store all users for statistics
 
   // Pagination state
@@ -202,7 +202,8 @@ export default function AdminUserManagement() {
         role: values.role,
         username: values.username,
         password: values.password,
-        residentId: values.residentId
+        residentId: values.residentId,
+        residentStatus: 'verified', // Automatically verified when created by admin
       };
 
       const res = await fetch(`${API_BASE}/api/admin/users`, {
@@ -281,10 +282,12 @@ export default function AdminUserManagement() {
     }
   };
 
-  // Filter users based on search input (client-side filtering like resident management)
+  // Filter users based on search input and status filter
+  const [statusFilter, setStatusFilter] = useState(null);
   const filteredUsers = users
-    .filter(user =>
-      [
+    .filter(user => {
+      // Search filter
+      const matchesSearch = [
         user.fullName,
         user.username,
         user.contact?.email,
@@ -294,8 +297,13 @@ export default function AdminUserManagement() {
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(search.toLowerCase())
-    )
+        .includes(search.toLowerCase());
+      // Status filter
+      const matchesStatus = !statusFilter || statusFilter.length === 0 || statusFilter.includes(user.residentStatus || 'pending');
+      // Role filter
+      const matchesRole = !roleFilter || roleFilter.length === 0 || roleFilter.includes(user.role);
+      return matchesSearch && matchesStatus && matchesRole;
+    })
     .sort((a, b) => {
       if (a.createdAt && b.createdAt) {
         return new Date(b.createdAt) - new Date(a.createdAt);
@@ -350,11 +358,14 @@ export default function AdminUserManagement() {
         { text: "Official", value: "official" },
         { text: "Resident", value: "resident" },
       ],
-      filteredValue: roleFilter ? [roleFilter] : null,
-      onFilter: () => true, // handled server-side; keep UI synced
+      filteredValue: roleFilter || null,
+      onFilter: (value, record) => {
+        // This is handled by filteredUsers, but keep for UI sync
+        return record.role === value;
+      },
     },
     {
-      title: "Verified",
+      title: "Status",
       key: "verified",
       render: (_, r) => {
         const status = r.residentStatus || 'pending';
@@ -379,7 +390,11 @@ export default function AdminUserManagement() {
         { text: "Pending", value: "pending" },
         { text: "Rejected", value: "rejected" },
       ],
-      onFilter: (value, record) => (record.residentStatus || 'pending') === value,
+      filteredValue: statusFilter || null,
+      onFilter: (value, record) => {
+        // This is handled by filteredUsers, but keep for UI sync
+        return (record.residentStatus || 'pending') === value;
+      },
     },
     {
       title: "Active",
@@ -449,6 +464,18 @@ export default function AdminUserManagement() {
   // Get user info from localStorage (or context/auth if you have it)
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
+
+  // Check if there is already an admin (for disabling admin option)
+  const adminCount = users.filter(u => u.role === "admin").length;
+  const editingIsAdmin = editingUser && editingUser.role === "admin";
+
+  // Sync status filter from table
+  const handleTableChangeWithStatus = (pagination, filters) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
+    setStatusFilter(filters.verified || null);
+    setRoleFilter(filters.role || null);
+  };
 
   return (
     <AdminLayout title="Admin">
@@ -643,7 +670,7 @@ export default function AdminUserManagement() {
               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
               pageSizeOptions: ['10', '20', '50', '100'],
             }}
-            onChange={handleTableChange}
+            onChange={handleTableChangeWithStatus}
             scroll={{ x: 800 }}
           />
         </div>
@@ -687,26 +714,10 @@ export default function AdminUserManagement() {
               <Select
                 options={[
                   { value: "official", label: "Official" },
-                  { value: "admin", label: "Admin" },
+                  { value: "admin", label: "Admin", disabled: adminCount >= 1 },
                   { value: "resident", label: "Resident" },
                 ]}
               />
-            </Form.Item>
-
-            <Form.Item
-              name="username"
-              label="Username"
-              rules={[{ required: true, message: "Username is required" }]}
-            >
-              <Input autoComplete="off" />
-            </Form.Item>
-
-            <Form.Item
-              name="password"
-              label="Temporary password"
-              rules={[{ required: true, message: "Password is required" }, { min: 6 }]}
-            >
-              <Input.Password autoComplete="new-password" />
             </Form.Item>
 
             {/* All roles now use resident selection */}
@@ -727,6 +738,22 @@ export default function AdminUserManagement() {
                 }))}
               />
             </Form.Item>
+            <Form.Item
+              name="username"
+              label="Username"
+              rules={[{ required: true, message: "Username is required" }]}
+            >
+              <Input autoComplete="off" />
+            </Form.Item>
+
+            <Form.Item
+              name="password"
+              label="Temporary password"
+              rules={[{ required: true, message: "Password is required" }, { min: 6 }]}
+            >
+              <Input.Password autoComplete="new-password" />
+            </Form.Item>
+
             {/* Optional preview */}
             {(() => {
               const rid = createForm.getFieldValue("residentId");
@@ -783,7 +810,7 @@ export default function AdminUserManagement() {
             >
               <Select
                 options={[
-                  { value: "admin", label: "Admin" },
+                  { value: "admin", label: "Admin", disabled: adminCount >= 1 && !editingIsAdmin },
                   { value: "official", label: "Official" },
                   { value: "resident", label: "Resident" },
                 ]}
