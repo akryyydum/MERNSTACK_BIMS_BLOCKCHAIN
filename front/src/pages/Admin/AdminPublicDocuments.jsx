@@ -589,6 +589,7 @@ export default function AdminPublicDocuments() {
             showIcon
             className="mb-4"
           />
+          <div style={{ marginBottom: 16 }} />
           <Form layout="vertical" form={form}>
             <Form.Item
               name="title"
