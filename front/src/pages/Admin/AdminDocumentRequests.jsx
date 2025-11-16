@@ -898,15 +898,6 @@ const handleExport = async () => {
                   <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
-                    checked={visibleColumns.requestedBy}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, requestedBy: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Requested By
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
                     checked={visibleColumns.requestFor}
                     onCheckedChange={(checked) =>
                       setVisibleColumns({ ...visibleColumns, requestFor: checked })

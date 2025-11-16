@@ -25,10 +25,12 @@ const Login = () => {
   const [regLoading, setRegLoading] = useState(false);
   const [regEmail, setRegEmail] = useState("");
   const [regForm] = Form.useForm();
+  const [loginForm] = Form.useForm();
   const [initializing, setInitializing] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
   const [pendingAlert, setPendingAlert] = useState(false); // Add state for pending alert
+  const [loginError, setLoginError] = useState(""); // Add state for login error
 
   const stepFieldNames = {
     1: [
@@ -54,6 +56,7 @@ const Login = () => {
   const handleSubmit = async (values) => {
     try {
       setPendingAlert(false); // Reset alert
+      setLoginError(""); // Clear any previous login errors
       
       // Send the credential as usernameOrEmail to handle both username and email login
       const res = await axios.post(`${API_BASE}/api/auth/login`, {
@@ -95,8 +98,11 @@ const Login = () => {
           : status >= 500
           ? "Server error. Please try again later."
           : status === 400
-          ? "Invalid username/email or password."
+          ? "Invalid username or password."
           : err.response?.data?.message || "Login failed";
+      
+      // Set the error message to display below fields
+      setLoginError(msg);
       message.error(msg);
     }
   };
@@ -334,13 +340,19 @@ const Login = () => {
             />
           )}
           
-          <Form layout="vertical" onFinish={handleSubmit}>
+          <Form 
+            form={loginForm}
+            layout="vertical" 
+            onFinish={handleSubmit}
+            onFieldsChange={() => setLoginError("")}
+          >
             <Form.Item
               label="Username"
               name="username"
               rules={[
                 { required: true, message: "Please input your username!" },
               ]}
+              validateStatus={loginError ? "error" : ""}
             >
               <Input size="large" placeholder="Enter your username" />
             </Form.Item>
@@ -350,6 +362,8 @@ const Login = () => {
               rules={[
                 { required: true, message: "Please input your password!" },
               ]}
+              validateStatus={loginError ? "error" : ""}
+              help={loginError ? loginError : ""}
             >
               <Input.Password size="large" placeholder="Enter your password" />
             </Form.Item>
