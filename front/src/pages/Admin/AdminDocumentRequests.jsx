@@ -58,6 +58,7 @@ export default function AdminDocumentRequests() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
   const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
+  const [exportHasData, setExportHasData] = useState(true);
 
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -66,15 +67,11 @@ export default function AdminDocumentRequests() {
       return JSON.parse(saved);
     }
     return {
-      requestedBy: true,
-      requestFor: true,
+      residentName: true,
       civilStatus: true,
       purok: true,
-      documentType: true,
-      quantity: true,
-      purpose: true,
-      status: true,
-      requestedAt: true,
+      totalRequests: true,
+      statusSummary: true,
     };
   });
 
@@ -91,6 +88,28 @@ export default function AdminDocumentRequests() {
     fetchResidents();
     fetchHouseholds();
   }, []);
+
+  // Validate export data availability when modal opens
+  useEffect(() => {
+    if (!exportOpen) return;
+
+    const validateExportData = () => {
+      const formValues = exportForm.getFieldsValue();
+      const { docTypeFilter, purokFilter } = formValues;
+
+      let filtered = requests;
+      if (docTypeFilter && docTypeFilter !== 'all') {
+        filtered = filtered.filter(r => r.documentType === docTypeFilter);
+      }
+      if (purokFilter && purokFilter !== 'all') {
+        filtered = filtered.filter(r => r.requestedBy?.address?.purok === purokFilter);
+      }
+
+      setExportHasData(filtered.length > 0);
+    };
+
+    validateExportData();
+  }, [exportOpen, requests, exportForm]);
 
   // Helper: newest first
   const sortByNewest = (arr) =>
@@ -165,54 +184,76 @@ export default function AdminDocumentRequests() {
 
   const allColumns = [
     {
+      title: "Resident Name",
+      key: "residentName",
+      columnKey: "residentName",
+      render: (text, record) => (
+        <span className="font-semibold">{record.residentName}</span>
+      )
+    },
+    {
+      title: "Civil Status",
+      key: "civilStatus",
+      columnKey: "civilStatus",
+      render: (_, record) => record.residentData?.civilStatus || "-"
+    },
+    {
+      title: "Purok",
+      key: "purok",
+      columnKey: "purok",
+      render: (_, record) => record.residentData?.address?.purok || "-"
+    },
+    {
+      title: "Total Requests",
+      dataIndex: "totalRequests",
+      key: "totalRequests",
+      columnKey: "totalRequests",
+      width: 120,
+      render: (count) => (
+        <Tag color="blue">{count} request{count !== 1 ? 's' : ''}</Tag>
+      )
+    },
+    {
+      title: "Status Summary",
+      key: "statusSummary",
+      columnKey: "statusSummary",
+      render: (_, record) => (
+        <div className="flex gap-1 flex-wrap">
+          {record.pendingCount > 0 && <Tag color="orange">{record.pendingCount} Pending</Tag>}
+          {record.acceptedCount > 0 && <Tag color="green">{record.acceptedCount} Accepted</Tag>}
+          {record.completedCount > 0 && <Tag color="blue">{record.completedCount} Completed</Tag>}
+        </div>
+      )
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      columnKey: "actions",
+      render: () => (
+        <span className="text-gray-500 text-xs">Expand to see details</span>
+      )
+    }
+  ];
+
+  // Expanded row columns (individual requests)
+  const expandedColumns = [
+    {
       title: "Requested By",
       key: "requestedBy",
-      columnKey: "requestedBy",
       render: (_, r) =>
         r.requestedBy
           ? [r.requestedBy.firstName, r.requestedBy.middleName, r.requestedBy.lastName].filter(Boolean).join(" ")
           : "-",
     },
     {
-      title: "Document For",
-      key: "requestFor",
-      columnKey: "requestFor",
-      render: (_, r) => {
-        const person = r.requestFor || r.residentId;
-        return person
-          ? [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ")
-          : "-";
-      },
-    },
-    {
-      title: "Civil Status",
-      key: "civilStatus",
-      columnKey: "civilStatus",
-      render: (_, r) => {
-        const person = r.requestFor || r.residentId;
-        return person?.civilStatus || "-";
-      },
-    },
-    {
-      title: "Purok",
-      key: "purok",
-      columnKey: "purok",
-      render: (_, r) => {
-        const person = r.requestFor || r.residentId;
-        return person?.address?.purok || "-";
-      },
-    },
-    {
       title: "Document Type",
       dataIndex: "documentType",
       key: "documentType",
-      columnKey: "documentType",
     },
     {
       title: "Qty",
       dataIndex: "quantity",
       key: "quantity",
-      columnKey: "quantity",
       width: 70,
       render: (v) => Number(v || 1)
     },
@@ -220,13 +261,11 @@ export default function AdminDocumentRequests() {
       title: "Purpose",
       dataIndex: "purpose",
       key: "purpose",
-      columnKey: "purpose",
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      columnKey: "status",
       render: v => {
         let color = "default";
         if (v === "pending") color = "orange";
@@ -240,7 +279,6 @@ export default function AdminDocumentRequests() {
       title: "Requested At",
       dataIndex: "requestedAt",
       key: "requestedAt",
-      columnKey: "requestedAt",
       render: v => (v ? new Date(v).toLocaleString() : ""),
       sorter: (a, b) =>
         new Date(a.requestedAt || 0) - new Date(b.requestedAt || 0),
@@ -250,7 +288,6 @@ export default function AdminDocumentRequests() {
     {
       title: "Actions",
       key: "actions",
-      columnKey: "actions",
       render: (_, r) => (
         <div className="flex gap-2">
           <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
@@ -321,7 +358,40 @@ export default function AdminDocumentRequests() {
       .join(" ")
       .toLowerCase()
       .includes(search.toLowerCase())
-  );  // Unique list of Puroks for export filtering
+  );
+
+  // Group requests by resident for expandable table
+  const groupedRequests = filteredRequests.reduce((acc, request) => {
+    const person = request.requestFor || request.residentId;
+    const residentKey = person
+      ? [person.firstName, person.middleName, person.lastName, person.suffix].filter(Boolean).join(" ")
+      : 'Unknown Resident';
+    
+    if (!acc[residentKey]) {
+      acc[residentKey] = {
+        residentName: residentKey,
+        residentData: person,
+        requests: [],
+        totalRequests: 0,
+        pendingCount: 0,
+        acceptedCount: 0,
+        completedCount: 0,
+        __rowKey: `grouped_${residentKey.replace(/\s+/g, '_')}`
+      };
+    }
+    
+    acc[residentKey].requests.push(request);
+    acc[residentKey].totalRequests += 1;
+    if (request.status === 'pending') acc[residentKey].pendingCount += 1;
+    if (request.status === 'accepted') acc[residentKey].acceptedCount += 1;
+    if (request.status === 'completed') acc[residentKey].completedCount += 1;
+    
+    return acc;
+  }, {});
+
+  const groupedData = Object.values(groupedRequests);
+
+  // Unique list of Puroks for export filtering
   const uniquePuroks = Array.from(
     new Set(
       [
@@ -940,13 +1010,13 @@ const handleExport = async () => {
                   <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
-                    checked={visibleColumns.requestFor}
+                    checked={visibleColumns.residentName}
                     onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, requestFor: checked })
+                      setVisibleColumns({ ...visibleColumns, residentName: checked })
                     }
                     onSelect={(e) => e.preventDefault()}
                   >
-                    Document For
+                    Resident Name
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={visibleColumns.civilStatus}
@@ -967,49 +1037,22 @@ const handleExport = async () => {
                     Purok
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={visibleColumns.documentType}
+                    checked={visibleColumns.totalRequests}
                     onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, documentType: checked })
+                      setVisibleColumns({ ...visibleColumns, totalRequests: checked })
                     }
                     onSelect={(e) => e.preventDefault()}
                   >
-                    Document Type
+                    Total Requests
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
-                    checked={visibleColumns.quantity}
+                    checked={visibleColumns.statusSummary}
                     onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, quantity: checked })
+                      setVisibleColumns({ ...visibleColumns, statusSummary: checked })
                     }
                     onSelect={(e) => e.preventDefault()}
                   >
-                    Quantity
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.purpose}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, purpose: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Purpose
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.status}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, status: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Status
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.requestedAt}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, requestedAt: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Requested At
+                    Status Summary
                   </DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1031,17 +1074,30 @@ const handleExport = async () => {
           </div>
           <div className="overflow-x-auto">
             <Table
-              rowKey="_id"
+              rowKey="__rowKey"
               loading={loading}
-              dataSource={filteredRequests}
+              dataSource={groupedData}
               columns={columns}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <Table
+                    columns={expandedColumns}
+                    dataSource={record.requests}
+                    pagination={false}
+                    rowKey="_id"
+                    size="small"
+                    className="ml-8"
+                  />
+                ),
+                rowExpandable: (record) => record.requests && record.requests.length > 0,
+              }}
               pagination={{
                 current: currentPage,
                 pageSize: pageSize,
-                total: filteredRequests.length,
+                total: groupedData.length,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} requests`,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Requests: ${filteredRequests.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
               }}
               onChange={handleTableChange}
@@ -1333,14 +1389,45 @@ const handleExport = async () => {
         <Modal
           title="Export Document Requests"
           open={exportOpen}
-          onCancel={() => setExportOpen(false)}
+          onCancel={() => {
+            setExportOpen(false);
+            setExportHasData(true);
+          }}
           onOk={handleExport}
           okText="Export"
+          okButtonProps={{ disabled: !exportHasData }}
           width={420}
         >
           <Form form={exportForm} layout="vertical" initialValues={{ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() }}>
             <Form.Item name="reportType" label="Report Type" rules={[{ required: true }]}>
               <Select
+                onChange={() => {
+                  const formValues = exportForm.getFieldsValue();
+                  const { docTypeFilter, purokFilter, rangeType, period } = formValues;
+                  
+                  let filtered = requests;
+                  
+                  // Apply date range filter if period is set
+                  if (rangeType && period) {
+                    const { start, end } = getRange(rangeType, period);
+                    filtered = filtered.filter(r => {
+                      const t = dayjs(r.requestedAt).valueOf();
+                      return t >= start.valueOf() && t <= end.valueOf();
+                    });
+                  }
+                  
+                  // Apply document type filter
+                  if (docTypeFilter && docTypeFilter !== 'all') {
+                    filtered = filtered.filter(r => r.documentType === docTypeFilter);
+                  }
+                  
+                  // Apply purok filter
+                  if (purokFilter && purokFilter !== 'all') {
+                    filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === purokFilter.toString());
+                  }
+                  
+                  setExportHasData(filtered.length > 0);
+                }}
                 options={[
                   { value: 'detailed', label: 'Detailed Rows' },
                   { value: 'top_requesters', label: 'Top Requesters (Most Requests)' },
@@ -1349,6 +1436,33 @@ const handleExport = async () => {
             </Form.Item>
             <Form.Item name="docTypeFilter" label="Document Type">
               <Select
+                onChange={(value) => {
+                  const formValues = exportForm.getFieldsValue();
+                  const { purokFilter, rangeType, period } = formValues;
+                  
+                  let filtered = requests;
+                  
+                  // Apply date range filter if period is set
+                  if (rangeType && period) {
+                    const { start, end } = getRange(rangeType, period);
+                    filtered = filtered.filter(r => {
+                      const t = dayjs(r.requestedAt).valueOf();
+                      return t >= start.valueOf() && t <= end.valueOf();
+                    });
+                  }
+                  
+                  // Apply document type filter
+                  if (value && value !== 'all') {
+                    filtered = filtered.filter(r => r.documentType === value);
+                  }
+                  
+                  // Apply purok filter
+                  if (purokFilter && purokFilter !== 'all') {
+                    filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === purokFilter.toString());
+                  }
+                  
+                  setExportHasData(filtered.length > 0);
+                }}
                 options={[
                   { value: 'all', label: 'All' },
                   { value: 'Indigency', label: 'Indigency' },
@@ -1361,6 +1475,33 @@ const handleExport = async () => {
               <Select
                 showSearch
                 optionFilterProp="label"
+                onChange={(value) => {
+                  const formValues = exportForm.getFieldsValue();
+                  const { docTypeFilter, rangeType, period } = formValues;
+                  
+                  let filtered = requests;
+                  
+                  // Apply date range filter if period is set
+                  if (rangeType && period) {
+                    const { start, end } = getRange(rangeType, period);
+                    filtered = filtered.filter(r => {
+                      const t = dayjs(r.requestedAt).valueOf();
+                      return t >= start.valueOf() && t <= end.valueOf();
+                    });
+                  }
+                  
+                  // Apply document type filter
+                  if (docTypeFilter && docTypeFilter !== 'all') {
+                    filtered = filtered.filter(r => r.documentType === docTypeFilter);
+                  }
+                  
+                  // Apply purok filter
+                  if (value && value !== 'all') {
+                    filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === value.toString());
+                  }
+                  
+                  setExportHasData(filtered.length > 0);
+                }}
                 options={[
                   { value: 'all', label: 'All' },
                   ...uniquePuroks.map((p) => ({ value: p, label: String(p) })),
@@ -1386,6 +1527,13 @@ const handleExport = async () => {
                 picker={exportRangeType === "day" ? "date" : exportRangeType}
               />
             </Form.Item>
+            
+            {!exportHasData && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mt-3">
+                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
+              </div>
+            )}
           </Form>
         </Modal>
       </div>

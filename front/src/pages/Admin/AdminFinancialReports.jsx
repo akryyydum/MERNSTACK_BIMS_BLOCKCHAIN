@@ -66,6 +66,7 @@ export default function AdminFinancialReports() {
   const [syncing, setSyncing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exportHasData, setExportHasData] = useState(true);
 
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
@@ -89,6 +90,25 @@ export default function AdminFinancialReports() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, dateRange]);
+
+  // Validate export data availability when modal opens
+  useEffect(() => {
+    if (!exportOpen) return;
+
+    const validateExportData = () => {
+      const formValues = exportForm.getFieldsValue();
+      const { exportTypes, months } = formValues;
+
+      // Check if there are any transactions matching the filters
+      if (transactions && transactions.length > 0) {
+        setExportHasData(true);
+      } else {
+        setExportHasData(false);
+      }
+    };
+
+    validateExportData();
+  }, [exportOpen, transactions, exportForm]);
 
   // Helper function for auth headers
   const authHeaders = () => {
@@ -555,6 +575,45 @@ export default function AdminFinancialReports() {
 
   const columns = [
     {
+      title: 'Resident Name',
+      dataIndex: 'residentName',
+      key: 'residentName',
+      width: 200,
+      render: (text, record) => (
+        <span className="font-semibold">{text}</span>
+      )
+    },
+    {
+      title: 'Total Transactions',
+      dataIndex: 'transactionCount',
+      key: 'transactionCount',
+      width: 150,
+      render: (count) => (
+        <Tag color="blue">{count} transaction{count !== 1 ? 's' : ''}</Tag>
+      )
+    },
+    {
+      title: 'Total Amount',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      width: 150,
+      render: (amount) => (
+        <span className="font-semibold text-green-600">₱{Number(amount).toLocaleString()}</span>
+      )
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 100,
+      render: (_, record) => (
+        <span className="text-gray-500 text-xs">Expand to see details</span>
+      )
+    }
+  ];
+
+  // Expanded row columns (individual transactions)
+  const expandedColumns = [
+    {
       title: 'Transaction ID',
       dataIndex: 'transactionId',
       key: 'transactionId',
@@ -594,17 +653,6 @@ export default function AdminFinancialReports() {
       dataIndex: 'amount',
       key: 'amount',
       render: (amount) => `₱${Number(amount).toLocaleString()}`
-    },
-    {
-      title: 'Resident',
-      key: 'resident',
-      render: (_, record) => {
-        // Use stored name first, fallback to populated data
-        if (record.residentName) return record.residentName;
-        if (record.residentId) return `${record.residentId.firstName} ${record.residentId.lastName}`;
-        if (record.resident) return record.resident; // synthesized utility payment field
-        return '-';
-      }
     },
     {
       title: 'Status',
@@ -687,6 +735,31 @@ export default function AdminFinancialReports() {
       .toLowerCase()
       .includes(search.toLowerCase())
   );
+
+  // Group transactions by resident for expandable table
+  const groupedTransactions = filteredTransactions.reduce((acc, transaction) => {
+    const residentKey = transaction.residentName || 
+                       (transaction.residentId ? `${transaction.residentId.firstName} ${transaction.residentId.lastName}` : 
+                       (transaction.resident || 'No Resident'));
+    
+    if (!acc[residentKey]) {
+      acc[residentKey] = {
+        residentName: residentKey,
+        transactions: [],
+        totalAmount: 0,
+        transactionCount: 0,
+        __rowKey: `grouped_${residentKey.replace(/\s+/g, '_')}`
+      };
+    }
+    
+    acc[residentKey].transactions.push(transaction);
+    acc[residentKey].totalAmount += Number(transaction.amount || 0);
+    acc[residentKey].transactionCount += 1;
+    
+    return acc;
+  }, {});
+
+  const groupedData = Object.values(groupedTransactions);
 
   return (
     <AdminLayout>
@@ -852,6 +925,12 @@ export default function AdminFinancialReports() {
                 Generate Report
               </Button>
               <Button 
+                loading={exporting}
+                onClick={() => setExportOpen(true)}
+              >
+                Export to Excel
+              </Button>
+              <Button 
                 type="primary"
                 onClick={() => setCreateOpen(true)}
               >
@@ -871,41 +950,47 @@ export default function AdminFinancialReports() {
             </CardHeader>
             <CardContent>
               <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <Input.Search
-                allowClear
-                placeholder="Search for Resident"
-                onSearch={v => setSearch(v.trim())}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                enterButton
-                className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
-              />
-                <Button
-                  loading={exporting}
-                  onClick={() => setExportOpen(true)}
-                >
-                  Export to Excel
-                </Button>
+                <Input.Search
+                  allowClear
+                  placeholder="Search for Resident"
+                  onSearch={v => setSearch(v.trim())}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  enterButton
+                  className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                />
               </div>
               <div className="overflow-x-auto">
                 <Table
                   columns={columns}
-                  dataSource={filteredTransactions}
+                  dataSource={groupedData}
                   loading={loading}
-                  rowSelection={rowSelection}
+                  expandable={{
+                    expandedRowRender: (record) => (
+                      <Table
+                        columns={expandedColumns}
+                        dataSource={record.transactions}
+                        pagination={false}
+                        rowKey={(tx) => tx.__rowKey ?? tx._id ?? getTransactionKey(tx)}
+                        size="small"
+                        className="ml-8"
+                      />
+                    ),
+                    rowExpandable: (record) => record.transactions && record.transactions.length > 0,
+                  }}
                   pagination={{
                     current: currentPage,
                     pageSize: pageSize,
-                    total: filteredTransactions.length,
+                    total: groupedData.length,
                     showSizeChanger: true,
                     showQuickJumper: true,
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} transactions | Selected: ${selectedRowKeys.length}`,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Transactions: ${filteredTransactions.length}`,
                     pageSizeOptions: ['10', '20', '50', '100'],
                     defaultPageSize: 10,
                   }}
                   onChange={handleTableChange}
-                  scroll={{ x: 1400 }}
-                  rowKey={(record) => record.__rowKey ?? record._id ?? getTransactionKey(record)}
+                  scroll={{ x: 800 }}
+                  rowKey={(record) => record.__rowKey}
                 />
               </div>
             </CardContent>
@@ -922,10 +1007,12 @@ export default function AdminFinancialReports() {
             setSelectedExportTypes([]);
             setSelectedYear(dayjs().year());
             setSelectedMonths([]);
+            setExportHasData(true);
           }}
           onOk={handleExportData}
           okText="Export"
           confirmLoading={exporting}
+          okButtonProps={{ disabled: !exportHasData }}
           width={600}
         >
           <Form 
@@ -968,6 +1055,24 @@ export default function AdminFinancialReports() {
                   if (!currentValues?.includes('document_request_fees') && !currentValues?.includes('all')) {
                     exportForm.setFieldsValue({ documentTypes: [] });
                   }
+                  
+                  // Validate if there's data to export - check actual filtered transactions
+                  let filteredData = transactions;
+                  const currentExportTypes = exportForm.getFieldValue('exportTypes') || values;
+                  
+                  if (currentExportTypes && currentExportTypes.length > 0 && !currentExportTypes.includes('all')) {
+                    filteredData = filteredData.filter(t => {
+                      return currentExportTypes.some(exportType => {
+                        if (exportType === 'garbage_fees') return t.type === 'garbage_fee';
+                        if (exportType === 'streetlight_fees') return t.type === 'streetlight_fee';
+                        if (exportType === 'document_request_fees') return t.type === 'document_fee';
+                        if (exportType === 'other') return t.type === 'other';
+                        return false;
+                      });
+                    });
+                  }
+                  
+                  setExportHasData(filteredData && filteredData.length > 0);
                 }}
                 maxTagCount="responsive"
               >
@@ -1070,6 +1175,13 @@ export default function AdminFinancialReports() {
                 })}
               </Select>
             </Form.Item>
+            
+            {!exportHasData && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
+                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
+              </div>
+            )}
             
             <div className="text-sm text-gray-500 mt-4 p-3 bg-blue-50 rounded">
               <p><strong>📊 Export Information:</strong></p>
