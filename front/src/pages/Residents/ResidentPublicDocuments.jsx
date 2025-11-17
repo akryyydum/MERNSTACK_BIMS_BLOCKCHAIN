@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Tag, message, Modal, Skeleton } from "antd";
+import { Table, Input, Button, Tag, message, Skeleton } from "antd";
 import {
   DownloadOutlined,
   FilePdfOutlined,
@@ -24,12 +24,19 @@ export default function ResidentPublicDocuments() {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+  const STATUS_COLORS = {
+    verified: 'green',
+    edited: 'orange',
+    deleted: 'red',
+    not_registered: 'default',
+    error: 'volcano'
+  };
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -57,7 +64,6 @@ export default function ResidentPublicDocuments() {
 
   const openPreview = async (record) => {
     setPreviewDoc(record);
-    setPreviewOpen(true);
     setPreviewLoading(true);
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -76,7 +82,6 @@ export default function ResidentPublicDocuments() {
       setPreviewUrl(blobUrl);
     } catch {
       message.error("Preview not available");
-      setPreviewOpen(false);
     } finally {
       setPreviewLoading(false);
     }
@@ -131,6 +136,18 @@ export default function ResidentPublicDocuments() {
       dataIndex: "category",
       key: "category",
       render: v => <Tag>{v || "General"}</Tag>,
+    },
+    {
+      title: "Blockchain Status",
+      dataIndex: "status",
+      key: "status",
+      render: (v) => (
+        <Tag color={STATUS_COLORS[v] || 'default'} className="uppercase tracking-wide">
+          {v === 'not_registered' ? 'UNREGISTERED' : (v || 'N/A').toUpperCase()}
+        </Tag>
+      ),
+      filters: ['verified','edited','deleted','not_registered','error'].map(s => ({ text: s.toUpperCase(), value: s })),
+      onFilter: (value, record) => record.status === value,
     },
     {
       title: "Uploaded",
@@ -193,73 +210,110 @@ export default function ResidentPublicDocuments() {
           </CardHeader>
         </Card>
 
-        <Card className="w-full">
-          <CardContent className="space-y-6">
-            <Table
-              rowKey="_id"
-              loading={loading}
-              dataSource={filtered}
-              columns={columns}
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: 700 }}
-            />
-          </CardContent>
-        </Card>
-      </main>
-
-      <Modal
-        title={
-          <div className="text-lg font-semibold text-slate-900">
-            {previewDoc ? `Preview: ${previewDoc.title}` : "Preview"}
-          </div>
-        }
-        open={previewOpen}
-        onCancel={() => {
-          setPreviewOpen(false);
-          setPreviewDoc(null);
-        }}
-        footer={null}
-        width={900}
-        className="top-4"
-        bodyStyle={{ height: "75vh", display: "flex", flexDirection: "column" }}
-      >
-        {previewLoading && <Skeleton active />}
-        {!previewLoading && previewDoc && previewUrl && (
-          <>
-            {/^application\/pdf/i.test(previewDoc.mimeType) && (
-              <iframe
-                src={previewUrl}
-                title="PDF Preview"
-                className="flex-1 w-full border rounded"
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Card className="w-full lg:col-span-5">
+            <CardContent className="space-y-6 pt-6">
+              <Table
+                rowKey="_id"
+                loading={loading}
+                dataSource={filtered}
+                columns={columns}
+                pagination={{ pageSize: 10 }}
+                scroll={{ x: 700 }}
               />
-            )}
-            {/^image\//i.test(previewDoc.mimeType) && (
-              <div className="flex-1 overflow-auto flex items-center justify-center">
-                <img
-                  src={previewUrl}
-                  alt={previewDoc.title}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-            )}
-            {!/^application\/pdf/i.test(previewDoc.mimeType) &&
-              !/^image\//i.test(previewDoc.mimeType) && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-600">
-                  <FileTextOutlined className="text-4xl mb-3" />
-                  <p>No inline preview for this file type.</p>
-                  <Button
-                    type="primary"
-                    className="mt-2 shadow-sm bg-blue-600 hover:bg-blue-700"
-                    icon={<DownloadOutlined />}
-                    onClick={() => download(previewDoc)}
-                  >
-                    Download
-                  </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="w-full lg:col-span-7">
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <CardTitle className="text-xl truncate">
+                    {previewDoc ? previewDoc.title : "Select a document to preview"}
+                  </CardTitle>
+                  {previewDoc && (
+                    <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+                      <Tag>{previewDoc.category || "General"}</Tag>
+                      {previewDoc.status && (
+                        <Tag color={STATUS_COLORS[previewDoc.status] || 'default'} className="uppercase">
+                          {previewDoc.status === 'not_registered' ? 'UNREGISTERED' : previewDoc.status.toUpperCase()}
+                        </Tag>
+                      )}
+                      <span>
+                        Uploaded {dayjs(previewDoc.createdAt).format("YYYY-MM-DD")}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-          </>
-        )}
-      </Modal>
+                {previewDoc && (
+                  <div className="shrink-0">
+                    <Button
+                      size="small"
+                      type="primary"
+                      onClick={() => download(previewDoc)}
+                      className="shadow-sm bg-blue-600 hover:bg-blue-700"
+                      icon={<DownloadOutlined />}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[65vh] md:h-[70vh] flex flex-col min-h-0">
+                {!previewDoc && (
+                  <div className="flex-1 flex items-center justify-center text-slate-500">
+                    Choose a document from the left to see its preview here.
+                  </div>
+                )}
+                {previewDoc && (
+                  <div className="flex-1 min-h-0">
+                    {previewLoading && <Skeleton active />}
+                    {!previewLoading && previewUrl && (
+                      <>
+                        {/^application\/pdf/i.test(previewDoc.mimeType) && (
+                          <div className="w-full h-full overflow-hidden rounded-md border">
+                            <iframe
+                              src={previewUrl}
+                              title="PDF Preview"
+                              className="w-full h-full"
+                            />
+                          </div>
+                        )}
+                        {/^image\//i.test(previewDoc.mimeType) && (
+                          <div className="w-full h-full overflow-hidden rounded-md border bg-white flex items-center justify-center p-2">
+                            <img
+                              src={previewUrl}
+                              alt={previewDoc.title}
+                              className="block max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                        )}
+                        {!/^application\/pdf/i.test(previewDoc.mimeType) &&
+                          !/^image\//i.test(previewDoc.mimeType) && (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-center text-gray-600">
+                              <FileTextOutlined className="text-4xl mb-3" />
+                              <p>No inline preview for this file type.</p>
+                              <Button
+                                type="primary"
+                                className="mt-2 shadow-sm bg-blue-600 hover:bg-blue-700"
+                                icon={<DownloadOutlined />}
+                                onClick={() => download(previewDoc)}
+                              >
+                                Download
+                              </Button>
+                            </div>
+                          )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   );
 }

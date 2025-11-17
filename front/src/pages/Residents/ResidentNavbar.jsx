@@ -4,18 +4,16 @@ import { Layout, Menu, Avatar, Dropdown, Drawer } from 'antd';
 import { 
   DashboardOutlined, 
   FileTextOutlined, 
-  TeamOutlined, 
-  AppstoreOutlined, 
   DollarOutlined, 
   CommentOutlined, 
   UserOutlined, 
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  CloudSyncOutlined
+  CloudSyncOutlined,
+  EllipsisOutlined
 } from '@ant-design/icons';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
-import axios from 'axios';
 
 const { Header } = Layout;
 
@@ -25,6 +23,7 @@ const ResidentNavbar = () => {
   const [residentName, setResidentName] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(0);
 
   useEffect(() => {
     // Function to load the name from localStorage
@@ -60,8 +59,10 @@ const ResidentNavbar = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
+      const width = window.innerWidth;
+      const mobile = width < 768;
       setIsMobile(mobile);
+      setViewportWidth(width);
       if (!mobile) {
         setMobileMenuOpen(false);
       }
@@ -96,6 +97,7 @@ const ResidentNavbar = () => {
 
   const renderNavigationMenu = (mode = 'horizontal') => (
     <Menu
+      key={`menu-${mode}-${viewportWidth}`}
       mode={mode}
       className={mode === 'horizontal' ? 'border-none' : ''}
       selectedKeys={[location.pathname]}
@@ -136,24 +138,49 @@ const ResidentNavbar = () => {
           Reports & Complaints
         </NavLink>
       </Menu.Item>
-      <Menu.Item
-        key="/resident/public-documents"
-        icon={<FileTextOutlined />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
-          Public Docs
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/blockchain"
-        icon={<CloudSyncOutlined />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
-          Blockchain
-        </NavLink>
-      </Menu.Item>
+      {mode === 'horizontal' ? (
+        <Menu.SubMenu key="more" title="More" icon={<EllipsisOutlined />}>
+          <Menu.Item
+            key="/resident/public-documents"
+            icon={<FileTextOutlined />}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+              Public Docs
+            </NavLink>
+          </Menu.Item>
+          <Menu.Item
+            key="/resident/blockchain"
+            icon={<CloudSyncOutlined />}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+              Blockchain
+            </NavLink>
+          </Menu.Item>
+        </Menu.SubMenu>
+      ) : (
+        <>
+          <Menu.Item
+            key="/resident/public-documents"
+            icon={<FileTextOutlined />}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+              Public Docs
+            </NavLink>
+          </Menu.Item>
+          <Menu.Item
+            key="/resident/blockchain"
+            icon={<CloudSyncOutlined />}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+              Blockchain
+            </NavLink>
+          </Menu.Item>
+        </>
+      )}
     </Menu>
   );
 
@@ -256,24 +283,35 @@ const ResidentNavbar = () => {
       }}
     >
       <div className="flex items-center" style={{ minWidth: isMobile ? 'auto' : 220 }}>
-        {isMobile && (
+        {isMobile ? (
           <button
             type="button"
-            aria-label="Toggle navigation"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(true)}
             className="mr-3 flex items-center rounded-md border border-gray-200 px-3 py-2 text-gray-700 hover:bg-gray-50 md:hidden"
+            title="Open menu"
           >
             <MenuUnfoldOutlined />
           </button>
+        ) : (
+          <>
+            <img src={logo} alt="Logo" style={{ width: 48, height: 48, objectFit: 'contain', marginRight: 12 }} />
+            <div className="flex flex-col justify-center">
+              <span className="text-lg font-semibold leading-tight">La Torre North</span>
+              <span className="text-sm font-normal text-gray-600 leading-tight">Barangay Management Information System</span>
+            </div>
+          </>
         )}
-        <img src={logo} alt="Logo" style={{ width: 48, height: 48, objectFit: 'contain', marginRight: 12 }} />
-        <div className="flex flex-col justify-center">
-          <span className="text-lg font-semibold leading-tight">La Torre North</span>
-          <span className="text-sm font-normal text-gray-600 leading-tight">Barangay Management Information System</span>
-        </div>
       </div>
 
-      <div className="hidden flex-1 justify-center md:flex">
+      {isMobile && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <img src={logo} alt="Logo" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+        </div>
+      )}
+
+      <div className="hidden flex-1 justify-center md:flex" style={{ minWidth: 0 }}>
         {renderNavigationMenu()}
       </div>
 

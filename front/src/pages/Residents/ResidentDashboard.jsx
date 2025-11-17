@@ -1,6 +1,8 @@
+
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
+import PaymentStatusAlert from './PaymentStatusAlert';
 import { Button, message } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
@@ -44,7 +46,6 @@ export default function ResidentDashboard() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        console.log("No token found, using localStorage data");
         setResident(residentData);
         return;
       }
@@ -54,12 +55,9 @@ export default function ResidentDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      console.log("Fetched resident profile from API:", res.data);
       setResident(res.data);
     } catch (error) {
-      console.error("Error fetching resident profile:", error);
       // Fallback to localStorage data
-      console.log("Falling back to localStorage data");
       setResident(residentData);
     }
   };
@@ -71,21 +69,13 @@ export default function ResidentDashboard() {
     checkPaymentStatus();
     fetchRealPayments(); // Fetch real payment data instead of mock data
     fetchResidentProfile(); // Fetch full resident profile from API
-    // Get resident info from localStorage
-    console.log("=== DASHBOARD DEBUG ===");
-    console.log("userData from localStorage:", localStorage.getItem("userData"));
-    console.log("userProfile from localStorage:", localStorage.getItem("userProfile"));
-    console.log("username from localStorage:", localStorage.getItem("username"));
-    console.log("token from localStorage:", localStorage.getItem("token"));
-    console.log("Using residentData:", residentData);
-    console.log("========================");
+    // Avoid logging sensitive localStorage contents
   }, []);
 
   // Auto-refresh payment data when user returns to the page
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log("Page became visible, refreshing payment data...");
         refreshPaymentData();
       }
     };
@@ -102,26 +92,18 @@ export default function ResidentDashboard() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        console.log("No token found");
         return;
       }
 
-      console.log("Making payment status request...");
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests/payment-status`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log("Payment status response:", res.data);
-      console.log("Garbage fee data:", res.data.paymentStatus?.garbageFee);
-      console.log("Streetlight fee data:", res.data.paymentStatus?.streetlightFee);
-      console.log("Raw payment status structure:", JSON.stringify(res.data.paymentStatus, null, 2));
       setPaymentStatus(res.data);
     } catch (error) {
-      console.error("Error checking payment status:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
         message.error("Authentication error. Please log in again.");
       } else if (error.response?.status === 400) {
-        console.log("Bad request - possibly no household associated with resident");
         // Set a default status that allows document requests for now
         setPaymentStatus({
           canRequestDocuments: true,
@@ -129,7 +111,6 @@ export default function ResidentDashboard() {
           paymentStatus: null
         });
       } else {
-        console.log("Payment status check failed, allowing document requests by default");
         // Don't show error to user, just allow document requests
         setPaymentStatus({
           canRequestDocuments: true,
@@ -155,17 +136,14 @@ export default function ResidentDashboard() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        console.log("No token found for fetching payments");
         return;
       }
 
-      console.log("Fetching real payment data...");
       const response = await axios.get(
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/payments`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      console.log("Real payment response:", response.data);
       
       // Process the payment data similar to ResidentPayment.jsx
       const normalizeUtilityResponse = (payload) => {
@@ -232,10 +210,8 @@ export default function ResidentDashboard() {
         .filter((item) => item.month || item.dueDate)
         .map((item) => buildPaymentRecord(item));
 
-      console.log("Processed payment data:", mapped);
       setPayments(mapped);
     } catch (error) {
-      console.error("Failed to load real payment data:", error);
       // Fallback to empty payments instead of mock data
       setPayments([]);
     }
@@ -334,7 +310,6 @@ export default function ResidentDashboard() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        console.log("No token found for fetching complaints");
         return;
       }
 
@@ -343,15 +318,9 @@ export default function ResidentDashboard() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      console.log("Fetched complaints:", res.data);
       setComplaints(res.data);
     } catch (error) {
-      console.error("Error fetching complaints:", error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.log("Authentication error when fetching complaints");
-      } else {
-        console.log("Failed to load complaints, setting empty array");
-      }
+      // On error, set empty complaints
       setComplaints([]);
     }
   };
@@ -470,9 +439,7 @@ export default function ResidentDashboard() {
                                     (paymentStatus.paymentStatus.garbageFee.yearlyBalance || paymentStatus.paymentStatus.garbageFee.balance || 0) === 0 ? 'text-emerald-600' : 'text-rose-600'
                                   }`}>
                                     ₱{Number(paymentStatus.paymentStatus.garbageFee.yearlyBalance || paymentStatus.paymentStatus.garbageFee.balance || 0).toFixed(2)}
-                                    {console.log("Garbage fee object:", paymentStatus.paymentStatus.garbageFee)}
-                                    {console.log("Displaying garbage yearly balance:", paymentStatus.paymentStatus.garbageFee.yearlyBalance)}
-                                    {console.log("Displaying garbage balance fallback:", paymentStatus.paymentStatus.garbageFee.balance)}
+                                    {/* debug logs removed */}
                                   </span>
                                 </div>
                               </div>
@@ -521,9 +488,7 @@ export default function ResidentDashboard() {
                                     (paymentStatus.paymentStatus.streetlightFee.yearlyBalance || paymentStatus.paymentStatus.streetlightFee.balance || 0) === 0 ? 'text-emerald-600' : 'text-rose-600'
                                   }`}>
                                     ₱{Number(paymentStatus.paymentStatus.streetlightFee.yearlyBalance || paymentStatus.paymentStatus.streetlightFee.balance || 0).toFixed(2)}
-                                    {console.log("Streetlight fee object:", paymentStatus.paymentStatus.streetlightFee)}
-                                    {console.log("Displaying streetlight yearly balance:", paymentStatus.paymentStatus.streetlightFee.yearlyBalance)}
-                                    {console.log("Displaying streetlight balance fallback:", paymentStatus.paymentStatus.streetlightFee.balance)}
+                                    {/* debug logs removed */}
                                   </span>
                                 </div>
                               </div>
@@ -721,7 +686,7 @@ export default function ResidentDashboard() {
                   return (
                     <Card key={`${item.activityType}-${item._id}`} className="w-full border border-slate-200 bg-white shadow-none hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
-                        <div className="flex items-center mb-1">
+                        <div className="flex items-center mb-3">
                           <div className={`h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
                             isRequest ? 'bg-blue-100' : 
                             item.type === 'complaint' ? 'bg-orange-100' : 'bg-purple-100'
@@ -799,6 +764,17 @@ export default function ResidentDashboard() {
                           <p className="text-xs text-slate-500">
                             {isRequest ? 'Requested' : 'Submitted'} on {formatDate(item.createdAt || item.requestedAt)}
                           </p>
+                        </div>
+                        <div className="mt-4 flex justify-between items-center">
+                          <span className="text-xs text-slate-500">Status:</span>
+                          <span className={`text-xs font-medium ${
+                            (item.status === "accepted" || item.status === "resolved") ? "text-emerald-600" : 
+                            (item.status === "declined") ? "text-rose-600" : 
+                            (item.status === "investigating") ? "text-blue-600" :
+                            "text-slate-800"
+                          }`}>
+                            {item.status.toUpperCase()}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>

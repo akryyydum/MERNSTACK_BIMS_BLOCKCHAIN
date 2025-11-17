@@ -140,15 +140,51 @@ exports.verifyStatus = async (req, res) => {
 };
 
 // ---------------------------------------------
-// PUBLIC LIST (RESIDENT SIDE)
+// PUBLIC LIST (RESIDENT SIDE) with blockchain status
 // ---------------------------------------------
 exports.listPublic = async (_req, res) => {
   try {
-    const docs = await PublicDocument.find({ visibility: "public" })
+    const mongoDocs = await PublicDocument.find({ visibility: "public" })
       .sort({ createdAt: -1 });
 
-    res.json(docs);
-  } catch {
+    let blockchainDocs = [];
+    try {
+      blockchainDocs = await getAllPublicDocumentsFromFabric();
+    } catch (err) {
+      console.warn("Fabric offline, skipping blockchain docs (resident list)");
+    }
+
+    const chainMap = new Map();
+    blockchainDocs.forEach(d => {
+      if (d && d.docId) chainMap.set(d.docId, d);
+    });
+
+    const augmented = mongoDocs.map(mDoc => {
+      const obj = mDoc.toObject();
+      const chainDoc = chainMap.get(mDoc._id.toString());
+      let status = "verified";
+      try {
+        if (!fs.existsSync(mDoc.path)) {
+          status = "deleted";
+        } else if (!chainDoc) {
+          status = "not_registered";
+        } else if (chainDoc.deleted === true) {
+          status = "deleted";
+        } else {
+          const fileBuffer = fs.readFileSync(mDoc.path);
+          const currentHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+          status = chainDoc.fileHash !== currentHash ? "edited" : "verified";
+        }
+      } catch (e) {
+        status = "error";
+      }
+      obj.status = status;
+      return obj;
+    });
+
+    res.json(augmented);
+  } catch (err) {
+    console.error("Error listing resident public docs:", err);
     res.status(500).json({ message: "Failed to fetch documents" });
   }
 };
