@@ -372,12 +372,10 @@ export default function AdminUserManagement() {
         const statusColors = {
           'verified': 'green',
           'pending': 'orange',
-          'rejected': 'red'
         };
         const statusLabels = {
           'verified': 'Verified',
           'pending': 'Pending',
-          'rejected': 'Rejected'
         };
         return (
           <Tag color={statusColors[status]}>
@@ -388,7 +386,6 @@ export default function AdminUserManagement() {
       filters: [
         { text: "Verified", value: "verified" },
         { text: "Pending", value: "pending" },
-        { text: "Rejected", value: "rejected" },
       ],
       filteredValue: statusFilter || null,
       onFilter: (value, record) => {
@@ -565,7 +562,7 @@ export default function AdminUserManagement() {
               </Card>
             </div>
             
-            {/* Row 2: Pending Users, Active Users, Inactive Users, Rejected Users */}
+            {/* Row 2: Pending Users, Active Users, Inactive Users */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
@@ -580,22 +577,6 @@ export default function AdminUserManagement() {
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
                     {users.filter(u => (u.residentStatus || 'pending') === 'pending').length}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Rejected Users
-                  </CardTitle>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {users.filter(u => u.residentStatus === 'rejected').length}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {users.filter(u => u.residentStatus === 'rejected').length}
                   </div>
                 </CardContent>
               </Card>
@@ -743,7 +724,7 @@ export default function AdminUserManagement() {
               label="Username"
               rules={[{ required: true, message: "Username is required" }]}
             >
-              <Input autoComplete="off" />
+              <Input autoComplete="off" placeholder="Resident or Official username" />
             </Form.Item>
 
             <Form.Item
@@ -751,7 +732,7 @@ export default function AdminUserManagement() {
               label="Temporary password"
               rules={[{ required: true, message: "Password is required" }, { min: 6 }]}
             >
-              <Input.Password autoComplete="new-password" />
+              <Input.Password autoComplete="new-password" placeholder="At least 6 characters" />
             </Form.Item>
 
             {/* Optional preview */}
@@ -792,7 +773,7 @@ export default function AdminUserManagement() {
               label="Username"
               rules={[{ required: true, message: "Username is required" }]}
             >
-              <Input />
+              <Input placeholder="Required, unique" />
             </Form.Item>
 
             <Form.Item
@@ -800,7 +781,7 @@ export default function AdminUserManagement() {
               label="Password"
               rules={[{ min: 6, message: "Password must be at least 6 characters" }]}
             >
-              <Input.Password placeholder="Leave blank to keep current password" />
+              <Input.Password placeholder="Leave blank to keep current password (min 6 chars)" />
             </Form.Item>
 
             <Form.Item
@@ -822,14 +803,14 @@ export default function AdminUserManagement() {
               label="Email"
               rules={[{ type: "email", message: "Invalid email" }]}
             >
-              <Input type="email" />
+              <Input type="email" placeholder="juan.delacruz@email.com" />
             </Form.Item>
 
             <Form.Item
               name={["contact", "mobile"]}
               label="Mobile"
             >
-              <Input />
+              <Input type="tel" placeholder="09123456789" />
             </Form.Item>
 
             <Form.Item
@@ -841,7 +822,6 @@ export default function AdminUserManagement() {
                 options={[
                   { value: "pending", label: "Pending" },
                   { value: "verified", label: "Verified" },
-                  { value: "rejected", label: "Rejected" },
                 ]}
               />
             </Form.Item>

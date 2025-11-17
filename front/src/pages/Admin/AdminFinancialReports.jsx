@@ -33,6 +33,7 @@ export default function AdminFinancialReports() {
   const [dashboardData, setDashboardData] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [search, setSearch] = useState("");
+  const [feeTypeFilter, setFeeTypeFilter] = useState(null);
   const [filters, setFilters] = useState({});
   
   // Modals
@@ -77,10 +78,10 @@ export default function AdminFinancialReports() {
     fetchOfficials();
   }, [filters]);
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, feeTypeFilter]);
 
   // Validate export data availability when modal opens
   useEffect(() => {
@@ -590,8 +591,9 @@ export default function AdminFinancialReports() {
     }
   };
 
-  const filteredTransactions = transactions.filter(t =>
-    [
+  const filteredTransactions = transactions.filter(t => {
+    // Search filter
+    const matchesSearch = [
       t.transactionId,
       t.description,
       t.type,
@@ -603,8 +605,13 @@ export default function AdminFinancialReports() {
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+      .includes(search.toLowerCase());
+    
+    // Fee type filter
+    const matchesFeeType = !feeTypeFilter || t.type === feeTypeFilter;
+    
+    return matchesSearch && matchesFeeType;
+  });
 
   // Group transactions by resident for expandable table
   const groupedTransactions = filteredTransactions.reduce((acc, transaction) => {
@@ -745,14 +752,28 @@ export default function AdminFinancialReports() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="mb-4 flex flex-row justify-between items-center gap-2">
-            <div className="flex-shrink-0" style={{ width: '350px' }}>
-              <Input.Search
+            <div className="flex gap-2 flex-grow">
+              <div className="flex-shrink-0" style={{ width: '350px' }}>
+                <Input.Search
+                  allowClear
+                  placeholder="Search for Resident"
+                  onSearch={v => setSearch(v.trim())}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  enterButton
+                />
+              </div>
+              <Select
+                placeholder="Filter by Fee Type"
                 allowClear
-                placeholder="Search for Resident"
-                onSearch={v => setSearch(v.trim())}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                enterButton
+                value={feeTypeFilter}
+                onChange={setFeeTypeFilter}
+                style={{ width: 200 }}
+                options={[
+                  { label: 'Document Fee', value: 'document_fee' },
+                  { label: 'Garbage Fee', value: 'garbage_fee' },
+                  { label: 'Streetlight Fee', value: 'streetlight_fee' },
+                ]}
               />
             </div>
             <div className="flex gap-2 flex-shrink-0">
@@ -985,7 +1006,7 @@ export default function AdminFinancialReports() {
             
             {!exportHasData && (
               <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
-                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="font-semibold">No data matches the selected filters</p>
                 <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
               </div>
             )}
