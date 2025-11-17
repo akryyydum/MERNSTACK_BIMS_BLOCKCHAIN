@@ -56,6 +56,9 @@ export default function AdminDocumentRequests() {
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
+    // Officials (for captain name on templates)
+    const [captainName, setCaptainName] = useState(null);
+
   const [exportForm] = Form.useForm();
   const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
   const [exportHasData, setExportHasData] = useState(true);
@@ -87,6 +90,7 @@ export default function AdminDocumentRequests() {
     fetchRequests();
     fetchResidents();
     fetchHouseholds();
+    fetchCaptain();
   }, []);
 
   // Validate export data availability when modal opens
@@ -159,6 +163,28 @@ export default function AdminDocumentRequests() {
       setHouseholds(res.data || []);
     } catch (err) {
       console.error("Failed to load households", err);
+    }
+  };
+
+  // Fetch Barangay Captain full name from officials list
+  const fetchCaptain = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/officials`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const officials = Array.isArray(res.data) ? res.data : [];
+      // Prefer active captain; fallback to any with that position
+      const isCaptain = (o) => String(o?.position || '').toLowerCase() === 'barangay captain';
+      const activeCaptain = officials.find(o => isCaptain(o) && o.isActive);
+      const anyCaptain = activeCaptain || officials.find(isCaptain);
+      if (anyCaptain) {
+        setCaptainName(anyCaptain.fullName || anyCaptain.name || null);
+      }
+    } catch (err) {
+      // Non-fatal: printing will still work, tokens will be blank
+      console.warn('Failed to fetch officials for captain name:', err?.message || err);
     }
   };
 
@@ -643,6 +669,12 @@ const suffix = toSuperscript(suffixRaw);
     His_Her: capFirst(p.possessive),
     Himself_Herself: capFirst(p.reflexive),
     Honorific: p.honorific,
+    // Captain name tokens (populated later in handlePrint to include fetched value)
+    captainName: '',
+    barangayCaptain: '',
+    BARANGAY_CAPTAIN: '',
+    CAPTAIN_NAME: '',
+    captain: '',
   };
 
   switch (docType) {
@@ -689,6 +721,17 @@ const handlePrint = async (record) => {
   }
 
   const raw = buildTemplateData(record.documentType, record);
+  // Ensure captain fetched; if not yet available, try once synchronously
+  if (!captainName) {
+    try { await fetchCaptain(); } catch (_) { /* ignore */ }
+  }
+  const captainFullName = captainName || '';
+  // Inject captain name variants to match possible template tokens
+  raw.captainName = captainFullName;
+  raw.barangayCaptain = captainFullName;
+  raw.BARANGAY_CAPTAIN = captainFullName;
+  raw.CAPTAIN_NAME = captainFullName;
+  raw.captain = captainFullName;
   const data = toUpperDeep(raw); // pronoun keys are preserved by PRONOUN_KEYS
 
   // Keep mixed-case ordinal/issued line if you use them

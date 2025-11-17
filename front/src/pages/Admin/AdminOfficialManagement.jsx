@@ -107,6 +107,33 @@ export default function AdminOfficialManagement() {
   const activeOfficials = officials.filter(o => o.isActive).length;
   const inactiveOfficials = totalOfficials - activeOfficials;
 
+  // Helper to format official display name with middle initial (if resident data available)
+  const formatOfficialDisplayName = (official) => {
+    if (!official) return '';
+    // Try direct residentId match first
+    let resident = null;
+    if (official.residentId) {
+      resident = residents.find(r => r._id === official.residentId);
+    }
+    // Fallback: match by normalized full name
+    if (!resident && official.fullName) {
+      const target = official.fullName.toLowerCase().replace(/\s+/g, ' ').trim();
+      resident = residents.find(r => {
+        const composed = `${r.firstName || ''} ${r.middleName || ''} ${r.lastName || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
+        return composed === target;
+      }) || null;
+    }
+    if (resident) {
+      const first = resident.firstName || '';
+      const middle = resident.middleName ? (resident.middleName.trim()[0].toUpperCase() + '.') : '';
+      const last = resident.lastName || '';
+      const suffix = resident.suffix ? resident.suffix.trim() : '';
+      return [first, middle, last, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    }
+    // If we can't map to resident, return stored fullName as-is
+    return official.fullName || '';
+  };
+
   // Position validation function
   const validatePositionLimit = (position, excludeOfficialId = null) => {
     const maxAllowed = POSITION_LIMITS[position];
@@ -189,6 +216,7 @@ export default function AdminOfficialManagement() {
       key: "fullName", 
       width: 200, 
       ellipsis: true,
+      render: (_, record) => formatOfficialDisplayName(record),
       responsive: ['xs','sm','md','lg']
     },
     {
