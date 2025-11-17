@@ -462,7 +462,7 @@ export default function AdminDashboard() {
   }), [payments]);
 
   // Card rendering helper
-  const MetricCard = ({ icon, title, value, change, sinceLast, trendData, showInfo = true, isRevenue = false, loading: cardLoading = false }) => {
+  const MetricCard = ({ icon, title, value, change, sinceLast, trendData, isRevenue = false, loading: cardLoading = false }) => {
     const isPositive = change >= 0;
     const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
     const TrendIcon = isPositive ? ArrowUpOutlined : ArrowDownOutlined;
@@ -470,14 +470,10 @@ export default function AdminDashboard() {
     // Normalize trend data for visualization
     const normalizedTrend = useMemo(() => {
       if (!trendData || trendData.length === 0) return [];
-      const values = trendData.map(d => d.y);
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const range = max - min || 1;
-      
+      // Use actual values without exaggerating the scale
       return trendData.map(d => ({
         x: d.x,
-        y: min === max ? 50 : ((d.y - min) / range * 40) + 30 // Scale between 30-70
+        y: d.y
       }));
     }, [trendData]);
     
@@ -490,7 +486,6 @@ export default function AdminDashboard() {
                 {icon}
                 <span>{title}</span>
               </div>
-              {showInfo && <InfoCircleOutlined className="text-gray-400 text-sm" />}
             </div>
             <div className="h-20 flex items-center justify-center">
               <Spin />
@@ -508,7 +503,6 @@ export default function AdminDashboard() {
               {icon}
               <span>{title}</span>
             </div>
-            {showInfo && <InfoCircleOutlined className="text-gray-400 text-sm" />}
           </div>
           
           <div className="mb-3">

@@ -1,16 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, DatePicker, Row, Col, Tabs, Popconfirm, Alert } from "antd";
+import { Table, Input, Button, Modal, Form, Select, message, Tag, Descriptions, Row, Col, Popconfirm, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight, DollarSign, TrendingUp, TrendingDown, PieChart } from "lucide-react";
-import { UserOutlined, SyncOutlined, FileTextOutlined, BarChartOutlined, DeleteOutlined } from "@ant-design/icons";
+import { DollarSign, TrendingUp } from "lucide-react";
+import { UserOutlined, FileTextOutlined, DeleteOutlined } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
-// Charts removed: react-chartjs-2 and chart.js imports not needed after removing charts section
-
-const { RangePicker } = DatePicker;
-const { TabPane } = Tabs;
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
@@ -37,13 +33,11 @@ export default function AdminFinancialReports() {
   const [dashboardData, setDashboardData] = useState({});
   const [transactions, setTransactions] = useState([]);
   const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState([dayjs().subtract(30, 'days'), dayjs()]);
   const [filters, setFilters] = useState({});
   
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [viewTransaction, setViewTransaction] = useState(null);
@@ -51,19 +45,16 @@ export default function AdminFinancialReports() {
   
   // Forms
   const [createForm] = Form.useForm();
-  const [reportForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [exportForm] = Form.useForm();
   
   // Export state
-  const [selectedExportType, setSelectedExportType] = useState(null);
   const [selectedExportTypes, setSelectedExportTypes] = useState([]);
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
   const [selectedMonths, setSelectedMonths] = useState([]);
   
   // Loading states
   const [creating, setCreating] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exportHasData, setExportHasData] = useState(true);
@@ -84,12 +75,12 @@ export default function AdminFinancialReports() {
     fetchTransactions();
     fetchResidents();
     fetchOfficials();
-  }, [dateRange, filters]);
+  }, [filters]);
 
-  // Reset to page 1 when search or date range changes
+  // Reset to page 1 when search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, dateRange]);
+  }, [search]);
 
   // Validate export data availability when modal opens
   useEffect(() => {
@@ -121,14 +112,8 @@ export default function AdminFinancialReports() {
 
   const fetchDashboard = async () => {
     try {
-      const params = {
-        startDate: dateRange[0]?.format('YYYY-MM-DD'),
-        endDate: dateRange[1]?.format('YYYY-MM-DD')
-      };
-      
       const res = await axios.get(`${API_BASE}/api/admin/financial/dashboard`, {
-        headers: authHeaders(),
-        params
+        headers: authHeaders()
       });
       
       setDashboardData(res.data);
@@ -141,15 +126,10 @@ export default function AdminFinancialReports() {
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (dateRange[0]) params.append('startDate', dateRange[0].toISOString());
-      if (dateRange[1]) params.append('endDate', dateRange[1].toISOString());
-      if (filters.type) params.append('type', filters.type);
-
-      console.log('Fetching transactions with params:', params.toString());
+      console.log('Fetching transactions');
 
       const res = await axios.get(
-        `${API_BASE}/api/admin/financial/transactions?${params}`,
+        `${API_BASE}/api/admin/financial/transactions`,
         { headers: authHeaders() }
       );
       
@@ -216,22 +196,6 @@ export default function AdminFinancialReports() {
     setCreating(false);
   };
 
-  const handleSyncDocumentFees = async () => {
-    try {
-      setSyncing(true);
-      const res = await axios.post(`${API_BASE}/api/admin/financial/sync-document-fees`, {}, {
-        headers: authHeaders()
-      });
-      
-      message.success(res.data.message);
-      fetchDashboard();
-      fetchTransactions();
-    } catch (error) {
-      message.error(error?.response?.data?.message || 'Failed to sync document fees');
-    }
-    setSyncing(false);
-  };
-
   const handleExportData = async () => {
     try {
       setExporting(true);
@@ -293,12 +257,10 @@ export default function AdminFinancialReports() {
       const excelData = filteredData.map(t => ({
         'Transaction ID': t.transactionId,
         'Type': t.type,
-        'Category': t.category,
         'Description': t.description,
         'Amount': t.amount,
         'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
         'Payment Method': t.paymentMethod,
-        'Status': t.status,
         'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
         'Month': dayjs(t.transactionDate).format('MMMM YYYY')
       }));
@@ -331,54 +293,7 @@ export default function AdminFinancialReports() {
     setExporting(false);
   };
 
-  const generateReport = async () => {
-    try {
-      const values = await reportForm.validateFields();
-      const params = {
-        type: values.reportType,
-        startDate: values.dateRange[0].format('YYYY-MM-DD'),
-        endDate: values.dateRange[1].format('YYYY-MM-DD')
-      };
-      
-      const res = await axios.get(`${API_BASE}/api/admin/financial/reports`, {
-        headers: authHeaders(),
-        params
-      });
-      
-      // Handle different report types
-      if (values.reportType === 'summary') {
-        Modal.info({
-          title: 'Financial Summary Report',
-          width: 600,
-          content: (
-            <div className="space-y-4">
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Statistic title="Total Revenue" value={res.data.totalRevenue} prefix="₱" />
-                </Col>
-                <Col span={12}>
-                  <Statistic title="Total Expenses" value={res.data.totalExpenses} prefix="₱" />
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Statistic title="Net Income" value={res.data.netIncome} prefix="₱" />
-                </Col>
-                <Col span={12}>
-                  <Statistic title="Total Transactions" value={res.data.transactionCount} />
-                </Col>
-              </Row>
-            </div>
-          )
-        });
-      }
-      
-      setReportOpen(false);
-      reportForm.resetFields();
-    } catch (error) {
-      message.error('Failed to generate report');
-    }
-  };
+
 
   const statistics = dashboardData.statistics || {};
   const revenueByType = dashboardData.revenueByType || {};
@@ -387,13 +302,7 @@ export default function AdminFinancialReports() {
   const documentFeeRevenue = Number(revenueByType.document_fee || 0);
   const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
   const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
-
   const totalRevenue = Number(statistics.totalRevenue ?? 0);
-  const totalExpenses = Number(statistics.totalExpenses ?? 0);
-  const totalAllocations = Number(statistics.totalAllocations ?? 0);
-  const netIncome = Number(statistics.balance ?? 0);
-
-  // Chart data removed (Revenue by Type and Monthly Trends)
 
   const handleEditTransaction = async () => {
     try {
@@ -686,7 +595,6 @@ export default function AdminFinancialReports() {
       t.transactionId,
       t.description,
       t.type,
-      t.category,
       t.residentId?.firstName,
       t.residentId?.lastName,
       t.residentName,
@@ -744,7 +652,7 @@ export default function AdminFinancialReports() {
           </nav>
 
           {/* Statistics Section */}
-          <div className="px-4 pb-4">
+          <div className="px-4 pb-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
@@ -817,25 +725,6 @@ export default function AdminFinancialReports() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <div className="flex flex-wrap gap-2">
-              <RangePicker
-                value={dateRange}
-                onChange={setDateRange}
-                format="YYYY-MM-DD"
-                className="min-w-[200px]"
-              />
-              <Select
-                placeholder="Filter by type"
-                allowClear
-                style={{ width: 150 }}
-                onChange={(value) => setFilters({...filters, type: value})}
-              >
-                <Select.Option value="document_fee">Document Fee</Select.Option>
-                <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-              </Select>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {/* ADD THIS BULK DELETE BUTTON */}
               {selectedRowKeys.length > 0 && (
                 <Button 
                   danger
@@ -846,13 +735,27 @@ export default function AdminFinancialReports() {
                   Delete Selected ({selectedRowKeys.length})
                 </Button>
               )}
-              <Button 
-                icon={<SyncOutlined />} 
-                loading={syncing}
-                onClick={handleSyncDocumentFees}
-              >
-                Sync Document Fees
-              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Section removed as requested: Revenue by Type and Monthly Trends */}
+
+        {/* Transactions Table Section */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <hr className="border-t border-gray-300" />
+          <div className="mb-4 flex flex-row justify-between items-center gap-2">
+            <div className="flex-shrink-0" style={{ width: '350px' }}>
+              <Input.Search
+                allowClear
+                placeholder="Search for Resident"
+                onSearch={v => setSearch(v.trim())}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                enterButton
+              />
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
               <Button 
                 loading={exporting}
                 onClick={() => setExportOpen(true)}
@@ -866,24 +769,6 @@ export default function AdminFinancialReports() {
                 Add Transaction
               </Button>
             </div>
-          </div>
-        </div>
-
-        {/* Charts Section removed as requested: Revenue by Type and Monthly Trends */}
-
-        {/* Transactions Table Section */}
-        <div className="bg-white rounded-2xl p-4 space-y-4">
-          <hr className="border-t border-gray-300" />
-          <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <Input.Search
-              allowClear
-              placeholder="Search for Resident"
-              onSearch={v => setSearch(v.trim())}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              enterButton
-              className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
-            />
           </div>
           <div className="overflow-x-auto">
             <Table
@@ -1106,13 +991,13 @@ export default function AdminFinancialReports() {
             )}
             
             <div className="text-sm text-gray-500 mt-4 p-3 bg-blue-50 rounded">
-              <p><strong>📊 Export Information:</strong></p>
+              <p><strong>Export Information:</strong></p>
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li><strong>Default:</strong> "All" options export entire financial transactions</li>
                 <li>Select a year first, then choose specific months for that year</li>
                 <li>Select specific types and months for filtered exports</li>
                 <li>Selecting "All" with other options will keep only "All"</li>
-                <li>Export includes: Transaction ID, Type, Category, Description, Amount, Resident Info, Payment Method, Status, Date, and Month</li>
+                <li>Export includes: Transaction ID, Type, Description, Amount, Resident Info, Payment Method, Date, and Month</li>
               </ul>
             </div>
           </Form>
@@ -1129,30 +1014,13 @@ export default function AdminFinancialReports() {
         >
           <Alert
             message="Add Financial Transaction"
-            description="Record a new financial transaction by selecting the type, category, and amount. You can optionally link it to a resident or official and specify payment details."
+            description="Record a new financial transaction by selecting the type, and amount. You can optionally link it to a resident or official and specify payment details."
             type="info"
             showIcon
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash' }}>
-            {/* Placeholder for Add Transaction Dropdown and Textfield */}
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Transaction Template (Placeholder)">
-                  <Select placeholder="Select template (placeholder)" disabled>
-                    <Select.Option value="template1">Template 1</Select.Option>
-                    <Select.Option value="template2">Template 2</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Reference Code (Placeholder)">
-                  <Input placeholder="Enter reference code (placeholder)" disabled />
-                </Form.Item>
-              </Col>
-            </Row>
-            {/* ...existing code... */}
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
@@ -1165,7 +1033,6 @@ export default function AdminFinancialReports() {
               </Col>
             </Row>
             
-            {/* NEW: Add Resident and Official selectors */}
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="residentId" label="Resident (Optional)">
@@ -1242,33 +1109,15 @@ export default function AdminFinancialReports() {
               <Descriptions.Item label="Type">
                 <Tag color="blue">{viewTransaction.type.replace('_', ' ').toUpperCase()}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Category">
-                <Tag color={viewTransaction.category === 'revenue' ? 'green' : 'red'}>
-                  {viewTransaction.category.toUpperCase()}
-                </Tag>
-              </Descriptions.Item>
               <Descriptions.Item label="Description">{viewTransaction.description}</Descriptions.Item>
               <Descriptions.Item label="Amount">₱{Number(viewTransaction.amount).toLocaleString()}</Descriptions.Item>
-              
-              {/* NEW: Show resident name */}
+
               <Descriptions.Item label="Resident">
                 {viewTransaction.residentName || 
                  (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
-              </Descriptions.Item>
-              
-              {/* NEW: Show official name */}
-              <Descriptions.Item label="Official">
-                {viewTransaction.officialName || 
-                 (viewTransaction.officialId ? `${viewTransaction.officialId.firstName} ${viewTransaction.officialId.lastName}` : '-')}
-              </Descriptions.Item>
-              
+              </Descriptions.Item>  
               <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
               <Descriptions.Item label="Reference Number">{viewTransaction.referenceNumber || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Status">
-                <Tag color={viewTransaction.status === 'completed' ? 'green' : 'orange'}>
-                  {viewTransaction.status.toUpperCase()}
-                </Tag>
-              </Descriptions.Item>
               <Descriptions.Item label="Transaction Date">
                 {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
               </Descriptions.Item>
@@ -1283,28 +1132,6 @@ export default function AdminFinancialReports() {
               </Descriptions.Item>
             </Descriptions>
           )}
-        </Modal>
-
-        {/* Generate Report Modal */}
-        <Modal
-          title="Generate Financial Report"
-          open={reportOpen}
-          onCancel={() => { setReportOpen(false); reportForm.resetFields(); }}
-          onOk={generateReport}
-          width={500}
-        >
-          <Form form={reportForm} layout="vertical">
-            <Form.Item name="reportType" label="Report Type" rules={[{ required: true }]}>
-              <Select>
-                <Select.Option value="summary">Summary Report</Select.Option>
-                <Select.Option value="detailed">Detailed Report</Select.Option>
-                <Select.Option value="allocation">Allocation Report</Select.Option>
-              </Select>
-            </Form.Item>
-            <Form.Item name="dateRange" label="Date Range" rules={[{ required: true }]}>
-              <RangePicker className="w-full" />
-            </Form.Item>
-          </Form>
         </Modal>
 
         {/* Edit Transaction Modal */}
@@ -1329,7 +1156,6 @@ export default function AdminFinancialReports() {
               </Select>
             </Form.Item>
             
-            {/* NEW: Add Resident and Official selectors */}
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="residentId" label="Resident (Optional)">
