@@ -307,12 +307,15 @@ export default function AdminOfficialManagement() {
       
       const token = localStorage.getItem("token");
       
-      // Ensure empty strings for missing contact info
+      // Build payload without blank optional fields
       const submitData = {
-        ...values,
-        email: values.email?.trim() || '',
-        mobile: values.mobile?.trim() || ''
+        residentId: values.residentId,
+        position: values.position,
       };
+      const email = (values.email || '').trim();
+      const mobile = (values.mobile || '').trim();
+      if (email) submitData.email = email;
+      if (mobile) submitData.mobile = mobile;
       
       console.log("Data being submitted:", submitData);
       
@@ -368,10 +371,18 @@ export default function AdminOfficialManagement() {
       setEditing(true);
       const values = await editForm.validateFields();
       const token = localStorage.getItem("token");
+      // Only send fields that are provided; allow clearing by sending empty string which backend unsets
+      const payload = {};
+      if (values.fullName !== undefined) payload.fullName = values.fullName;
+      if (values.position !== undefined) payload.position = values.position;
+      if (values.isActive !== undefined) payload.isActive = values.isActive;
+      if (values.email !== undefined) payload.email = (values.email || '').trim();
+      if (values.mobile !== undefined) payload.mobile = (values.mobile || '').trim();
+
       const res = await fetch(`${API_URL}/${selectedOfficial._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json()).message || "Failed to update official");
       message.success("Official updated!");

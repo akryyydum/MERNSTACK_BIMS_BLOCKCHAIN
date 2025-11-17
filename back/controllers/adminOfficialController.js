@@ -79,16 +79,17 @@ exports.create = async (req, res) => {
         }
       }
       
+      const contact = { };
+      if (emailToCheck && emailToCheck.length > 0) contact.email = emailToCheck;
+      if (mobile) contact.mobile = mobile;
+
       user = await User.create({
         username: username,
         passwordHash,
         role: "official",
         fullName: resident.fullName || `${resident.firstName || ''} ${resident.lastName || ''}`.trim(),
         position: position?.trim(),
-        contact: {
-          email: emailToCheck,
-          mobile: mobile || resident.contact?.mobile || '',
-        },
+        contact,
         isVerified: true,
         isActive: true,
       });
@@ -124,8 +125,23 @@ exports.update = async (req, res) => {
     if (fullName) update.fullName = String(fullName).trim();
   if (position !== undefined) update.position = String(position).trim();
     if (typeof isActive === "boolean") update.isActive = isActive;
-    if (email !== undefined) update["contact.email"] = String(email).toLowerCase().trim();
-    if (mobile !== undefined) update["contact.mobile"] = mobile;
+    // Email: if provided as non-empty, set; if provided as empty, unset; if omitted, ignore
+    if (email !== undefined) {
+      const clean = String(email).toLowerCase().trim();
+      if (clean.length > 0) {
+        update["contact.email"] = clean;
+      } else {
+        update.$unset = { ...(update.$unset || {}), "contact.email": 1 };
+      }
+    }
+    if (mobile !== undefined) {
+      const m = String(mobile).trim();
+      if (m.length > 0) {
+        update["contact.mobile"] = m;
+      } else {
+        update.$unset = { ...(update.$unset || {}), "contact.mobile": 1 };
+      }
+    }
     
     // Only check for email uniqueness if there's actually an email to check
     if (email && String(email).trim().length > 0) {
