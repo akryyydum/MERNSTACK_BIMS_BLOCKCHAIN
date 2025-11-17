@@ -24,7 +24,7 @@ async function generateHouseholdId() {
     { $inc: { seq: 1 } },
     { upsert: true, new: true }
   );
-  const seq = String(doc.seq).padStart(3, "0");
+  const seq = String(doc.seq).padStart(5, "0");
   return `HH-${year}-${seq}`;
 }
 

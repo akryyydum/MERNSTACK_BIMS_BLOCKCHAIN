@@ -57,13 +57,24 @@ exports.approve = async (req, res) => {
       }
 
       const total = unitAmount * qty;
-      // Only create a transaction if total known (>=0). For 0, we can still log for audit
+      // Determine the subject resident (who the document is for) for reporting
+      const subjectResidentId = (request.requestFor?._id || request.requestFor) || (request.residentId?._id || request.residentId) || (request.requestedBy?._id || request.requestedBy);
+      let subjectResidentName = undefined;
+      try {
+        if (subjectResidentId) {
+          const subject = await Resident.findById(subjectResidentId).select('firstName lastName');
+          if (subject) subjectResidentName = `${subject.firstName} ${subject.lastName}`;
+        }
+      } catch (_) {}
+
+      // Only create a transaction if total known (>=0). For 0, we still log for audit
       const createdTx = await FinancialTransaction.create({
         type: 'document_fee',
         category: 'revenue',
         description: `${type} x ${qty}`,
         amount: Number(total) || 0,
-        residentId: request.residentId?._id || request.requestedBy?._id,
+        residentId: subjectResidentId,
+        residentName: subjectResidentName,
         documentRequestId: request._id,
         status: 'completed',
         transactionDate: new Date(),
