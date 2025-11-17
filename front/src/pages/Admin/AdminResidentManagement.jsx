@@ -100,6 +100,7 @@ export default function AdminResidentManagement() {
   const [exportEthnicityOther, setExportEthnicityOther] = useState(false);
   const [exportReligionOther, setExportReligionOther] = useState(false);
   const [exportFilterType, setExportFilterType] = useState(null);
+  const [exportHasData, setExportHasData] = useState(true);
 
   // Selection state for bulk operations
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
@@ -1141,9 +1142,20 @@ export default function AdminResidentManagement() {
             setExportEthnicityOther(false);
             setExportReligionOther(false);
             setExportFilterType(null);
+            setExportHasData(true);
           }}
-          onOk={handleExport}
+          onOk={async () => {
+            try {
+              await handleExport();
+            } catch (err) {
+              if (err.message === "NO_DATA") {
+                // 🔥 Prevent modal from closing when no data found
+                return Promise.reject();
+              }
+            }
+          }}
           okText="Export"
+          okButtonProps={{ disabled: !exportHasData }}
           width={400}
         >
           <Form form={exportForm} layout="vertical" initialValues={{ purokFilter: "all" }}>
@@ -1154,6 +1166,55 @@ export default function AdminResidentManagement() {
             >
               <Select
                 placeholder="Choose purok to export"
+                onChange={(value) => {
+                  const formValues = exportForm.getFieldsValue();
+                  const { filterType, ethnicityValue, ethnicityOtherText, religionValue, religionOtherText, ageValue } = formValues;
+                  
+                  // Validate data availability
+                  let filtered = residents;
+                  if (value !== "all") {
+                    filtered = residents.filter(r => r.address?.purok === value);
+                  }
+                  
+                  // Apply additional filters
+                  if (filterType === "ethnicity" && ethnicityValue) {
+                    const ethnicityToMatch = ethnicityValue === "Others" ? ethnicityOtherText : ethnicityValue;
+                    if (ethnicityToMatch) {
+                      filtered = filtered.filter(r => {
+                        const residentEthnicity = r.ethnicity || "";
+                        return residentEthnicity.toLowerCase().includes(ethnicityToMatch.toLowerCase());
+                      });
+                    }
+                  } else if (filterType === "religion" && religionValue) {
+                    const religionToMatch = religionValue === "Others" ? religionOtherText : religionValue;
+                    if (religionToMatch) {
+                      filtered = filtered.filter(r => {
+                        const residentReligion = r.religion || "";
+                        return residentReligion.toLowerCase().includes(religionToMatch.toLowerCase());
+                      });
+                    }
+                  } else if (filterType === "age" && ageValue) {
+                    const calculateAge = (dob) => {
+                      if (!dob) return 0;
+                      const birth = new Date(dob);
+                      const today = new Date();
+                      let age = today.getFullYear() - birth.getFullYear();
+                      const monthDiff = today.getMonth() - birth.getMonth();
+                      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                        age--;
+                      }
+                      return age;
+                    };
+                    
+                    if (ageValue === "senior") {
+                      filtered = filtered.filter(r => calculateAge(r.dateOfBirth) >= 60);
+                    } else if (ageValue === "non-senior") {
+                      filtered = filtered.filter(r => calculateAge(r.dateOfBirth) < 60);
+                    }
+                  }
+                  
+                  setExportHasData(filtered.length > 0);
+                }}
                 options={[
                   { value: "all", label: "All Puroks" },
                   { value: "Purok 1", label: "Purok 1" },
@@ -1184,6 +1245,14 @@ export default function AdminResidentManagement() {
                     religionOtherText: undefined,
                     ageValue: undefined,
                   });
+                  
+                  // Re-validate with current purok
+                  const purokFilter = exportForm.getFieldValue('purokFilter') || 'all';
+                  let filtered = residents;
+                  if (purokFilter !== "all") {
+                    filtered = residents.filter(r => r.address?.purok === purokFilter);
+                  }
+                  setExportHasData(filtered.length > 0);
                 }}
                 options={[
                   { value: "ethnicity", label: "Ethnicity" },
@@ -1203,7 +1272,28 @@ export default function AdminResidentManagement() {
                 >
                   <Select
                     placeholder="Select ethnicity"
-                    onChange={(value) => setExportEthnicityOther(value === "Others")}
+                    onChange={(value) => {
+                      setExportEthnicityOther(value === "Others");
+                      
+                      // Validate data
+                      const formValues = exportForm.getFieldsValue();
+                      const { purokFilter, ethnicityOtherText } = formValues;
+                      
+                      let filtered = residents;
+                      if (purokFilter !== "all") {
+                        filtered = residents.filter(r => r.address?.purok === purokFilter);
+                      }
+                      
+                      const ethnicityToMatch = value === "Others" ? ethnicityOtherText : value;
+                      if (ethnicityToMatch) {
+                        filtered = filtered.filter(r => {
+                          const residentEthnicity = r.ethnicity || "";
+                          return residentEthnicity.toLowerCase().includes(ethnicityToMatch.toLowerCase());
+                        });
+                      }
+                      
+                      setExportHasData(filtered.length > 0);
+                    }}
                     options={[
                       { value: "Ilocano", label: "Ilocano" },
                       { value: "Tagalog", label: "Tagalog" },
@@ -1220,7 +1310,27 @@ export default function AdminResidentManagement() {
                     label="Specify Ethnicity"
                     rules={[{ required: true, message: "Please specify the ethnicity" }]}
                   >
-                    <Input placeholder="Enter ethnicity" />
+                    <Input 
+                      placeholder="Enter ethnicity"
+                      onChange={(e) => {
+                        const otherText = e.target.value;
+                        const purokFilter = exportForm.getFieldValue('purokFilter') || 'all';
+                        
+                        let filtered = residents;
+                        if (purokFilter !== "all") {
+                          filtered = residents.filter(r => r.address?.purok === purokFilter);
+                        }
+                        
+                        if (otherText) {
+                          filtered = filtered.filter(r => {
+                            const residentEthnicity = r.ethnicity || "";
+                            return residentEthnicity.toLowerCase().includes(otherText.toLowerCase());
+                          });
+                        }
+                        
+                        setExportHasData(filtered.length > 0);
+                      }}
+                    />
                   </Form.Item>
                 )}
               </>
@@ -1236,7 +1346,28 @@ export default function AdminResidentManagement() {
                 >
                   <Select
                     placeholder="Select religion"
-                    onChange={(value) => setExportReligionOther(value === "Others")}
+                    onChange={(value) => {
+                      setExportReligionOther(value === "Others");
+                      
+                      // Validate data
+                      const formValues = exportForm.getFieldsValue();
+                      const { purokFilter, religionOtherText } = formValues;
+                      
+                      let filtered = residents;
+                      if (purokFilter !== "all") {
+                        filtered = residents.filter(r => r.address?.purok === purokFilter);
+                      }
+                      
+                      const religionToMatch = value === "Others" ? religionOtherText : value;
+                      if (religionToMatch) {
+                        filtered = filtered.filter(r => {
+                          const residentReligion = r.religion || "";
+                          return residentReligion.toLowerCase().includes(religionToMatch.toLowerCase());
+                        });
+                      }
+                      
+                      setExportHasData(filtered.length > 0);
+                    }}
                     options={[
                       { value: "Roman Catholic", label: "Roman Catholic" },
                       { value: "Islam", label: "Islam" },
@@ -1251,7 +1382,27 @@ export default function AdminResidentManagement() {
                     label="Specify Religion"
                     rules={[{ required: true, message: "Please specify the religion" }]}
                   >
-                    <Input placeholder="Enter religion" />
+                    <Input 
+                      placeholder="Enter religion"
+                      onChange={(e) => {
+                        const otherText = e.target.value;
+                        const purokFilter = exportForm.getFieldValue('purokFilter') || 'all';
+                        
+                        let filtered = residents;
+                        if (purokFilter !== "all") {
+                          filtered = residents.filter(r => r.address?.purok === purokFilter);
+                        }
+                        
+                        if (otherText) {
+                          filtered = filtered.filter(r => {
+                            const residentReligion = r.religion || "";
+                            return residentReligion.toLowerCase().includes(otherText.toLowerCase());
+                          });
+                        }
+                        
+                        setExportHasData(filtered.length > 0);
+                      }}
+                    />
                   </Form.Item>
                 )}
               </>
@@ -1266,12 +1417,47 @@ export default function AdminResidentManagement() {
               >
                 <Select
                   placeholder="Select age group"
+                  onChange={(value) => {
+                    const purokFilter = exportForm.getFieldValue('purokFilter') || 'all';
+                    
+                    let filtered = residents;
+                    if (purokFilter !== "all") {
+                      filtered = residents.filter(r => r.address?.purok === purokFilter);
+                    }
+                    
+                    const calculateAge = (dob) => {
+                      if (!dob) return 0;
+                      const birth = new Date(dob);
+                      const today = new Date();
+                      let age = today.getFullYear() - birth.getFullYear();
+                      const monthDiff = today.getMonth() - birth.getMonth();
+                      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                        age--;
+                      }
+                      return age;
+                    };
+                    
+                    if (value === "senior") {
+                      filtered = filtered.filter(r => calculateAge(r.dateOfBirth) >= 60);
+                    } else if (value === "non-senior") {
+                      filtered = filtered.filter(r => calculateAge(r.dateOfBirth) < 60);
+                    }
+                    
+                    setExportHasData(filtered.length > 0);
+                  }}
                   options={[
                     { value: "senior", label: "Senior Citizens (60 years and above)" },
                     { value: "non-senior", label: "Non-Senior Citizens (Below 60 years)" },
                   ]}
                 />
               </Form.Item>
+            )}
+            
+            {!exportHasData && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
+                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
+              </div>
             )}
             
             <div className="text-sm text-gray-500 mt-2">

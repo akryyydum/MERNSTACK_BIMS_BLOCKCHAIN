@@ -32,6 +32,7 @@ export default function HouseholdManagement() {
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
+  const [exportHasData, setExportHasData] = useState(true);
   
   // Selection state for bulk operations
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
@@ -53,6 +54,30 @@ export default function HouseholdManagement() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
+
+  // Validate export data availability when modal opens
+  useEffect(() => {
+    if (!exportOpen) return;
+
+    const validateExportData = () => {
+      const formValues = exportForm.getFieldsValue();
+      const { exportType, householdId, purok } = formValues;
+
+      if (exportType === 'all') {
+        setExportHasData(households.length > 0);
+      } else if (exportType === 'purok' && purok) {
+        const householdsInPurok = households.filter(h => h.address?.purok === purok);
+        setExportHasData(householdsInPurok.length > 0);
+      } else if (exportType === 'single' && householdId) {
+        const household = households.find(h => h._id === householdId);
+        setExportHasData(household && household.members && household.members.length > 0);
+      } else {
+        setExportHasData(true); // Default when no filter selected yet
+      }
+    };
+
+    validateExportData();
+  }, [exportOpen, households, exportForm]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -1072,10 +1097,12 @@ export default function HouseholdManagement() {
           onCancel={() => {
             setExportOpen(false);
             exportForm.resetFields();
+            setExportHasData(true);
           }}
           onOk={exportToExcel}
           confirmLoading={exporting}
           okText="Export"
+          okButtonProps={{ disabled: !exportHasData }}
           width={500}
         >
           <Form form={exportForm} layout="vertical">
@@ -1094,10 +1121,13 @@ export default function HouseholdManagement() {
                 onChange={(value) => {
                   if (value === 'all') {
                     exportForm.setFieldsValue({ householdId: undefined, purok: undefined });
+                    setExportHasData(households.length > 0);
                   } else if (value === 'purok') {
                     exportForm.setFieldsValue({ householdId: undefined });
+                    setExportHasData(true); // Will be validated when purok is selected
                   } else if (value === 'single') {
                     exportForm.setFieldsValue({ purok: undefined });
+                    setExportHasData(true); // Will be validated when household is selected
                   }
                 }}
               />
@@ -1121,6 +1151,10 @@ export default function HouseholdManagement() {
                     >
                       <Select
                         placeholder="Select a purok"
+                        onChange={(selectedPurok) => {
+                          const householdsInPurok = households.filter(h => h.address?.purok === selectedPurok);
+                          setExportHasData(householdsInPurok.length > 0);
+                        }}
                         options={[
                           { value: 'Purok 1', label: 'Purok 1' },
                           { value: 'Purok 2', label: 'Purok 2' },
@@ -1144,6 +1178,10 @@ export default function HouseholdManagement() {
                         showSearch
                         placeholder="Select a household"
                         optionFilterProp="label"
+                        onChange={(selectedId) => {
+                          const household = households.find(h => h._id === selectedId);
+                          setExportHasData(household && household.members && household.members.length > 0);
+                        }}
                         options={households.map(h => {
                           const head = typeof h.headOfHousehold === "object"
                             ? h.headOfHousehold
@@ -1162,6 +1200,13 @@ export default function HouseholdManagement() {
                 return null;
               }}
             </Form.Item>
+
+            {!exportHasData && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
+                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
+              </div>
+            )}
 
             <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded">
               <strong>Export Format:</strong>

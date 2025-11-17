@@ -72,6 +72,7 @@ export default function AdminStreetLightFees() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportForm] = Form.useForm();
   const [exporting, setExporting] = useState(false);
+  const [exportHasData, setExportHasData] = useState(true);
 
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -137,6 +138,24 @@ export default function AdminStreetLightFees() {
       fetchGarbageYearlyPaymentStatus(payHousehold._id);
     }
   }, [garbageYear]);
+
+  // Validate export data availability when modal opens
+  useEffect(() => {
+    if (!exportOpen) return;
+
+    const validateExportData = () => {
+      const formValues = exportForm.getFieldsValue();
+      const { exportType, paymentStatus } = formValues;
+
+      if (households && households.length > 0) {
+        setExportHasData(true);
+      } else {
+        setExportHasData(false);
+      }
+    };
+
+    validateExportData();
+  }, [exportOpen, households, streetlightPayments, exportForm]);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -2673,11 +2692,13 @@ export default function AdminStreetLightFees() {
           onCancel={() => {
             setExportOpen(false);
             exportForm.resetFields();
+            setExportHasData(true);
           }}
           footer={[
             <Button key="cancel" onClick={() => {
               setExportOpen(false);
               exportForm.resetFields();
+              setExportHasData(true);
             }}>
               Cancel
             </Button>,
@@ -2685,6 +2706,7 @@ export default function AdminStreetLightFees() {
               key="export"
               type="primary"
               loading={exporting}
+              disabled={!exportHasData}
               onClick={() => exportForm.submit()}
               icon={<FileExcelOutlined />}
             >
@@ -2707,7 +2729,14 @@ export default function AdminStreetLightFees() {
               label="Export Type"
               rules={[{ required: true, message: 'Please select export type' }]}
             >
-              <Select placeholder="Select what to export">
+              <Select 
+                placeholder="Select what to export"
+                onChange={(value) => {
+                  // Always validate based on households
+                  const hasData = households && households.length > 0;
+                  setExportHasData(hasData);
+                }}
+              >
                 <Select.Option value="current-month">Current Month</Select.Option>
                 <Select.Option value="chosen-month">Chosen Month</Select.Option>
                 <Select.Option value="whole-year">Whole Year</Select.Option>
@@ -2719,7 +2748,14 @@ export default function AdminStreetLightFees() {
               label="Payment Status"
               rules={[{ required: true, message: 'Please select payment status' }]}
             >
-              <Select placeholder="Select payment status to export">
+              <Select 
+                placeholder="Select payment status to export"
+                onChange={(value) => {
+                  // Always validate based on households
+                  const hasData = households && households.length > 0;
+                  setExportHasData(hasData);
+                }}
+              >
                 <Select.Option value="all">All (Paid and Unpaid)</Select.Option>
                 <Select.Option value="paid">Paid Only</Select.Option>
                 <Select.Option value="unpaid">Unpaid Only</Select.Option>
@@ -2750,6 +2786,13 @@ export default function AdminStreetLightFees() {
                 ) : null;
               }}
             </Form.Item>
+
+            {!exportHasData && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
+                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
+              </div>
+            )}
 
             <div className="bg-blue-50 p-3 rounded border border-blue-200">
               <div className="text-sm text-blue-800">
