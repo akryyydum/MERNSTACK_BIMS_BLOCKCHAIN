@@ -495,6 +495,7 @@ const Login = () => {
                   showIcon
                   className="mb-4"
                 />
+                <div style={{ marginBottom: 16 }} />
                 <h3 className="text-base font-semibold mb-3 text-gray-800">Personal Information</h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <Form.Item
