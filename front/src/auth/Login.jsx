@@ -65,11 +65,12 @@ const Login = () => {
       });
       
       
-      // Resident verification check - do this BEFORE storing tokens
-      if (res.data.role === "resident" && res.data.isVerified === false) {
+      // Resident and Official verification check - do this BEFORE storing tokens
+      if ((res.data.role === "resident" || res.data.role === "official") && res.data.isVerified === false) {
         setPendingAlert(true); // Show the alert
+        const dashboardType = res.data.role === "official" ? "official dashboard" : "resident dashboard";
         message.error({
-          content: "Your account is pending admin verification. Please wait for approval before accessing the resident dashboard.",
+          content: `Your account is pending admin verification. Please wait for approval before accessing the ${dashboardType}.`,
           duration: 10,
         });
         return; // Don't store anything
@@ -330,7 +331,7 @@ const Login = () => {
           {pendingAlert && (
             <Alert
               message="Account Pending Verification"
-              description="Your account is pending admin verification. Please wait for approval before accessing the resident dashboard."
+              description="Your account is pending admin verification. Please wait for approval before accessing your dashboard."
               type="error"
               showIcon
               closable
