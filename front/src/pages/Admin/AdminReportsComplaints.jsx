@@ -515,7 +515,6 @@ export default function AdminReportsComplaints() {
                   { value: "Purok 3", label: "Purok 3" },
                   { value: "Purok 4", label: "Purok 4" },
                   { value: "Purok 5", label: "Purok 5" },
-                  { value: "Purok 6", label: "Purok 6" },
                 ]}
               />
             </Form.Item>
