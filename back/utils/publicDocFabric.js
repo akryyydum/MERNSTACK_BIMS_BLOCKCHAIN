@@ -3,13 +3,15 @@ const { getContract } = require("./fabricClient");
 /**
  * Record a public document on the blockchain.
  */
-exports.submitPublicDocumentToFabric = async (doc) => {
+exports.submitPublicDocumentToFabric = async (doc, fileHash) => {
   try {
-    // Use the 'documentrequest' chaincode and the specific PublicDocumentContract
-    const { gateway, contract } = await getContract("documentrequest", "PublicDocumentContract");
+    const { gateway, contract } = await getContract(
+      "documentrequest",
+      "PublicDocumentContract"
+    );
 
-    const tx = contract.createTransaction("createDocument");
-    const result = await tx.submit(
+    const result = await contract.submitTransaction(
+      "createDocument",
       doc._id.toString(),
       doc.title,
       doc.description || "",
@@ -19,16 +21,19 @@ exports.submitPublicDocumentToFabric = async (doc) => {
       doc.mimeType,
       String(doc.size),
       doc.path,
-      doc.uploadedBy?.toString() || ""
+      doc.uploadedBy?.toString() || "",
+      fileHash   // ✅ REQUIRED
     );
 
     await gateway.disconnect();
+
     return { ok: true, result: JSON.parse(result.toString()) };
   } catch (err) {
-    console.error("❌ Blockchain write failed:", err.message);
+    console.error("Blockchain write failed:", err.message);
     return { ok: false, error: err.message };
   }
 };
+
 
 /**
  * Query all public documents from the ledger.

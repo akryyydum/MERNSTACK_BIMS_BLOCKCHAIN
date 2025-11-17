@@ -2,13 +2,16 @@ const express = require("express");
 const router = express.Router();
 const path = require("path");
 const multer = require("multer");
+
 const {
   listAdmin,
   create,
   remove,
   download,
   preview,
+  verifyStatus,   // ← FIXED
 } = require("../controllers/adminPublicDocumentsController");
+
 const { auth, authorizeRoles } = require("../middleware/authMiddleware");
 
 const uploadDir = path.join(__dirname, "..", "uploads", "publicdocs");
@@ -35,5 +38,8 @@ router.post("/", auth, authorizeRoles("admin"), upload.single("file"), create);
 router.delete("/:id", auth, authorizeRoles("admin"), remove);
 router.get("/:id/download", auth, authorizeRoles("admin"), download);
 router.get("/:id/preview", auth, authorizeRoles("admin"), preview);
+
+// ✔ ADDED VERIFY ROUTE
+router.get("/:id/verify-status", auth, authorizeRoles("admin"), verifyStatus);
 
 module.exports = router;

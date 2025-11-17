@@ -25,11 +25,58 @@ exports.listAdmin = async (req, res) => {
       console.warn("Fabric offline, skipping blockchain docs");
     }
 
+    // Build quick lookup map for chain documents by docId
+    const chainMap = new Map();
+    blockchainDocs.forEach(d => {
+      if (d && d.docId) chainMap.set(d.docId, d);
+    });
+
+    // Derive status for each mongo document
+    const augmented = mongoDocs.map(mDoc => {
+      const docObj = mDoc.toObject();
+      const chainDoc = chainMap.get(mDoc._id.toString());
+      let status = "verified"; // optimistic default
+      try {
+        // File missing counts as deleted
+        if (!fs.existsSync(mDoc.path)) {
+          status = "deleted";
+        } else if (!chainDoc) {
+          status = "not_registered"; // no blockchain record
+        } else if (chainDoc.deleted === true) {
+          status = "deleted"; // deleted flag on chain
+        } else {
+          // Compute current hash and compare
+          const fileBuffer = fs.readFileSync(mDoc.path);
+          const currentHash = crypto
+            .createHash("sha256")
+            .update(fileBuffer)
+            .digest("hex");
+          if (chainDoc.fileHash !== currentHash) {
+            status = "edited"; // hash mismatch
+          } else {
+            status = "verified"; // match and not deleted
+          }
+        }
+      } catch (e) {
+        console.warn("Status evaluation error for", mDoc._id.toString(), e.message);
+        status = "error";
+      }
+      docObj.status = status;
+      return docObj;
+    });
+
+    // Aggregate counts by status for quick dashboard use (optional)
+    const statusCounts = augmented.reduce((acc, d) => {
+      acc[d.status] = (acc[d.status] || 0) + 1;
+      return acc;
+    }, {});
+
     res.json({
-      mongoDocs,
+      mongoDocs: augmented,
       blockchainDocs,
       total: mongoDocs.length,
       blockchainCount: blockchainDocs.length,
+      statusCounts,
     });
   } catch (err) {
     console.error("Error listing public docs:", err);
@@ -40,28 +87,55 @@ exports.listAdmin = async (req, res) => {
 // ---------------------------------------------
 // VERIFY DOCUMENT INTEGRITY
 // ---------------------------------------------
-exports.verifyDocument = async (req, res) => {
+exports.verifyStatus = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 1. MongoDB document
     const doc = await PublicDocument.findById(id);
-    if (!doc) return res.status(404).json({ message: "Document not found" });
+    if (!doc) return res.status(404).json({ status: "not_found" });
 
-    // Compute hash of stored file
+    // 2. File exists?
+    if (!fs.existsSync(doc.path)) {
+      return res.json({ status: "deleted" });
+    }
+
+    // 3. Compute current hash
     const fileBuffer = fs.readFileSync(doc.path);
-    const newHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+    const currentHash = crypto.createHash("sha256")
+      .update(fileBuffer)
+      .digest("hex");
 
+    // 4. Retrieve blockchain record (same ID as Mongo)
     const { contract } = await getContract();
-    const resultBytes = await contract.evaluateTransaction(
-      "verifyDocument",
-      doc.docId || doc._id.toString(),
-      newHash
-    );
+    let chainDoc;
 
-    const result = JSON.parse(resultBytes.toString());
-    res.json(result);
+    try {
+      const result = await contract.evaluateTransaction(
+        "getDocument",
+        doc._id.toString()
+      );
+      chainDoc = JSON.parse(result.toString());
+    } catch (err) {
+      return res.json({ status: "not_registered" });
+    }
+
+    // 5. Check for deleted flag on chain
+    if (chainDoc.deleted === true) {
+      return res.json({ status: "deleted" });
+    }
+
+    // 6. Compare hash
+    if (chainDoc.fileHash !== currentHash) {
+      return res.json({ status: "edited" });
+    }
+
+    // 7. OK
+    return res.json({ status: "verified" });
+
   } catch (err) {
-    console.error("Verify integrity error:", err);
-    res.status(500).json({ message: "Verification failed" });
+    console.error("verifyStatus error:", err);
+    res.status(500).json({ status: "error", message: err.message });
   }
 };
 

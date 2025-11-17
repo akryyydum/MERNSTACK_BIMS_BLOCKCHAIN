@@ -257,22 +257,14 @@ export default function AdminPublicDocuments() {
   };
 
   // Verify document integrity against blockchain hash
-  const verifyIntegrity = async (record) => {
-    if (!record?._id) return;
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${baseURL}/api/admin/public-documents/${record._id}/verify`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res?.data?.isValid) {
-        message.success("Document is authentic!");
-      } else {
-        message.error("Document has been tampered!");
-      }
-    } catch (err) {
-      console.error("Verify integrity error", err?.response?.status, err?.response?.data);
-      message.error(err?.response?.data?.message || "Verification failed");
-    }
+  // Verification moved to backend list response - status field per document
+  // Possible statuses: verified, edited, deleted, not_registered, error
+  const STATUS_COLORS = {
+    verified: 'green',
+    edited: 'orange',
+    deleted: 'red',
+    not_registered: 'default',
+    error: 'volcano'
   };
 
   const renderPreviewContent = () => {
@@ -421,6 +413,20 @@ export default function AdminPublicDocuments() {
       defaultSortOrder: "descend",
     },
     {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: v => (
+        <Tag color={STATUS_COLORS[v] || 'default'} className="uppercase tracking-wide">
+          {v === 'not_registered' ? 'UNREGISTERED' : (v || 'N/A').toUpperCase()}
+        </Tag>
+      ),
+      filters: [
+        'verified','edited','deleted','not_registered','error'
+      ].map(s => ({ text: s.toUpperCase(), value: s })),
+      onFilter: (value, record) => record.status === value,
+    },
+    {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
@@ -439,12 +445,6 @@ export default function AdminPublicDocuments() {
             onClick={() => download(r)}
           >
             Download
-          </Button>
-          <Button
-            size="small"
-            onClick={() => verifyIntegrity(r)}
-          >
-            Verify
           </Button>
           <Popconfirm
             title="Delete document?"
@@ -686,6 +686,11 @@ export default function AdminPublicDocuments() {
               </Descriptions.Item>
               <Descriptions.Item label="Uploaded At">
                 {dayjs(viewDoc.createdAt).format("YYYY-MM-DD HH:mm")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Blockchain Status">
+                <Tag color={STATUS_COLORS[viewDoc.status] || 'default'}>
+                  {viewDoc.status === 'not_registered' ? 'UNREGISTERED' : (viewDoc.status || 'N/A').toUpperCase()}
+                </Tag>
               </Descriptions.Item>
             </Descriptions>
           )}
