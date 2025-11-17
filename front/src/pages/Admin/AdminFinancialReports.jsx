@@ -145,15 +145,6 @@ export default function AdminFinancialReports() {
       if (dateRange[0]) params.append('startDate', dateRange[0].toISOString());
       if (dateRange[1]) params.append('endDate', dateRange[1].toISOString());
       if (filters.type) params.append('type', filters.type);
-      if (filters.category) params.append('category', filters.category);
-      
-      // Only show completed/pending transactions, not cancelled
-      if (filters.status) {
-        params.append('status', filters.status);
-      } else {
-        // Don't show cancelled by default
-        params.append('status', 'completed');
-      }
 
       console.log('Fetching transactions with params:', params.toString());
 
@@ -279,7 +270,6 @@ export default function AdminFinancialReports() {
               // If no specific document types, include all document fees
               return t.type === 'document_fee';
             }
-            if (exportType === 'other') return t.type === 'other';
             return false;
           });
           return typeMatches;
@@ -391,26 +381,17 @@ export default function AdminFinancialReports() {
   };
 
   const statistics = dashboardData.statistics || {};
-  const revenues = Array.isArray(dashboardData.revenues) ? dashboardData.revenues : statistics.revenues || [];
-  const expenses = Array.isArray(dashboardData.expenses) ? dashboardData.expenses : statistics.expenses || [];
-  const allocations = Array.isArray(dashboardData.allocations) ? dashboardData.allocations : statistics.allocations || [];
-  // Removed monthlyTrends usage since Monthly Trends chart is removed
+  const revenueByType = dashboardData.revenueByType || {};
+  
+  // Calculate individual revenue types from revenueByType
+  const documentFeeRevenue = Number(revenueByType.document_fee || 0);
+  const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
+  const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
 
-  const totalRevenue = revenues.length
-    ? revenues.reduce((sum, r) => sum + Number(r.total || 0), 0)
-    : Number(statistics.totalRevenue ?? statistics.totalIncome ?? 0);
-
-  const totalExpenses = expenses.length
-    ? expenses.reduce((sum, e) => sum + Number(e.total || 0), 0)
-    : Number(statistics.totalExpenses ?? statistics.expenseTotal ?? 0);
-
-  const totalAllocations = allocations.length
-    ? allocations.reduce((sum, a) => sum + Number(a.total || 0), 0)
-    : Number(statistics.totalAllocations ?? statistics.allocationTotal ?? 0);
-
-  const netIncome = Number(
-    statistics.netIncome ?? statistics.balance ?? (totalRevenue - totalExpenses)
-  );
+  const totalRevenue = Number(statistics.totalRevenue ?? 0);
+  const totalExpenses = Number(statistics.totalExpenses ?? 0);
+  const totalAllocations = Number(statistics.totalAllocations ?? 0);
+  const netIncome = Number(statistics.balance ?? 0);
 
   // Chart data removed (Revenue by Type and Monthly Trends)
 
@@ -564,7 +545,6 @@ export default function AdminFinancialReports() {
     setEditTransaction(record);
     editForm.setFieldsValue({
       type: record.type,
-      category: record.category,
       description: record.description,
       amount: record.amount,
       paymentMethod: record.paymentMethod || 'Cash',
@@ -634,15 +614,6 @@ export default function AdminFinancialReports() {
       onFilter: (value, record) => record.type === value,
     },
     {
-      title: 'Category',
-      dataIndex: 'category',
-      key: 'category',
-      render: (category) => {
-        const color = category === 'revenue' ? 'green' : category === 'expense' ? 'red' : 'orange';
-        return <Tag color={color}>{category.toUpperCase()}</Tag>;
-      }
-    },
-    {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
@@ -653,15 +624,6 @@ export default function AdminFinancialReports() {
       dataIndex: 'amount',
       key: 'amount',
       render: (amount) => `₱${Number(amount).toLocaleString()}`
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const color = status === 'completed' ? 'green' : status === 'pending' ? 'orange' : 'red';
-        return <Tag color={color}>{status.toUpperCase()}</Tag>;
-      }
     },
     {
       title: 'Date',
@@ -803,15 +765,15 @@ export default function AdminFinancialReports() {
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Total Expenses
+                    Document Request Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <TrendingDown className="h-4 w-4" />
+                    <FileTextOutlined className="h-4 w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{totalExpenses.toLocaleString()}
+                    ₱{documentFeeRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
@@ -819,7 +781,23 @@ export default function AdminFinancialReports() {
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
-                    Net Income
+                    Garbage Revenue
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <TrendingUp className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    ₱{garbageFeeRevenue.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Streetlight Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <DollarSign className="h-4 w-4" />
@@ -827,23 +805,7 @@ export default function AdminFinancialReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{netIncome.toLocaleString()}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Total Allocations
-                  </CardTitle>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <PieChart className="h-4 w-4" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    ₱{totalAllocations.toLocaleString()}
+                    ₱{streetlightFeeRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
@@ -870,33 +832,6 @@ export default function AdminFinancialReports() {
                 <Select.Option value="document_fee">Document Fee</Select.Option>
                 <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                 <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-                <Select.Option value="other">Other</Select.Option>
-              </Select>
-              <Select
-                placeholder="Filter by category"
-                allowClear
-                style={{ width: 120 }}
-                onChange={(value) => setFilters({...filters, category: value})}
-              >
-                <Select.Option value="revenue">Revenue</Select.Option>
-                <Select.Option value="expense">Expense</Select.Option>
-                <Select.Option value="allocation">Allocation</Select.Option>
-              </Select>
-              {/* ADD STATUS FILTER */}
-              <Select
-                placeholder="Filter by status"
-                allowClear
-                style={{ width: 150 }}
-                value={filters.status}
-                onChange={(value) => {
-                  setFilters({...filters, status: value});
-                  // Trigger refetch when status changes
-                  setTimeout(() => fetchTransactions(), 100);
-                }}
-              >
-                <Select.Option value="completed">Completed</Select.Option>
-                <Select.Option value="pending">Pending</Select.Option>
-                <Select.Option value="cancelled">Cancelled</Select.Option>
               </Select>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -919,12 +854,6 @@ export default function AdminFinancialReports() {
                 Sync Document Fees
               </Button>
               <Button 
-                icon={<FileTextOutlined />}
-                onClick={() => setReportOpen(true)}
-              >
-                Generate Report
-              </Button>
-              <Button 
                 loading={exporting}
                 onClick={() => setExportOpen(true)}
               >
@@ -944,57 +873,51 @@ export default function AdminFinancialReports() {
 
         {/* Transactions Table Section */}
         <div className="bg-white rounded-2xl p-4 space-y-4">
-          <Card className="bg-slate-50 rounded-2xl shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold text-black">Financial Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <Input.Search
-                  allowClear
-                  placeholder="Search for Resident"
-                  onSearch={v => setSearch(v.trim())}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  enterButton
-                  className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
-                />
-              </div>
-              <div className="overflow-x-auto">
-                <Table
-                  columns={columns}
-                  dataSource={groupedData}
-                  loading={loading}
-                  expandable={{
-                    expandedRowRender: (record) => (
-                      <Table
-                        columns={expandedColumns}
-                        dataSource={record.transactions}
-                        pagination={false}
-                        rowKey={(tx) => tx.__rowKey ?? tx._id ?? getTransactionKey(tx)}
-                        size="small"
-                        className="ml-8"
-                      />
-                    ),
-                    rowExpandable: (record) => record.transactions && record.transactions.length > 0,
-                  }}
-                  pagination={{
-                    current: currentPage,
-                    pageSize: pageSize,
-                    total: groupedData.length,
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Transactions: ${filteredTransactions.length}`,
-                    pageSizeOptions: ['10', '20', '50', '100'],
-                    defaultPageSize: 10,
-                  }}
-                  onChange={handleTableChange}
-                  scroll={{ x: 800 }}
-                  rowKey={(record) => record.__rowKey}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <hr className="border-t border-gray-300" />
+          <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <Input.Search
+              allowClear
+              placeholder="Search for Resident"
+              onSearch={v => setSearch(v.trim())}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              enterButton
+              className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <Table
+              columns={columns}
+              dataSource={groupedData}
+              loading={loading}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <Table
+                    columns={expandedColumns}
+                    dataSource={record.transactions}
+                    pagination={false}
+                    rowKey={(tx) => tx.__rowKey ?? tx._id ?? getTransactionKey(tx)}
+                    size="small"
+                    className="ml-8"
+                  />
+                ),
+                rowExpandable: (record) => record.transactions && record.transactions.length > 0,
+              }}
+              pagination={{
+                current: currentPage,
+                pageSize: pageSize,
+                total: groupedData.length,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Transactions: ${filteredTransactions.length}`,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                defaultPageSize: 10,
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 800 }}
+              rowKey={(record) => record.__rowKey}
+            />
+          </div>
         </div>
 
         {/* Export Modal */}
@@ -1080,7 +1003,6 @@ export default function AdminFinancialReports() {
                 <Select.Option value="garbage_fees">Garbage Fees</Select.Option>
                 <Select.Option value="streetlight_fees">Streetlight Fees</Select.Option>
                 <Select.Option value="document_request_fees">Document Request Fees</Select.Option>
-                <Select.Option value="other">Other</Select.Option>
               </Select>
             </Form.Item>
             
@@ -1214,23 +1136,30 @@ export default function AdminFinancialReports() {
           />
           <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash' }}>
+            {/* Placeholder for Add Transaction Dropdown and Textfield */}
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}>
-                  <Select>
-                    <Select.Option value="document_fee">Document Fee</Select.Option>
-                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-                    <Select.Option value="other">Other</Select.Option>
+                <Form.Item label="Transaction Template (Placeholder)">
+                  <Select placeholder="Select template (placeholder)" disabled>
+                    <Select.Option value="template1">Template 1</Select.Option>
+                    <Select.Option value="template2">Template 2</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="category" label="Category" rules={[{ required: true }]}>
+                <Form.Item label="Reference Code (Placeholder)">
+                  <Input placeholder="Enter reference code (placeholder)" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            {/* ...existing code... */}
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
                   <Select>
-                    <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expense">Expense</Select.Option>
-                    <Select.Option value="allocation">Allocation</Select.Option>
+                    <Select.Option value="document_fee">Document Fee</Select.Option>
+                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
@@ -1294,7 +1223,7 @@ export default function AdminFinancialReports() {
               </Col>
             </Row>
             <Form.Item name="referenceNumber" label="Reference Number">
-              <Input />
+              <Input placeholder="Enter reference number (optional)" />
             </Form.Item>
           </Form>
         </Modal>
@@ -1392,27 +1321,13 @@ export default function AdminFinancialReports() {
           width={700}
         >
           <Form form={editForm} layout="vertical">
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}>
-                  <Select>
-                    <Select.Option value="document_fee">Document Fee</Select.Option>
-                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-                    <Select.Option value="other">Other</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="category" label="Category" rules={[{ required: true }]}>
-                  <Select>
-                    <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expense">Expense</Select.Option>
-                    <Select.Option value="allocation">Allocation</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+            <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}>
+              <Select>
+                <Select.Option value="document_fee">Document Fee</Select.Option>
+                <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
+                <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
+              </Select>
+            </Form.Item>
             
             {/* NEW: Add Resident and Official selectors */}
             <Row gutter={16}>
@@ -1472,7 +1387,7 @@ export default function AdminFinancialReports() {
               </Col>
             </Row>
             <Form.Item name="referenceNumber" label="Reference Number">
-              <Input />
+              <Input placeholder="Enter reference number (optional)" />
             </Form.Item>
           </Form>
         </Modal>
