@@ -33,6 +33,8 @@ export default function ResidentRequest() {
   const [monthsStatus, setMonthsStatus] = useState({ garbage: { paid: [], unpaid: [] }, streetlight: { paid: [], unpaid: [] } });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  // Blockchain status mapping
+  const [chainStatusesLoaded, setChainStatusesLoaded] = useState(false);
   
   // New state for form enhancements
   const [householdMembers, setHouseholdMembers] = useState([]);
@@ -244,7 +246,10 @@ export default function ResidentRequest() {
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setRequests(res.data);
+      const baseRequests = Array.isArray(res.data) ? res.data : [];
+      setRequests(baseRequests);
+      // Fetch blockchain statuses after setting base requests
+      fetchBlockchainStatuses(baseRequests);
       
       // If we have requests with resident information, update the resident state
       if (res.data && res.data.length > 0 && res.data[0].residentId) {
@@ -261,6 +266,37 @@ export default function ResidentRequest() {
       setRequests([]);
     }
     setLoading(false);
+  };
+
+  // Fetch blockchain request statuses for this resident and merge
+  const fetchBlockchainStatuses = async (current = requests) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const chainRes = await axios.get(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/blockchain/requests/me`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const chainData = Array.isArray(chainRes.data) ? chainRes.data : [];
+      const map = new Map(
+        chainData.map(r => [r.requestId, r])
+      );
+      const merged = (current || []).map(r => {
+        const chain = map.get(r._id) || map.get(r.requestId);
+        let blockchainStatus = 'not_registered';
+        if (chain && chain.status) {
+          const s = (chain.status || '').toLowerCase();
+          if (['verified','edited','deleted','error'].includes(s)) blockchainStatus = s; else blockchainStatus = s || 'not_registered';
+        }
+        return { ...r, blockchainStatus };
+      });
+      setRequests(merged);
+      setChainStatusesLoaded(true);
+    } catch (err) {
+      console.warn('Blockchain statuses fetch failed:', err.message || err);
+      // Keep existing requests; mark as loaded to avoid repeated attempts
+      setChainStatusesLoaded(true);
+    }
   };
 
   // Request statistics
@@ -468,6 +504,7 @@ export default function ResidentRequest() {
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Purpose</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Blockchain</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Amount</th>
                   <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -475,7 +512,7 @@ export default function ResidentRequest() {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-8">
+                    <td colSpan="8" className="text-center py-8">
                       <div className="flex justify-center items-center space-x-2">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                         <span className="text-gray-500">Loading requests...</span>
@@ -484,7 +521,7 @@ export default function ResidentRequest() {
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-12">
+                    <td colSpan="8" className="text-center py-12">
                       <div className="flex flex-col items-center">
                         <FileTextOutlined style={{ fontSize: '32px' }} className="text-gray-400 mb-2" />
                         <p className="text-gray-500 font-medium">No document requests found</p>
@@ -555,6 +592,24 @@ export default function ResidentRequest() {
                             RELEASED
                           </span>
                         )}
+                      </td>
+                      <td className="py-4 px-6 hidden md:table-cell">
+                        {(() => {
+                          const s = request.blockchainStatus || 'not_registered';
+                          const upper = s === 'not_registered' ? 'UNREGISTERED' : s.toUpperCase();
+                          const colorMap = {
+                            verified: 'bg-green-100 text-green-800',
+                            edited: 'bg-orange-100 text-orange-800',
+                            deleted: 'bg-red-100 text-red-800',
+                            error: 'bg-rose-100 text-rose-700',
+                            not_registered: 'bg-gray-100 text-gray-600'
+                          };
+                          return (
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${colorMap[s] || 'bg-gray-100 text-gray-600'}`}>
+                              {upper}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-4 px-6 hidden lg:table-cell">
                         {(() => {
