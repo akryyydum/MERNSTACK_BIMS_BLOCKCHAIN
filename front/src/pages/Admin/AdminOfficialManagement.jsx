@@ -78,10 +78,8 @@ export default function AdminOfficialManagement() {
       }
       
       const data = await res.json();
-      console.log("Fetched officials:", data);
       setOfficials(data || []);
     } catch (err) { 
-      console.error("Error fetching officials:", err);
       message.error(err.message || "Failed to fetch officials"); 
     }
     setLoading(false);
@@ -99,10 +97,8 @@ export default function AdminOfficialManagement() {
       }
       
       const data = await res.json();
-      console.log("Fetched residents:", data);
       setResidents(data || []);
     } catch (err) { 
-      console.error("Error fetching residents:", err);
       message.error(err.message || "Failed to fetch residents"); 
     }
   };
@@ -141,42 +137,23 @@ export default function AdminOfficialManagement() {
 
   // Filter residents that are not already officials
   const getAvailableResidents = () => {
-    console.log("=== FILTERING DEBUG START ===");
-    console.log("Total officials:", officials.length);
-    console.log("Total residents:", residents.length);
-    
     // Method 1: Get all official names for comparison (normalize for matching)
-    const officialNames = officials.map(official => {
-      const name = official.fullName?.toLowerCase().replace(/\s+/g, ' ').trim() || '';
-      console.log(`Official: "${official.fullName}" -> normalized: "${name}"`);
-      return name;
-    }).filter(name => name.length > 0);
+    const officialNames = officials.map(official => (
+      official.fullName?.toLowerCase().replace(/\s+/g, ' ').trim() || ''
+    )).filter(name => name.length > 0);
     
     // Method 2: Get residents who have user accounts linked to current officials
     const currentOfficialUserIds = officials.map(official => official._id);
     const residentsWithOfficialAccounts = residents.filter(resident => {
       if (!resident.user) return false;
-      
-      // Handle both cases: user field as ID string or populated object
       const userId = typeof resident.user === 'string' ? resident.user : resident.user._id;
-      const isLinkedToOfficial = currentOfficialUserIds.includes(userId);
-      
-      if (isLinkedToOfficial) {
-        console.log(`Resident "${resident.fullName || `${resident.firstName} ${resident.lastName}`}" has user account linked to official (${userId})`);
-      }
-      
-      return isLinkedToOfficial;
+      return currentOfficialUserIds.includes(userId);
     });
     
     // Method 3: Check if any official has a residentId that matches
     const officialResidentIds = officials
       .map(official => official.residentId)
       .filter(Boolean);
-    
-    console.log("Current official names:", officialNames);
-    console.log("Current official user IDs:", currentOfficialUserIds);
-    console.log("Residents with official accounts:", residentsWithOfficialAccounts.map(r => r.fullName || `${r.firstName} ${r.lastName}`));
-    console.log("Official resident IDs:", officialResidentIds);
     
     // Filter out residents using all methods
     const availableResidents = residents.filter(resident => {
@@ -198,18 +175,8 @@ export default function AdminOfficialManagement() {
       const isAlreadyOfficialByResidentId = officialResidentIds.includes(resident._id);
       
       const shouldExclude = isAlreadyOfficialByName || isAlreadyOfficialByAccount || isAlreadyOfficialByResidentId;
-      
-      if (shouldExclude) {
-        console.log(`❌ Excluding: "${residentFullName}" | Name match: ${isAlreadyOfficialByName} | Account match: ${isAlreadyOfficialByAccount} | ResidentId match: ${isAlreadyOfficialByResidentId}`);
-      } else {
-        console.log(`✅ Including: "${residentFullName}"`);
-      }
-      
       return !shouldExclude;
     });
-    
-    console.log(`RESULT: Available residents: ${availableResidents.length}/${residents.length}`);
-    console.log("=== FILTERING DEBUG END ===");
     
     return availableResidents;
   };
@@ -289,21 +256,12 @@ export default function AdminOfficialManagement() {
     try {
       setCreating(true);
       const values = await addForm.validateFields();
-      console.log("Form values:", values);
-      console.log("Selected resident:", selectedResident);
-      
-      // Additional validation logging
       if (!values.residentId) {
         throw new Error("No resident selected");
       }
       if (!values.position) {
         throw new Error("No position selected");
       }
-      
-      // Log contact information status
-      console.log("Email value:", values.email || "(empty)");
-      console.log("Mobile value:", values.mobile || "(empty)");
-      console.log("Will submit with empty contact info:", !values.email && !values.mobile);
       
       const token = localStorage.getItem("token");
       
@@ -317,8 +275,6 @@ export default function AdminOfficialManagement() {
       if (email) submitData.email = email;
       if (mobile) submitData.mobile = mobile;
       
-      console.log("Data being submitted:", submitData);
-      
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -326,14 +282,8 @@ export default function AdminOfficialManagement() {
       });
       
       const responseData = await res.json();
-      console.log("Server response:", responseData);
       
       if (!res.ok) {
-        console.error("Server error details:", {
-          status: res.status,
-          statusText: res.statusText,
-          response: responseData
-        });
         throw new Error(responseData.message || `Server error: ${res.status} ${res.statusText}`);
       }
       
@@ -346,7 +296,6 @@ export default function AdminOfficialManagement() {
       await fetchOfficials();
       await fetchResidents();
     } catch (err) { 
-      console.error("Error adding official:", err);
       message.error(err?.message || "Failed to add official"); 
     }
     setCreating(false);
@@ -594,25 +543,11 @@ export default function AdminOfficialManagement() {
                 )}
                 onDropdownVisibleChange={(open) => {
                   if (open) {
-                    console.log("=== DROPDOWN DEBUG ===");
-                    console.log("Officials in table:");
-                    officials.forEach((official, i) => {
-                      console.log(`  ${i+1}. ${official.fullName} (ID: ${official._id})`);
-                    });
-                    
-                    console.log("\nAll residents:");
-                    residents.forEach((resident, i) => {
-                      const residentName = resident.fullName || `${resident.firstName} ${resident.middleName || ''} ${resident.lastName}`.replace(/\s+/g, ' ').trim();
-                      console.log(`  ${i+1}. ${residentName} (ID: ${resident._id})`);
-                    });
-                    
-                    const available = getAvailableResidents();
-                    console.log("\nFiltering complete!");
+                    getAvailableResidents();
                   }
                 }}
                 onChange={(value) => {
                   const resident = residents.find(r => r._id === value);
-                  console.log("Selected resident:", resident);
                   if (resident) {
                     setSelectedResident(resident);
                     const email = resident.contact?.email || '';

@@ -64,7 +64,6 @@ const Login = () => {
         password: values.password,
       });
       
-      console.log('Login response:', res.data); // Debug log
       
       // Resident verification check - do this BEFORE storing tokens
       if (res.data.role === "resident" && res.data.isVerified === false) {
@@ -220,9 +219,9 @@ const Login = () => {
         role: "resident",
       };
 
-      console.log('Registration payload:', payload);
+      // do not log payloads in production
       const response = await axios.post(`${API_BASE}/api/auth/register`, payload);
-      console.log('Registration response:', response.data);
+      // do not log responses in production
       message.success({ 
         content: "Registration successful! You can now log in immediately.", 
         key: "registerLoading", 
@@ -230,7 +229,7 @@ const Login = () => {
       });
       closeRegisterPanel();
     } catch (err) {
-      console.error('Registration error:', err.response?.data || err);
+      // suppress verbose error logging in production
       const status = err.response?.status;
       
       // Get more detailed error message when available
