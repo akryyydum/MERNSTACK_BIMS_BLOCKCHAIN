@@ -59,6 +59,17 @@ const chartConfig = {
 };
 
 
+// Hook to ensure a minimum delay before showing content
+const useMinDelay = (ms) => {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setDone(true), ms);
+    return () => clearTimeout(t);
+  }, [ms]);
+  return done;
+};
+
+
 export default function AdminDashboard() {
   const [data, setData] = useState({
     residents: [], officials: [], docRequests: [], complaints: [],
@@ -70,6 +81,7 @@ export default function AdminDashboard() {
   const [requestTrendPeriod, setRequestTrendPeriod] = useState('12months'); // '7days' | '12months'
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
+
 
   useEffect(() => {
     const abort = new AbortController();
@@ -179,6 +191,8 @@ export default function AdminDashboard() {
     const revenueChange = lastMonthRevenueValue > 0 
       ? ((currentMonthRevenue - lastMonthRevenueValue) / lastMonthRevenueValue * 100).toFixed(1) 
       : (currentMonthRevenue > 0 ? 100 : 0);
+
+      // Note: do not return JSX here; keep statsData as plain data
     
     return {
       totalResidents: { value: totalResidents, change: parseFloat(residentsChange), sinceLast: 'Since Last week' },
@@ -448,7 +462,7 @@ export default function AdminDashboard() {
   }), [payments]);
 
   // Card rendering helper
-  const MetricCard = ({ icon, title, value, change, sinceLast, trendData, showInfo = true, isRevenue = false }) => {
+  const MetricCard = ({ icon, title, value, change, sinceLast, trendData, showInfo = true, isRevenue = false, loading: cardLoading = false }) => {
     const isPositive = change >= 0;
     const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
     const TrendIcon = isPositive ? ArrowUpOutlined : ArrowDownOutlined;
@@ -467,6 +481,25 @@ export default function AdminDashboard() {
       }));
     }, [trendData]);
     
+    if (cardLoading) {
+      return (
+        <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-gray-600 text-sm">
+                {icon}
+                <span>{title}</span>
+              </div>
+              {showInfo && <InfoCircleOutlined className="text-gray-400 text-sm" />}
+            </div>
+            <div className="h-20 flex items-center justify-center">
+              <Spin />
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
         <CardContent className="p-6">
@@ -480,7 +513,7 @@ export default function AdminDashboard() {
           
           <div className="mb-3">
             <div className="text-3xl font-bold text-gray-900">
-              {loading ? <Spin size="small" /> : isRevenue ? `₱${value.toLocaleString()}` : value.toLocaleString()}
+              {isRevenue ? `₱${value.toLocaleString()}` : value.toLocaleString()}
             </div>
             <div className="text-xs text-gray-500 mt-1">{sinceLast}</div>
           </div>
@@ -511,6 +544,31 @@ export default function AdminDashboard() {
     );
   };
 
+  // 10 seconds na loading screen delay dito papalitan kung kaya paiksihin
+
+  const residentsDelayDone = useMinDelay(10000);
+  const pendingDelayDone = useMinDelay(10000);
+  const transactionsDelayDone = useMinDelay(10000);
+  const revenueDelayDone = useMinDelay(10000);
+  const requestTrendDelayDone = useMinDelay(10000);
+  const genderDelayDone = useMinDelay(10000);
+  const purokDelayDone = useMinDelay(10000);
+  const blockchainDelayDone = useMinDelay(10000);
+  const docTableDelayDone = useMinDelay(10000);
+  const paymentTableDelayDone = useMinDelay(10000);
+
+  // Effective loading states per section: wait for data AND 5s delay
+  const residentsCardLoading = loading || !residentsDelayDone;
+  const pendingCardLoading = loading || !pendingDelayDone;
+  const transactionsCardLoading = loading || !transactionsDelayDone;
+  const revenueCardLoading = loading || !revenueDelayDone;
+  const requestTrendLoading = loading || !requestTrendDelayDone;
+  const genderCardLoading = loading || !genderDelayDone;
+  const purokCardLoading = loading || !purokDelayDone;
+  const blockchainCardLoading = loading || !blockchainDelayDone;
+  const docTableLoading = loading || !docTableDelayDone;
+  const paymentTableLoading = loading || !paymentTableDelayDone;
+
   return (
     <AdminLayout>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
@@ -538,6 +596,7 @@ export default function AdminDashboard() {
             change={statsData.totalResidents.change}
             sinceLast={statsData.totalResidents.sinceLast}
             trendData={generateTrendData.residents}
+            loading={residentsCardLoading}
           />
           
           {/* Pending Document Requests */}
@@ -548,6 +607,7 @@ export default function AdminDashboard() {
             change={statsData.pendingRequests.change}
             sinceLast={statsData.pendingRequests.sinceLast}
             trendData={generateTrendData.docRequests}
+            loading={pendingCardLoading}
           />
           
           {/* Total Financial Transactions */}
@@ -558,6 +618,7 @@ export default function AdminDashboard() {
             change={statsData.totalTransactions.change}
             sinceLast={statsData.totalTransactions.sinceLast}
             trendData={generateTrendData.revenue}
+            loading={transactionsCardLoading}
           />
           
           {/* Total Revenue */}
@@ -569,6 +630,7 @@ export default function AdminDashboard() {
             sinceLast={statsData.totalRevenue.sinceLast}
             trendData={generateTrendData.totalRevenue}
             isRevenue={true}
+            loading={revenueCardLoading}
           />
           </div>
 
@@ -610,7 +672,7 @@ export default function AdminDashboard() {
                 </div>
               
               <div className="h-80">
-                {loading ? (
+                {requestTrendLoading ? (
                   <div className="flex items-center justify-center h-full"><Spin /></div>
                 ) : (
                   <ChartContainer config={chartConfig} className="h-full w-full">
@@ -679,7 +741,7 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="h-80">
-                  {loading ? (
+                  {genderCardLoading ? (
                     <div className="flex items-center justify-center h-full"><Spin /></div>
                   ) : genderDemographicsData.length && genderDemographicsData.some(d => d.value > 0) ? (
                     <div className="flex flex-col items-center justify-center h-full">
@@ -742,7 +804,7 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="h-80">
-                  {loading ? (
+                  {purokCardLoading ? (
                     <div className="flex items-center justify-center h-full"><Spin /></div>
                   ) : purokDemographicsData.length && purokDemographicsData.some(d => d.value > 0) ? (
                     <div className="flex flex-col items-center justify-center h-full">
@@ -807,7 +869,7 @@ export default function AdminDashboard() {
                 </div>
               
               <div className="h-64">
-                {loading ? (
+                {blockchainCardLoading ? (
                   <div className="flex items-center justify-center h-full"><Spin /></div>
                 ) : blockchain?.ok ? (
                   <Space direction="vertical" size={12} style={{ width: '100%' }}>
@@ -848,7 +910,7 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              {loading ? (
+              {docTableLoading ? (
                 <div className="flex items-center justify-center h-32"><Spin /></div>
               ) : (
                 <div className="min-w-full">
@@ -873,7 +935,7 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              {loading ? (
+              {paymentTableLoading ? (
                 <div className="flex items-center justify-center h-32"><Spin /></div>
               ) : (
                 <div className="min-w-full">
