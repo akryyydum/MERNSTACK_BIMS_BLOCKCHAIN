@@ -58,14 +58,23 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "publicdocs") return;
     setLoading(true);
     try {
+      // Fetch combined data from admin endpoint (contains mongoDocs with status + blockchainDocs raw)
       const res = await axios.get(`${baseURL}/api/admin/public-documents`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Expecting { mongoDocs, blockchainDocs, ... }
-      const arr = Array.isArray(res.data)
-        ? res.data
-        : (res.data?.blockchainDocs || []);
-      setPublicDocs(arr);
+      const mongoDocs = res.data?.mongoDocs || [];
+      const blockchainDocs = res.data?.blockchainDocs || [];
+
+      // Build status map from mongoDocs
+      const statusMap = new Map();
+      mongoDocs.forEach(d => statusMap.set(d._id, d.status));
+
+      // Merge status onto blockchain docs
+      const merged = blockchainDocs.map(bDoc => {
+        const status = statusMap.get(bDoc.docId) || (bDoc.deleted ? 'deleted' : bDoc.edited ? 'edited' : 'verified');
+        return { ...bDoc, status };
+      });
+      setPublicDocs(merged);
       setLastFetchedAt(new Date());
     } catch (err) {
       console.error(err);
@@ -196,6 +205,14 @@ export default function AdminBlockchainNetwork() {
     },
   ];
 
+  const STATUS_COLORS = {
+    verified: 'green',
+    edited: 'orange',
+    deleted: 'red',
+    not_registered: 'default',
+    error: 'volcano'
+  };
+
   const publicDocColumns = [
     { title: "Doc ID", dataIndex: "docId", key: "docId", render: (v) => <Space><FolderOpenOutlined />{v}</Space> },
     { title: "Title", dataIndex: "title", key: "title" },
@@ -203,6 +220,14 @@ export default function AdminBlockchainNetwork() {
     { title: "File", dataIndex: "originalName", key: "originalName" },
     { title: "Size", dataIndex: "size", key: "size", render: (n) => n ? `${(n/1024).toFixed(1)} KB` : "-" },
     { title: "Uploaded", dataIndex: "createdAt", key: "createdAt", render: (v) => v ? dayjs(v).format("YYYY-MM-DD") : "-" },
+    { title: 'Status', dataIndex: 'status', key: 'status', render: (v) => (
+        <Tag color={STATUS_COLORS[v] || 'default'} className="uppercase tracking-wide">
+          {v === 'not_registered' ? 'UNREGISTERED' : (v || 'N/A').toUpperCase()}
+        </Tag>
+      ),
+      filters: ['verified','edited','deleted','not_registered','error'].map(s => ({ text: s.toUpperCase(), value: s })),
+      onFilter: (value, record) => record.status === value,
+    }
   ];
 
   const financeColumns = [
@@ -302,16 +327,18 @@ export default function AdminBlockchainNetwork() {
                 enterButton
                 className="min-w-[500px] max-w-xs"
               />
+              {/* Unified Refresh button per active tab */}
               {activeTab === 'requests' && (
                 <>
                   <Button icon={<ReloadOutlined />} onClick={handleSearch} loading={loading}>Refresh</Button>
                   <Button icon={<CloudSyncOutlined />} onClick={handleSync} loading={loading}>Sync from DB</Button>
                 </>
               )}
+              {activeTab === 'publicdocs' && (
+                <Button icon={<ReloadOutlined />} onClick={handlePublicDocsFetch} loading={loading}>Refresh</Button>
+              )}
               {activeTab === 'finance' && (
-                <>
-                  <Button icon={<ReloadOutlined />} onClick={handleFinanceFetch} loading={loading}>Refresh</Button>
-                </>
+                <Button icon={<ReloadOutlined />} onClick={handleFinanceFetch} loading={loading}>Refresh</Button>
               )}
             </div>
           </div>
