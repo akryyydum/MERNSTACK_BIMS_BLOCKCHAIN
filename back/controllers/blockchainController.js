@@ -131,6 +131,7 @@ exports.getResidentFinancialTransactions = async (req, res) => {
   try {
     const Resident = require('../models/resident.model');
     const Household = require('../models/household.model');
+    const DocumentRequest = require('../models/document.model');
 
     const resident = await Resident.findOne({ user: req.user.id });
     if (!resident) return res.status(404).json({ message: 'Resident profile not found' });
@@ -145,6 +146,8 @@ exports.getResidentFinancialTransactions = async (req, res) => {
     }).lean();
 
     const queryIds = new Set([resident._id.toString()]);
+    // Also consider the authenticated user id; some txns may have used userId instead of residentId
+    if (req.user?.id) queryIds.add(req.user.id.toString());
     if (household?.headOfHousehold) {
       const headId = household.headOfHousehold.toString();
       queryIds.add(headId);
@@ -166,6 +169,27 @@ exports.getResidentFinancialTransactions = async (req, res) => {
         // Non-fatal for secondary IDs
         console.warn('Resident financial txn query failed for id', id, innerErr.message || innerErr);
       }
+    }
+    
+    // Fallback enrichment: fetch all transactions and filter by related document requests owned by the resident/household
+    try {
+      const allBuf = await contract.evaluateTransaction(
+        'FinancialTransactionContract:getAllTransactions'
+      );
+      const allTxns = JSON.parse(allBuf.toString());
+      // Build allowed request ids: any request where residentId or requestedBy is the resident or head of household
+      const allowedPersonIds = Array.from(queryIds);
+      const allowedRequests = await DocumentRequest.find({
+        $or: [
+          { residentId: { $in: allowedPersonIds } },
+          { requestedBy: { $in: allowedPersonIds } },
+        ],
+      }).select('_id').lean();
+      const allowedReqIdSet = new Set(allowedRequests.map(r => r._id.toString()));
+      const related = Array.isArray(allTxns) ? allTxns.filter(t => t?.requestId && allowedReqIdSet.has(t.requestId.toString())) : [];
+      results.push(...related);
+    } catch (fallbackErr) {
+      console.warn('Fallback all-transactions filter failed:', fallbackErr.message || fallbackErr);
     }
     await gateway.disconnect();
 

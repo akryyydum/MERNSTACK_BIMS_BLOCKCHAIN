@@ -6,6 +6,7 @@ import {
   FileWordOutlined,
   FileImageOutlined,
   FileTextOutlined,
+  ClusterOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
@@ -145,7 +146,10 @@ export default function ResidentPublicDocuments() {
       render: (v, r) => (
         <div
           className="flex items-center gap-2 cursor-pointer"
-          onClick={() => openPreview(r)}
+          onClick={(e) => {
+            e.stopPropagation();
+            openPreview(r);
+          }}
         >
           {iconFor(r.mimeType)}
           <span className="font-medium hover:underline">{v}</span>
@@ -187,7 +191,10 @@ export default function ResidentPublicDocuments() {
           <Button
             size="small"
             type="default"
-            onClick={() => openPreview(r)}
+            onClick={(e) => {
+              e.stopPropagation();
+              openPreview(r);
+            }}
             className="shadow-sm"
           >
             View
@@ -196,7 +203,10 @@ export default function ResidentPublicDocuments() {
             size="small"
             type="primary"
             icon={<DownloadOutlined />}
-            onClick={() => download(r)}
+            onClick={(e) => {
+              e.stopPropagation();
+              download(r);
+            }}
             className="shadow-sm bg-blue-600 hover:bg-blue-700"
           >
             Download
@@ -220,8 +230,9 @@ export default function ResidentPublicDocuments() {
         {!previewLoading && (
           <>
             {previewDoc.status === 'deleted' && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                This document has been deleted. Preview or download may be limited.
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center gap-2">
+                <ClusterOutlined className="text-red-600 animate-spin" />
+                <span>This document has been deleted according to the blockchain. Preview or download may be limited.</span>
               </div>
             )}
             {previewUrl && (
@@ -329,6 +340,10 @@ export default function ResidentPublicDocuments() {
                 dataSource={filtered}
                 columns={columns}
                 pagination={{ pageSize: 10 }}
+                onRow={(record) => ({
+                  onClick: () => openPreview(record),
+                })}
+                rowClassName={() => "cursor-pointer"}
                 scroll={{ x: 700 }}
               />
             </CardContent>

@@ -37,6 +37,7 @@ export default function ResidentBlockchainNetwork() {
 	const [transactions, setTransactions] = useState([]);
 	const [chainStatus, setChainStatus] = useState(null);
 	const [utilitySummary, setUtilitySummary] = useState(null);
+	const [utilityRecords, setUtilityRecords] = useState([]);
 	const [residentProfile, setResidentProfile] = useState(null);
 
 	const [errorRequests, setErrorRequests] = useState(null);
@@ -45,6 +46,103 @@ export default function ResidentBlockchainNetwork() {
 	const [errorUtilities, setErrorUtilities] = useState(null);
 
 	const [search, setSearch] = useState('');
+
+	// ==== Utility normalization (match ResidentPayment.jsx) ====
+	const toNumber = (value) => Number(value ?? 0);
+
+	const ymKey = (y, m) => `${y}-${String(m).padStart(2, '0')}`;
+
+	const parseMonthToDueDate = (monthKey, fallback) => {
+		if (typeof monthKey === 'string' && monthKey.includes('-')) {
+			const [y, m] = monthKey.split('-').map(Number);
+			if (!isNaN(y) && !isNaN(m)) return new Date(y, m, 0); // last day of month
+		}
+		if (fallback) {
+			const d = new Date(fallback);
+			if (!isNaN(d)) return d;
+		}
+		const now = new Date();
+		return new Date(now.getFullYear(), now.getMonth() + 1, 0);
+	};
+
+	const formatMonthPeriod = (monthKey, fallbackDate) => {
+		if (typeof monthKey === 'string' && monthKey.includes('-')) {
+			const [y, m] = monthKey.split('-').map(Number);
+			if (!isNaN(y) && !isNaN(m)) {
+				return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'short', year: 'numeric' });
+			}
+		}
+		if (fallbackDate) {
+			const d = new Date(fallbackDate);
+			if (!isNaN(d)) return d.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+		}
+		return monthKey || 'N/A';
+	};
+
+	const computeStatus = (balance, dueDate) => {
+		const normalizedBalance = Number(balance || 0);
+		if (normalizedBalance <= 0) return 'paid';
+		const today = new Date(); today.setHours(0, 0, 0, 0);
+		const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+		const sameMonth = due.getFullYear() === today.getFullYear() && due.getMonth() === today.getMonth();
+		if (due < today) return 'overdue';
+		if (sameMonth) return 'pending';
+		return 'upcoming';
+	};
+
+	const deriveTypeLabel = (type) => {
+		const normalized = String(type || '').toLowerCase();
+		if (normalized.includes('street')) return 'Streetlight Fee';
+		return 'Garbage Fee';
+	};
+
+	const normalizeUtilityResponse = (payload) => {
+		if (!payload) return [];
+		const containers = [
+			{ key: 'garbage', type: 'garbage' },
+			{ key: 'garbagePayments', type: 'garbage' },
+			{ key: 'streetlight', type: 'streetlight' },
+			{ key: 'streetlightPayments', type: 'streetlight' },
+			{ key: 'utilityPayments', type: null },
+			{ key: 'gasPayments', type: null },
+			{ key: 'records', type: null },
+			{ key: 'data', type: null },
+		];
+		const merged = [];
+		if (Array.isArray(payload)) return payload.slice();
+		containers.forEach(({ key }) => {
+			const v = payload?.[key];
+			if (!v) return;
+			if (Array.isArray(v)) merged.push(...v);
+			else if (Array.isArray(v?.payments)) merged.push(...v.payments);
+		});
+		return merged;
+	};
+
+	const buildPaymentRecord = (raw) => {
+		const typeLabel = deriveTypeLabel(raw.type);
+		const monthKey = raw.month || raw.period || raw.billingMonth || (raw.dueDate ? ymKey(new Date(raw.dueDate).getFullYear(), new Date(raw.dueDate).getMonth() + 1) : undefined);
+		const dueDate = parseMonthToDueDate(monthKey, raw.dueDate);
+		const amount = toNumber(raw.totalCharge ?? raw.amount ?? raw.charge);
+		const amountPaid = toNumber(raw.amountPaid);
+		const balance = raw.balance !== undefined ? Math.max(toNumber(raw.balance), 0) : Math.max(amount - amountPaid, 0);
+		const status = computeStatus(balance, dueDate);
+		const latestPayment = Array.isArray(raw.payments) && raw.payments.length > 0 ? raw.payments[raw.payments.length - 1] : null;
+		const paymentDateCandidate = raw.completedAt || raw.completedDate || latestPayment?.paidAt || raw.updatedAt || raw.transactionDate;
+		return {
+			id: raw._id || raw.id || `${typeLabel.toLowerCase().replace(/\s+/g, '-')}-${monthKey || Date.now()}`,
+			description: `${typeLabel} — ${formatMonthPeriod(monthKey, raw.dueDate)}`,
+			type: typeLabel,
+			period: formatMonthPeriod(monthKey, raw.dueDate),
+			amount,
+			amountPaid,
+			balance,
+			dueDate: dueDate.toISOString(),
+			paymentDate: paymentDateCandidate ? new Date(paymentDateCandidate).toISOString() : null,
+			status,
+			monthKey: monthKey || `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}`,
+		};
+	};
 
 	// Fetch resident profile first (for filtering)
 	useEffect(() => {
@@ -110,8 +208,11 @@ export default function ResidentBlockchainNetwork() {
 				const res = await fetch(`${API_BASE}/api/resident/payments`, { headers: authHeaders() });
 				if (!res.ok) throw new Error(`Utilities failed (${res.status})`);
 				const data = await res.json();
-				// This endpoint returns an array of UtilityPayment documents for the resident's household
-				setUtilitySummary(Array.isArray(data) ? data : []);
+				const flat = normalizeUtilityResponse(data);
+				const records = flat.map(buildPaymentRecord);
+				// Keep raw for debugging and derived for display
+				setUtilitySummary(Array.isArray(data) ? data : flat);
+				setUtilityRecords(records);
 			} catch (e) { setErrorUtilities(e.message); } finally { setLoadingUtilities(false); }
 		};
 		loadUtilities();
@@ -146,13 +247,35 @@ export default function ResidentBlockchainNetwork() {
 		{ title: 'Updated', dataIndex: 'updatedAt', render: v => v ? new Date(v).toLocaleString() : '-' },
 	];
 
-	// Derive paid months for garbage & streetlight by counting months where balance is 0 OR status 'paid'
-	const totalPaidGarbage = Array.isArray(utilitySummary)
-		? utilitySummary.filter(p => p.type === 'garbage' && (p.status === 'paid' || Number(p.balance) === 0) && p.amountPaid > 0).length
-		: utilitySummary?.garbage?.payments?.filter(p => p.status === 'paid').length || 0;
-	const totalPaidStreet = Array.isArray(utilitySummary)
-		? utilitySummary.filter(p => p.type === 'streetlight' && (p.status === 'paid' || Number(p.balance) === 0) && p.amountPaid > 0).length
-		: utilitySummary?.streetlight?.payments?.filter(p => p.status === 'paid').length || 0;
+	// Match ResidentPayment.jsx semantics using normalized records
+	const garbageRecords = useMemo(() => utilityRecords.filter(r => r.type === 'Garbage Fee'), [utilityRecords]);
+	const streetlightRecords = useMemo(() => utilityRecords.filter(r => r.type === 'Streetlight Fee'), [utilityRecords]);
+	const totalGarbage = garbageRecords.length;
+	const totalStreet = streetlightRecords.length;
+	const totalPaidGarbage = garbageRecords.filter(r => r.status === 'paid').length;
+	const totalPaidStreet = streetlightRecords.filter(r => r.status === 'paid').length;
+
+	// On-chain verification: consider a txn verifies a month if same type keyword and same YYYY-MM
+	const txnKey = (t) => {
+		const created = t.createdAt || t.updatedAt || t.timestamp;
+		const d = created ? new Date(created) : null;
+		const ym = d && !isNaN(d) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
+		const desc = String(t.description || '').toLowerCase();
+		const method = String(t.paymentMethod || '').toLowerCase();
+		const hint = `${desc} ${method}`;
+		const type = hint.includes('street') ? 'Streetlight Fee' : (hint.includes('garbage') ? 'Garbage Fee' : null);
+		return type && ym ? `${type}|${ym}` : null;
+	};
+	const verifiedSet = useMemo(() => {
+		const s = new Set();
+		(transactions || []).forEach(t => {
+			const k = txnKey(t);
+			if (k) s.add(k);
+		});
+		return s;
+	}, [transactions]);
+	const verifiedPaidGarbage = garbageRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
+	const verifiedPaidStreet = streetlightRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
 
 		return (
 			<div className="min-h-screen bg-slate-50">
@@ -211,12 +334,13 @@ export default function ResidentBlockchainNetwork() {
 											<div className="flex-1">
 												<p className="text-xs md:text-sm font-medium text-amber-700">Garbage Paid Months</p>
 												<p className="text-lg md:text-xl font-bold text-amber-900 mt-0.5 md:mt-1">{totalPaidGarbage}</p>
-												<p className="text-[10px] md:text-xs text-amber-600 mt-0.5 md:mt-1">Current year</p>
+												<p className="text-[10px] md:text-xs text-amber-600 mt-0.5 md:mt-1">Verified on-chain: {verifiedPaidGarbage}/{totalPaidGarbage}</p>
 											</div>
 											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
 												<CloudSyncOutlined className="text-amber-600 text-sm md:text-lg" />
 											</div>
 										</div>
+										<div className="text-[10px] md:text-xs text-amber-700">Months Recorded: {totalGarbage}</div>
 									</CardContent>
 								</Card>
 								{/* Streetlight fee */}
@@ -226,12 +350,13 @@ export default function ResidentBlockchainNetwork() {
 											<div className="flex-1">
 												<p className="text-xs md:text-sm font-medium text-purple-700">Streetlight Paid Months</p>
 												<p className="text-lg md:text-xl font-bold text-purple-900 mt-0.5 md:mt-1">{totalPaidStreet}</p>
-												<p className="text-[10px] md:text-xs text-purple-600 mt-0.5 md:mt-1">Current year</p>
+												<p className="text-[10px] md:text-xs text-purple-600 mt-0.5 md:mt-1">Verified on-chain: {verifiedPaidStreet}/{totalPaidStreet}</p>
 											</div>
 											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
 												<ThunderboltOutlined className="text-purple-600 text-sm md:text-lg" />
 											</div>
 										</div>
+										<div className="text-[10px] md:text-xs text-purple-700">Months Recorded: {totalStreet}</div>
 									</CardContent>
 								</Card>
 							</div>
