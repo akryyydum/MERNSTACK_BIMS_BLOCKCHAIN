@@ -215,6 +215,15 @@ exports.delete = async (req, res) => {
       return res.status(404).json({ message: "Document request not found" });
     }
     
+    // Delete associated financial transaction
+    try {
+      await FinancialTransaction.deleteOne({ documentRequestId: id });
+      console.log('Deleted associated financial transaction for document request:', id);
+    } catch (txErr) {
+      console.warn('Error deleting associated financial transaction:', txErr.message);
+      // Non-fatal: continue with deletion
+    }
+    
     // Mirror deletion by setting status 'deleted' (non-blocking)
     setImmediate(async () => {
       try {
