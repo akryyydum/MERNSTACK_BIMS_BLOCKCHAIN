@@ -260,6 +260,21 @@ exports.update = async (req, res) => {
     }
     
     const resident = await Resident.findByIdAndUpdate(id, update, { new: true });
+    
+    // If name fields were updated and resident has a linked user account, update the user's fullName
+    if (resident && resident.user && (update.firstName || update.middleName || update.lastName || update.suffix)) {
+      const fullName = [
+        resident.firstName,
+        resident.middleName,
+        resident.lastName,
+        resident.suffix
+      ].filter(Boolean).join(' ').trim();
+      
+      if (fullName) {
+        await User.findByIdAndUpdate(resident.user, { fullName });
+      }
+    }
+    
     res.json({ message: "Resident updated", resident });
   } catch (err) {
     res.status(500).json({ message: err.message });
