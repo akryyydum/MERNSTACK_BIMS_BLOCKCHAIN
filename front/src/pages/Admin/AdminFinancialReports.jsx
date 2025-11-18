@@ -58,6 +58,7 @@ export default function AdminFinancialReports() {
   const [creating, setCreating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [exportHasData, setExportHasData] = useState(true);
 
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -332,30 +333,46 @@ export default function AdminFinancialReports() {
   // Handle Delete Transaction
   const handleDeleteTransaction = async (record) => {
     try {
-      setDeleting(true);
+      setDeletingId(record.__rowKey || record._id);
       
       console.log('Full record object:', record);
       console.log('record._id:', record._id);
-      console.log('All record keys:', Object.keys(record));
+      console.log('record.mongoId:', record.mongoId);
+      console.log('record.paymentIndex:', record.paymentIndex);
+      console.log('record.isUtilityPayment:', record.isUtilityPayment);
       
-      // For utility payments, the _id is composite like "garbage_MONGOID_INDEX"
-      // We need to extract the actual MongoDB ID from it
-      let mongoId = record._id;
+      // Priority order: use mongoId if available, otherwise extract from _id
+      let mongoId = record.mongoId || record._id;
+      let paymentIndex = record.paymentIndex;
       
-      // Check if it's a composite ID (utility payment format)
+      // Check if this is a composite ID (utility payment or other prefixed format)
       if (typeof mongoId === 'string' && mongoId.includes('_')) {
-        // Split by underscore and get the middle part (the actual MongoDB ID)
         const parts = mongoId.split('_');
-        if (parts.length >= 2) {
-          // The MongoDB ID is the second part (index 1)
+        
+        // Handle different composite ID formats:
+        // 1. "garbage_MONGOID_INDEX" or "streetlight_MONGOID_INDEX" (utility payments with index)
+        // 2. "document_MONGOID" (document fees without index)
+        // 3. Other formats
+        
+        if (parts.length === 3 && (parts[0] === 'garbage' || parts[0] === 'streetlight')) {
+          // Utility payment with index: type_mongoId_index
           mongoId = parts[1];
-          console.log('Extracted MongoDB ID from composite:', mongoId);
+          if (paymentIndex === undefined) {
+            paymentIndex = parseInt(parts[2]);
+          }
+          console.log('Extracted utility payment - MongoDB ID:', mongoId, 'Payment Index:', paymentIndex);
+        } else if (parts.length === 2) {
+          // Simple prefix format: type_mongoId (e.g., document_mongoId)
+          mongoId = parts[1];
+          console.log('Extracted from prefixed ID - MongoDB ID:', mongoId);
+        } else {
+          console.warn('Unknown composite ID format:', mongoId);
         }
       }
 
       if (!mongoId) {
         message.error('Missing transaction ID. Please refresh and try again.');
-        setDeleting(false);
+        setDeletingId(null);
         return;
       }   
 
@@ -363,21 +380,25 @@ export default function AdminFinancialReports() {
       if (!objectIdRegex.test(mongoId)) {
         console.error('Invalid MongoDB ID format:', mongoId);
         message.error('Invalid transaction ID format. Cannot delete.');
-        setDeleting(false);
+        setDeletingId(null);
         return;
       }
 
       console.log('Deleting transaction with MongoDB _id:', mongoId);
 
-      const response = await axios.delete(
-        `${API_BASE}/api/admin/financial/transactions/${mongoId}`, 
-        { headers: authHeaders() }
-      );
+      // Build URL with paymentIndex query param if it's a utility payment
+      let deleteUrl = `${API_BASE}/api/admin/financial/transactions/${mongoId}`;
+      if (record.isUtilityPayment && paymentIndex !== undefined && !isNaN(paymentIndex)) {
+        deleteUrl += `?paymentIndex=${paymentIndex}`;
+        console.log('Adding paymentIndex to delete URL:', paymentIndex);
+      }
+
+      const response = await axios.delete(deleteUrl, { headers: authHeaders() });
       
       console.log('Delete response:', response.data);
       
       message.success('Transaction deleted successfully!');
-      setSelectedRowKeys((prev) => prev.filter((key) => key !== record._id));
+      setSelectedRowKeys((prev) => prev.filter((key) => key !== record.__rowKey));
       await fetchDashboard();
       await fetchTransactions();
     } catch (error) {
@@ -387,7 +408,7 @@ export default function AdminFinancialReports() {
         'Failed to delete transaction'
       );
     } finally {
-      setDeleting(false);
+      setDeletingId(null);
     }
   };
 
@@ -572,7 +593,7 @@ export default function AdminFinancialReports() {
             <Button
               size="small"
               danger
-              loading={deleting}
+              loading={deletingId === (record.__rowKey || record._id)}
             >
               Delete
             </Button>

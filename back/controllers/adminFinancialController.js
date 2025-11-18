@@ -287,6 +287,8 @@ const getTransactions = async (req, res) => {
         
         return {
           _id: `${payment.type}_${payment._id}_${index}`,
+          mongoId: payment._id.toString(), // MongoDB ID of the UtilityPayment document
+          paymentIndex: index, // Index of the specific payment entry
           transactionId: `${payment.type.toUpperCase()}-${payment.month}-${payment.household?._id?.toString().slice(-6).toUpperCase() || 'UNKNOWN'}`,
           type: transactionType,
           category: 'revenue',
@@ -699,9 +701,11 @@ const updateTransaction = async (req, res) => {
 const deleteTransaction = async (req, res) => {
   try {
     const { id } = req.params;
+    const { paymentIndex } = req.query; // Get payment index from query params if it's a utility payment
     
     console.log('=== BACKEND DELETE RECEIVED ===');
     console.log('DELETE request received for ID:', id);
+    console.log('Payment Index:', paymentIndex);
     console.log('Request method:', req.method);
     console.log('Request URL:', req.originalUrl);
     console.log('User:', req.user?.id || 'No user');
@@ -715,7 +719,47 @@ const deleteTransaction = async (req, res) => {
     
     console.log('✓ Valid ObjectId format');
     
-    // Try UtilityPayment collection first
+    // If paymentIndex is provided, this is a utility payment entry deletion
+    if (paymentIndex !== undefined && paymentIndex !== null) {
+      console.log('→ Deleting specific payment entry from UtilityPayment...');
+      const utilityPayment = await UtilityPayment.findById(id);
+      
+      if (!utilityPayment) {
+        console.log('❌ UtilityPayment document not found');
+        return res.status(404).json({ message: 'Utility payment not found' });
+      }
+      
+      const index = parseInt(paymentIndex);
+      if (isNaN(index) || index < 0 || index >= utilityPayment.payments.length) {
+        console.log('❌ Invalid payment index');
+        return res.status(400).json({ message: 'Invalid payment index' });
+      }
+      
+      // Remove the specific payment entry
+      const removedPayment = utilityPayment.payments[index];
+      utilityPayment.payments.splice(index, 1);
+      
+      // Recalculate totalAmountPaid
+      utilityPayment.totalAmountPaid = utilityPayment.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      
+      // If no payments left, delete the entire document
+      if (utilityPayment.payments.length === 0) {
+        await UtilityPayment.findByIdAndDelete(id);
+        console.log('✅ DELETED entire UtilityPayment (no payments remaining)');
+      } else {
+        await utilityPayment.save();
+        console.log('✅ REMOVED payment entry from UtilityPayment');
+      }
+      
+      return res.json({ 
+        success: true,
+        message: 'Payment entry deleted successfully',
+        deletedFrom: 'UtilityPayment',
+        deletedPaymentAmount: removedPayment.amount
+      });
+    }
+    
+    // Try UtilityPayment collection (full document deletion)
     console.log('→ Searching UtilityPayment collection...');
     let deletedRecord = await UtilityPayment.findByIdAndDelete(id);
     
@@ -725,7 +769,7 @@ const deleteTransaction = async (req, res) => {
         id: deletedRecord._id,
         type: deletedRecord.type,
         month: deletedRecord.month,
-        amountPaid: deletedRecord.amountPaid
+        totalAmountPaid: deletedRecord.totalAmountPaid
       });
       return res.json({ 
         success: true,
@@ -756,13 +800,33 @@ const deleteTransaction = async (req, res) => {
       });
     }
     
+    console.log('→ Not found in FinancialTransaction, trying DocumentRequest...');
+    
+    // Try DocumentRequest collection
+    deletedRecord = await DocumentRequest.findByIdAndDelete(id);
+    
+    if (deletedRecord) {
+      console.log('✅ DELETED from DocumentRequest collection');
+      console.log('Deleted record details:', {
+        id: deletedRecord._id,
+        documentType: deletedRecord.documentType,
+        amount: deletedRecord.amount
+      });
+      return res.json({ 
+        success: true,
+        message: 'Document request transaction deleted successfully',
+        deletedFrom: 'DocumentRequest',
+        deletedId: id
+      });
+    }
+    
     console.log('❌ Record not found in any collection');
     console.log('Searched ID:', id);
     
     return res.status(404).json({ 
       message: 'Transaction not found',
       searchedId: id,
-      searchedCollections: ['UtilityPayment', 'FinancialTransaction']
+      searchedCollections: ['UtilityPayment', 'FinancialTransaction', 'DocumentRequest']
     });
     
   } catch (error) {
