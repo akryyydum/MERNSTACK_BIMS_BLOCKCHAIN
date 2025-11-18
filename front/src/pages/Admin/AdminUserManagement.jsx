@@ -543,6 +543,7 @@ export default function AdminUserManagement() {
           <Popconfirm
             title="Delete user?"
             description="This action cannot be undone."
+            okText="Delete"
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(r._id)}
           >
@@ -822,7 +823,7 @@ export default function AdminUserManagement() {
             >
               <Input 
                 autoComplete="off" 
-                placeholder="Username (min. 6 characters)"
+                placeholder="Username (minimum of 6 characters)"
                 onChange={(e) => {
                   const username = e.target.value;
                   if (username) {
@@ -925,7 +926,7 @@ export default function AdminUserManagement() {
               ]}
             >
               <Input 
-                placeholder="Username (min. 6 characters)"
+                placeholder="Username (minimum of 6 characters)"
                 onChange={(e) => {
                   const username = e.target.value;
                   if (username && username !== editingUser?.username) {

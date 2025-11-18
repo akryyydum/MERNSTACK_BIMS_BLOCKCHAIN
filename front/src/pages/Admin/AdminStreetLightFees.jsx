@@ -222,7 +222,9 @@ export default function AdminStreetLightFees() {
     try {
       setLoading(true);
       const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
-      setHouseholds(res.data || []);
+      // Show most recently added household first
+      const data = Array.isArray(res.data) ? res.data.slice().reverse() : [];
+      setHouseholds(data);
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to load households");
     } finally {
@@ -1429,7 +1431,7 @@ export default function AdminStreetLightFees() {
     return exportData;
   };
 
-  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
+  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName, p?.suffix].filter(Boolean).join(" ");
 
   // Get all members with their household info for searching - memoized for performance
   const allMembersWithHousehold = useMemo(() => {
@@ -1591,14 +1593,14 @@ export default function AdminStreetLightFees() {
             <Button size="small" onClick={() => openPaymentHistory(r)}>History</Button>
             {hasPayments && (
               <Popconfirm
-                title="Delete Payment Records"
+                title="Reset Payment Records"
                 description={`Delete ALL payment records for ${r.householdId}? This will reset them to unpaid status.`}
                 onConfirm={() => deleteHouseholdPayments(r)}
-                okText="Delete"
+                okText="Reset"
                 cancelText="Cancel"
                 okType="danger"
               >
-                <Button size="small" danger title="Delete all payment records for this household">Reset</Button>
+                <Button size="small" danger title="Reset all payment records for this household">Reset</Button>
               </Popconfirm>
             )}
           </div>
@@ -2185,13 +2187,15 @@ export default function AdminStreetLightFees() {
               Record Streetlight Payment
             </Button>
           ]}
-          width={850}
+          width={1300}
+          centered
+          style={{ top: 20 }}
         >
           <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
-            <Form.Item label="Fee Type" className="mb-3">
+            <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Streetlight Maintenance Fee" size="small" />
             </Form.Item>
-            <div className="space-y-2 p-3 bg-gray-50 rounded-lg mb-3">
+            <div className="space-y-1 p-2 bg-gray-50 rounded-lg mb-2">
               <div className="text-sm font-semibold text-gray-700">Fee Information</div>
               <div className="text-sm text-gray-600">
                 <span className="font-medium">Monthly Rate:</span> ₱{Number(getStreetlightMonthlyFee()).toFixed(2)} (current effective)
@@ -2211,7 +2215,7 @@ export default function AdminStreetLightFees() {
               name="selectedMonths"
               label="Select Months to Pay"
               rules={[{ required: true, message: "Select at least one month" }]}
-              className="mb-3"
+              className="mb-2"
             >
               <div className="mb-2">
                 <label className="block text-xs text-gray-600 mb-1">Year</label>
@@ -2362,25 +2366,27 @@ export default function AdminStreetLightFees() {
                 </div>
               </div>
             </Form.Item>
-            <Form.Item
-              name="totalCharge"
-              label={`Total Charge (${selectedMonths.length} month${selectedMonths.length !== 1 ? 's' : ''})`}
-              rules={[{ required: true, message: "Total charge calculated automatically" }]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" disabled size="small" />
-            </Form.Item>
-            <Form.Item
-              name="amount"
-              label="Amount to Pay"
-              rules={[{ required: true, message: "Enter amount to pay" }]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" min={0} step={10} size="small" />
-            </Form.Item>
-            <Form.Item name="method" label="Payment Method" className="mb-3">
-              <Input value="Cash" disabled size="small" />
-            </Form.Item>
+            <div className="grid grid-cols-3 gap-3 mb-1">
+              <Form.Item
+                name="totalCharge"
+                label={`Total Charge (${selectedMonths.length} month${selectedMonths.length !== 1 ? 's' : ''})`}
+                rules={[{ required: true, message: "Total charge calculated automatically" }]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" disabled size="small" />
+              </Form.Item>
+              <Form.Item
+                name="amount"
+                label="Amount to Pay"
+                rules={[{ required: true, message: "Enter amount to pay" }]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" min={0} step={10} size="small" />
+              </Form.Item>
+              <Form.Item name="method" label="Payment Method" className="mb-0">
+                <Input value="Cash" disabled size="small" />
+              </Form.Item>
+            </div>
             {selectedMonths.length > 0 && (
               <div className="p-2 rounded border border-blue-200 bg-blue-50 text-sm">
                 <div className="font-semibold text-blue-800 mb-1">Payment Summary:</div>
@@ -2388,9 +2394,6 @@ export default function AdminStreetLightFees() {
                   <div>Selected Months: {selectedMonths.length}</div>
                   <div>Fee per Month: ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}</div>
                   <div>Total Amount: ₱{(selectedMonths.length * Number(getStreetlightMonthlyFee())).toFixed(2)}</div>
-                  <div className="text-xs text-blue-600 mt-1">
-                    {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
-                  </div>
                 </div>
               </div>
             )}
@@ -2450,18 +2453,20 @@ export default function AdminStreetLightFees() {
               Record Payment for Both
             </Button>
           ]}
-          width={850}
+          width={1300}
+          centered
+          style={{ top: 20 }}
         >
           <Form form={garbageForm} layout="vertical" initialValues={{ method: "Cash" }}>
-            <Form.Item label="Fee Type" className="mb-3">
+            <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Garbage Collection Fee" size="small" />
             </Form.Item>
             <Form.Item
               name="hasBusiness"
               label="Business Status"
-              className="mb-3"
+              className="mb-2"
             >
-              <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+              <div className="space-y-1 p-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <input 
                     type="radio" 
@@ -2497,7 +2502,7 @@ export default function AdminStreetLightFees() {
               name="selectedMonths"
               label="Select Months to Pay"
               rules={[{ required: true, message: "Select at least one month" }]}
-              className="mb-3"
+              className="mb-2"
             >
               <div className="mb-2">
                 <label className="block text-xs text-gray-600 mb-1">Year</label>
@@ -2648,43 +2653,45 @@ export default function AdminStreetLightFees() {
                 </div>
               </div>
             </Form.Item>
-            <Form.Item
-              name="totalCharge"
-              label={`Total Charge (${garbageSelectedMonths.length} month${garbageSelectedMonths.length !== 1 ? 's' : ''})`}
-              rules={[{ required: true, message: "Total charge calculated automatically" }]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" disabled size="small" />
-            </Form.Item>
-            <Form.Item
-              name="amount"
-              label="Amount to Pay"
-              rules={[
-                { required: true, message: "Enter amount to pay" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    const total = Number(getFieldValue("totalCharge") || 0);
-                    if (value === undefined) return Promise.reject();
-                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
-                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
-                    if (Number(value) > total + 1e-6) {
-                      return Promise.reject(new Error("Amount cannot exceed total charge"));
-                    }
-                    return Promise.resolve();
-                  },
-                }),
-              ]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" min={0} step={50} size="small" />
-            </Form.Item>
-            <Form.Item name="method" label="Payment Method" className="mb-3">
-              <Input value="Cash" disabled size="small" />
-            </Form.Item>
+            <div className="grid grid-cols-3 gap-3 mb-1">
+              <Form.Item
+                name="totalCharge"
+                label={`Total Charge (${garbageSelectedMonths.length} month${garbageSelectedMonths.length !== 1 ? 's' : ''})`}
+                rules={[{ required: true, message: "Total charge calculated automatically" }]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" disabled size="small" />
+              </Form.Item>
+              <Form.Item
+                name="amount"
+                label="Amount to Pay"
+                rules={[
+                  { required: true, message: "Enter amount to pay" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const total = Number(getFieldValue("totalCharge") || 0);
+                      if (value === undefined) return Promise.reject();
+                      if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                      if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                      if (Number(value) > total + 1e-6) {
+                        return Promise.reject(new Error("Amount cannot exceed total charge"));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" min={0} step={50} size="small" />
+              </Form.Item>
+              <Form.Item name="method" label="Payment Method" className="mb-0">
+                <Input value="Cash" disabled size="small" />
+              </Form.Item>
+            </div>
 
             {garbageSelectedMonths.length > 0 && (
-              <div className="p-3 rounded-lg border border-green-300 bg-green-50 text-sm">
-                <div className="font-semibold text-green-800 mb-3 text-center">Combined Payment Summary</div>
+              <div className="p-2 rounded-lg border border-green-300 bg-green-50 text-sm">
+                <div className="font-semibold text-green-800 mb-2 text-center">Combined Payment Summary</div>
                 
                 {/* Streetlight Payment Section */}
                 {selectedMonths.length > 0 && (
@@ -2730,54 +2737,58 @@ export default function AdminStreetLightFees() {
 
         {/* View Household Modal */}
         <Modal
-          title={`Household Details${viewHousehold ? ` — ${viewHousehold.householdId}` : ""}`}
+          title="Household Details"
           open={viewOpen}
-          onCancel={() => {
-            setViewOpen(false);
-            setViewHousehold(null);
-          }}
+          onCancel={() => setViewOpen(false)}
           footer={null}
-          width={600}
+          width={700}
         >
           {viewHousehold && (
-            <Descriptions column={1} bordered>
-              <Descriptions.Item label="Household ID">
-                {viewHousehold.householdId}
-              </Descriptions.Item>
+            <Descriptions bordered column={1} size="middle">
+              <Descriptions.Item label="Household ID">{viewHousehold.householdId}</Descriptions.Item>
               <Descriptions.Item label="Head of Household">
-                {fullName(viewHousehold.headOfHousehold)}
+                {fullName(viewHousehold.headOfHousehold) || "Not specified"}
               </Descriptions.Item>
-              <Descriptions.Item label="Address">
-                {`${viewHousehold.address?.street || ""}, ${viewHousehold.address?.purok || ""}, ${viewHousehold.address?.barangay || ""}`}
+              <Descriptions.Item label="Purok">
+                {viewHousehold.address?.purok || "N/A"}
               </Descriptions.Item>
-              <Descriptions.Item label="Monthly Fee">
-                ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}{getStreetlightEffectiveMonth() ? ` (effective ${dayjs(getStreetlightEffectiveMonth()+'-01').format('MMM YYYY')})` : ''}
+              <Descriptions.Item label="Members Count">
+                {viewHousehold.members?.length || 0}
               </Descriptions.Item>
-              <Descriptions.Item label="Last Payment">
-                {viewHousehold.streetlightFee?.lastPaymentDate 
-                  ? dayjs(viewHousehold.streetlightFee.lastPaymentDate).format("MM/DD/YYYY")
-                  : "No payments recorded"
-                }
+              <Descriptions.Item label="Current Streetlight Fee">
+                ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}/month
               </Descriptions.Item>
               <Descriptions.Item label="Payment Status">
                 {(() => {
-                  // Use the same logic as the main table for payment status
-                  const currentYear = streetlightYear;
-                  let allPaid = true;
-                  let anyPaid = false;
+                  // Calculate overall payment status for current year
+                  const monthlyRate = getStreetlightMonthlyFee();
+                  const currentYear = dayjs().year();
+                  let totalExpected = 0;
+                  let totalPaid = 0;
+                  
+                  // Check all months of current year
                   for (let month = 1; month <= 12; month++) {
                     const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
-                    const monthPayment = streetlightPayments.find(payment => {
-                      const h1 = payment.household?._id || payment.household;
-                      const h2 = viewHousehold._id;
-                      return String(h1) === String(h2) && payment.month === monthStr;
-                    });
-                    if (!monthPayment || monthPayment.status !== 'paid') allPaid = false;
-                    if (monthPayment && (monthPayment.status === 'paid' || monthPayment.status === 'partial')) anyPaid = true;
+                    totalExpected += monthlyRate;
+                    
+                    const monthPayment = streetlightPayments.find(payment => 
+                      payment.household?._id === viewHousehold._id && payment.month === monthStr
+                    );
+                    
+                    if (monthPayment) {
+                      totalPaid += Number(monthPayment.amountPaid || 0);
+                    }
                   }
-                  if (allPaid) return <Tag color="green">Fully Paid</Tag>;
-                  if (anyPaid) return <Tag color="orange">Partially Paid</Tag>;
-                  return <Tag color="red">Unpaid</Tag>;
+                  
+                  const balance = totalExpected - totalPaid;
+                  
+                  if (balance <= 0) {
+                    return <Tag color="green">Fully Paid</Tag>;
+                  } else if (totalPaid > 0) {
+                    return <Tag color="orange">Partially Paid</Tag>;
+                  } else {
+                    return <Tag color="red">Unpaid</Tag>;
+                  }
                 })()}
               </Descriptions.Item>
             </Descriptions>

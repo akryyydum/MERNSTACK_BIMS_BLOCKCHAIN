@@ -539,6 +539,7 @@ export default function HouseholdManagement() {
           <Popconfirm
             title="Delete household?"
             description="This action cannot be undone."
+            okText="Delete"
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(r._id)}
           >
