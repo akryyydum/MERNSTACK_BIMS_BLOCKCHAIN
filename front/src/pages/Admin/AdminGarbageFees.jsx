@@ -143,21 +143,37 @@ export default function AdminGarbageFees() {
     }
   }, [streetlightYear]);
 
-  // Validate export data availability when modal opens
-  useEffect(() => {
+  // Validate export data availability when modal opens or form values change
+  const validateExportData = () => {
     if (!exportOpen) return;
 
-    const validateExportData = () => {
-      const formValues = exportForm.getFieldsValue();
-      const { exportType, paymentStatus } = formValues;
+    const formValues = exportForm.getFieldsValue();
+    const { paymentStatus, purokFilter } = formValues;
 
-      if (households && households.length > 0) {
-        setExportHasData(true);
-      } else {
-        setExportHasData(false);
-      }
-    };
+    // Filter households by purok if specified
+    let filteredHouseholds = households || [];
+    if (purokFilter && purokFilter !== 'all') {
+      filteredHouseholds = filteredHouseholds.filter(h => h.address?.purok === purokFilter);
+    }
 
+    // Further filter by payment status if needed (basic check)
+    if (paymentStatus === 'paid') {
+      // Check if there are any households with payments
+      const hasAnyPaid = filteredHouseholds.some(h => {
+        const payments = garbagePayments.filter(p => p.household?.householdId === h.householdId);
+        return payments.some(p => p.amountPaid > 0);
+      });
+      setExportHasData(hasAnyPaid);
+    } else if (paymentStatus === 'unpaid') {
+      // For unpaid, we need at least some households
+      setExportHasData(filteredHouseholds.length > 0);
+    } else {
+      // For 'all', just check if we have households
+      setExportHasData(filteredHouseholds.length > 0);
+    }
+  };
+
+  useEffect(() => {
     validateExportData();
   }, [exportOpen, households, garbagePayments, exportForm]);
 
@@ -1248,7 +1264,11 @@ export default function AdminGarbageFees() {
       }
 
       if (exportData.length === 0) {
-        message.warning('No data available for export');
+        Modal.warning({
+          title: 'No Data Available',
+          content: 'There is no data matching your selected filters to export. Please adjust your filter criteria and try again.',
+          okText: 'OK'
+        });
         return;
       }
 
@@ -2954,9 +2974,14 @@ export default function AdminGarbageFees() {
             form={exportForm}
             layout="vertical"
             onFinish={exportToExcel}
+            onValuesChange={() => {
+              // Re-validate when form values change
+              setTimeout(() => validateExportData(), 100);
+            }}
             initialValues={{
               exportType: 'current-month',
-              paymentStatus: 'all'
+              paymentStatus: 'all',
+              purokFilter: 'all'
             }}
           >
             <Form.Item
@@ -2964,14 +2989,7 @@ export default function AdminGarbageFees() {
               label="Export Type"
               rules={[{ required: true, message: 'Please select export type' }]}
             >
-              <Select 
-                placeholder="Select what to export"
-                onChange={(value) => {
-                  // Always validate based on households
-                  const hasData = households && households.length > 0;
-                  setExportHasData(hasData);
-                }}
-              >
+              <Select placeholder="Select what to export">
                 <Select.Option value="current-month">Current Month</Select.Option>
                 <Select.Option value="chosen-month">Chosen Month</Select.Option>
                 <Select.Option value="whole-year">Whole Year</Select.Option>
@@ -2983,14 +3001,7 @@ export default function AdminGarbageFees() {
               label="Payment Status"
               rules={[{ required: true, message: 'Please select payment status' }]}
             >
-              <Select 
-                placeholder="Select payment status to export"
-                onChange={(value) => {
-                  // Always validate based on households
-                  const hasData = households && households.length > 0;
-                  setExportHasData(hasData);
-                }}
-              >
+              <Select placeholder="Select payment status to export">
                 <Select.Option value="all">All (Paid and Unpaid)</Select.Option>
                 <Select.Option value="paid">Paid Only</Select.Option>
                 <Select.Option value="unpaid">Unpaid Only</Select.Option>
@@ -3004,10 +3015,6 @@ export default function AdminGarbageFees() {
               <Select 
                 placeholder="Select purok or leave as All"
                 allowClear
-                onChange={() => {
-                  const hasData = households && households.length > 0;
-                  setExportHasData(hasData);
-                }}
               >
                 <Select.Option value="all">All Puroks</Select.Option>
                 <Select.Option value="Purok 1">Purok 1</Select.Option>

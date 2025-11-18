@@ -331,6 +331,70 @@ export default function AdminFinancialReports() {
   };
 
   // Handle Delete Transaction
+  const handleDeleteResidentTransactions = async (record) => {
+    try {
+      setDeletingId(record.__rowKey);
+      
+      let successCount = 0;
+      let failCount = 0;
+
+      // Delete each transaction individually based on its type
+      for (const tx of record.transactions) {
+        try {
+          let mongoId = tx.mongoId || tx._id;
+          let paymentIndex = tx.paymentIndex;
+          
+          // Handle composite IDs
+          if (typeof mongoId === 'string' && mongoId.includes('_')) {
+            const parts = mongoId.split('_');
+            
+            if (parts.length === 3 && (parts[0] === 'garbage' || parts[0] === 'streetlight')) {
+              // Utility payment with index: type_mongoId_index
+              mongoId = parts[1];
+              if (paymentIndex === undefined) {
+                paymentIndex = parseInt(parts[2]);
+              }
+            } else if (parts.length === 2) {
+              // Simple prefix format: type_mongoId (e.g., document_mongoId)
+              mongoId = parts[1];
+            }
+          }
+
+          if (!mongoId || !objectIdRegex.test(mongoId)) {
+            console.warn('Skipping invalid transaction ID:', tx);
+            failCount++;
+            continue;
+          }
+
+          // Build URL with paymentIndex query param if it's a utility payment
+          let deleteUrl = `${API_BASE}/api/admin/financial/transactions/${mongoId}`;
+          if (tx.isUtilityPayment && paymentIndex !== undefined && !isNaN(paymentIndex)) {
+            deleteUrl += `?paymentIndex=${paymentIndex}`;
+          }
+
+          await axios.delete(deleteUrl, { headers: authHeaders() });
+          successCount++;
+        } catch (error) {
+          console.error('Error deleting transaction:', tx, error);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        message.success(`Successfully deleted ${successCount} transaction(s) for ${record.residentName}${failCount > 0 ? ` (${failCount} failed)` : ''}`);
+        await fetchDashboard();
+        await fetchTransactions();
+      } else {
+        message.error('Failed to delete any transactions');
+      }
+    } catch (error) {
+      console.error('Delete resident transactions error:', error);
+      message.error(error?.response?.data?.message || 'Failed to delete transactions');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleDeleteTransaction = async (record) => {
     try {
       setDeletingId(record.__rowKey || record._id);
@@ -516,9 +580,30 @@ export default function AdminFinancialReports() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 150,
       render: (_, record) => (
-        <span className="text-gray-500 text-xs">Expand to see details</span>
+        <div className="flex gap-2">
+          <span className="text-gray-500 text-xs">Expand to see details</span>
+          {record.residentName !== 'No Resident' && (
+            <Popconfirm
+              title="Delete All Transactions"
+              description={`Are you sure you want to delete all ${record.transactionCount} transaction(s) for ${record.residentName}?`}
+              onConfirm={() => handleDeleteResidentTransactions(record)}
+              okText="Yes, Delete All"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                loading={deletingId === record.__rowKey}
+              >
+                Delete All
+              </Button>
+            </Popconfirm>
+          )}
+        </div>
       )
     }
   ];
@@ -1162,12 +1247,8 @@ export default function AdminFinancialReports() {
                  (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
               </Descriptions.Item>  
               <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
-              <Descriptions.Item label="Reference Number">{viewTransaction.referenceNumber || '-'}</Descriptions.Item>
               <Descriptions.Item label="Transaction Date">
                 {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Blockchain Hash">
-                {viewTransaction.blockchain?.hash || 'Not recorded'}
               </Descriptions.Item>
               <Descriptions.Item label="Blockchain Verified">
                 {viewTransaction.blockchain?.verified ? 
