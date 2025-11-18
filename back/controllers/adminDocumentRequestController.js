@@ -8,9 +8,9 @@ const { getContract } = require('../utils/fabricClient');
 exports.list = async (req, res) => {
   try {
     const requests = await DocumentRequest.find({})
-      .populate('residentId', 'firstName lastName')
-      .populate('requestedBy', 'firstName lastName')
-      .populate('requestFor', 'firstName lastName')
+      .populate('residentId', 'firstName middleName lastName suffix civilStatus address')
+      .populate('requestedBy', 'firstName middleName lastName suffix civilStatus address')
+      .populate('requestFor', 'firstName middleName lastName suffix civilStatus address')
       .sort({ requestedAt: -1 })
       .lean();
 
@@ -38,9 +38,9 @@ exports.approve = async (req, res) => {
       },
       { new: true }
     )
-    .populate('residentId', 'firstName lastName')
-    .populate('requestedBy', 'firstName lastName')
-    .populate('requestFor', 'firstName lastName')
+    .populate('residentId', 'firstName middleName lastName suffix civilStatus address')
+    .populate('requestedBy', 'firstName middleName lastName suffix civilStatus address')
+    .populate('requestFor', 'firstName middleName lastName suffix civilStatus address')
     .lean();
 
     if (!request) {
@@ -157,9 +157,9 @@ exports.deny = async (req, res) => {
       },
       { new: true }
     )
-    .populate('residentId', 'firstName lastName')
-    .populate('requestedBy', 'firstName lastName')
-    .populate('requestFor', 'firstName lastName')
+    .populate('residentId', 'firstName middleName lastName suffix civilStatus address')
+    .populate('requestedBy', 'firstName middleName lastName suffix civilStatus address')
+    .populate('requestFor', 'firstName middleName lastName suffix civilStatus address')
     .lean();
 
     if (!request) {
@@ -336,9 +336,9 @@ exports.create = async (req, res) => {
 
     // 3️⃣ Respond with populated MongoDB entry (limited fields for speed)
     const populatedRequest = await DocumentRequest.findById(newRequest._id)
-      .populate('residentId', 'firstName lastName')
-      .populate('requestedBy', 'firstName lastName')
-      .populate('requestFor', 'firstName lastName')
+      .populate('residentId', 'firstName middleName lastName suffix civilStatus address')
+      .populate('requestedBy', 'firstName middleName lastName suffix civilStatus address')
+      .populate('requestFor', 'firstName middleName lastName suffix civilStatus address')
       .lean();
 
     res.status(201).json(populatedRequest);
@@ -386,9 +386,9 @@ exports.completeRequest = async (req, res) => {
       updateData,
       { new: true }
     )
-    .populate('residentId', 'firstName lastName')
-    .populate('requestedBy', 'firstName lastName')
-    .populate('requestFor', 'firstName lastName')
+    .populate('residentId', 'firstName middleName lastName suffix civilStatus address')
+    .populate('requestedBy', 'firstName middleName lastName suffix civilStatus address')
+    .populate('requestFor', 'firstName middleName lastName suffix civilStatus address')
     .lean();
 
     if (!request) {
