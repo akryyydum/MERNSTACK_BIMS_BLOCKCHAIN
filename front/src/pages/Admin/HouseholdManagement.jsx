@@ -1219,19 +1219,19 @@ export default function HouseholdManagement() {
 
             {!exportHasData && (
               <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
-                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="font-semibold">No data matches the selected filters</p>
                 <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
               </div>
             )}
 
-            <div className="text-sm text-gray-600 mt-4 p-3 bg-gray-50 rounded">
+            <div className="text-sm text-gray-500 mt-2">
               <strong>Export Format:</strong>
               <ul className="list-disc ml-5 mt-2">
-                <li>HOUSEHOLD ID, PUROK, ROLE</li>
-                <li>LAST NAME, FIRST NAME, MIDDLE NAME, EXT</li>
-                <li>PLACE OF BIRTH, DATE OF BIRTH, AGE</li>
-                <li>SEX, CIVIL STATUS, CITIZENSHIP</li>
-                <li>OCCUPATION, SEC. INFO</li>
+                <li>Household ID, Purok, Role</li>
+                <li>Personal Information (Last Name, First Name, Middle Name, Suffix)</li>
+                <li>Place of Birth, Date of Birth, Age</li>
+                <li>Sex, Civil Status, Citizenship</li>
+                <li>Occupation, Sectoral Information</li>
               </ul>
               
               <Form.Item noStyle shouldUpdate>

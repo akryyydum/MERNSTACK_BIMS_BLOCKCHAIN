@@ -1584,11 +1584,13 @@ export default function AdminResidentManagement() {
             )}
             
             <div className="text-sm text-gray-500 mt-2">
-              <p><strong>Export includes:</strong></p>
+              <p><strong>Export Format:</strong></p>
               <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Personal information (name, sex, age, birth date)</li>
+                <li>Personal Information (Last Name, First Name, Middle Name, Suffix)</li>
+                <li>Place of Birth, Date of Birth, Age</li>
                 <li>Contact details (mobile, email)</li>
-                <li>Address information</li>
+                <li>Sex, Civil Status, Citizenship</li>
+                <li>Occupation, Sectoral Information</li>
               </ul>
             </div>
           </Form>

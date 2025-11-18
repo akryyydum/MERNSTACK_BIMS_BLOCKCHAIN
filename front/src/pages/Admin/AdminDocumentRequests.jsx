@@ -302,7 +302,7 @@ export default function AdminDocumentRequests() {
               title="Delete All Requests"
               description={`Are you sure you want to delete all ${record.totalRequests} request(s) for ${record.residentName}?`}
               onConfirm={() => handleDeleteAllRequests(record)}
-              okText="Yes, Delete All"
+              okText="Delete"
               cancelText="Cancel"
               okButtonProps={{ danger: true }}
             >
@@ -391,7 +391,16 @@ export default function AdminDocumentRequests() {
                   handleAction(r._id, 'accept');
                 }
               }}>Accept</Button>
-              <Button size="small" danger onClick={() => handleAction(r._id, 'decline')}>Decline</Button>
+              <Popconfirm
+                title="Reject this request?"
+                description="This action cannot be undone."
+                okText="Reject"
+                okButtonProps={{ danger: true }}
+                cancelText="Cancel"
+                onConfirm={() => handleAction(r._id, 'decline')}
+              >
+                <Button size="small" danger>Decline</Button>
+              </Popconfirm>
             </>
           )}
           {r.status === "accepted" && (
@@ -952,7 +961,6 @@ const handleExport = async () => {
           Purok: r.residentId?.address?.purok || "-",
           DocumentType: r.documentType,
           Purpose: r.purpose || "",
-          Status: r.status,
           BusinessName: r.documentType === "Business Clearance" ? (r.businessName || "") : "",
           RequestedAt: r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
           UpdatedAt: r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
@@ -1452,8 +1460,8 @@ const handleExport = async () => {
               </Form.Item>
             )}
 
-            <Form.Item name="purpose" label="Purpose" rules={[{ required: true, message: "Please state the purpose of the document" }]}>
-              <Input placeholder="State their purpose"/>
+            <Form.Item name="purpose" label="Purpose" rules={[{ required: true, message: "Please state the purpose of the document" }]}> 
+              <Input.TextArea placeholder="State the purpose of the document request" autoSize={{ minRows: 3, maxRows: 6 }} />
             </Form.Item>
           </Form>
         </Modal>
@@ -1684,15 +1692,30 @@ const handleExport = async () => {
               <DatePicker
                 className="w-full"
                 picker={exportRangeType === "day" ? "date" : exportRangeType}
+                disabledDate={date => {
+                  if (exportRangeType === 'month') {
+                    // Disable months after the current month
+                    return date > dayjs().endOf('month');
+                  }
+                  return false;
+                }}
               />
             </Form.Item>
-            
             {!exportHasData && (
               <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mt-3">
-                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="font-semibold">No data matches the selected filters</p>
                 <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
               </div>
             )}
+            <div className="text-sm text-gray-500 mt-6">
+              <strong>Export Format:</strong>
+              <ul className="list-disc ml-5 mt-2">
+                <li>Resident Name (Requested By)</li>
+                <li>Civil Status, Purok</li>
+                <li>Document Type, Business Name</li>
+                <li>Requested At, Updated At</li>
+              </ul>
+            </div>
           </Form>
         </Modal>
       </div>
