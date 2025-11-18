@@ -152,11 +152,13 @@ const getDashboard = async (req, res) => {
     });
 
     // Revenue by type for pie chart using correct totals
+    const documentTransactionRevenue = nonUtilityTransactions.filter(t => t.type === 'document_request').reduce((sum, t) => sum + t.amount, 0);
+    const totalDocumentRevenue = documentRevenue + documentTransactionRevenue;
+    
     const revenueByType = {
       garbage_fee: garbageRevenue,
       streetlight_fee: streetlightRevenue,
-      document_request: documentRevenue,
-      document_request: nonUtilityTransactions.filter(t => t.type === 'document_request').reduce((sum, t) => sum + t.amount, 0),
+      document_request: totalDocumentRevenue,
       permit_fee: nonUtilityTransactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
       other: nonUtilityTransactions
         .filter(t => !['document_request', 'permit_fee'].includes(t.type) && t.category === 'revenue')

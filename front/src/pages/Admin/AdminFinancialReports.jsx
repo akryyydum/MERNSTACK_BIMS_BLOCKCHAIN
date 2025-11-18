@@ -121,6 +121,8 @@ export default function AdminFinancialReports() {
         headers: authHeaders()
       });
       
+      console.log('Dashboard data:', res.data);
+      console.log('Revenue by type:', res.data.revenueByType);
       setDashboardData(res.data);
     } catch (error) {
       console.error('Error fetching dashboard:', error);
@@ -302,7 +304,8 @@ export default function AdminFinancialReports() {
   const revenueByType = dashboardData.revenueByType || {};
   
   // Calculate individual revenue types from revenueByType
-  const documentRequestRevenue = Number(revenueByType.document_request || 0);
+  // Include both document_request and document_fee for backward compatibility
+  const documentRequestRevenue = Number(revenueByType.document_request || 0) + Number(revenueByType.document_fee || 0);
   const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
   const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
   const totalRevenue = Number(statistics.totalRevenue ?? 0);
@@ -541,7 +544,7 @@ export default function AdminFinancialReports() {
       filters: [
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
-        { text: 'Document Request', value: 'document_request' },
+        { text: 'Document Request Fee', value: 'document_request' },
         { text: 'Other', value: 'other' },
       ],
       onFilter: (value, record) => record.type === value,
@@ -793,7 +796,7 @@ export default function AdminFinancialReports() {
                 onChange={setFeeTypeFilter}
                 style={{ width: 200 }}
                 options={[
-                  { label: 'Document Request', value: 'document_request' },
+                  { label: 'Document Request Fee', value: 'document_request' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
                   { label: 'Streetlight Fee', value: 'streetlight_fee' },
                   { label: 'Other', value: 'other' },
@@ -1092,7 +1095,7 @@ export default function AdminFinancialReports() {
               <Col span={12}>
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}> 
                   <Select placeholder="Select transaction type">
-                    <Select.Option value="document_request">Document Request</Select.Option>
+                    <Select.Option value="document_request">Document Request Fee</Select.Option>
                     <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                     <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
