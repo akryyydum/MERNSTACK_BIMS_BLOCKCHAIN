@@ -215,7 +215,9 @@ export default function AdminGarbageFees() {
     try {
       setLoading(true);
       const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
-      setHouseholds(res.data || []);
+      // Show most recently added household first
+      const data = Array.isArray(res.data) ? res.data.slice().reverse() : [];
+      setHouseholds(data);
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to load households");
     } finally {
@@ -1467,7 +1469,7 @@ export default function AdminGarbageFees() {
     return exportData;
   };
 
-  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
+  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName, p?.suffix].filter(Boolean).join(" ");
 
   // Get all members with their household info for searching - memoized for performance
   const allMembersWithHousehold = useMemo(() => {
@@ -1651,17 +1653,17 @@ export default function AdminGarbageFees() {
             <Button size="small" onClick={() => openPaymentHistory(r)}>History</Button>
             {hasPayments && (
               <Popconfirm
-                title="Delete Payment Records"
+                title="Reset Payment Records"
                 description={`Delete ALL payment records for ${r.householdId}? This will reset them to unpaid status.`}
                 onConfirm={() => deleteHouseholdPayments(r)}
-                okText="Delete"
+                okText="Reset"
                 cancelText="Cancel"
                 okType="danger"
               >
                 <Button 
                   size="small" 
                   danger 
-                  title="Delete all payment records for this household"
+                  title="Reset all payment records for this household"
                 >
                   Reset
                 </Button>
@@ -2302,18 +2304,20 @@ export default function AdminGarbageFees() {
               Record Garbage Payment
             </Button>
           ]}
-          width={850}
+          width={1300}
+          centered
+          style={{ top: 20 }}
         >
           <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
-            <Form.Item label="Fee Type" className="mb-3">
+            <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Garbage Collection Fee" size="small" />
             </Form.Item>
             <Form.Item
               name="hasBusiness"
               label="Business Status"
-              className="mb-3"
+              className="mb-2"
             >
-              <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+              <div className="space-y-1 p-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <input 
                     type="radio" 
@@ -2359,7 +2363,7 @@ export default function AdminGarbageFees() {
                   ))}
                 </Select>
               </div>
-              <div className="mb-3 flex gap-2">
+              <div className="mb-2 flex gap-2">
                 <Button
                   type="primary"
                   size="small"
@@ -2500,39 +2504,41 @@ export default function AdminGarbageFees() {
                 </div>
               </div>
             </Form.Item>
-            <Form.Item
-              name="totalCharge"
-              label={`Total Charge (${selectedMonths.length} month${selectedMonths.length !== 1 ? 's' : ''})`}
-              rules={[{ required: true, message: "Total charge calculated automatically" }]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" disabled size="small" />
-            </Form.Item>
-            <Form.Item
-              name="amount"
-              label="Amount to Pay"
-              rules={[
-                { required: true, message: "Enter amount to pay" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    const total = Number(getFieldValue("totalCharge") || 0);
-                    if (value === undefined) return Promise.reject();
-                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
-                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
-                    if (Number(value) > total + 1e-6) {
-                      return Promise.reject(new Error("Amount cannot exceed total charge"));
-                    }
-                    return Promise.resolve();
-                  },
-                }),
-              ]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" min={0} step={50} size="small" />
-            </Form.Item>
-            <Form.Item name="method" label="Payment Method" className="mb-3">
-              <Input value="Cash" disabled size="small" />
-            </Form.Item>
+            <div className="grid grid-cols-3 gap-3 mb-1">
+              <Form.Item
+                name="totalCharge"
+                label={`Total Charge (${selectedMonths.length} month${selectedMonths.length !== 1 ? 's' : ''})`}
+                rules={[{ required: true, message: "Total charge calculated automatically" }]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" disabled size="small" />
+              </Form.Item>
+              <Form.Item
+                name="amount"
+                label="Amount to Pay"
+                rules={[
+                  { required: true, message: "Enter amount to pay" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const total = Number(getFieldValue("totalCharge") || 0);
+                      if (value === undefined) return Promise.reject();
+                      if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                      if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                      if (Number(value) > total + 1e-6) {
+                        return Promise.reject(new Error("Amount cannot exceed total charge"));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" min={0} step={50} size="small" />
+              </Form.Item>
+              <Form.Item name="method" label="Payment Method" className="mb-0">
+                <Input value="Cash" disabled size="small" />
+              </Form.Item>
+            </div>
 
             {selectedMonths.length > 0 && (
               <div className="p-2 rounded border border-blue-200 bg-blue-50 text-sm">
@@ -2541,9 +2547,6 @@ export default function AdminGarbageFees() {
                   <div>Selected Months: {selectedMonths.length}</div>
                   <div>Fee per Month: ₱{getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness")).toFixed(2)}</div>
                   <div>Total Amount: ₱{(selectedMonths.length * getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"))).toFixed(2)}</div>
-                  <div className="text-xs text-blue-600 mt-1">
-                    {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
-                  </div>
                 </div>
               </div>
             )}
@@ -2603,13 +2606,15 @@ export default function AdminGarbageFees() {
               Record Payment for Both
             </Button>
           ]}
-          width={850}
+          width={100}
+          centered
+          style={{ top: 20 }}
         >
           <Form form={streetlightForm} layout="vertical" initialValues={{ method: "Cash" }}>
-            <Form.Item label="Fee Type" className="mb-3">
+            <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Streetlight Maintenance Fee" size="small" />
             </Form.Item>
-            <div className="space-y-2 p-3 bg-gray-50 rounded-lg mb-3">
+            <div className="space-y-1 p-2 bg-gray-50 rounded-lg mb-2">
               <div className="text-sm font-semibold text-gray-700">Fee Information</div>
               <div className="text-sm text-gray-600">
                 <span className="font-medium">Monthly Rate:</span> ₱{getStreetlightMonthlyFee().toFixed(2)} (applies to all households)
@@ -2625,7 +2630,7 @@ export default function AdminGarbageFees() {
               name="selectedMonths"
               label="Select Months to Pay"
               rules={[{ required: true, message: "Select at least one month" }]}
-              className="mb-3"
+              className="mb-2"
             >
               <div className="mb-2">
                 <label className="block text-xs text-gray-600 mb-1">Year</label>
@@ -2767,39 +2772,41 @@ export default function AdminGarbageFees() {
                 </div>
               </div>
             </Form.Item>
-            <Form.Item
-              name="totalCharge"
-              label={`Total Charge (${streetlightSelectedMonths.length} month${streetlightSelectedMonths.length !== 1 ? 's' : ''})`}
-              rules={[{ required: true, message: "Total charge calculated automatically" }]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" disabled size="small" />
-            </Form.Item>
-            <Form.Item
-              name="amount"
-              label="Amount to Pay"
-              rules={[
-                { required: true, message: "Enter amount to pay" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    const total = Number(getFieldValue("totalCharge") || 0);
-                    if (value === undefined) return Promise.reject();
-                    if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
-                    if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
-                    if (Number(value) > total + 1e-6) {
-                      return Promise.reject(new Error("Amount cannot exceed total charge"));
-                    }
-                    return Promise.resolve();
-                  },
-                }),
-              ]}
-              className="mb-3"
-            >
-              <InputNumber className="w-full" min={0} step={10} size="small" />
-            </Form.Item>
-            <Form.Item name="method" label="Payment Method" className="mb-3">
-              <Input value="Cash" disabled size="small" />
-            </Form.Item>
+            <div className="grid grid-cols-3 gap-3 mb-1">
+              <Form.Item
+                name="totalCharge"
+                label={`Total Charge (${streetlightSelectedMonths.length} month${streetlightSelectedMonths.length !== 1 ? 's' : ''})`}
+                rules={[{ required: true, message: "Total charge calculated automatically" }]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" disabled size="small" />
+              </Form.Item>
+              <Form.Item
+                name="amount"
+                label="Amount to Pay"
+                rules={[
+                  { required: true, message: "Enter amount to pay" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const total = Number(getFieldValue("totalCharge") || 0);
+                      if (value === undefined) return Promise.reject();
+                      if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                      if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                      if (Number(value) > total + 1e-6) {
+                        return Promise.reject(new Error("Amount cannot exceed total charge"));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+                className="mb-0"
+              >
+                <InputNumber className="w-full" min={0} step={10} size="small" />
+              </Form.Item>
+              <Form.Item name="method" label="Payment Method" className="mb-0">
+                <Input value="Cash" disabled size="small" />
+              </Form.Item>
+            </div>
 
             {streetlightSelectedMonths.length > 0 && (
               <div className="space-y-3">
@@ -2867,13 +2874,8 @@ export default function AdminGarbageFees() {
               <Descriptions.Item label="Head of Household">
                 {fullName(viewHousehold.headOfHousehold) || "Not specified"}
               </Descriptions.Item>
-              <Descriptions.Item label="Address">
-                {[
-                  viewHousehold.address?.street,
-                  viewHousehold.address?.purok,
-                  viewHousehold.address?.barangay,
-                  viewHousehold.address?.municipality,
-                ].filter(Boolean).join(", ")}
+              <Descriptions.Item label="Purok">
+                {viewHousehold.address?.purok || "N/A"}
               </Descriptions.Item>
               <Descriptions.Item label="Members Count">
                 {viewHousehold.members?.length || 0}
