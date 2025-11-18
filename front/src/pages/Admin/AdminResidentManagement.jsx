@@ -93,6 +93,10 @@ export default function AdminResidentManagement() {
   const [viewResident, setViewResident] = useState(null);
   const [addStep, setAddStep] = useState(0);
   const [editStep, setEditStep] = useState(0);
+  
+  // Validation states for duplicates
+  const [emailTaken, setEmailTaken] = useState(false);
+  const [mobileTaken, setMobileTaken] = useState(false);
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
@@ -209,13 +213,56 @@ export default function AdminResidentManagement() {
     try {
       setCreating(true);
       const values = await addForm.validateFields();
+      
+      // Check for duplicate email
+      if (values.contact?.email && values.contact.email.trim()) {
+        const existingEmail = residents.find(r => 
+          r.contact?.email?.toLowerCase() === values.contact.email.trim().toLowerCase()
+        );
+        if (existingEmail) {
+          setEmailTaken(true);
+          message.error("Email is already registered to another resident.");
+          setCreating(false);
+          return;
+        }
+      }
+      
+      // Check for duplicate mobile
+      if (values.contact?.mobile && values.contact.mobile.trim()) {
+        const existingMobile = residents.find(r => 
+          r.contact?.mobile === values.contact.mobile.trim()
+        );
+        if (existingMobile) {
+          setMobileTaken(true);
+          message.error("Mobile number is already registered to another resident.");
+          setCreating(false);
+          return;
+        }
+      }
+      
       const token = localStorage.getItem("token");
+      
+      // Clean up contact data - only include non-empty values
+      const payload = {
+        ...values,
+        dateOfBirth: values.dateOfBirth.format("YYYY-MM-DD"),
+        contact: {}
+      };
+      
+      // Only add contact fields if they have values
+      if (values.contact?.email && values.contact.email.trim()) {
+        payload.contact.email = values.contact.email.trim();
+      }
+      if (values.contact?.mobile && values.contact.mobile.trim()) {
+        payload.contact.mobile = values.contact.mobile.trim();
+      }
+      
+      setEmailTaken(false);
+      setMobileTaken(false);
+      
       await axios.post(
         `${API_BASE}/api/admin/residents`,
-        {
-          ...values,
-          dateOfBirth: values.dateOfBirth.format("YYYY-MM-DD"),
-        },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success("Resident added!");
@@ -232,11 +279,35 @@ export default function AdminResidentManagement() {
   const openEdit = (resident) => {
     setSelectedResident(resident);
     editForm.setFieldsValue({
-      ...resident,
-      // Force default, keep other address fields (like purok) intact
-      address: { ...(resident.address || {}), ...ADDRESS_DEFAULTS },
+      firstName: resident.firstName,
+      middleName: resident.middleName,
+      lastName: resident.lastName,
+      suffix: resident.suffix,
       dateOfBirth: resident.dateOfBirth ? dayjs(resident.dateOfBirth) : null,
+      birthPlace: resident.birthPlace,
+      sex: resident.sex,
+      civilStatus: resident.civilStatus,
+      religion: resident.religion,
+      ethnicity: resident.ethnicity,
+      citizenship: resident.citizenship,
+      occupation: resident.occupation,
+      sectoralInformation: resident.sectoralInformation,
+      employmentStatus: resident.employmentStatus,
+      registeredVoter: resident.registeredVoter,
+      address: {
+        purok: resident.address?.purok || '',
+        barangay: resident.address?.barangay || ADDRESS_DEFAULTS.barangay,
+        municipality: resident.address?.municipality || ADDRESS_DEFAULTS.municipality,
+        province: resident.address?.province || ADDRESS_DEFAULTS.province,
+        zipCode: resident.address?.zipCode || ADDRESS_DEFAULTS.zipCode,
+      },
+      contact: {
+        email: resident.contact?.email || '',
+        mobile: resident.contact?.mobile || '',
+      }
     });
+    setEmailTaken(false);
+    setMobileTaken(false);
     setEditStep(0);
     setEditOpen(true);
   };
@@ -245,13 +316,58 @@ export default function AdminResidentManagement() {
     try {
       setEditing(true);
       const values = await editForm.validateFields();
+      
+      // Check for duplicate email (excluding current resident)
+      if (values.contact?.email && values.contact.email.trim()) {
+        const existingEmail = residents.find(r => 
+          r.contact?.email?.toLowerCase() === values.contact.email.trim().toLowerCase() &&
+          r._id !== selectedResident._id
+        );
+        if (existingEmail) {
+          setEmailTaken(true);
+          message.error("Email is already registered to another resident.");
+          setEditing(false);
+          return;
+        }
+      }
+      
+      // Check for duplicate mobile (excluding current resident)
+      if (values.contact?.mobile && values.contact.mobile.trim()) {
+        const existingMobile = residents.find(r => 
+          r.contact?.mobile === values.contact.mobile.trim() &&
+          r._id !== selectedResident._id
+        );
+        if (existingMobile) {
+          setMobileTaken(true);
+          message.error("Mobile number is already registered to another resident.");
+          setEditing(false);
+          return;
+        }
+      }
+      
       const token = localStorage.getItem("token");
+      
+      // Clean up contact data - only include non-empty values
+      const payload = {
+        ...values,
+        dateOfBirth: values.dateOfBirth.format("YYYY-MM-DD"),
+        contact: {}
+      };
+      
+      // Only add contact fields if they have values
+      if (values.contact?.email && values.contact.email.trim()) {
+        payload.contact.email = values.contact.email.trim();
+      }
+      if (values.contact?.mobile && values.contact.mobile.trim()) {
+        payload.contact.mobile = values.contact.mobile.trim();
+      }
+      
+      setEmailTaken(false);
+      setMobileTaken(false);
+      
       await axios.patch(
         `${API_BASE}/api/admin/residents/${selectedResident._id}`,
-        {
-          ...values,
-          dateOfBirth: values.dateOfBirth.format("YYYY-MM-DD"),
-        },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       message.success("Resident updated!");
@@ -1043,6 +1159,8 @@ export default function AdminResidentManagement() {
                     address: { ...(addForm.getFieldValue("address") || {}), ...ADDRESS_DEFAULTS },
                     citizenship: "Filipino",
                   });
+                  setEmailTaken(false);
+                  setMobileTaken(false);
                   setAddOpen(true);
                 }}
               >
@@ -1792,16 +1910,60 @@ export default function AdminResidentManagement() {
                   label="Mobile Number" 
                   rules={[{ type: "string", required: false, pattern: /^09\d{9}$/, message: 'Please enter a valid mobile number' }]}
                 >
-                  <Input placeholder="e.g., 09123456789" />
+                  <Input 
+                    placeholder="e.g., 09123456789"
+                    onChange={(e) => {
+                      const mobile = e.target.value;
+                      if (mobile && mobile.trim()) {
+                        const exists = residents.some(r => r.contact?.mobile === mobile.trim());
+                        setMobileTaken(exists);
+                      } else {
+                        setMobileTaken(false);
+                      }
+                    }}
+                  />
                 </Form.Item>
                 <Form.Item 
                   name={["contact", "email"]} 
                   label="Email" 
                   rules={[{ type: "email", required: false, message: 'Please enter a valid email address' }]}
                 > 
-                  <Input placeholder="e.g., juan.delacruz@email.com" />
+                  <Input 
+                    placeholder="e.g., juan.delacruz@email.com"
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      if (email && email.trim()) {
+                        const exists = residents.some(r => 
+                          r.contact?.email?.toLowerCase() === email.trim().toLowerCase()
+                        );
+                        setEmailTaken(exists);
+                      } else {
+                        setEmailTaken(false);
+                      }
+                    }}
+                  />
                 </Form.Item>
               </div>
+              
+              {mobileTaken && (
+                <Alert
+                  message="Mobile number is already registered"
+                  description="This mobile number is already used by another resident."
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              
+              {emailTaken && (
+                <Alert
+                  message="Email is already registered"
+                  description="This email is already used by another resident."
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
             </div>
           </Form>
         </Modal>
@@ -1983,7 +2145,7 @@ export default function AdminResidentManagement() {
             
             {/* Step 2 - Address */}
             <div style={{ display: editStep === 1 ? "block" : "none" }}>
-              <Form.Item name="purok" label="Purok" rules={[{ required: true, message: 'Purok is required' }]}>
+              <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true, message: 'Purok is required' }]}>
                 <Select
                   placeholder="Select purok"
                   options={[
@@ -2051,16 +2213,64 @@ export default function AdminResidentManagement() {
                   label="Mobile Number" 
                   rules={[{ type: "string", required: false }]}
                 >
-                  <Input placeholder="e.g., 09123456789" />
+                  <Input 
+                    placeholder="e.g., 09123456789"
+                    onChange={(e) => {
+                      const mobile = e.target.value;
+                      if (mobile && mobile.trim()) {
+                        const exists = residents.some(r => 
+                          r.contact?.mobile === mobile.trim() &&
+                          r._id !== selectedResident?._id
+                        );
+                        setMobileTaken(exists);
+                      } else {
+                        setMobileTaken(false);
+                      }
+                    }}
+                  />
                 </Form.Item>
                 <Form.Item 
                   name={["contact", "email"]} 
                   label="Email" 
                   rules={[{ type: "email", required: false }]}
                 > 
-                  <Input placeholder="e.g., juan.delacruz@email.com" />
+                  <Input 
+                    placeholder="e.g., juan.delacruz@email.com"
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      if (email && email.trim()) {
+                        const exists = residents.some(r => 
+                          r.contact?.email?.toLowerCase() === email.trim().toLowerCase() &&
+                          r._id !== selectedResident?._id
+                        );
+                        setEmailTaken(exists);
+                      } else {
+                        setEmailTaken(false);
+                      }
+                    }}
+                  />
                 </Form.Item>
               </div>
+              
+              {mobileTaken && (
+                <Alert
+                  message="Mobile number is already registered"
+                  description="This mobile number is already used by another resident."
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              
+              {emailTaken && (
+                <Alert
+                  message="Email is already registered"
+                  description="This email is already used by another resident."
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
             </div>
           </Form>
         </Modal>

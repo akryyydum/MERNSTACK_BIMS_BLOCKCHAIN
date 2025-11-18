@@ -252,6 +252,7 @@ export default function AdminUserManagement() {
   const openEdit = (record) => {
     setEditingUser(record);
     setEditOpen(true);
+    setUsernameTaken(false);
     setEmailTaken(false);
     setMobileTaken(false);
     editForm.setFieldsValue({
@@ -311,6 +312,19 @@ export default function AdminUserManagement() {
     try {
       const values = await editForm.validateFields();
       
+      // Check if username already exists (excluding current user)
+      if (values.username && values.username !== editingUser.username) {
+        const existingUsername = allUsers.find(u => 
+          u.username.toLowerCase() === values.username.toLowerCase() &&
+          u._id !== editingUser._id
+        );
+        if (existingUsername) {
+          setUsernameTaken(true);
+          message.error("Username is already taken. Please choose a different username.");
+          return;
+        }
+      }
+      
       // Check if email already exists (excluding current user)
       if (values.contact?.email) {
         const existingEmail = allUsers.find(u => 
@@ -338,6 +352,7 @@ export default function AdminUserManagement() {
       }
       
       setSavingEdit(true);
+      setUsernameTaken(false);
       setEmailTaken(false);
       setMobileTaken(false);
       const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}`, {
@@ -909,8 +924,32 @@ export default function AdminUserManagement() {
                 { min: 6, message: "Username must be at least 6 characters" },
               ]}
             >
-              <Input placeholder="Username (min. 6 characters)" />
+              <Input 
+                placeholder="Username (min. 6 characters)"
+                onChange={(e) => {
+                  const username = e.target.value;
+                  if (username && username !== editingUser?.username) {
+                    const exists = allUsers.some(u => 
+                      u.username.toLowerCase() === username.toLowerCase() &&
+                      u._id !== editingUser?._id
+                    );
+                    setUsernameTaken(exists);
+                  } else {
+                    setUsernameTaken(false);
+                  }
+                }}
+              />
             </Form.Item>
+
+            {usernameTaken && (
+              <Alert
+                message="Username is already taken"
+                description="Please choose a different username."
+                type="error"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
 
             <Form.Item label={<span>Password </span>} required>
               <Button type="default" onClick={openChangePassword}>

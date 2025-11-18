@@ -137,12 +137,25 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-  const { role, isActive, isVerified, fullName, contact, residentStatus } = req.body;
+  const { role, isActive, isVerified, fullName, contact, residentStatus, username } = req.body;
 
   console.log('Update user request:', { id, body: req.body });
 
   const update = {};
   let unset = {};
+  
+    // Check for duplicate username if username is being updated
+    if (username) {
+      const usernameTrim = String(username).trim();
+      if (usernameTrim) {
+        const exists = await User.findOne({
+          _id: { $ne: id },
+          username: new RegExp(`^${usernameTrim}$`, 'i'),
+        });
+        if (exists) return res.status(400).json({ message: "Username already exists" });
+        update.username = usernameTrim;
+      }
+    }
     if (typeof isActive === "boolean") update.isActive = isActive;
     if (typeof isVerified === "boolean") update.isVerified = isVerified;
     if (fullName) update.fullName = String(fullName).trim();

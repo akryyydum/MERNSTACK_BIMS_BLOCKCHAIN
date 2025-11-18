@@ -1,6 +1,7 @@
 const DocumentRequest = require('../models/document.model');
 const Resident = require('../models/resident.model');
 const Household = require('../models/household.model');
+const FinancialTransaction = require('../models/financialTransaction.model');
 const mongoose = require('mongoose');
 const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
 // Fabric client for blockchain mirroring
@@ -93,6 +94,49 @@ exports.createRequest = async (req, res) => {
       quantity: Math.max(Number(quantity || 1), 1),
       amount: Number(amount || 0)   // Document fee
     });
+    
+    // Create financial transaction for the document request
+    try {
+      const qty = Math.max(Number(quantity || 1), 1);
+      const type = documentType;
+      let unitAmount = 0;
+      if (type === 'Indigency') unitAmount = 0;
+      else if (type === 'Barangay Clearance') unitAmount = 100;
+      else if (type === 'Business Clearance') unitAmount = Number(amount || 0);
+
+      const total = unitAmount * qty;
+      
+      // Get the subject resident (who the document is for) for reporting
+      let subjectResident;
+      try {
+        subjectResident = await Resident.findById(requestForResident).select('firstName lastName').lean();
+      } catch (_) {}
+      
+      const subjectResidentName = subjectResident 
+        ? `${subjectResident.firstName} ${subjectResident.lastName}`
+        : `${resident.firstName} ${resident.lastName}`;
+
+      // Create financial transaction (even for $0 amounts for audit trail)
+      await FinancialTransaction.create({
+        type: 'document_fee',
+        category: 'revenue',
+        description: `${type} x ${qty}`,
+        amount: Number(total) || 0,
+        residentId: requestForResident,
+        residentName: subjectResidentName,
+        documentRequestId: doc._id,
+        status: 'completed',
+        transactionDate: new Date(),
+        paymentMethod: 'cash',
+        createdBy: resident.user,
+        updatedBy: resident.user,
+      });
+      
+      console.log(`Financial transaction created for resident document request: ${type} x ${qty} = ₱${total}`);
+    } catch (txErr) {
+      console.error('Error creating financial transaction for resident document request:', txErr.message);
+      // Non-fatal: continue with document creation
+    }
     
     // Attempt to mirror to blockchain (non-blocking for speed)
     const docId = doc._id.toString();

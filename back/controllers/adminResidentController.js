@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
 const Resident = require("../models/resident.model");
 const XLSX = require("xlsx");
+const multer = require("multer");
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -711,5 +712,22 @@ exports.bulkImport = async (req, res) => {
 
 exports.importResidents = exports.bulkImport;
 
-// Optional: placeholder if you plan to add file upload middleware later
-exports.importResidentsMiddleware = (req, res, next) => next();
+// Multer middleware for file upload
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv'
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only Excel and CSV files are allowed.'));
+    }
+  }
+});
+
+exports.importResidentsMiddleware = upload.single('file');
