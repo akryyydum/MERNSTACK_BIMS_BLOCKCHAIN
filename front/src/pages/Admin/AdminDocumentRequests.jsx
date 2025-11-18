@@ -247,6 +247,7 @@ export default function AdminDocumentRequests() {
         <div className="flex gap-1 flex-wrap">
           {record.pendingCount > 0 && <Tag color="orange">{record.pendingCount} Pending</Tag>}
           {record.acceptedCount > 0 && <Tag color="green">{record.acceptedCount} Accepted</Tag>}
+          {record.declinedCount > 0 && <Tag color="red">{record.declinedCount} Declined</Tag>}
           {record.completedCount > 0 && <Tag color="blue">{record.completedCount} Completed</Tag>}
         </div>
       )
@@ -317,7 +318,9 @@ export default function AdminDocumentRequests() {
       render: (_, r) => (
         <div className="flex gap-2">
           <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
-          <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
+          {r.status !== 'declined' && r.status !== 'pending' && (
+            <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
+          )}
           {r.status === "pending" && (
             <>
               <Button size="small" type="primary" onClick={() => {
@@ -404,6 +407,7 @@ export default function AdminDocumentRequests() {
         totalRequests: 0,
         pendingCount: 0,
         acceptedCount: 0,
+        declinedCount: 0,
         completedCount: 0,
         __rowKey: `grouped_${residentKey.replace(/\s+/g, '_')}`
       };
@@ -413,6 +417,7 @@ export default function AdminDocumentRequests() {
     acc[residentKey].totalRequests += 1;
     if (request.status === 'pending') acc[residentKey].pendingCount += 1;
     if (request.status === 'accepted') acc[residentKey].acceptedCount += 1;
+    if (request.status === 'declined') acc[residentKey].declinedCount += 1;
     if (request.status === 'completed') acc[residentKey].completedCount += 1;
     
     return acc;
@@ -558,7 +563,7 @@ export default function AdminDocumentRequests() {
 //eto mga files
 const TEMPLATE_MAP = {
   "Barangay Certificate": "/BARANGAY CERTIFICATE.docx",
-  "Indigency": "/INDIGENCY.docx",
+  "Certificate of Indigency": "/INDIGENCY.docx",
   "Barangay Clearance": "/BARANGAY CLEARANCE.docx",
   "Residency": "/CERTIFICATE OF RESIDENCY.docx",
   "Business Clearance": "/BUSINESS CLEARANCE.docx",
@@ -713,6 +718,10 @@ function toUpperDeep(value, skipKeys = PRONOUN_KEYS) {
 }
 
 const handlePrint = async (record) => {
+    if (record.status === 'declined') {
+      message.error('Cannot print a declined request.');
+      return;
+    }
   const templatePath = getTemplatePath(record.documentType);
   if (!templatePath) {
     message.error(`No template mapped for "${record.documentType}".`);
@@ -1056,15 +1065,6 @@ const handleExport = async () => {
                   <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
-                    checked={visibleColumns.residentName}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, residentName: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Resident Name
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
                     checked={visibleColumns.civilStatus}
                     onCheckedChange={(checked) =>
                       setVisibleColumns({ ...visibleColumns, civilStatus: checked })
@@ -1105,7 +1105,7 @@ const handleExport = async () => {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="primary" onClick={() => setCreateOpen(true)}>
-                Create Request Document
+                + Create Request Document
               </Button>
               <Button
                 onClick={() => {
@@ -1129,9 +1129,24 @@ const handleExport = async () => {
                   <Table
                     columns={expandedColumns}
                     dataSource={record.requests}
-                    pagination={false}
+                    pagination={{
+                      defaultPageSize: 5,
+                      showTotal: (total) => `Total ${total} requests`,
+                      showSizeChanger: false,
+                      showQuickJumper: false,
+                      showLessItems: true,
+                      itemRender: (page, type, originalElement) => {
+                        if (type === 'prev') {
+                          return originalElement;
+                        }
+                        if (type === 'next') {
+                          return originalElement;
+                        }
+                        return null;
+                      },
+                    }}
                     rowKey="_id"
-                    size="small"
+                    size="medium"
                     className="ml-8"
                   />
                 ),
@@ -1200,7 +1215,16 @@ const handleExport = async () => {
                   ? `₱${viewRequest.amount.toFixed(2)}` 
                   : "-"}
               </Descriptions.Item>
-              <Descriptions.Item label="Status">{viewRequest.status}</Descriptions.Item>
+              <Descriptions.Item label="Status">
+                {(() => {
+                  let color = "default";
+                  if (viewRequest.status === "pending") color = "orange";
+                  else if (viewRequest.status === "accepted") color = "green";
+                  else if (viewRequest.status === "declined") color = "red";
+                  else if (viewRequest.status === "completed") color = "blue";
+                  return <Tag color={color} className="capitalize">{viewRequest.status}</Tag>;
+                })()}
+              </Descriptions.Item>
               <Descriptions.Item label="Requested At">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Updated At">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Blockchain Hash">{viewRequest.blockchain?.hash || "-"}</Descriptions.Item>
@@ -1211,7 +1235,7 @@ const handleExport = async () => {
         <Modal
           title="Create Document Request"
           open={createOpen}
-          onCancel={() => { setCreateOpen(false); setShowUnpaidModal(false); setUnpaidMonths({ garbage: [], streetlight: [] }); setBlockCreate(false); }}
+          onCancel={() => { setCreateOpen(false); setShowUnpaidModal(false); setUnpaidMonths({ garbage: [], streetlight: [] }); setBlockCreate(false); createForm.resetFields(); }}
           onOk={async () => {
             try {
               setCreating(true);
@@ -1219,7 +1243,7 @@ const handleExport = async () => {
               
               // Calculate amount based on document type for admin requests
               let amount = 0;
-              if (values.documentType === 'Indigency') amount = 0;
+              if (values.documentType === 'Certificate of Indigency') amount = 0;
               else if (values.documentType === 'Barangay Clearance') amount = 100;
               else if (values.documentType === 'Business Clearance') amount = 0; // Set by admin later
               
@@ -1260,7 +1284,7 @@ const handleExport = async () => {
           />
           <div style={{ marginBottom: 16 }} />
           <Form form={createForm} layout="vertical">
-            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true }]}> 
+            <Form.Item name="requestedBy" label="Requested By" rules={[{ required: true, message: "Please select who is making the request" }]}> 
               <Select
                 showSearch
                 placeholder="Select who is making the request"
@@ -1279,7 +1303,7 @@ const handleExport = async () => {
               </Select>
             </Form.Item>
 
-            <Form.Item name="requestFor" label="Document For" rules={[{ required: true }]}> 
+            <Form.Item name="requestFor" label="Document For" rules={[{ required: true, message: "Please select who the document is for" }]}> 
               <Select
                 showSearch
                 placeholder={requestedById ? "Select head/member of household" : "Select 'Requested By' first"}
@@ -1297,7 +1321,6 @@ const handleExport = async () => {
               </Select>
             </Form.Item>
 
-            {/* Keep requestedById in sync with form value on modal open/reset */}
             {createOpen && (
               <React.Fragment>
                 {(() => {
@@ -1322,33 +1345,45 @@ const handleExport = async () => {
               </div>
             )}
             
-            <Form.Item name="documentType" label="Document Type" rules={[{ required: true }]}>
+            <Form.Item name="documentType" label="Document Type" rules={[{ required: true, message: "Please select document type" }]}>
               <Select
+                placeholder="Select document type"
                 options={[
-                  { value: "Indigency", label: "Indigency" },
+                  { value: "Certificate of Indigency", label: "Certificate of Indigency" },
                   { value: "Barangay Clearance", label: "Barangay Clearance" },
                   { value: "Business Clearance", label: "Business Clearance" },
                 ]}
               />
+              
             </Form.Item>
 
             {selectedCreateDocType && (
               <Alert
                 message={
-                  selectedCreateDocType === 'Indigency' 
+                  selectedCreateDocType === 'Certificate of Indigency' 
                     ? 'Amount: ₱0.00 (Free)' 
                     : selectedCreateDocType === 'Barangay Clearance'
                     ? 'Amount: ₱100.00'
                     : 'Amount: To be set by admin upon acceptance'
                 }
-                type={selectedCreateDocType === 'Indigency' ? 'success' : 'info'}
+                type={selectedCreateDocType === 'Certificate of Indigency' ? 'success' : 'info'}
                 showIcon
                 className="mb-4"
               />
             )}
 
             <Form.Item name="quantity" label="Quantity" initialValue={1} rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity (min 1)' }]}>
-              <InputNumber min={1} className="w-full" />
+              <InputNumber 
+                min={1} 
+                className="w-full" 
+                parser={value => value.replace(/[^0-9]/g, '')}
+                inputMode="numeric"
+                onKeyPress={e => {
+                  if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+              />
             </Form.Item>
 
             {selectedCreateDocType === "Business Clearance" && (
@@ -1361,8 +1396,8 @@ const handleExport = async () => {
               </Form.Item>
             )}
 
-            <Form.Item name="purpose" label="Purpose" rules={[{ required: true }]}>
-              <Input />
+            <Form.Item name="purpose" label="Purpose" rules={[{ required: true, message: "Please state the purpose of the document" }]}>
+              <Input placeholder="State their purpose"/>
             </Form.Item>
           </Form>
         </Modal>
@@ -1533,7 +1568,7 @@ const handleExport = async () => {
                 }}
                 options={[
                   { value: 'all', label: 'All' },
-                  { value: 'Indigency', label: 'Indigency' },
+                  { value: 'Certificate of Indigency', label: 'Certificate of Indigency' },
                   { value: 'Barangay Clearance', label: 'Barangay Clearance' },
                   { value: 'Business Clearance', label: 'Business Clearance' },
                 ]}

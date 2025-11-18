@@ -144,7 +144,13 @@ exports.verifyStatus = async (req, res) => {
 // ---------------------------------------------
 exports.listPublic = async (_req, res) => {
   try {
-    const mongoDocs = await PublicDocument.find({ visibility: "public" })
+    // Include docs explicitly marked public or legacy docs without visibility field
+    const mongoDocs = await PublicDocument.find({
+      $or: [
+        { visibility: "public" },
+        { visibility: { $exists: false } }
+      ]
+    })
       .sort({ createdAt: -1 });
 
     let blockchainDocs = [];

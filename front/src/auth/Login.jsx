@@ -306,14 +306,7 @@ const Login = () => {
           className="object-cover w-full h-full"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <h1 className="text-8xl font-poppins font-extrabold text-white drop-shadow-lg mb-4">
-            WELCOME TO <br /> LA TORRE NORTH
-          </h1>
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-poppins font-semibold text-white drop-shadow-md max-w-2xl">
-            Blockchain-Based Barangay Information Management System
-          </h2>
-        </div>
+        
       </div>
 
       {/* Right Side - Login Form */}

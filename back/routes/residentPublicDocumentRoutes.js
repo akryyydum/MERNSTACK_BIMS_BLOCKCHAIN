@@ -7,8 +7,9 @@ const {
 } = require("../controllers/adminPublicDocumentsController");
 const { auth, authorizeRoles } = require("../middleware/authMiddleware");
 
-router.get("/", auth, authorizeRoles("resident"), listPublic);
-router.get("/:id/download", auth, authorizeRoles("resident"), download);
-router.get("/:id/preview", auth, authorizeRoles("resident"), preview);
+// Allow both residents and officials to view public documents
+router.get("/", auth, authorizeRoles("resident", "official"), listPublic);
+router.get("/:id/download", auth, authorizeRoles("resident", "official"), download);
+router.get("/:id/preview", auth, authorizeRoles("resident", "official"), preview);
 
 module.exports = router;

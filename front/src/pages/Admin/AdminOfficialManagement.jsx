@@ -512,7 +512,7 @@ export default function AdminOfficialManagement() {
                 disabled={getAvailableResidents().length === 0}
                 title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
               >
-                Add Official
+                + Add Official
               </Button>
               {getAvailableResidents().length === 0 && (
                 <span className="text-xs text-gray-500">
@@ -776,6 +776,14 @@ export default function AdminOfficialManagement() {
             </Button>,
           ]}
         >
+          <Alert
+            message="Edit Official Information"
+            description="Update the official's position, contact details, and active status. Note: The full name is linked to the resident record and cannot be modified here."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          <div style={{ marginBottom: 16 }} />
           <Form form={editForm} layout="vertical">
             <Form.Item name="fullName" label="Full Name" rules={[{ required: true, message: "Full Name is required" }]}> 
               <Input disabled />

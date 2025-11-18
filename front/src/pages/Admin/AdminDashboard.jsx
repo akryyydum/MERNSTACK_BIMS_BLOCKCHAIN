@@ -2,8 +2,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AdminLayout } from './AdminSidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Table, Tag, Progress, Space, Divider, Spin, message, Button } from 'antd';
+import { Table, Tag, Progress, Space, Divider, message, Button } from 'antd';
 import { UserOutlined, TeamOutlined, FileProtectOutlined, DollarCircleOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 
@@ -484,11 +485,14 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-gray-600 text-sm">
                 {icon}
-                <span>{title}</span>
+                <Skeleton className="h-4 w-32" />
               </div>
             </div>
-            <div className="h-20 flex items-center justify-center">
-              <Spin />
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-40" />
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-8 w-full" />
             </div>
           </CardContent>
         </Card>
@@ -664,7 +668,14 @@ export default function AdminDashboard() {
               
               <div className="h-80">
                 {requestTrendLoading ? (
-                  <div className="flex items-center justify-center h-full"><Spin /></div>
+                  <div className="space-y-3">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
                 ) : (
                   <ChartContainer config={chartConfig} className="h-full w-full">
                     <AreaChart 
@@ -733,7 +744,13 @@ export default function AdminDashboard() {
                 
                 <div className="h-80">
                   {genderCardLoading ? (
-                    <div className="flex items-center justify-center h-full"><Spin /></div>
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <Skeleton className="h-48 w-48 rounded-full" />
+                      <div className="flex gap-8">
+                        <Skeleton className="h-12 w-24" />
+                        <Skeleton className="h-12 w-24" />
+                      </div>
+                    </div>
                   ) : genderDemographicsData.length && genderDemographicsData.some(d => d.value > 0) ? (
                     <div className="flex flex-col items-center justify-center h-full">
                       <div className="w-full h-64">
@@ -796,7 +813,15 @@ export default function AdminDashboard() {
                 
                 <div className="h-80">
                   {purokCardLoading ? (
-                    <div className="flex items-center justify-center h-full"><Spin /></div>
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <Skeleton className="h-44 w-44 rounded-full" />
+                      <div className="grid grid-cols-2 gap-3 w-full">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    </div>
                   ) : purokDemographicsData.length && purokDemographicsData.some(d => d.value > 0) ? (
                     <div className="flex flex-col items-center justify-center h-full">
                       <div className="w-full h-56">
@@ -861,7 +886,19 @@ export default function AdminDashboard() {
               
               <div className="h-64">
                 {blockchainCardLoading ? (
-                  <div className="flex items-center justify-center h-full"><Spin /></div>
+                  <div className="space-y-3">
+                    <Skeleton className="h-6 w-40" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-6 w-20" />
+                      <Skeleton className="h-6 w-20" />
+                      <Skeleton className="h-6 w-20" />
+                    </div>
+                    <Skeleton className="h-px w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
                 ) : blockchain?.ok ? (
                   <Space direction="vertical" size={12} style={{ width: '100%' }}>
                     <div className="text-sm font-medium">
@@ -902,7 +939,12 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="overflow-x-auto">
               {docTableLoading ? (
-                <div className="flex items-center justify-center h-32"><Spin /></div>
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
               ) : (
                 <div className="min-w-full">
                   <Table 
@@ -927,7 +969,12 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="overflow-x-auto">
               {paymentTableLoading ? (
-                <div className="flex items-center justify-center h-32"><Spin /></div>
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
               ) : (
                 <div className="min-w-full">
                   <Table 
