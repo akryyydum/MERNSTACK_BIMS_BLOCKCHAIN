@@ -4,7 +4,7 @@ const financialTransactionSchema = new mongoose.Schema({
   transactionId: { type: String, unique: true },
   type: {
     type: String,
-    enum: ['document_fee', 'garbage_fee', 'electric_fee', 'streetlight_fee', 'permit_fee', 'other'],
+    enum: ['document_request', 'garbage_fee', 'electric_fee', 'streetlight_fee', 'permit_fee', 'other'],
     required: true
   },
   category: {
@@ -74,7 +74,7 @@ financialTransactionSchema.pre('save', async function(next) {
   if (this.isNew && !this.transactionId) {
     try {
       const count = await this.constructor.countDocuments({});
-      const prefix = this.type === 'document_fee' ? 'DOC' : 
+      const prefix = this.type === 'document_request' ? 'DOC' : 
                      this.type === 'garbage_fee' ? 'GRB' : 
                      this.type === 'electric_fee' ? 'ELC' : 
                      this.type === 'streetlight_fee' ? 'STL' :
