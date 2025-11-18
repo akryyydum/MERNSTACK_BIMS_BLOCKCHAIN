@@ -767,6 +767,7 @@ export default function AdminResidentManagement() {
           <Popconfirm
             title="Delete resident?"
             description="This action cannot be undone."
+            okText="Delete"
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(r._id)}
           >
