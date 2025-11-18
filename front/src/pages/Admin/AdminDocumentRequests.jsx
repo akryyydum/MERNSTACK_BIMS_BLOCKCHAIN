@@ -221,13 +221,13 @@ export default function AdminDocumentRequests() {
       title: "Civil Status",
       key: "civilStatus",
       columnKey: "civilStatus",
-      render: (_, record) => record.residentData?.civilStatus || "-"
+      render: (_, record) => record.civilStatus || "-"
     },
     {
       title: "Purok",
       key: "purok",
       columnKey: "purok",
-      render: (_, record) => record.residentData?.address?.purok || "-"
+      render: (_, record) => record.purok || "-"
     },
     {
       title: "Total Requests",
@@ -388,7 +388,8 @@ export default function AdminDocumentRequests() {
 
   // Group requests by resident for expandable table
   const groupedRequests = filteredRequests.reduce((acc, request) => {
-    const person = request.requestFor || request.residentId;
+    // Try to get the most complete resident data
+    const person = request.requestFor || request.residentId || request.requestedBy;
     const residentKey = person
       ? [person.firstName, person.middleName, person.lastName, person.suffix].filter(Boolean).join(" ")
       : 'Unknown Resident';
@@ -397,6 +398,8 @@ export default function AdminDocumentRequests() {
       acc[residentKey] = {
         residentName: residentKey,
         residentData: person,
+        civilStatus: person?.civilStatus || '-',
+        purok: person?.address?.purok || '-',
         requests: [],
         totalRequests: 0,
         pendingCount: 0,
