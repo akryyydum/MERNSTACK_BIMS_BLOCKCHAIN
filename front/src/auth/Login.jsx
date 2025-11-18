@@ -558,8 +558,8 @@ const Login = () => {
                     label="First Name"
                     name="firstName"
                     rules={[
-                      { required: true, message: 'First name is required' },
-                      { pattern: /^[A-Za-z\s-]+$/, message: 'First name may contain letters, spaces, and hyphens (-)' }
+                      { required: true, message: 'Please enter your first name' },
+                      { pattern: /^[A-Za-z\s-]+$/, message: 'First Name may contain letters, spaces, and hyphens (-)' }
                     ]}
                     className="mb-2"
                   >
@@ -579,8 +579,8 @@ const Login = () => {
                     label="Last Name"
                     name="lastName"
                     rules={[
-                      { required: true, message: 'Last name is required' },
-                      { pattern: /^[A-Za-z\s-]+$/, message: 'Last name may contain letters, spaces, and hyphens (-)' }
+                      { required: true, message: 'Please enter your last name' },
+                      { pattern: /^[A-Za-z\s-]+$/, message: 'Last Name may contain letters, spaces, and hyphens (-)' }
                     ]}
                     className="mb-2"
                   >
@@ -599,12 +599,12 @@ const Login = () => {
                       placeholder="Select date of birth"
                     />
                   </Form.Item>
-                  <Form.Item label="Birth Place" name="birthPlace" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Birth Place" name="birthPlace" rules={[{ required: true, message: 'Please enter your birth place' }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA" />
                   </Form.Item>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Sex" name="sex" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Sex" name="sex" rules={[{ required: true, message: 'Please select your sex' }]} className="mb-2">
                     <Select
                       placeholder="Select sex"
                       options={[ 
@@ -614,7 +614,7 @@ const Login = () => {
                       size="middle"
                     />
                   </Form.Item>
-                  <Form.Item label="Civil Status" name="civilStatus" rules={[{ required: true }]} className="mb-3">
+                  <Form.Item label="Civil Status" name="civilStatus" rules={[{ required: true, message: 'Please select your civil status' }]} className="mb-3">
                     <Select
                       placeholder="Select civil status"
                       options={[ 
@@ -636,7 +636,7 @@ const Login = () => {
                   ]}
                   className="mb-3"
                 >
-                  <Input size="middle" placeholder="e.g., Roman-Catholic" />
+                  <Input size="middle" placeholder="e.g., ROMAN CATHOLIC" />
                 </Form.Item>
                 <Form.Item
                   label="Ethnicity"
@@ -647,7 +647,7 @@ const Login = () => {
                   ]}
                   className="mb-3"
                 >
-                  <Input size="middle" placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                  <Input size="middle" placeholder="e.g., ILOCANO, TAGALOG, IGOROT" />
                 </Form.Item>
               </>
             )}
@@ -657,7 +657,7 @@ const Login = () => {
               <>
                 <h3 className="text-sm font-semibold mb-2">Address</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Purok" name={["address", "purok"]} rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Purok" name={["address", "purok"]} rules={[{ required: true, message: 'Please select your purok' }]} className="mb-2">
                     <Select
                       placeholder="Select purok"
                       options={[
@@ -670,13 +670,13 @@ const Login = () => {
                       size="middle"
                     />
                   </Form.Item>
-                  <Form.Item label="Barangay" name={["address", "barangay"]} initialValue="La Torre North" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Barangay" name={["address", "barangay"]} initialValue="La Torre North" rules={[{ required: false }]} className="mb-2">
                     <Input size="middle" placeholder="La Torre North" disabled />
                   </Form.Item>
-                  <Form.Item label="Municipality" name={["address", "municipality"]} initialValue="Bayombong" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Municipality" name={["address", "municipality"]} initialValue="Bayombong" rules={[{ required: false }]} className="mb-2">
                     <Input size="middle" placeholder="Bayombong" disabled />
                   </Form.Item>
-                  <Form.Item label="Province" name={["address", "province"]} initialValue="Nueva Vizcaya" rules={[{ required: true }]} className="mb-2">
+                  <Form.Item label="Province" name={["address", "province"]} initialValue="Nueva Vizcaya" rules={[{ required: false }]} className="mb-2">
                     <Input size="middle" placeholder="Nueva Vizcaya" disabled />
                   </Form.Item>
                   <Form.Item label="ZIP Code" name={["address", "zipCode"]} initialValue="3700" className="mb-2">
@@ -686,17 +686,17 @@ const Login = () => {
 
                 <div className="grid grid-cols-2 gap-2">
                   <Form.Item label="Citizenship" name="citizenship" initialValue="Filipino" rules={[{ required: false }]} className="mb-2">
-                    <Input size="middle" placeholder="e.g., Filipino" disabled />
+                    <Input size="middle" placeholder="e.g., FILIPINO" disabled />
                   </Form.Item>
-                  <Form.Item label="Occupation" name="occupation" rules={[{ required: true }]} className="mb-2">
-                    <Input size="middle" placeholder="e.g., Teacher" />
+                  <Form.Item label="Occupation" name="occupation" rules={[{ required: true, message: 'Please enter your occupation' }]} className="mb-2">
+                    <Input size="middle" placeholder="e.g., TEACHER, ENGINEER, FARMER" />
                   </Form.Item>
                 </div>
 
                 <Form.Item label="Sectoral Information" name="sectoralInformation" rules={[{ required: false }]} className="mb-2">
                   <Select
                     size="middle"
-                    placeholder="Select sectoral information (optional)"
+                    placeholder="Select sectoral information"
                     options={SECTORAL_OPTIONS}
                     allowClear
                   />
@@ -705,13 +705,13 @@ const Login = () => {
                 <Form.Item label="Employment Status" name="employmentStatus" rules={[{ required: false }]} className="mb-2">
                   <Select
                     size="middle"
-                    placeholder="Select employment status (optional)"
+                    placeholder="Select employment status"
                     options={EMPLOYMENT_STATUS_OPTIONS}
                     allowClear
                   />
                 </Form.Item>
 
-                <Form.Item label="Registered Voter" name="registeredVoter" rules={[{ required: false }]} className="mb-2" valuePropName="checked">
+                <Form.Item label="Are you a registered voter?" name="registeredVoter" rules={[{ required: false }]} className="mb-2" valuePropName="checked">
                   <Switch checkedChildren="Yes" unCheckedChildren="No" />
                 </Form.Item>
 
@@ -731,7 +731,7 @@ const Login = () => {
                   valuePropName="fileList"
                   getValueFromEvent={normFile}
                   className="mb-2"
-                  rules={[{ required: true, message: 'Please upload a valid ID image.' }]}
+                  rules={[{ required: false, message: 'Please upload a valid ID image.' }]}
                 >
                   <Upload.Dragger
                     multiple
@@ -755,11 +755,27 @@ const Login = () => {
             {/* STEP 3: Account */}
             {step === 3 && (
               <>
+                <Alert
+                  message={<span className="font-semibold text-sm">Create Your Account Credentials</span>}
+                  description={
+                    <div className="text-sm leading-relaxed">
+                      <p className="mb-3 text-gray-700">Set up your login credentials to access the barangay system.</p>
+                      <p className="font-semibold mb-2 text-gray-800">Account Security Guidelines:</p>
+                      <ul className="list-disc list-inside space-y-1.5 text-gray-700">
+                        <li>Choose a unique username (minimum 6 characters)</li>
+                        <li>Create a strong password (minimum 6 characters)</li>
+                        <li>Keep your credentials secure and confidential</li>
+                        <li>Your password must match in both fields</li>
+                      </ul>
+                    </div>
+                  }
+                  type="info"
+                  showIcon
+                  className="mb-4"
+                />
+                <div style={{ marginBottom: 16 }} />
                 <h3 className="text-sm font-semibold mb-2">Account</h3>
                 <div className="grid grid-cols-1 gap-2">
-                  <Form.Item label="Email" name="accountEmail" className="mb-2">
-                    <Input size="middle" disabled placeholder="(auto-filled from Address & Contact)" />
-                  </Form.Item>
 
                   {/* NEW: Username */}
                   <Form.Item
@@ -772,10 +788,10 @@ const Login = () => {
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" autoComplete="off" placeholder="e.g., juan.cruz (min. 6 characters)" />
+                    <Input size="middle" autoComplete="off" placeholder="e.g., juan.cruz" />
                   </Form.Item>
 
-                  <Form.Item label="Password" name="password" rules={[{ required: true, min: 6 }]} className="mb-2">
+                  <Form.Item label="Password" name="password" rules={[{ required: true, min: 6, message: "Password must be at least 6 characters" }]} className="mb-2">
                     <Input.Password size="middle" placeholder="At least 6 characters" />
                   </Form.Item>
                   <Form.Item
@@ -783,7 +799,7 @@ const Login = () => {
                     name="confirmPassword"
                     dependencies={["password"]}
                     rules={[
-                      { required: true },
+                      { required: true, message: "Please confirm your password" },
                       ({ getFieldValue }) => ({
                         validator(_, value) {
                           if (!value || getFieldValue("password") === value) return Promise.resolve();

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Tabs } from "antd";
+import { Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Tabs, Alert } from "antd";
 import ResidentNavbar from "./ResidentNavbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
@@ -34,6 +34,7 @@ export default function ResidentReportsComplaints() {
   const [updating, setUpdating] = useState(false);
   const [showOtherCategory, setShowOtherCategory] = useState(false);
   const [showOtherCategoryEdit, setShowOtherCategoryEdit] = useState(false);
+  const [createStep, setCreateStep] = useState(0); // 0 = instructions, 1 = form
 
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -527,16 +528,41 @@ export default function ResidentReportsComplaints() {
       <Modal
         title="Submit New Report/Complaint"
         open={createOpen}
-        onOk={handleCreate}
+        onOk={createStep === 0 ? () => setCreateStep(1) : handleCreate}
         onCancel={() => {
-          setCreateOpen(false);
-          createForm.resetFields();
-          setShowOtherCategory(false);
+          if (createStep === 1) {
+            setCreateStep(0);
+          } else {
+            setCreateOpen(false);
+            setCreateStep(0);
+            createForm.resetFields();
+            setShowOtherCategory(false);
+          }
         }}
         confirmLoading={creating}
-        width={600}
+        width={750}
+        okText={createStep === 0 ? "Next" : "Submit"}
+        cancelText={createStep === 0 ? "Cancel" : "Previous"}
       >
-        <Form form={createForm} layout="vertical" className="mt-4">
+        {createStep === 0 ? (
+          <Alert
+            message={<span className="text-base font-semibold">Instructions for Submitting a Complaint or Report</span>}
+            description={
+              <div className="space-y-2 text-sm leading-relaxed">
+                <p>• <strong>Type:</strong> Choose "Complaint" for issues requiring immediate attention or "Report" for informational submissions.</p>
+                <p>• <strong>Category:</strong> Select the most appropriate category. Choose "Other" if your issue doesn't fit existing options.</p>
+                <p>• <strong>Priority:</strong> Set urgency level - "Urgent" for emergencies, "High" for serious issues, "Medium" for moderate concerns, "Low" for minor issues.</p>
+                <p>• <strong>Description:</strong> Provide clear, detailed information including dates, times, and any relevant circumstances.</p>
+                <p>• <strong>Purok:</strong> Specify the location where the issue occurred or is occurring.</p>
+                <p className="text-blue-600 font-semibold mt-3 pt-2 border-t border-blue-200">Note: You can only edit or delete complaints while they are in "Pending" status.</p>
+              </div>
+            }
+            type="info"
+            showIcon
+            className="my-4"
+          />
+        ) : (
+          <Form form={createForm} layout="vertical" className="mt-2 space-y-2">
           <Form.Item
             name="type"
             label="Type"
@@ -583,7 +609,7 @@ export default function ResidentReportsComplaints() {
             label="Description"
             rules={[{ required: true, message: "Please enter description" }]}
           >
-            <TextArea rows={4} placeholder="Detailed description of the issue" />
+            <TextArea rows={3} placeholder="Detailed description of the issue" />
           </Form.Item>
 
           <Form.Item
@@ -601,7 +627,8 @@ export default function ResidentReportsComplaints() {
           >
             <Select placeholder="Select priority" options={priorityOptions} />
           </Form.Item>
-        </Form>
+          </Form>
+        )}
       </Modal>
 
       {/* Edit Modal */}
@@ -616,13 +643,29 @@ export default function ResidentReportsComplaints() {
           setShowOtherCategoryEdit(false);
         }}
         confirmLoading={updating}
-        width={600}
+        width={750}
       >
-        <Form form={editForm} layout="vertical" className="mt-4">
+        <Alert
+          message="Editing Your Complaint or Report"
+          description={
+            <div className="space-1 text-s leading-tight">
+              <p>• Review and update any details that need correction or clarification.</p>
+              <p>• Ensure all information is accurate before submitting changes.</p>
+              <p>• You can change the priority level if the urgency has changed.</p>
+              <p className="text-amber-600 font-medium mt-1">Important: Once your complaint status changes from "Pending", you will no longer be able to edit or delete it.</p>
+            </div>
+          }
+          type="warning"
+          showIcon
+          className="mb-2"
+        />
+        <div style={{ marginBottom: '16px' }} />
+        <Form form={editForm} layout="vertical" className="mt-2 space-y-2">
           <Form.Item
             name="type"
             label="Type"
             rules={[{ required: true, message: "Please select type" }]}
+            style={{ marginBottom: 4 }}
           >
             <Select placeholder="Select type" options={typeOptions} />
           </Form.Item>
@@ -631,6 +674,7 @@ export default function ResidentReportsComplaints() {
             name="category"
             label="Category"
             rules={[{ required: true, message: "Please select category" }]}
+            style={{ marginBottom: 4 }}
           >
             <Select 
               placeholder="Select category"
@@ -647,6 +691,7 @@ export default function ResidentReportsComplaints() {
               name="customCategory"
               label="Specify Category"
               rules={[{ required: true, message: "Please specify the category" }]}
+              style={{ marginBottom: 4 }}
             >
               <Input placeholder="Enter custom category" />
             </Form.Item>
@@ -656,6 +701,7 @@ export default function ResidentReportsComplaints() {
             name="title"
             label="Title"
             rules={[{ required: true, message: "Please enter title" }]}
+            style={{ marginBottom: 4 }}
           >
             <Input placeholder="Brief title of the issue" />
           </Form.Item>
@@ -664,14 +710,16 @@ export default function ResidentReportsComplaints() {
             name="description"
             label="Description"
             rules={[{ required: true, message: "Please enter description" }]}
+            style={{ marginBottom: 4 }}
           >
-            <TextArea rows={4} placeholder="Detailed description of the issue" />
+            <TextArea rows={3} placeholder="Detailed description of the issue" />
           </Form.Item>
 
           <Form.Item
             name="location"
             label="Purok"
             rules={[{ required: true, message: "Please select purok" }]}
+            style={{ marginBottom: 4 }}
           >
             <Select placeholder="Select purok" options={purokOptions} />
           </Form.Item>
@@ -680,6 +728,7 @@ export default function ResidentReportsComplaints() {
             name="priority"
             label="Priority"
             rules={[{ required: true, message: "Please select priority" }]}
+            style={{ marginBottom: 4 }}
           >
             <Select placeholder="Select priority" options={priorityOptions} />
           </Form.Item>
@@ -696,17 +745,17 @@ export default function ResidentReportsComplaints() {
         }}
         footer={null}
         width={"90%"}
-        style={{ maxWidth: "800px" }}
+        style={{ maxWidth: "950px" }}
         bodyStyle={{ padding: 0 }}
       >
         {viewComplaint && (
           <div>
             {/* Header Section */}
-            <div className="bg-gray-50 p-6 border-b">
+            <div className="bg-gray-50 p-3 border-b">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-800">{viewComplaint.title}</h3>
-                  <div className="flex items-center gap-2 mt-2">
+                  <h3 className="text-lg font-semibold text-gray-800">{viewComplaint.title}</h3>
+                  <div className="flex items-center gap-2 mt-1">
                     <Tag color={viewComplaint.type === "complaint" ? "red" : "blue"}>
                       {viewComplaint.type?.toUpperCase()}
                     </Tag>
@@ -716,7 +765,7 @@ export default function ResidentReportsComplaints() {
                 
                 {/* Status Badge */}
                 <div>
-                  <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     viewComplaint.status === "pending" ? "bg-amber-100 text-amber-800" :
                     viewComplaint.status === "investigating" ? "bg-blue-100 text-blue-800" :
                     viewComplaint.status === "resolved" ? "bg-green-100 text-green-800" :
@@ -729,47 +778,47 @@ export default function ResidentReportsComplaints() {
             </div>
             
             {/* Details */}
-            <div className="p-6">
-              <h4 className="text-lg font-medium text-gray-800 mb-4">Complaint Details</h4>
+            <div className="p-3">
+              <h4 className="text-base font-medium text-gray-800 mb-2">Complaint Details</h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">CATEGORY</p>
+                  <p className="text-xs font-medium text-gray-500 mb-0.5">CATEGORY</p>
                   <p className="text-gray-800">{viewComplaint.category}</p>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">PRIORITY</p>
-                  <Tag color={getPriorityColor(viewComplaint.priority)}>
+                  <p className="text-xs font-medium text-gray-500 mb-0.5">PRIORITY</p>
+                  <Tag color={getPriorityColor(viewComplaint.priority)} size="small">
                     {viewComplaint.priority?.toUpperCase()}
                   </Tag>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">PUROK</p>
-                  <p className="text-gray-800">{viewComplaint.location}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-0.5">PUROK</p>
+                  <p className="text-sm text-gray-800">{viewComplaint.location}</p>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">DATE SUBMITTED</p>
-                  <p className="text-gray-800">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-0.5">DATE SUBMITTED</p>
+                  <p className="text-sm text-gray-800">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
                 </div>
               </div>
               
-              <div className="mb-6">
-                <p className="text-sm font-medium text-gray-500 mb-2">DESCRIPTION</p>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-gray-800">{viewComplaint.description}</p>
+              <div className="mb-3">
+                <p className="text-xs font-medium text-gray-500 mb-1">DESCRIPTION</p>
+                <div className="bg-gray-50 p-2 rounded-lg">
+                  <p className="text-sm text-gray-800">{viewComplaint.description}</p>
                 </div>
               </div>
 
               {viewComplaint.response && (
-                <div className="mb-6">
-                  <p className="text-sm font-medium text-gray-500 mb-2">ADMIN RESPONSE</p>
-                  <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400">
-                    <p className="text-gray-800">{viewComplaint.response}</p>
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-gray-500 mb-1">ADMIN RESPONSE</p>
+                  <div className="bg-blue-50 p-2 rounded-lg border-l-4 border-blue-400">
+                    <p className="text-sm text-gray-800">{viewComplaint.response}</p>
                     {viewComplaint.resolvedAt && (
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 mt-1">
                         Responded on {dayjs(viewComplaint.resolvedAt).format("MMMM DD, YYYY [at] h:mm A")}
                       </p>
                     )}
@@ -779,36 +828,36 @@ export default function ResidentReportsComplaints() {
 
               {/* Status Timeline */}
               <div>
-                <h4 className="text-lg font-medium text-gray-800 mb-4">Status Timeline</h4>
+                <h4 className="text-base font-medium text-gray-800 mb-2">Status Timeline</h4>
                 
                 <div className="relative">
                   {/* Timeline Line */}
-                  <div className="absolute left-3.5 top-0 h-full w-0.5 bg-gray-200"></div>
+                  <div className="absolute left-3 top-0 h-full w-0.5 bg-gray-200"></div>
                   
                   {/* Timeline Steps */}
-                  <div className="space-y-6 relative">
+                  <div className="space-y-3 relative">
                     {/* Submitted Step */}
                     <div className="flex items-start">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
-                        <CheckCircleOutlined className="text-white" />
+                      <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                        <CheckCircleOutlined className="text-white text-xs" />
                       </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-800">Submitted</p>
+                      <div className="ml-3">
+                        <p className="text-xs font-medium text-gray-800">Submitted</p>
                         <p className="text-xs text-gray-500">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
                       </div>
                     </div>
                     
                     {/* Processing Step */}
                     <div className="flex items-start">
-                      <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10 
+                      <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10 
                         ${viewComplaint.status === "pending" ? "bg-amber-500" : 
                           viewComplaint.status === "investigating" ? "bg-blue-500" : "bg-blue-500"}`}>
-                        {viewComplaint.status === "pending" ? <ClockCircleOutlined className="text-white" /> :
-                         viewComplaint.status === "investigating" ? <ExclamationCircleOutlined className="text-white" /> :
-                         <CheckCircleOutlined className="text-white" />}
+                        {viewComplaint.status === "pending" ? <ClockCircleOutlined className="text-white text-xs" /> :
+                         viewComplaint.status === "investigating" ? <ExclamationCircleOutlined className="text-white text-xs" /> :
+                         <CheckCircleOutlined className="text-white text-xs" />}
                       </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-800">
+                      <div className="ml-3">
+                        <p className="text-xs font-medium text-gray-800">
                           {viewComplaint.status === "pending" ? "Pending Review" :
                            viewComplaint.status === "investigating" ? "Under Investigation" :
                            "Processing Complete"}
@@ -824,11 +873,11 @@ export default function ResidentReportsComplaints() {
                     {/* Resolution Step */}
                     {(viewComplaint.status === "resolved" || viewComplaint.status === "closed") && (
                       <div className="flex items-start">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-500 flex items-center justify-center z-10">
-                          <CheckCircleOutlined className="text-white" />
+                        <div className="flex-shrink-0 h-7 w-7 rounded-full bg-green-500 flex items-center justify-center z-10">
+                          <CheckCircleOutlined className="text-white text-xs" />
                         </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-800">Resolved</p>
+                        <div className="ml-3">
+                          <p className="text-xs font-medium text-gray-800">Resolved</p>
                           <p className="text-xs text-gray-500">
                             {viewComplaint.resolvedAt ? dayjs(viewComplaint.resolvedAt).format("MMMM DD, YYYY [at] h:mm A") : "Resolution date not available"}
                           </p>
@@ -840,7 +889,7 @@ export default function ResidentReportsComplaints() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <div className="flex justify-end gap-2 mt-3 pt-2 border-t">
                 <Button onClick={() => setViewOpen(false)}>
                   Close
                 </Button>

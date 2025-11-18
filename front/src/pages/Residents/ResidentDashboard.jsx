@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
 import PaymentStatusAlert from './PaymentStatusAlert';
-import { Button, message } from "antd";
+import { Button, message, Spin } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   FileTextOutlined, 
@@ -526,8 +526,15 @@ export default function ResidentDashboard() {
                   <UserOutlined style={{ fontSize: '20px' }} className="text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-blue-900">{resident?.firstName} {resident?.lastName}</h2>
-                  <p className="text-sm text-blue-700">Resident ID: {resident?._id?.substring(0, 8) || "Not available"}</p>
+                  <h2 className="text-lg font-semibold text-blue-900">
+                    {resident?.firstName}
+                    {resident?.middleName ? ` ${resident.middleName}` : ''}
+                    {resident?.lastName ? ` ${resident.lastName}` : ''}
+                    {resident?.suffix ? <span className="ml-1">{resident.suffix}</span> : null}
+                  </h2>
+                  <p className="text-sm text-blue-700">
+                    Resident ID: {resident?._id?.substring(0, 8) || "Not available"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center">
@@ -657,9 +664,8 @@ export default function ResidentDashboard() {
           <CardContent>
             {loading ? (
               <div className="text-center py-8">
-                <div className="flex justify-center items-center space-x-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                  <span className="text-slate-500">Loading activity...</span>
+                <div className="flex justify-center items-center">
+                  <Spin tip="Loading activity..." />
                 </div>
               </div>
             ) : requests.length === 0 && complaints.length === 0 ? (

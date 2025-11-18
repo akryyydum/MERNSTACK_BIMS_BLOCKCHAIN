@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs, Pagination } from "antd";
+import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, message, Form, Tabs, Pagination, Spin } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 import { 
@@ -524,9 +524,8 @@ export default function ResidentRequest() {
                 {loading ? (
                   <tr>
                     <td colSpan="8" className="text-center py-8">
-                      <div className="flex justify-center items-center space-x-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                        <span className="text-gray-500">Loading requests...</span>
+                      <div className="flex justify-center items-center">
+                        <Spin tip="Loading requests..." />
                       </div>
                     </td>
                   </tr>
@@ -707,39 +706,39 @@ export default function ResidentRequest() {
       onCancel={() => setViewOpen(false)}
       footer={null}
       width={"100%"}
-      style={{ maxWidth: "700px" }}
+      style={{ maxWidth: "900px" }}
       className="document-tracking-modal"
       bodyStyle={{ padding: 0 }}
     >
         {viewRequest && (
           <div>
             {/* Header Section */}
-            <div className="bg-gray-50 p-4 border-b">
+            <div className="bg-gray-50 p-2 border-b">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-800">{viewRequest.documentType}</h3>
-                  <p className="text-gray-500 mt-1">Request ID: {viewRequest._id}</p>
+                  <h3 className="text-lg font-semibold text-gray-800">{viewRequest.documentType}</h3>
+                  <p className="text-gray-500 text-xs mt-0.5">Request ID: {viewRequest._id}</p>
                 </div>
                 
                 {/* Status Badge */}
                 <div>
                   {viewRequest.status === "pending" && (
-                    <div className="px-4 py-1.5 rounded-full bg-amber-100 text-amber-800 text-sm font-medium">
+                    <div className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
                       PENDING
                     </div>
                   )}
                   {viewRequest.status === "accepted" && (
-                    <div className="px-4 py-1.5 rounded-full bg-green-100 text-green-800 text-sm font-medium">
+                    <div className="px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
                       APPROVED
                     </div>
                   )}
                   {(viewRequest.status === "declined" || viewRequest.status === "rejected") && (
-                    <div className="px-4 py-1.5 rounded-full bg-red-100 text-red-800 text-sm font-medium">
+                    <div className="px-3 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">
                       REJECTED
                     </div>
                   )}
                   {viewRequest.status === "completed" && (
-                    <div className="px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
+                    <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
                       RELEASED
                     </div>
                   )}
@@ -748,33 +747,33 @@ export default function ResidentRequest() {
             </div>
             
             {/* Document Details */}
-            <div className="p-4">
-              <h4 className="text-lg font-medium text-gray-800 mb-3">Request Details</h4>
+            <div className="p-2">
+              <h4 className="text-sm font-medium text-gray-800 mb-1.5">Request Details</h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">PURPOSE</p>
-                  <p className="mt-1">{viewRequest.purpose}</p>
+                  <p className="text-xs font-medium text-gray-500">PURPOSE</p>
+                  <p className="mt-0.5 text-sm">{viewRequest.purpose}</p>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500">DOCUMENT TYPE</p>
-                  <p className="mt-1">{viewRequest.documentType}</p>
+                  <p className="text-xs font-medium text-gray-500">DOCUMENT TYPE</p>
+                  <p className="mt-0.5 text-sm">{viewRequest.documentType}</p>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500">QUANTITY</p>
-                  <p className="mt-1">{viewRequest.quantity || 1}</p>
+                  <p className="text-xs font-medium text-gray-500">QUANTITY</p>
+                  <p className="mt-0.5 text-sm">{viewRequest.quantity || 1}</p>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500">REQUESTED DATE</p>
-                  <p className="mt-1">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                  <p className="text-xs font-medium text-gray-500">REQUESTED DATE</p>
+                  <p className="mt-0.5 text-sm">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 <div>
-                  <p className="text-sm font-medium text-gray-500">LAST UPDATED</p>
-                  <p className="mt-1">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                  <p className="text-xs font-medium text-gray-500">LAST UPDATED</p>
+                  <p className="mt-0.5 text-sm">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 {/* Total Amount */}
@@ -823,34 +822,34 @@ export default function ResidentRequest() {
               </div>
               
               {/* Status Timeline */}
-              <div className="mb-4">
-                <h4 className="text-lg font-medium text-gray-800 mb-2">Request Timeline</h4>
+              <div className="mb-2">
+                <h4 className="text-sm font-medium text-gray-800 mb-1.5">Request Timeline</h4>
                 
                 <div className="relative">
                   {/* Timeline Line */}
-                  <div className="absolute left-3.5 top-0 h-full w-0.5 bg-gray-200"></div>
+                  <div className="absolute left-3 top-0 h-full w-0.5 bg-gray-200"></div>
                   
                   {/* Timeline Steps */}
-                  <div className="space-y-4 relative">
+                  <div className="space-y-2 relative">
                     {/* Requested Step (Always shown) */}
                     <div className="flex items-start">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
-                        <CheckCircleOutlined className="text-white" />
+                      <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                        <CheckCircleOutlined className="text-white text-xs" />
                       </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-800">Requested</p>
+                      <div className="ml-3">
+                        <p className="text-xs font-medium text-gray-800">Requested</p>
                         <p className="text-xs text-gray-500">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                       </div>
                     </div>
                     
                     {/* Processing Step (Always shown but styled differently based on status) */}
                     <div className="flex items-start">
-                      <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10 
+                      <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10 
                         ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
-                        <ClockCircleOutlined className="text-white" />
+                        <ClockCircleOutlined className="text-white text-xs" />
                       </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-800">Processing</p>
+                      <div className="ml-3">
+                        <p className="text-xs font-medium text-gray-800">Processing</p>
                         <p className="text-xs text-gray-500">
                           {viewRequest.status === "pending" 
                             ? "Your request is being processed" 
@@ -862,16 +861,16 @@ export default function ResidentRequest() {
                     {/* Approved/Rejected Step (Shown when not pending) */}
                     {viewRequest.status !== "pending" && (
                       <div className="flex items-start">
-                        <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10
+                        <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10
                           ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-green-500" : "bg-red-500"}`}>
                           {viewRequest.status === "accepted" || viewRequest.status === "completed" ? (
-                            <CheckCircleOutlined className="text-white" />
+                            <CheckCircleOutlined className="text-white text-xs" />
                           ) : (
-                            <CloseCircleOutlined className="text-white" />
+                            <CloseCircleOutlined className="text-white text-xs" />
                           )}
                         </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-800">
+                        <div className="ml-3">
+                          <p className="text-xs font-medium text-gray-800">
                             {viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -884,11 +883,11 @@ export default function ResidentRequest() {
                     {/* Released Step (Shown only for released docs) */}
                     {viewRequest.status === "completed" && (
                       <div className="flex items-start">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
-                          <CheckCircleOutlined className="text-white" />
+                        <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                          <CheckCircleOutlined className="text-white text-xs" />
                         </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-800">Released</p>
+                        <div className="ml-3">
+                          <p className="text-xs font-medium text-gray-800">Released</p>
                           <p className="text-xs text-gray-500">
                             {viewRequest.completedAt || viewRequest.releasedAt 
                               ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() 
@@ -903,24 +902,24 @@ export default function ResidentRequest() {
               
               {/* Blockchain Information (if available) */}
               {viewRequest.blockchain?.hash && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="text-lg font-medium text-gray-800 mb-2">Blockchain Verification</h4>
-                  <div className="bg-gray-50 p-2 rounded-lg space-y-2">
+                <div className="border-t border-gray-200 pt-2">
+                  <h4 className="text-sm font-medium text-gray-800 mb-1.5">Blockchain Verification</h4>
+                  <div className="bg-gray-50 p-1.5 rounded-lg space-y-1">
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">HASH</p>
-                      <p className="mt-1 font-mono text-sm break-all">{viewRequest.blockchain.hash || "-"}</p>
+                      <p className="mt-0.5 font-mono text-xs break-all">{viewRequest.blockchain.hash || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">TRANSACTION ID</p>
-                      <p className="mt-1 font-mono text-sm break-all">{viewRequest.blockchain.lastTxId || "-"}</p>
+                      <p className="mt-0.5 font-mono text-xs break-all">{viewRequest.blockchain.lastTxId || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">ISSUED BY</p>
-                      <p className="mt-1">{viewRequest.blockchain.issuedBy || "-"}</p>
+                      <p className="mt-0.5 text-sm">{viewRequest.blockchain.issuedBy || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">ISSUED DATE</p>
-                      <p className="mt-1">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
+                      <p className="mt-0.5 text-sm">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
                     </div>
                   </div>
                 </div>
@@ -928,7 +927,7 @@ export default function ResidentRequest() {
             </div>
             
             {/* Footer with close button */}
-            <div className="bg-gray-50 p-2 flex justify-end border-t">
+            <div className="bg-gray-50 p-1.5 flex justify-end border-t">
               <Button onClick={() => setViewOpen(false)}>Close</Button>
             </div>
           </div>
@@ -942,21 +941,21 @@ export default function ResidentRequest() {
         onCancel={() => setCreateOpen(false)}
         footer={null}
         width={"90%"}
-        style={{ maxWidth: "600px" }}
+        style={{ maxWidth: "750px" }}
         bodyStyle={{ padding: 0 }}
       >
-        <div className="bg-gray-50 p-6 border-b">
-          <h3 className="text-xl font-semibold text-gray-800">Request New Document</h3>
-          <p className="text-gray-500 text-sm mt-1">
+        <div className="bg-gray-50 p-2.5 border-b">
+          <h3 className="text-base font-semibold text-gray-800">Request New Document</h3>
+          <p className="text-gray-500 text-xs mt-0.5">
             Fill out the form below to request an official document
           </p>
         </div>
         
-        <div className="p-6">
+        <div className="p-2.5">
           <Form 
             form={createForm} 
             layout="vertical" 
-            className="space-y-4"
+            className="space-y-2"
             initialValues={{
               residentId: resident?._id,
               requestFor: resident?._id,
@@ -1167,9 +1166,9 @@ export default function ResidentRequest() {
               />
             </Form.Item>
             
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
-              <h4 className="text-blue-800 font-medium text-sm mb-1">Important Information</h4>
-              <p className="text-blue-700 text-xs">
+            <div className="bg-blue-50 p-2 rounded-lg border border-blue-100 mb-2">
+              <h4 className="text-blue-800 font-medium text-xs mb-0.5">Important Information</h4>
+              <p className="text-blue-700 text-xs leading-tight">
                 Your document request will be reviewed by barangay officials. Processing time may vary depending on the type of document and current volume of requests.
               </p>
             </div>
