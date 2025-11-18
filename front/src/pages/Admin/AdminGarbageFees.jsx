@@ -2533,7 +2533,19 @@ export default function AdminGarbageFees() {
                 ]}
                 className="mb-0"
               >
-                <InputNumber className="w-full" min={0} step={50} size="small" />
+                <InputNumber 
+                  className="w-full" 
+                  min={0} 
+                  step={50} 
+                  size="small"
+                  parser={value => value.replace(/[^0-9]/g, '')}
+                  inputMode="numeric"
+                  onKeyPress={e => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
               </Form.Item>
               <Form.Item name="method" label="Payment Method" className="mb-0">
                 <Input value="Cash" disabled size="small" />
@@ -2606,7 +2618,7 @@ export default function AdminGarbageFees() {
               Record Payment for Both
             </Button>
           ]}
-          width={100}
+          width={1300}
           centered
           style={{ top: 20 }}
         >
@@ -2801,7 +2813,19 @@ export default function AdminGarbageFees() {
                 ]}
                 className="mb-0"
               >
-                <InputNumber className="w-full" min={0} step={10} size="small" />
+                <InputNumber 
+                  className="w-full" 
+                  min={0} 
+                  step={10} 
+                  size="small"
+                  parser={value => value.replace(/[^0-9]/g, '')}
+                  inputMode="numeric"
+                  onKeyPress={e => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
               </Form.Item>
               <Form.Item name="method" label="Payment Method" className="mb-0">
                 <Input value="Cash" disabled size="small" />
@@ -2822,9 +2846,6 @@ export default function AdminGarbageFees() {
                         <div>Selected Months: {selectedMonths.length}</div>
                         <div>Fee per Month: ₱{getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness")).toFixed(2)}</div>
                         <div>Subtotal: ₱{(selectedMonths.length * getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"))).toFixed(2)}</div>
-                        <div className="text-xs text-blue-600">
-                          {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
-                        </div>
                       </div>
                     </div>
                   )}
@@ -2836,22 +2857,16 @@ export default function AdminGarbageFees() {
                       <div>Selected Months: {streetlightSelectedMonths.length}</div>
                       <div>Fee per Month: ₱{getStreetlightMonthlyFee().toFixed(2)}</div>
                       <div>Subtotal: ₱{(streetlightSelectedMonths.length * getStreetlightMonthlyFee()).toFixed(2)}</div>
-                      <div className="text-xs text-blue-600">
-                        {streetlightSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
-                      </div>
                     </div>
                   </div>
                   
                   {/* Grand Total */}
-                  <div className="border-t border-green-300 pt-2">
-                    <div className="font-semibold text-green-800">
+                  <div className="border-t border-green-300 pt-2 mt-3">
+                    <div div className="font-bold text-green-800 text-center">
                       Grand Total: ₱{(
                         (selectedMonths.length * getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"))) + 
                         (streetlightSelectedMonths.length * getStreetlightMonthlyFee())
                       ).toFixed(2)}
-                    </div>
-                    <div className="text-xs text-green-600 mt-1">
-                      Total Months: {(selectedMonths.length || 0) + streetlightSelectedMonths.length}
                     </div>
                   </div>
                 </div>

@@ -2381,7 +2381,19 @@ export default function AdminStreetLightFees() {
                 rules={[{ required: true, message: "Enter amount to pay" }]}
                 className="mb-0"
               >
-                <InputNumber className="w-full" min={0} step={10} size="small" />
+                <InputNumber 
+                  className="w-full" 
+                  min={0} 
+                  step={10} 
+                  size="small"
+                  parser={value => value.replace(/[^0-9]/g, '')}
+                  inputMode="numeric"
+                  onKeyPress={e => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
               </Form.Item>
               <Form.Item name="method" label="Payment Method" className="mb-0">
                 <Input value="Cash" disabled size="small" />
@@ -2682,7 +2694,19 @@ export default function AdminStreetLightFees() {
                 ]}
                 className="mb-0"
               >
-                <InputNumber className="w-full" min={0} step={50} size="small" />
+                <InputNumber 
+                  className="w-full" 
+                  min={0} 
+                  step={50} 
+                  size="small"
+                  parser={value => value.replace(/[^0-9]/g, '')}
+                  inputMode="numeric"
+                  onKeyPress={e => {
+                    if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
               </Form.Item>
               <Form.Item name="method" label="Payment Method" className="mb-0">
                 <Input value="Cash" disabled size="small" />
@@ -2701,9 +2725,6 @@ export default function AdminStreetLightFees() {
                       <div>Selected Months: {selectedMonths.length}</div>
                       <div>Fee per Month: ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}</div>
                       <div className="font-medium">Subtotal: ₱{(selectedMonths.length * Number(getStreetlightMonthlyFee())).toFixed(2)}</div>
-                      <div className="text-xs text-green-600 mt-1">
-                        {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
-                      </div>
                     </div>
                   </div>
                 )}
@@ -2715,9 +2736,6 @@ export default function AdminStreetLightFees() {
                     <div>Selected Months: {garbageSelectedMonths.length}</div>
                     <div>Fee per Month: ₱{garbageForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
                     <div className="font-medium">Subtotal: ₱{(garbageSelectedMonths.length * (getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness")))).toFixed(2)}</div>
-                    <div className="text-xs text-green-600 mt-1">
-                      {garbageSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
-                    </div>
                   </div>
                 </div>
                 
