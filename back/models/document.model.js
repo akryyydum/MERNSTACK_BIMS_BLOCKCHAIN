@@ -36,4 +36,10 @@ const documentRequestSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// Indexes for faster queries
+documentRequestSchema.index({ residentId: 1, requestedAt: -1 });
+documentRequestSchema.index({ requestedBy: 1, requestedAt: -1 });
+documentRequestSchema.index({ status: 1, requestedAt: -1 });
+documentRequestSchema.index({ requestedAt: -1 });
+
 module.exports = mongoose.model('DocumentRequest', documentRequestSchema);
