@@ -285,12 +285,124 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
-    const resident = await Resident.findByIdAndDelete(id);
+    
+    console.log('=== DELETING RESIDENT AND ALL RELATED DATA ===');
+    console.log('Resident ID:', id);
+    
+    const resident = await Resident.findById(id);
     if (!resident) return res.status(404).json({ message: "Resident not found" });
-    // Optionally delete the linked user:
-    await User.findByIdAndDelete(resident.user);
-    res.json({ message: "Resident deleted" });
+    
+    const residentName = `${resident.firstName} ${resident.lastName}`;
+    console.log('Deleting resident:', residentName);
+    
+    // Track deletion counts
+    const deletionSummary = {
+      resident: residentName,
+      user: 0,
+      documentRequests: 0,
+      financialTransactions: 0,
+      complaints: 0,
+      householdsRemoved: 0,
+      householdsDeleted: 0,
+      utilityPayments: 0
+    };
+    
+    // 1. Delete linked user account
+    if (resident.user) {
+      console.log('Deleting user account:', resident.user);
+      await User.findByIdAndDelete(resident.user);
+      deletionSummary.user = 1;
+    }
+    
+    // 2. Delete all document requests where resident is involved
+    const DocumentRequest = require('../models/document.model');
+    const docDeleteResult = await DocumentRequest.deleteMany({
+      $or: [
+        { residentId: id },
+        { requestedBy: id },
+        { requestFor: id }
+      ]
+    });
+    deletionSummary.documentRequests = docDeleteResult.deletedCount;
+    console.log('Deleted document requests:', docDeleteResult.deletedCount);
+    
+    // 3. Delete all financial transactions linked to resident
+    const FinancialTransaction = require('../models/financialTransaction.model');
+    const finDeleteResult = await FinancialTransaction.deleteMany({ residentId: id });
+    deletionSummary.financialTransactions = finDeleteResult.deletedCount;
+    console.log('Deleted financial transactions:', finDeleteResult.deletedCount);
+    
+    // 4. Delete all complaints filed by resident
+    const Complaint = require('../models/complaint.model');
+    const complaintDeleteResult = await Complaint.deleteMany({ residentId: id });
+    deletionSummary.complaints = complaintDeleteResult.deletedCount;
+    console.log('Deleted complaints:', complaintDeleteResult.deletedCount);
+    
+    // 5. Handle household memberships
+    const Household = require('../models/household.model');
+    
+    // Find households where resident is head
+    const householdsAsHead = await Household.find({ headOfHousehold: id });
+    console.log('Households where resident is head:', householdsAsHead.length);
+    
+    for (const household of householdsAsHead) {
+      // If household has other members, assign new head
+      if (household.members && household.members.length > 0) {
+        // Remove resident from members array
+        household.members = household.members.filter(m => m.toString() !== id);
+        
+        if (household.members.length > 0) {
+          // Assign first member as new head
+          household.headOfHousehold = household.members[0];
+          await household.save();
+          console.log(`Transferred household ${household.householdId} to new head`);
+          deletionSummary.householdsRemoved++;
+        } else {
+          // No other members, delete household and its utility payments
+          const UtilityPayment = require('../models/utilityPayment.model');
+          await UtilityPayment.deleteMany({ household: household._id });
+          await Household.findByIdAndDelete(household._id);
+          console.log(`Deleted household ${household.householdId} (no remaining members)`);
+          deletionSummary.householdsDeleted++;
+        }
+      } else {
+        // No other members, delete household and its utility payments
+        const UtilityPayment = require('../models/utilityPayment.model');
+        const utilDeleteResult = await UtilityPayment.deleteMany({ household: household._id });
+        deletionSummary.utilityPayments += utilDeleteResult.deletedCount;
+        await Household.findByIdAndDelete(household._id);
+        console.log(`Deleted household ${household.householdId} (resident was only member)`);
+        deletionSummary.householdsDeleted++;
+      }
+    }
+    
+    // Find households where resident is a member (but not head)
+    const householdsAsMember = await Household.find({ 
+      members: id,
+      headOfHousehold: { $ne: id }
+    });
+    console.log('Households where resident is member:', householdsAsMember.length);
+    
+    for (const household of householdsAsMember) {
+      // Remove resident from members array
+      household.members = household.members.filter(m => m.toString() !== id);
+      await household.save();
+      console.log(`Removed resident from household ${household.householdId}`);
+      deletionSummary.householdsRemoved++;
+    }
+    
+    // 6. Finally, delete the resident record
+    await Resident.findByIdAndDelete(id);
+    
+    console.log('=== DELETION SUMMARY ===');
+    console.log(deletionSummary);
+    
+    res.json({ 
+      message: `Resident ${residentName} and all related data deleted successfully`,
+      deletionSummary
+    });
   } catch (err) {
+    console.error('Error deleting resident:', err);
     res.status(500).json({ message: err.message });
   }
 };

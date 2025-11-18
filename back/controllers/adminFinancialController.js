@@ -191,6 +191,9 @@ const getDashboard = async (req, res) => {
 // Get transactions with filters
 const getTransactions = async (req, res) => {
   try {
+    console.log('=== getTransactions called ===');
+    console.log('Query params:', req.query);
+    
     const { 
       startDate, 
       endDate, 
@@ -218,12 +221,15 @@ const getTransactions = async (req, res) => {
     if (residentId) filter.residentId = residentId;
     if (officialId) filter.officialId = officialId;
 
+    console.log('Fetching FinancialTransactions with filter:', filter);
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName middleName lastName suffix')
       .populate('officialId', 'fullName position')
       .populate('createdBy', 'username fullName')
       .sort({ transactionDate: -1 })
       .lean();
+    
+    console.log('Found FinancialTransactions:', transactions.length);
     
     // Update resident names dynamically from populated data
     const updatedTransactions = transactions.map(txn => {
@@ -264,6 +270,7 @@ const getTransactions = async (req, res) => {
     // Use the same utility payments as dashboard for consistency
     const currentYear = new Date().getFullYear();
     console.log('Fetching current year utility payments for transactions...');
+    console.log('Current year:', currentYear);
     
     // Only get current year utility payments to match what's shown in statistics
     const allUtilityPayments = await UtilityPayment.find({
@@ -276,7 +283,8 @@ const getTransactions = async (req, res) => {
           select: 'firstName lastName'
         }
       })
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean();
 
     console.log('Found current year utility payments for transactions:', allUtilityPayments.length);
     
@@ -440,8 +448,11 @@ const getTransactions = async (req, res) => {
     
     res.json({ transactions: allTransactions });
   } catch (error) {
-    console.error('Error fetching transactions:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('!!! Error in getTransactions !!!');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message, stack: error.stack });
   }
 };
 
