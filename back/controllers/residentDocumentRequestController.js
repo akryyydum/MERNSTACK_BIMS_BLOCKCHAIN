@@ -8,16 +8,17 @@ const { getContract } = require('../utils/fabricClient');
 
 exports.list = async (req, res) => {
   try {
-    const resident = await Resident.findOne({ user: req.user.id });
+    const resident = await Resident.findOne({ user: req.user.id }).select('_id').lean();
     if (!resident) return res.status(404).json({ message: "Resident profile not found" });
 
     const requests = await DocumentRequest.find({
       $or: [{ residentId: resident._id }, { requestedBy: resident._id }]
     })
-      .populate('residentId')
-      .populate('requestedBy') // include requester info
-      .populate('requestFor') // include who the document is for
-      .sort({ requestedAt: -1 });
+      .populate('residentId', 'firstName lastName')
+      .populate('requestedBy', 'firstName lastName')
+      .populate('requestFor', 'firstName lastName')
+      .sort({ requestedAt: -1 })
+      .lean();
 
     res.json(requests);
   } catch (error) {
@@ -92,37 +93,42 @@ exports.createRequest = async (req, res) => {
       quantity: Math.max(Number(quantity || 1), 1),
       amount: Number(amount || 0)   // Document fee
     });
-    // Attempt to mirror to blockchain (non-blocking)
-    try {
-      const { gateway, contract } = await getContract();
-      // Determine the subject (who the document is for) for display on-chain
-      let subjectResident;
+    
+    // Attempt to mirror to blockchain (non-blocking for speed)
+    const docId = doc._id.toString();
+    setImmediate(async () => {
       try {
-        subjectResident = await Resident.findById(doc.requestFor).select('firstName lastName');
-      } catch (_) {}
-      try {
-        await contract.submitTransaction(
-          'createRequest',
-          doc._id.toString(),
-          (doc.requestFor?._id || doc.requestFor).toString(), // Use subject of document
-          subjectResident ? [subjectResident.firstName, subjectResident.lastName].filter(Boolean).join(' ') : [resident.firstName, resident.lastName].filter(Boolean).join(' '),
-          documentType,
-          purpose || '',
-          doc.status || 'pending'
-        );
-      } catch (chainErr) {
-        console.error('Blockchain createRequest (resident) failed:', chainErr.message || chainErr);
+        const { gateway, contract } = await getContract();
+        // Determine the subject (who the document is for) for display on-chain
+        let subjectResident;
+        try {
+          subjectResident = await Resident.findById(doc.requestFor).select('firstName lastName').lean();
+        } catch (_) {}
+        try {
+          await contract.submitTransaction(
+            'createRequest',
+            docId,
+            (doc.requestFor?._id || doc.requestFor).toString(),
+            subjectResident ? [subjectResident.firstName, subjectResident.lastName].filter(Boolean).join(' ') : [resident.firstName, resident.lastName].filter(Boolean).join(' '),
+            documentType,
+            purpose || '',
+            doc.status || 'pending'
+          );
+        } catch (chainErr) {
+          console.error('Blockchain createRequest (resident) failed:', chainErr.message || chainErr);
+        }
+        await gateway.disconnect();
+      } catch (fabricErr) {
+        console.warn('Fabric gateway error (resident create mirror):', fabricErr.message || fabricErr);
       }
-      await gateway.disconnect();
-    } catch (fabricErr) {
-      console.warn('Fabric gateway error (resident create mirror):', fabricErr.message || fabricErr);
-    }
+    });
 
-    // Return populated document for frontend consistency
+    // Return populated document for frontend consistency (optimized with select)
     const populated = await DocumentRequest.findById(doc._id)
-      .populate('residentId')
-      .populate('requestedBy')
-      .populate('requestFor');
+      .populate('residentId', 'firstName lastName')
+      .populate('requestedBy', 'firstName lastName')
+      .populate('requestFor', 'firstName lastName')
+      .lean();
 
     res.status(201).json(populated);
   } catch (error) {
