@@ -1,5 +1,6 @@
 const Household = require('../models/household.model');
 const UtilityPayment = require('../models/utilityPayment.model');
+const Settings = require('../models/settings.model');
 
 /**
  * Helper to get current month in "YYYY-MM" format
@@ -83,9 +84,12 @@ async function checkHouseholdPaymentStatus(householdId) {
 
     const currentMonth = getCurrentMonthKey();
     
-    // Default amounts
-    const garbageMonthlyAmount = household.hasBusiness ? 50 : 35;
-    const streetlightMonthlyAmount = 10;
+    // Dynamic amounts from settings
+      const settings = await Settings.getSingleton();
+      const garbageMonthlyAmount = household.hasBusiness
+        ? settings.garbageFeeBusinessAnnual
+        : settings.garbageFeeRegularAnnual;
+    const streetlightMonthlyAmount = settings.streetlightMonthlyFee;
     
     // Check current month payment status
     const garbagePayment = await UtilityPayment.findOne({

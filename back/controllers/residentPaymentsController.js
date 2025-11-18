@@ -3,6 +3,7 @@ const Household = require("../models/household.model");
 const UtilityPayment = require("../models/utilityPayment.model");
 const StreetlightPayment = require("../models/streetlightPayment.model");
 const GasPayment = require("../models/gasPayment.model");
+const Settings = require("../models/settings.model");
 
 const resolveResidentContext = async (user) => {
   const userId = user?.id || user?._id;
@@ -46,10 +47,14 @@ const getPayments = async (req, res) => {
       GasPayment.find({ household: household._id }).sort({ month: 1 }).lean(),
     ]);
 
-    // Calculate annual fees based on business status
+    // Calculate annual fees based on business status using dynamic settings
     const currentYear = new Date().getFullYear();
-    const annualGarbageFee = household.hasBusiness ? 600 : 420;
-    const annualStreetlightFee = 120;
+    const settings = await Settings.getSingleton();
+    const monthlyGarbageFee = household.hasBusiness
+      ? settings.garbageFeeBusinessAnnual
+      : settings.garbageFeeRegularAnnual;
+    const annualGarbageFee = monthlyGarbageFee * 12;
+    const annualStreetlightFee = settings.streetlightMonthlyFee * 12;
 
     // Calculate total paid amounts for current year
     const currentYearUtilityPayments = utilityPayments.filter(p => {

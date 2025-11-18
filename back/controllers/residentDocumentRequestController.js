@@ -4,6 +4,7 @@ const Household = require('../models/household.model');
 const FinancialTransaction = require('../models/financialTransaction.model');
 const mongoose = require('mongoose');
 const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
+const Settings = require('../models/settings.model');
 // Fabric client for blockchain mirroring
 const { getContract } = require('../utils/fabricClient');
 
@@ -100,8 +101,11 @@ exports.createRequest = async (req, res) => {
       const qty = Math.max(Number(quantity || 1), 1);
       const type = documentType;
       let unitAmount = 0;
-      if (type === 'Indigency') unitAmount = 0;
-      else if (type === 'Barangay Clearance') unitAmount = 100;
+      const settings = await Settings.getSingleton();
+      const indigencyFee = settings.documentFees?.indigency ?? 0;
+      const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
+      if (type === 'Indigency') unitAmount = indigencyFee;
+      else if (type === 'Barangay Clearance') unitAmount = clearanceFee;
       else if (type === 'Business Clearance') unitAmount = Number(amount || 0);
 
       const total = unitAmount * qty;

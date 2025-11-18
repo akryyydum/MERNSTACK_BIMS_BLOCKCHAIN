@@ -79,6 +79,21 @@ export default function AdminGarbageFees() {
   const [bulkResetLoading, setBulkResetLoading] = useState(false);
   const [selectAllClicked, setSelectAllClicked] = useState(false);
 
+  // Dynamic settings for fees
+  const [settings, setSettings] = useState(null);
+  const getGarbageMonthlyFee = (hasBusiness) => {
+    if (settings) {
+      const monthly = hasBusiness ? Number(settings.garbageFeeBusinessAnnual || 0) : Number(settings.garbageFeeRegularAnnual || 0);
+      return Number.isFinite(monthly) && monthly >= 0 ? monthly : (hasBusiness ? 50 : 35);
+    }
+    return hasBusiness ? 50 : 35;
+  };
+  const getStreetlightMonthlyFee = () => {
+    return settings && Number.isFinite(Number(settings.streetlightMonthlyFee))
+      ? Number(settings.streetlightMonthlyFee)
+      : 10;
+  };
+
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('garbageFeesColumnsVisibility');
@@ -125,6 +140,20 @@ export default function AdminGarbageFees() {
   useEffect(() => {
     fetchHouseholds();
     fetchGarbagePayments();
+  }, []);
+
+  // Fetch settings once
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/settings`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        const data = await res.json();
+        if (res.ok) setSettings(data);
+      } catch (_) {}
+    };
+    fetchSettings();
   }, []);
 
   // Refetch payment status when selected year changes while modal is open
@@ -225,7 +254,7 @@ export default function AdminGarbageFees() {
         } catch (err) {
           // If no payment record exists, consider it unpaid
           const household = households.find(h => h._id === householdId);
-          const defaultFee = household?.hasBusiness ? 50 : 35;
+          const defaultFee = getGarbageMonthlyFee(household?.hasBusiness);
           monthStatuses[monthStr] = {
             month: monthStr,
             totalCharge: defaultFee,
@@ -413,7 +442,7 @@ export default function AdminGarbageFees() {
     payForm.setFieldValue("selectedMonths", allAllowedMonths);
     
     // Update total charge calculation
-    const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
+    const fee = getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"));
     const totalCharge = allAllowedMonths.length * fee;
     payForm.setFieldValue("totalCharge", totalCharge);
     payForm.setFieldValue("amount", totalCharge);
@@ -437,7 +466,7 @@ export default function AdminGarbageFees() {
       
       // Get the household info to set business status
       const household = households.find(h => h._id === householdId);
-      const defaultFee = household?.hasBusiness ? 50 : 35;
+      const defaultFee = getGarbageMonthlyFee(household?.hasBusiness);
       
       payForm.setFieldsValue({
         month: dayjs(`${monthStr}-01`),
@@ -468,7 +497,7 @@ export default function AdminGarbageFees() {
     setSelectedMonths(initialMonths);
     
     // Calculate initial totals
-    const defaultFee = household?.hasBusiness ? 50 : 35;
+    const defaultFee = getGarbageMonthlyFee(household?.hasBusiness);
     const totalCharge = initialMonths.length * defaultFee;
     
     payForm.setFieldsValue({
@@ -528,7 +557,7 @@ export default function AdminGarbageFees() {
         }
       }
       
-      const fee = values.hasBusiness ? 50 : 35;
+      const fee = getGarbageMonthlyFee(values.hasBusiness);
       const amountPerMonth = Number(values.amount) / selectedMonths.length;
       
       // Process payment for each selected month
@@ -695,7 +724,7 @@ export default function AdminGarbageFees() {
           };
         } catch (err) {
           // If no payment record exists, consider it unpaid
-          const defaultFee = 10; // Fixed fee for streetlight
+          const defaultFee = getStreetlightMonthlyFee();
           monthStatuses[monthStr] = {
             month: monthStr,
             totalCharge: defaultFee,
@@ -753,7 +782,7 @@ export default function AdminGarbageFees() {
       setStreetlightSelectedMonths(initialMonths);
       
       // Calculate initial totals
-      const totalCharge = initialMonths.length * 10; // Fixed fee for streetlight
+      const totalCharge = initialMonths.length * getStreetlightMonthlyFee();
       
       streetlightForm.setFieldsValue({
         selectedMonths: initialMonths,
@@ -814,7 +843,7 @@ export default function AdminGarbageFees() {
       });
 
       // Process Garbage Payment
-      const garbageFee = garbageValues.hasBusiness ? 50 : 35;
+      const garbageFee = getGarbageMonthlyFee(garbageValues.hasBusiness);
       const garbageAmountPerMonth = Number(garbageValues.amount) / selectedMonths.length;
       
       const garbagePaymentPromises = selectedMonths.map(monthKey => {
@@ -845,7 +874,7 @@ export default function AdminGarbageFees() {
         const payload = {
           month: monthKey,
           amount: streetlightAmountPerMonth,
-          totalCharge: 10,
+          totalCharge: getStreetlightMonthlyFee(),
           method: streetlightValues.method || "Cash",
           reference: streetlightValues.reference,
           paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
@@ -926,7 +955,7 @@ export default function AdminGarbageFees() {
         const payload = {
           month: monthKey,
           amount: amountPerMonth,
-          totalCharge: 10,
+          totalCharge: getStreetlightMonthlyFee(),
           method: values.method || "Cash",
           reference: values.reference,
           paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
@@ -1059,7 +1088,7 @@ export default function AdminGarbageFees() {
     streetlightForm.setFieldValue("selectedMonths", allAllowedMonths);
     
     // Update total charge calculation
-    const fee = 10;
+    const fee = getStreetlightMonthlyFee();
     const totalCharge = allAllowedMonths.length * fee;
     streetlightForm.setFieldValue("totalCharge", totalCharge);
     streetlightForm.setFieldValue("amount", totalCharge);
@@ -1161,7 +1190,7 @@ export default function AdminGarbageFees() {
       let totalMonthlyCollected = 0;
       
       households.forEach(household => {
-        const defaultFee = household.hasBusiness ? 50 : 35;
+        const defaultFee = getGarbageMonthlyFee(household.hasBusiness);
         expectedMonthly += defaultFee;
         
         // Calculate yearly balance for this household (same logic as table)
@@ -1343,12 +1372,13 @@ export default function AdminGarbageFees() {
       if (paymentStatus === 'paid' && !hasPaidPayments) continue;
       if (paymentStatus === 'unpaid' && !hasUnpaidMonths) continue;
 
+      const feeRate = getGarbageMonthlyFee(household.hasBusiness);
       const baseData = {
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
         'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
-        'Fee Rate': household.hasBusiness ? '₱50' : '₱35',
+        'Fee Rate': `₱${Number(feeRate).toFixed(2)}`,
       };
 
       // Add monthly payment status for the year
@@ -1371,8 +1401,8 @@ export default function AdminGarbageFees() {
                 dayjs(p.month + '-01').year() === currentYear)
         .reduce((sum, p) => sum + p.amountPaid, 0);
         
-      const expectedFee = household.hasBusiness ? 50 : 35;
-      const expectedTotal = expectedFee * 12;
+      const expectedFee = getGarbageMonthlyFee(household.hasBusiness);
+      const expectedTotal = Number(expectedFee) * 12;
       const balance = expectedTotal - totalPaid;
 
       baseData['Total Paid'] = `₱${totalPaid}`;
@@ -1403,7 +1433,7 @@ export default function AdminGarbageFees() {
 
       console.log(`Payment for ${household.householdId} in ${monthStr}:`, payment);
 
-      const expectedFee = household.hasBusiness ? 50 : 35;
+      const expectedFee = getGarbageMonthlyFee(household.hasBusiness);
       const paidAmount = payment ? payment.amountPaid : 0;
       const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
       const balance = expectedFee - paidAmount;
@@ -1424,7 +1454,7 @@ export default function AdminGarbageFees() {
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
         'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
-        'Expected Fee': `₱${expectedFee}`,
+        'Expected Fee': `₱${Number(expectedFee).toFixed(2)}`,
         'Paid Amount': `₱${paidAmount}`,
         'Payment Status': status,
         'Balance': `₱${balance}`,
@@ -1520,7 +1550,7 @@ export default function AdminGarbageFees() {
       key: "currentFee",
       columnKey: "currentFee",
       render: (_, record) => {
-        const fee = record.hasBusiness ? 50 : 35;
+        const fee = getGarbageMonthlyFee(record.hasBusiness);
         return `₱${fee.toFixed(2)}`;
       },
     },
@@ -1529,35 +1559,27 @@ export default function AdminGarbageFees() {
       key: "paymentStatus",
       columnKey: "paymentStatus",
       render: (_, record) => {
-        // Calculate overall payment status for current year
-        const defaultFee = record.hasBusiness ? 50 : 35;
-        const currentYear = dayjs().year();
-        let totalExpected = 0;
-        let totalPaid = 0;
-        
-        // Check all months of current year
+        // Mirror streetlight logic: iterate months and derive status
+        const currentYear = garbageYear; // use selected year state
+        let allPaid = true;
+        let anyPaid = false;
+        const isSameHousehold = (a, b) => {
+          if (!a || !b) return false;
+          return String(a) === String(b);
+        };
         for (let month = 1; month <= 12; month++) {
           const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
-          totalExpected += defaultFee;
-          
-          const monthPayment = garbagePayments.find(payment => 
-            payment.household?._id === record._id && payment.month === monthStr
-          );
-          
-          if (monthPayment) {
-            totalPaid += Number(monthPayment.amountPaid || 0);
-          }
+          const monthPayment = garbagePayments.find(payment => {
+            const h1 = payment.household?._id || payment.household;
+            const h2 = record._id;
+            return isSameHousehold(h1, h2) && payment.month === monthStr;
+          });
+          if (!monthPayment || monthPayment.status !== 'paid') allPaid = false;
+          if (monthPayment && (monthPayment.status === 'paid' || monthPayment.status === 'partial')) anyPaid = true;
         }
-        
-        const balance = totalExpected - totalPaid;
-        
-        if (balance <= 0) {
-          return <Tag color="green">Fully Paid</Tag>;
-        } else if (totalPaid > 0) {
-          return <Tag color="orange">Partially Paid</Tag>;
-        } else {
-          return <Tag color="red">Unpaid</Tag>;
-        }
+        if (allPaid) return <Tag color="green">Fully Paid</Tag>;
+        if (anyPaid) return <Tag color="orange">Partially Paid</Tag>;
+        return <Tag color="red">Unpaid</Tag>;
       },
     },
     {
@@ -1566,7 +1588,7 @@ export default function AdminGarbageFees() {
       columnKey: "balance",
       render: (_, record) => {
         // Calculate total unpaid balance for current year
-        const defaultFee = record.hasBusiness ? 50 : 35;
+        const defaultFee = getGarbageMonthlyFee(record.hasBusiness);
         const currentYear = dayjs().year();
         let totalBalance = 0;
         let totalPaid = 0;
@@ -1711,23 +1733,29 @@ export default function AdminGarbageFees() {
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
-                    ₱{stats.feeStructure?.expectedMonthly || 0}
+                    ₱{(stats.feeStructure?.expectedMonthly || 0).toFixed(2)}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">No Business:</span> ₱{stats.feeStructure?.noBusiness || 35}
+                      <span className="font-semibold">No Business (Monthly):</span> ₱{Number(stats.feeStructure?.noBusiness || 35).toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">With Business:</span> ₱{stats.feeStructure?.withBusiness || 50}
+                      <span className="font-semibold">With Business (Monthly):</span> ₱{Number(stats.feeStructure?.withBusiness || 50).toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500 pt-1">
-                      Monthly: ₱{(stats.feeStructure?.expectedMonthly || 0).toFixed(2)}
+                      Aggregate Monthly (All Households): ₱{(stats.feeStructure?.expectedMonthly || 0).toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Yearly: ₱{(stats.feeStructure?.expectedYearly || 0).toFixed(2)}
+                      Aggregate Yearly (All Households): ₱{(stats.feeStructure?.expectedYearly || 0).toFixed(2)}
                     </div>
+                    {settings?.feeHistory && (() => {
+                      const gbHist = settings.feeHistory.filter(f => f.kind === 'garbageFeeRegularAnnual' || f.kind === 'garbageFeeBusinessAnnual');
+                      if (!gbHist.length) return null;
+                      const latestMonth = gbHist.sort((a,b)=> (a.effectiveMonth < b.effectiveMonth ? 1 : -1))[0].effectiveMonth;
+                      return <div className="text-xs text-gray-400">Effective Since: {dayjs(latestMonth+'-01').format('MMM YYYY')}</div>;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -2296,7 +2324,7 @@ export default function AdminGarbageFees() {
                     className="text-blue-600"
                   />
                   <span className={`text-sm ${!payForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    P35 - No Business
+                    ₱{getGarbageMonthlyFee(false).toFixed(2)} - No Business
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2309,7 +2337,7 @@ export default function AdminGarbageFees() {
                     className="text-blue-600"
                   />
                   <span className={`text-sm ${payForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    P50 - With Business
+                    ₱{getGarbageMonthlyFee(true).toFixed(2)} - With Business
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 italic">
@@ -2410,8 +2438,8 @@ export default function AdminGarbageFees() {
                                 
                                 payForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
-                                // Update total charge calculation
-                                const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                // Update total charge calculation (use dynamic settings)
+                                const fee = getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"));
                                 const totalCharge = newSelectedMonths.length * fee;
                                 payForm.setFieldValue("totalCharge", totalCharge);
                                 payForm.setFieldValue("amount", totalCharge);
@@ -2431,8 +2459,8 @@ export default function AdminGarbageFees() {
                                 setIsValidSelection(entireSelectionValid.valid);
                                 payForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
-                                // Update total charge calculation
-                                const fee = payForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                // Update total charge calculation (use dynamic settings)
+                                const fee = getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"));
                                 const totalCharge = newSelectedMonths.length * fee;
                                 payForm.setFieldValue("totalCharge", totalCharge);
                                 payForm.setFieldValue("amount", totalCharge);
@@ -2511,8 +2539,8 @@ export default function AdminGarbageFees() {
                 <div className="font-semibold text-blue-800 mb-1">Payment Summary:</div>
                 <div className="space-y-0.5 text-xs">
                   <div>Selected Months: {selectedMonths.length}</div>
-                  <div>Fee per Month: ₱{payForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
-                  <div>Total Amount: ₱{(selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
+                  <div>Fee per Month: ₱{getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness")).toFixed(2)}</div>
+                  <div>Total Amount: ₱{(selectedMonths.length * getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"))).toFixed(2)}</div>
                   <div className="text-xs text-blue-600 mt-1">
                     {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                   </div>
@@ -2584,10 +2612,10 @@ export default function AdminGarbageFees() {
             <div className="space-y-2 p-3 bg-gray-50 rounded-lg mb-3">
               <div className="text-sm font-semibold text-gray-700">Fee Information</div>
               <div className="text-sm text-gray-600">
-                <span className="font-medium">Monthly Rate:</span> ₱10.00 (fixed for all households)
+                <span className="font-medium">Monthly Rate:</span> ₱{getStreetlightMonthlyFee().toFixed(2)} (applies to all households)
               </div>
               <div className="text-sm text-gray-600">
-                <span className="font-medium">Annual Rate:</span> ₱120.00
+                <span className="font-medium">Annual Rate:</span> ₱{(12 * getStreetlightMonthlyFee()).toFixed(2)}
               </div>
               <div className="text-xs text-gray-500">
                 💡 Streetlight fees are the same for all households regardless of business status
@@ -2681,8 +2709,8 @@ export default function AdminGarbageFees() {
                                 setStreetlightSelectedMonths(newSelectedMonths);
                                 streetlightForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
-                                // Update total charge calculation
-                                const fee = 10;
+                                // Update total charge calculation (use dynamic streetlight fee)
+                                const fee = getStreetlightMonthlyFee();
                                 const totalCharge = newSelectedMonths.length * fee;
                                 streetlightForm.setFieldValue("totalCharge", totalCharge);
                                 streetlightForm.setFieldValue("amount", totalCharge);
@@ -2698,8 +2726,8 @@ export default function AdminGarbageFees() {
                                 setStreetlightSelectedMonths(newSelectedMonths);
                                 streetlightForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
-                                // Update total charge calculation
-                                const fee = 10;
+                                // Update total charge calculation (use dynamic streetlight fee)
+                                const fee = getStreetlightMonthlyFee();
                                 const totalCharge = newSelectedMonths.length * fee;
                                 streetlightForm.setFieldValue("totalCharge", totalCharge);
                                 streetlightForm.setFieldValue("amount", totalCharge);
@@ -2785,8 +2813,8 @@ export default function AdminGarbageFees() {
                       <div className="font-medium text-green-700 text-xs mb-1">Garbage Collection Fee:</div>
                       <div className="space-y-0.5 text-xs text-gray-700">
                         <div>Selected Months: {selectedMonths.length}</div>
-                        <div>Fee per Month: ₱{payForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
-                        <div>Subtotal: ₱{(selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
+                        <div>Fee per Month: ₱{getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness")).toFixed(2)}</div>
+                        <div>Subtotal: ₱{(selectedMonths.length * getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"))).toFixed(2)}</div>
                         <div className="text-xs text-blue-600">
                           {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                         </div>
@@ -2799,8 +2827,8 @@ export default function AdminGarbageFees() {
                     <div className="font-medium text-green-700 text-xs mb-1">Streetlight Maintenance Fee:</div>
                     <div className="space-y-0.5 text-xs text-gray-700">
                       <div>Selected Months: {streetlightSelectedMonths.length}</div>
-                      <div>Fee per Month: ₱10.00</div>
-                      <div>Subtotal: ₱{(streetlightSelectedMonths.length * 10).toFixed(2)}</div>
+                      <div>Fee per Month: ₱{getStreetlightMonthlyFee().toFixed(2)}</div>
+                      <div>Subtotal: ₱{(streetlightSelectedMonths.length * getStreetlightMonthlyFee()).toFixed(2)}</div>
                       <div className="text-xs text-blue-600">
                         {streetlightSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                       </div>
@@ -2811,8 +2839,8 @@ export default function AdminGarbageFees() {
                   <div className="border-t border-green-300 pt-2">
                     <div className="font-semibold text-green-800">
                       Grand Total: ₱{(
-                        (selectedMonths.length * (payForm.getFieldValue("hasBusiness") ? 50 : 35)) + 
-                        (streetlightSelectedMonths.length * 10)
+                        (selectedMonths.length * getGarbageMonthlyFee(payForm.getFieldValue("hasBusiness"))) + 
+                        (streetlightSelectedMonths.length * getStreetlightMonthlyFee())
                       ).toFixed(2)}
                     </div>
                     <div className="text-xs text-green-600 mt-1">
@@ -2861,12 +2889,12 @@ export default function AdminGarbageFees() {
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Current Garbage Fee">
-                ₱{viewHousehold.hasBusiness ? "50.00" : "35.00"}/month
+                ₱{getGarbageMonthlyFee(viewHousehold.hasBusiness).toFixed(2)}/month
               </Descriptions.Item>
               <Descriptions.Item label="Payment Status">
                 {(() => {
                   // Calculate overall payment status for current year
-                  const monthlyRate = viewHousehold.hasBusiness ? 50 : 35;
+                  const monthlyRate = getGarbageMonthlyFee(viewHousehold.hasBusiness);
                   const currentYear = dayjs().year();
                   let totalExpected = 0;
                   let totalPaid = 0;
@@ -3111,7 +3139,7 @@ export default function AdminGarbageFees() {
                         <li>Current month: {dayjs().format('MMMM YYYY')}</li>
                         <li>Filter: {getPaymentStatusText()}</li>
                         <li>Household ID, Head of Household, Address (Purok)</li>
-                        <li>Business status (₱35 or ₱50/month)</li>
+                        <li>Business status (₱{getGarbageMonthlyFee(false).toFixed(2)} or ₱{getGarbageMonthlyFee(true).toFixed(2)}/month)</li>
                         <li>Payment dates, amounts, and balances</li>
                       </ul>
                     );
@@ -3122,7 +3150,7 @@ export default function AdminGarbageFees() {
                         <li>Selected month: {selectedMonth ? dayjs(selectedMonth).format('MMMM YYYY') : 'Please select month'}</li>
                         <li>Filter: {getPaymentStatusText()}</li>
                         <li>Household ID, Head of Household, Address (Purok)</li>
-                        <li>Business status (₱35 or ₱50/month)</li>
+                        <li>Business status (₱{getGarbageMonthlyFee(false).toFixed(2)} or ₱{getGarbageMonthlyFee(true).toFixed(2)}/month)</li>
                         <li>Payment dates, amounts, and balances</li>
                       </ul>
                     );

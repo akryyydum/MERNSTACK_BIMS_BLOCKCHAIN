@@ -2,6 +2,7 @@ const DocumentRequest = require('../models/document.model');
 const Resident = require('../models/resident.model');
 const mongoose = require('mongoose');
 const { getContract } = require('../utils/fabricClient');
+const Settings = require('../models/settings.model');
 
 
 // List all document requests for admin
@@ -52,8 +53,11 @@ exports.approve = async (req, res) => {
       const qty = Math.max(Number(request.quantity || 1), 1);
       const type = request.documentType;
       let unitAmount = 0;
-      if (type === 'Indigency') unitAmount = 0;
-      else if (type === 'Barangay Clearance') unitAmount = 100;
+      const settings = await Settings.getSingleton();
+      const indigencyFee = settings.documentFees?.indigency ?? 0;
+      const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
+      if (type === 'Indigency') unitAmount = indigencyFee;
+      else if (type === 'Barangay Clearance') unitAmount = clearanceFee;
       else if (type === 'Business Clearance') unitAmount = Number(amount || request.feeAmount || 0);
 
       // Save feeAmount chosen by admin when provided
@@ -300,8 +304,11 @@ exports.create = async (req, res) => {
     // Calculate amount if not provided
     let documentAmount = Number(amount || 0);
     if (!amount) {
-      if (documentType === 'Indigency') documentAmount = 0;
-      else if (documentType === 'Barangay Clearance') documentAmount = 100;
+      const settings = await Settings.getSingleton();
+      const indigencyFee = settings.documentFees?.indigency ?? 0;
+      const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
+      if (documentType === 'Indigency') documentAmount = indigencyFee;
+      else if (documentType === 'Barangay Clearance') documentAmount = clearanceFee;
       else if (documentType === 'Business Clearance') documentAmount = 0; // Set by admin later
     }
 

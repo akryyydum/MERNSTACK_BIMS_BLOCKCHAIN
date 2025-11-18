@@ -73,6 +73,10 @@ const residentPaymentsController = require("./controllers/residentPaymentsContro
 const blockchainRoutes = require('./routes/blockchainRoutes');
 app.use('/api/blockchain', blockchainRoutes);
 
+// Admin settings routes
+const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
+app.use('/api/admin/settings', adminSettingsRoutes);
+
 // Additional admin routes for garbage management
 const adminHouseholdController = require("./controllers/adminHouseholdController");
 const { auth, authorize } = require("./middleware/authMiddleware");
