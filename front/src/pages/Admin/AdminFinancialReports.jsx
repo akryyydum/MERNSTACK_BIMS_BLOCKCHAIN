@@ -48,6 +48,9 @@ export default function AdminFinancialReports() {
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [exportForm] = Form.useForm();
+  // Watchers for dynamic form behavior
+  const selectedCreateType = Form.useWatch('type', createForm);
+  const selectedEditType = Form.useWatch('type', editForm);
   
   // Export state
   const [selectedExportTypes, setSelectedExportTypes] = useState([]);
@@ -67,6 +70,9 @@ export default function AdminFinancialReports() {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [residents, setResidents] = useState([]);
   const [officials, setOfficials] = useState([]);
+  // Blockchain maps/state
+  const [blockchainFinanceMap, setBlockchainFinanceMap] = useState({});
+  const [blockchainRequestsSet, setBlockchainRequestsSet] = useState(new Set());
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,6 +84,12 @@ export default function AdminFinancialReports() {
     fetchResidents();
     fetchOfficials();
   }, [filters]);
+
+  // Initial blockchain data fetch (independent of filters)
+  useEffect(() => {
+    fetchBlockchainFinance();
+    fetchBlockchainRequests();
+  }, []);
 
   // Reset to page 1 when search or filter changes
   useEffect(() => {
@@ -161,7 +173,16 @@ export default function AdminFinancialReports() {
       const res = await axios.get(`${API_BASE}/api/admin/residents`, {
         headers: authHeaders()
       });
-      setResidents(res.data.residents || []);
+      // Backend returns a plain array (controller.list => res.json(residents))
+      // Support both shapes: [ {...} ] or { residents: [ {...} ] }
+      const data = res.data;
+      const list = Array.isArray(data)
+        ? data
+        : (Array.isArray(data?.residents) ? data.residents : []);
+      setResidents(list);
+      if (!list.length) {
+        console.warn('fetchResidents: received empty list. Raw response:', data);
+      }
     } catch (error) {
       console.error('Error fetching residents:', error);
     }
@@ -178,21 +199,70 @@ export default function AdminFinancialReports() {
     }
   };
 
+  // On-chain financial transactions
+  const fetchBlockchainFinance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_BASE}/api/blockchain/financial-transactions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const arr = Array.isArray(res.data) ? res.data : [];
+      const map = {};
+      arr.forEach(tx => { if (tx.txId) map[tx.txId] = tx; });
+      setBlockchainFinanceMap(map);
+    } catch (err) {
+      console.warn('Blockchain finance fetch failed:', err?.response?.data || err.message);
+    }
+  };
+
+  // On-chain document requests (used for document_request transactions verification)
+  const fetchBlockchainRequests = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_BASE}/api/blockchain/requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const arr = Array.isArray(res.data) ? res.data : [];
+      const set = new Set();
+      arr.forEach(r => { if (r.requestId) set.add(r.requestId); });
+      setBlockchainRequestsSet(set);
+    } catch (err) {
+      console.warn('Blockchain requests fetch failed:', err?.response?.data || err.message);
+    }
+  };
+
   const handleCreateTransaction = async () => {
     try {
       setCreating(true);
       const values = await createForm.validateFields();
-
-      const payload = { ...values };
-      // If Others selected, keep type='other' and fold custom type into description
-      if (payload.type === 'other' && payload.customType) {
-        const baseDesc = payload.description || '';
-        payload.description = `${payload.customType}${baseDesc ? ` - ${baseDesc}` : ''}`;
+      // Inject custom type description for 'other'
+      if (values.type === 'other') {
+        if (!values.customType || !values.customType.trim()) {
+          message.error('Please specify the custom transaction type');
+          setCreating(false);
+          return;
+        }
+        // Prefix description with custom type for clarity if not already
+        if (!values.description || !values.description.trim()) {
+          values.description = values.customType.trim();
+        } else if (!values.description.toLowerCase().startsWith(values.customType.toLowerCase())) {
+          values.description = `${values.customType.trim()} - ${values.description.trim()}`;
+        }
+        // Remove helper field before sending
+        delete values.customType;
       }
-      // Remove helper field if present
-      delete payload.customType;
-
-      await axios.post(`${API_BASE}/api/admin/financial/transactions`, payload, {
+      // Default category to 'revenue' if not provided (should be provided)
+      if (!values.category) values.category = 'revenue';
+      // Normalize paymentMethod capitalization to match backend enum
+      if (values.paymentMethod) {
+        const pm = values.paymentMethod;
+        if (pm === 'gcash') values.paymentMethod = 'Gcash';
+        if (pm === 'bank_transfer') values.paymentMethod = 'Bank_transfer';
+        if (pm === 'cash') values.paymentMethod = 'Cash';
+        if (pm === 'other') values.paymentMethod = 'Other';
+      }
+      
+      await axios.post(`${API_BASE}/api/admin/financial/transactions`, values, {
         headers: authHeaders()
       });
       
@@ -320,6 +390,21 @@ export default function AdminFinancialReports() {
     try {
       setCreating(true);
       const values = await editForm.validateFields();
+      if (values.type === 'other' && values.customType) {
+        if (!values.description || !values.description.trim()) {
+          values.description = values.customType.trim();
+        } else if (!values.description.toLowerCase().startsWith(values.customType.toLowerCase())) {
+          values.description = `${values.customType.trim()} - ${values.description.trim()}`;
+        }
+        delete values.customType;
+      }
+      if (values.paymentMethod) {
+        const pm = values.paymentMethod;
+        if (pm === 'gcash') values.paymentMethod = 'Gcash';
+        if (pm === 'bank_transfer') values.paymentMethod = 'Bank_transfer';
+        if (pm === 'cash') values.paymentMethod = 'Cash';
+        if (pm === 'other') values.paymentMethod = 'Other';
+      }
       
       await axios.put(
         `${API_BASE}/api/admin/financial/transactions/${editTransaction._id}`, 
@@ -552,8 +637,11 @@ export default function AdminFinancialReports() {
       type: record.type,
       description: record.description,
       amount: record.amount,
-      paymentMethod: (record.paymentMethod || 'cash').toLowerCase(),
       category: record.category || 'revenue',
+      paymentMethod: (record.paymentMethod || 'Cash').toLowerCase() === 'cash' ? 'cash'
+        : (record.paymentMethod || '').toLowerCase() === 'gcash' ? 'gcash'
+        : (record.paymentMethod || '').toLowerCase() === 'bank_transfer' ? 'bank_transfer'
+        : (record.paymentMethod || '').toLowerCase() === 'other' ? 'other' : 'cash',
       referenceNumber: record.referenceNumber
     });
     setEditOpen(true);
@@ -637,6 +725,7 @@ export default function AdminFinancialReports() {
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
         { text: 'Document Request', value: 'document_request' },
+        { text: 'Document Fee', value: 'document_fee' },
       ],
       onFilter: (value, record) => record.type === value,
     },
@@ -657,6 +746,16 @@ export default function AdminFinancialReports() {
       dataIndex: 'transactionDate',
       key: 'transactionDate',
       render: (date) => dayjs(date).format('MMM DD, YYYY HH:mm')
+    },
+    {
+      title: 'Blockchain',
+      dataIndex: 'blockchainStatus',
+      key: 'blockchainStatus',
+      render: (status) => {
+        const colorMap = { verified: 'green', edited: 'orange', deleted: 'red', pending: 'default' };
+        const label = (status || 'pending').toString().toUpperCase();
+        return <Tag color={colorMap[status] || 'default'}>{label}</Tag>;
+      }
     },
     {
       title: 'Actions',
@@ -708,7 +807,24 @@ export default function AdminFinancialReports() {
     }
   };
 
-  const filteredTransactions = transactions.filter(t => {
+  // Derive blockchain status for each transaction
+  const deriveBlockchainStatus = (tx) => {
+    if (tx.blockchain?.verified) return 'verified';
+    if (tx.isUtilityPayment) return 'pending';
+    if (tx.isDocumentRequest) {
+      const match = blockchainRequestsSet.has(tx.referenceNumber) || blockchainRequestsSet.has(tx.transactionId);
+      return match ? 'verified' : 'deleted';
+    }
+    const chainTx = blockchainFinanceMap[tx._id] || blockchainFinanceMap[tx.transactionId];
+    if (!chainTx) return 'deleted';
+    const amountMatch = Number(chainTx.amount) === Number(tx.amount);
+    const descMatch = (chainTx.description || '').toLowerCase() === (tx.description || '').toLowerCase();
+    return (amountMatch && descMatch) ? 'verified' : 'edited';
+  };
+
+  const enrichedTransactions = transactions.map(t => ({ ...t, blockchainStatus: deriveBlockchainStatus(t) }));
+
+  const filteredTransactions = enrichedTransactions.filter(t => {
     // Search filter
     const matchesSearch = [
       t.transactionId,
@@ -888,6 +1004,7 @@ export default function AdminFinancialReports() {
                 style={{ width: 200 }}
                 options={[
                   { label: 'Document Request', value: 'document_request' },
+                  { label: 'Document Fee', value: 'document_fee' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
                   { label: 'Streetlight Fee', value: 'streetlight_fee' },
                 ]}
@@ -1158,174 +1275,21 @@ export default function AdminFinancialReports() {
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
-          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'cash', category: 'revenue' }}>
+          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash', category: 'revenue' }}>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}> 
-                  <Select
-                    onChange={(val) => {
-                      // Reset custom type when changing away from 'other'
-                      if (val !== 'other') {
-                        createForm.setFieldsValue({ customType: undefined });
-                      }
-                    }}
-                  >
+                  <Select placeholder="Select type">
                     <Select.Option value="document_fee">Document Fee</Select.Option>
-                    <Select.Option value="permit_fee">Permit Fee</Select.Option>
-                    <Select.Option value="other">Others</Select.Option>
-                  </Select>
-                </Form.Item>
-                {/* Custom type prompt when selecting Others */}
-                {createForm.getFieldValue('type') === 'other' && (
-                  <Form.Item
-                    name="customType"
-                    label="Specify Transaction Type"
-                    rules={[{ required: true, message: 'Please specify the transaction type' }]}
-                  >
-                    <Input placeholder="e.g., Donation, Sponsorship, Miscellaneous" />
-                  </Form.Item>
-                )}
-              </Col>
-              <Col span={12}>
-                <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
-                  <Select>
-                    <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expense">Expense</Select.Option>
-                    <Select.Option value="allocation">Allocation</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-            
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="residentId" label="Resident (Optional)">
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Select resident"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {residents.map(r => (
-                      <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.lastName}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="officialId" label="Official (Optional)">
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Select official"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {officials.map(o => (
-                      <Select.Option key={o._id} value={o._id}>
-                        {o.firstName} {o.lastName} - {o.position}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item name="description" label="Description" rules={[{ required: true }]}>
-              <Input.TextArea rows={3} />
-            </Form.Item>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Please enter the amount' }]}> 
-                  <Input type="number" min={0} step={0.01} prefix="₱" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
-                  <Select>
-                    <Select.Option value="cash">Cash</Select.Option>
-                    <Select.Option value="gcash">GCash</Select.Option>
-                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
+                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
-            </Row>
-            <Form.Item name="referenceNumber" label="Reference Number">
-              <Input placeholder="Enter reference number (optional)" />
-            </Form.Item>
-          </Form>
-        </Modal>
-
-        {/* View Transaction Modal */}
-        <Modal
-          title="Transaction Details"
-          open={viewOpen}
-          onCancel={() => setViewOpen(false)}
-          footer={null}
-          width={700}
-        >
-          {viewTransaction && (
-            <Descriptions bordered column={1}>
-              <Descriptions.Item label="Transaction ID">{viewTransaction.transactionId}</Descriptions.Item>
-              <Descriptions.Item label="Type">
-                <Tag color="blue">{viewTransaction.type.replace('_', ' ').toUpperCase()}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Description">{viewTransaction.description}</Descriptions.Item>
-              <Descriptions.Item label="Amount">₱{Number(viewTransaction.amount).toLocaleString()}</Descriptions.Item>
-
-              <Descriptions.Item label="Resident">
-                {viewTransaction.residentName || 
-                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
-              </Descriptions.Item>  
-              <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
-              <Descriptions.Item label="Transaction Date">
-                {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Blockchain Verified">
-                {viewTransaction.blockchain?.verified ? 
-                  <Tag color="green">Yes</Tag> : 
-                  <Tag color="orange">Pending</Tag>
-                }
-              </Descriptions.Item>
-            </Descriptions>
-          )}
-        </Modal>
-
-        {/* Edit Transaction Modal */}
-        <Modal
-          title="Edit Financial Transaction"
-          open={editOpen}
-          onCancel={() => { 
-            setEditOpen(false); 
-            editForm.resetFields(); 
-            setEditTransaction(null);
-          }}
-          onOk={handleEditTransaction}
-          confirmLoading={creating}
-          width={700}
-        >
-          <Form form={editForm} layout="vertical">
-            <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
-                  <Select>
-                    <Select.Option value="document_fee">Document Fee</Select.Option>
-                    <Select.Option value="permit_fee">Permit Fee</Select.Option>
-                    <Select.Option value="other">Others</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="category" label="Category" rules={[{ required: true }]}>
-                  <Select>
+                <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}> 
+                  <Select placeholder="Select category">
                     <Select.Option value="revenue">Revenue</Select.Option>
                     <Select.Option value="expense">Expense</Select.Option>
                     <Select.Option value="allocation">Allocation</Select.Option>
@@ -1333,6 +1297,15 @@ export default function AdminFinancialReports() {
                 </Form.Item>
               </Col>
             </Row>
+            {selectedCreateType === 'other' && (
+              <Row gutter={16}>
+                <Col span={24}>
+                  <Form.Item name="customType" label="Specify Other Transaction Type" rules={[{ required: true, message: 'Please specify the transaction type' }]}> 
+                    <Input placeholder="e.g. Maintenance Fee, Donation, Miscellaneous" />
+                  </Form.Item>
+                </Col>
+              </Row>
+            )}
             
             <Row gutter={16}>
               <Col span={12}>
@@ -1381,12 +1354,160 @@ export default function AdminFinancialReports() {
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
-                  <Input type="number" min={0} step={0.01} prefix="₱" />
+                  <Input type="number" prefix="₱" />
                 </Form.Item>
               </Col>
               <Col span={12}>
                 <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
-                  <Select>
+                  <Select placeholder="Select method">
+                    <Select.Option value="cash">Cash</Select.Option>
+                    <Select.Option value="gcash">GCash</Select.Option>
+                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
+                    <Select.Option value="other">Other</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item name="referenceNumber" label="Reference Number">
+              <Input placeholder="Enter reference number (optional)" />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* View Transaction Modal */}
+        <Modal
+          title="Transaction Details"
+          open={viewOpen}
+          onCancel={() => setViewOpen(false)}
+          footer={null}
+          width={700}
+        >
+          {viewTransaction && (
+            <Descriptions bordered column={1}>
+              <Descriptions.Item label="Transaction ID">{viewTransaction.transactionId}</Descriptions.Item>
+              <Descriptions.Item label="Type">
+                <Tag color="blue">{viewTransaction.type.replace('_', ' ').toUpperCase()}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Description">{viewTransaction.description}</Descriptions.Item>
+              <Descriptions.Item label="Amount">₱{Number(viewTransaction.amount).toLocaleString()}</Descriptions.Item>
+
+              <Descriptions.Item label="Resident">
+                {viewTransaction.residentName || 
+                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
+              </Descriptions.Item>  
+              <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
+              <Descriptions.Item label="Transaction Date">
+                {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
+              </Descriptions.Item>
+              <Descriptions.Item label="Blockchain Status">
+                {(() => {
+                  const status = viewTransaction.blockchainStatus || (viewTransaction.blockchain?.verified ? 'verified' : 'pending');
+                  const colorMap = { verified: 'green', edited: 'orange', deleted: 'red', pending: 'default' };
+                  return <Tag color={colorMap[status] || 'default'}>{status.toUpperCase()}</Tag>;
+                })()}
+              </Descriptions.Item>
+            </Descriptions>
+          )}
+        </Modal>
+
+        {/* Edit Transaction Modal */}
+        <Modal
+          title="Edit Financial Transaction"
+          open={editOpen}
+          onCancel={() => { 
+            setEditOpen(false); 
+            editForm.resetFields(); 
+            setEditTransaction(null);
+          }}
+          onOk={handleEditTransaction}
+          confirmLoading={creating}
+          width={700}
+        >
+          <Form form={editForm} layout="vertical">
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
+                  <Select placeholder="Select type">
+                    <Select.Option value="document_fee">Document Fee</Select.Option>
+                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
+                    <Select.Option value="other">Other</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="category" label="Category" rules={[{ required: true }]}> 
+                  <Select placeholder="Select category">
+                    <Select.Option value="revenue">Revenue</Select.Option>
+                    <Select.Option value="expense">Expense</Select.Option>
+                    <Select.Option value="allocation">Allocation</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+            {selectedEditType === 'other' && (
+              <Form.Item shouldUpdate noStyle>
+                {() => (
+                  <Form.Item name="customType" label="Specify Other Transaction Type" rules={[{ required: false }]}> 
+                    <Input placeholder="Update custom type (optional)" />
+                  </Form.Item>
+                )}
+              </Form.Item>
+            )}
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="residentId" label="Resident (Optional)">
+                  <Select
+                    showSearch
+                    allowClear
+                    placeholder="Select resident"
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                  >
+                    {residents.map(r => (
+                      <Select.Option key={r._id} value={r._id}>
+                        {r.firstName} {r.lastName}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="officialId" label="Official (Optional)">
+                  <Select
+                    showSearch
+                    allowClear
+                    placeholder="Select official"
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                  >
+                    {officials.map(o => (
+                      <Select.Option key={o._id} value={o._id}>
+                        {o.firstName} {o.lastName} - {o.position}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item name="description" label="Description" rules={[{ required: true }]}>
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
+                  <Input type="number" prefix="₱" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
+                  <Select placeholder="Select method">
                     <Select.Option value="cash">Cash</Select.Option>
                     <Select.Option value="gcash">GCash</Select.Option>
                     <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
