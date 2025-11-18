@@ -1052,7 +1052,7 @@ export default function AdminFinancialReports() {
               </div>
             )}
             
-            <div className="text-sm text-gray-500 mt-4 p-3 bg-blue-50 rounded">
+            <div className="text-sm text-gray-500 mt-2">
               <p><strong>Export Information:</strong></p>
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li><strong>Default:</strong> "All" options export entire financial transactions</li>
