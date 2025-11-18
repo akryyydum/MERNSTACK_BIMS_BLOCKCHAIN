@@ -14,6 +14,8 @@ const userSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: true },
     verificationToken: { type: String } // keeping for password reset functionality
+    ,passwordResetOtpHash: { type: String },
+    passwordResetOtpExpires: { type: Date }
 }, { timestamps: true });
 
 // Make email unique only when present (avoid duplicate null/undefined)

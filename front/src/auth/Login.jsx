@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions, Switch } from "antd";
+import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions, Switch, Modal } from "antd";
 
 // Sectoral Information options
 const SECTORAL_OPTIONS = [
@@ -31,6 +31,21 @@ const Login = () => {
   const [contentVisible, setContentVisible] = useState(false);
   const [pendingAlert, setPendingAlert] = useState(false); // Add state for pending alert
   const [loginError, setLoginError] = useState(""); // Add state for login error
+  const [forgotVisible, setForgotVisible] = useState(false);
+  const [otpPhase, setOtpPhase] = useState(1); // 1=request,2=verify
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [identifier, setIdentifier] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [notFoundVisible, setNotFoundVisible] = useState(false);
+  const [notFoundEntering, setNotFoundEntering] = useState(false);
+  const [notFoundLeaving, setNotFoundLeaving] = useState(false);
+  const notFoundTimerRef = useRef(null);
+  // OTP resend cooldown state (persisted via localStorage)
+  const [otpCooldownUntil, setOtpCooldownUntil] = useState(0);
+  const [otpCooldownRemaining, setOtpCooldownRemaining] = useState(0);
+  const otpCooldownIntervalRef = useRef(null);
 
   const stepFieldNames = {
     1: [
@@ -270,6 +285,44 @@ const Login = () => {
     }
   }, [initializing]);
 
+  // Initialize OTP cooldown from localStorage when Forgot Password opens
+  useEffect(() => {
+    if (!forgotVisible) return;
+    const stored = parseInt(localStorage.getItem('passwordOtpCooldownUntil') || '0', 10);
+    if (Number.isFinite(stored) && stored > Date.now()) {
+      const startCooldown = (target) => {
+        setOtpCooldownUntil(target);
+        const tick = () => {
+          const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+          setOtpCooldownRemaining(remaining);
+          if (remaining <= 0) {
+            if (otpCooldownIntervalRef.current) {
+              clearInterval(otpCooldownIntervalRef.current);
+              otpCooldownIntervalRef.current = null;
+            }
+            localStorage.removeItem('passwordOtpCooldownUntil');
+            setOtpCooldownUntil(0);
+          }
+        };
+        tick();
+        if (otpCooldownIntervalRef.current) clearInterval(otpCooldownIntervalRef.current);
+        otpCooldownIntervalRef.current = setInterval(tick, 1000);
+      };
+      startCooldown(stored);
+    } else {
+      // clear stale
+      localStorage.removeItem('passwordOtpCooldownUntil');
+      setOtpCooldownUntil(0);
+      setOtpCooldownRemaining(0);
+    }
+    return () => {
+      if (otpCooldownIntervalRef.current) {
+        clearInterval(otpCooldownIntervalRef.current);
+        otpCooldownIntervalRef.current = null;
+      }
+    };
+  }, [forgotVisible]);
+
   if (initializing) {
     return (
       <div
@@ -350,6 +403,7 @@ const Login = () => {
             >
               <Input size="large" placeholder="Enter your username" />
             </Form.Item>
+            
             <Form.Item
               label="Password"
               name="password"
@@ -361,25 +415,32 @@ const Login = () => {
             >
               <Input.Password size="large" placeholder="Enter your password" />
             </Form.Item>
+            <div className="flex justify-end mb-4 -mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotVisible(true);
+                  setOtpPhase(1);
+                  setIdentifier("");
+                  setOtpCode("");
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                }}
+                className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
            <div className="flex flex-col gap-2">
             <button
               type="submit"
               className="cursor-pointer group relative bg-black hover:bg-black text-white font-semibold text-sm px-6 py-3 rounded-full transition-all duration-200 ease-in-out shadow hover:shadow-lg w-full h-12"
             >
-              <div className="relative flex items-center justify-center gap-2">
-                <span className="relative inline-block overflow-hidden">
-                  <span
-                    className="text-white block transition-transform duration-300 group-hover:-translate-y-full"
+              <span
+                    className="text-white block "
                   >
                     Login Now!
                   </span>
-                  <span
-                    className="absolute text-white inset-0 transition-transform duration-300 translate-y-full group-hover:translate-y-0"
-                  >
-                    Right Now
-                  </span>
-                </span>
-              </div>
             </button>
 
   <button
@@ -869,6 +930,205 @@ const Login = () => {
           </Form>
         </div>
       </Drawer>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        open={forgotVisible}
+        title={otpPhase === 1 ? 'Forgot Password' : 'Reset Password'}
+        footer={null}
+        onCancel={() => {
+          setForgotVisible(false);
+          setNotFoundVisible(false);
+          setNotFoundEntering(false);
+          setNotFoundLeaving(false);
+          if (notFoundTimerRef.current) {
+            clearTimeout(notFoundTimerRef.current.enterTimer);
+            clearTimeout(notFoundTimerRef.current.fadeTimer);
+            clearTimeout(notFoundTimerRef.current.unmountTimer);
+          }
+          if (otpCooldownIntervalRef.current) {
+            clearInterval(otpCooldownIntervalRef.current);
+            otpCooldownIntervalRef.current = null;
+          }
+        }}
+        destroyOnClose
+      >
+        {/* Sliding not-found card */}
+        {notFoundVisible && (
+          <div
+            className={`fixed left-1/2 -translate-x-1/2 top-6 z-[2000] transition-all duration-300 ease-out ${
+              notFoundEntering
+                ? "-translate-y-4 opacity-0"
+                : notFoundLeaving
+                ? "-translate-y-4 opacity-0"
+                : "translate-y-0 opacity-100"
+            }`}
+          >
+            <div className="bg-white border rounded-md shadow-xl px-4 py-3">
+              <div className="text-red-600 font-semibold">User not found</div>
+              <div className="text-gray-600 text-sm">Please register to create an account.</div>
+            </div>
+          </div>
+        )}
+        {otpPhase === 1 && (
+          <Form
+            layout="vertical"
+            onFinish={async () => {
+              if (!identifier.trim()) {
+                return message.error('Please enter your username or full name');
+              }
+              setOtpLoading(true);
+              try {
+                await axios.post(`${API_BASE}/api/auth/request-password-otp`, { identifier: identifier.trim() });
+                message.success('OTP sent. Check your email.');
+                // Start 60s cooldown and persist across refreshes
+                const until = Date.now() + 60 * 1000;
+                localStorage.setItem('passwordOtpCooldownUntil', String(until));
+                // start/update countdown
+                const startCooldown = (target) => {
+                  setOtpCooldownUntil(target);
+                  const tick = () => {
+                    const remaining = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+                    setOtpCooldownRemaining(remaining);
+                    if (remaining <= 0) {
+                      if (otpCooldownIntervalRef.current) {
+                        clearInterval(otpCooldownIntervalRef.current);
+                        otpCooldownIntervalRef.current = null;
+                      }
+                      localStorage.removeItem('passwordOtpCooldownUntil');
+                      setOtpCooldownUntil(0);
+                    }
+                  };
+                  tick();
+                  if (otpCooldownIntervalRef.current) clearInterval(otpCooldownIntervalRef.current);
+                  otpCooldownIntervalRef.current = setInterval(tick, 1000);
+                };
+                startCooldown(until);
+                setOtpPhase(2);
+              } catch (err) {
+                const status = err.response?.status;
+                const msg = err.response?.data?.message || 'Failed to request OTP';
+                if (status === 404 || /not yet registered/i.test(msg)) {
+                  setNotFoundVisible(true);
+                  setNotFoundEntering(true);
+                  setNotFoundLeaving(false);
+                  if (notFoundTimerRef.current) {
+                    clearTimeout(notFoundTimerRef.current.enterTimer);
+                    clearTimeout(notFoundTimerRef.current.fadeTimer);
+                    clearTimeout(notFoundTimerRef.current.unmountTimer);
+                  }
+                  // trigger enter transition on next tick
+                  const enterTimer = setTimeout(() => setNotFoundEntering(false), 20);
+                  const fadeTimer = setTimeout(() => setNotFoundLeaving(true), 2000);
+                  const unmountTimer = setTimeout(() => setNotFoundVisible(false), 2500);
+                  notFoundTimerRef.current = { enterTimer, fadeTimer, unmountTimer };
+                } else {
+                  message.error(msg);
+                }
+              } finally {
+                setOtpLoading(false);
+              }
+            }}
+          >
+            <Alert
+              type="info"
+              showIcon
+              className="mb-4"
+              message="Enter your username or exact full name"
+              description="If your account has a registered email, we'll send a 6-digit OTP. If no email is on file, you must contact your admin."
+            />
+            <Form.Item label="Username or Full Name" required>
+              <Input
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
+                placeholder="e.g. juan.cruz or JUAN DELA CRUZ"
+              />
+            </Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={otpLoading}
+              disabled={otpLoading || otpCooldownRemaining > 0}
+              block
+            >
+              {otpCooldownRemaining > 0 ? `Resend in ${otpCooldownRemaining}s` : 'Send OTP'}
+            </Button>
+          </Form>
+        )}
+        {otpPhase === 2 && (
+          <Form
+            layout="vertical"
+            onFinish={async () => {
+              if (newPassword !== confirmNewPassword) {
+                return message.error('Passwords do not match');
+              }
+              if (newPassword.length < 6) {
+                return message.error('Password must be at least 6 characters');
+              }
+              setOtpLoading(true);
+              try {
+                await axios.post(`${API_BASE}/api/auth/verify-password-otp`, {
+                  identifier: identifier.trim(),
+                  otp: otpCode.trim(),
+                  newPassword: newPassword
+                });
+                message.success('Password changed. You can now log in.');
+                setForgotVisible(false);
+              } catch (err) {
+                const msg = err.response?.data?.message || 'Failed to reset password';
+                message.error(msg);
+              } finally {
+                setOtpLoading(false);
+              }
+            }}
+          >
+            <Alert
+              type="info"
+              showIcon
+              className="mb-4"
+              message={`OTP sent to your email for ${identifier}`}
+              description="Enter the OTP and your new password. OTP expires in 15 minutes."
+            />
+            <Form.Item label="OTP Code" required>
+              <Input
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                maxLength={6}
+                placeholder="6-digit code"
+              />
+            </Form.Item>
+            <Form.Item label="New Password" required>
+              <Input.Password
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters"
+              />
+            </Form.Item>
+            <Form.Item label="Confirm New Password" required>
+              <Input.Password
+                value={confirmNewPassword}
+                onChange={e => setConfirmNewPassword(e.target.value)}
+                placeholder="Repeat password"
+              />
+            </Form.Item>
+            <div className="flex justify-between gap-2">
+              <Button
+                onClick={() => setOtpPhase(1)}
+                disabled={otpLoading}
+              >
+                Back
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={otpLoading}
+              >
+                Change Password
+              </Button>
+            </div>
+          </Form>
+        )}
+      </Modal>
 
 
     </div>
