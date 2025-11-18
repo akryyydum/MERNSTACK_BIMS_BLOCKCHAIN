@@ -959,6 +959,14 @@ export default function HouseholdManagement() {
           okText="Save"
           width={600}
         >
+          <Alert
+            message="Edit Household Information"
+            description="Update the household head, members, address, and business details. You can reassign members between households or mark a household as having only the head with no additional members."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          <div style={{ marginBottom: 16 }} />
           <Form form={editForm} layout="vertical">
             <Form.Item label="Household ID" name="householdId">
               <Input disabled />
