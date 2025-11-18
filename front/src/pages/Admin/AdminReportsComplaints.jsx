@@ -2,10 +2,18 @@ import React, { useEffect, useState } from "react";
 import { Table, Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Descriptions, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const { TextArea } = Input;
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
@@ -22,12 +30,40 @@ export default function AdminReportsComplaints() {
   const [responseOpen, setResponseOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
 
+  const [isOtherCategory, setIsOtherCategory] = useState(false);
+  const [customCategory, setCustomCategory] = useState("");
+
   const [createForm] = Form.useForm();
   const [responseForm] = Form.useForm();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Column visibility state with localStorage persistence
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem('complaintsColumnsVisibility');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      id: true,
+      type: true,
+      title: true,
+      submittedBy: true,
+      purok: true,
+      category: true,
+      priority: true,
+      status: true,
+      dateSubmitted: true,
+      actions: true,
+    };
+  });
+
+  // Save column visibility to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('complaintsColumnsVisibility', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
@@ -75,18 +111,21 @@ export default function AdminReportsComplaints() {
   const handleCreate = async () => {
     try {
       setCreating(true);
-      const values = await createForm.validateFields();
+      let values = await createForm.validateFields();
+      if (values.category === "Other") {
+        values = { ...values, category: customCategory || "Other" };
+      }
       const token = localStorage.getItem("token");
-      
       await axios.post(
         `${API_BASE}/api/admin/complaints`,
         values,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
       message.success("Complaint created successfully!");
       setCreateOpen(false);
       createForm.resetFields();
+      setCustomCategory("");
+      setIsOtherCategory(false);
       fetchComplaints();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to create complaint");
@@ -177,11 +216,12 @@ export default function AdminReportsComplaints() {
       .join(" ");
   };
 
-  const columns = [
+  const allColumns = [
     {
       title: "ID",
       dataIndex: "_id",
       key: "_id",
+      columnKey: "id",
       width: 80,
       render: (id) => `#${id.slice(-6)}`,
     },
@@ -189,6 +229,7 @@ export default function AdminReportsComplaints() {
       title: "Type",
       dataIndex: "type",
       key: "type",
+      columnKey: "type",
       width: 100,
       render: (type) => (
         <Tag color={type === "complaint" ? "red" : "blue"}>
@@ -200,11 +241,13 @@ export default function AdminReportsComplaints() {
       title: "Title",
       dataIndex: "title",
       key: "title",
+      columnKey: "title",
       width: 200,
     },
     {
       title: "Submitted By",
       key: "resident",
+      columnKey: "submittedBy",
       width: 150,
       render: (_, record) => formatResidentName(record.residentId),
     },
@@ -212,6 +255,7 @@ export default function AdminReportsComplaints() {
       title: "Purok",
       dataIndex: "location",
       key: "location",
+      columnKey: "purok",
       width: 150,
       render: (location) => location || 'Not specified',
     },
@@ -219,12 +263,14 @@ export default function AdminReportsComplaints() {
       title: "Category",
       dataIndex: "category",
       key: "category",
+      columnKey: "category",
       width: 120,
     },
     {
       title: "Priority",
       dataIndex: "priority",
       key: "priority",
+      columnKey: "priority",
       width: 100,
       render: (priority) => (
         <Tag color={getPriorityColor(priority)}>
@@ -236,6 +282,7 @@ export default function AdminReportsComplaints() {
       title: "Status",
       dataIndex: "status",
       key: "status",
+      columnKey: "status",
       width: 120,
       render: (status) => (
         <Tag color={getStatusColor(status)}>
@@ -247,24 +294,30 @@ export default function AdminReportsComplaints() {
       title: "Date Submitted",
       dataIndex: "createdAt",
       key: "createdAt",
+      columnKey: "dateSubmitted",
       width: 120,
       render: (date) => dayjs(date).format("MMM DD, YYYY"),
     },
     {
       title: "Actions",
       key: "actions",
+      columnKey: "actions",
       width: 200,
+      fixed: 'right',
       render: (_, record) => (
         <div className="flex gap-1 flex-wrap">
           <Button size="small" onClick={() => { setViewComplaint(record); setViewOpen(true); }}>
             View
           </Button>
-          <Button size="small" type="primary" onClick={() => openResponse(record)}>
-            Update
-          </Button>
+          {record.status !== "resolved" && record.status !== "closed" && (
+            <Button size="small" type="primary" onClick={() => openResponse(record)}>
+              Update
+            </Button>
+          )}
           <Popconfirm
             title="Delete complaint?"
             description="This action cannot be undone."
+            okText="Delete"
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(record._id)}
           >
@@ -274,6 +327,9 @@ export default function AdminReportsComplaints() {
       ),
     },
   ];
+
+  // Filter columns based on visibility
+  const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
   const filteredComplaints = (Array.isArray(complaints) ? complaints : []).filter(c =>
     [
@@ -404,7 +460,7 @@ export default function AdminReportsComplaints() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
               <Input.Search
                 allowClear
                 placeholder="Search for Report or Complaint Title or Submitted By"
@@ -414,13 +470,98 @@ export default function AdminReportsComplaints() {
                 enterButton
                 className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
               />
+              
+              {/* Customize Columns Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="flex items-center gap-2 whitespace-nowrap">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="7" height="7" x="3" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="3" rx="1" />
+                      <rect width="7" height="7" x="14" y="14" rx="1" />
+                      <rect width="7" height="7" x="3" y="14" rx="1" />
+                    </svg>
+                    Customize Columns
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-white" onCloseAutoFocus={(e) => e.preventDefault()}>
+                  <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.submittedBy}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, submittedBy: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Submitted By
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.purok}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, purok: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Purok
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.category}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, category: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Category
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.priority}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, priority: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Priority
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.status}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, status: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Status
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns.dateSubmitted}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns({ ...visibleColumns, dateSubmitted: checked })
+                    }
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    Date Submitted
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+            
             <div className="flex flex-wrap gap-2">
               <Button
                 type="primary"
                 onClick={() => setCreateOpen(true)}
               >
-                Create Report/Complaint
+                + Create Report/Complaint
               </Button>
             </div>
           </div>
@@ -456,38 +597,40 @@ export default function AdminReportsComplaints() {
         >
           <Alert
             message="Create Report or Complaint"
-            description="Select the resident filing this report or complaint, choose the type, and provide a detailed description. All submissions will be tracked and can be updated with status changes."
+            description="Select the resident filing this report or complaint, choose the type, and provide a detailed description."
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-3"
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={createForm} layout="vertical">
-            <Form.Item name="residentId" label="Resident" rules={[{ required: true }]}>
+          <div style={{ marginBottom: 16 }} /> 
+          <Form form={createForm} layout="vertical" className="mt-3" style={{ marginBottom: 0 }}>
+            <Form.Item name="residentId" label="Resident" rules={[{ required: true, message: "Please select a resident" }]} style={{ marginBottom: 12 }}>
               <Select
                 placeholder="Select resident"
                 showSearch
-                filterOption={(input, option) =>
-                  option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                }
-              >
-                {residents.map(r => (
-                  <Select.Option key={r._id} value={r._id}>
-                    {formatResidentName(r)} - {r.address?.purok}
-                  </Select.Option>
-                ))}
-              </Select>
+                filterOption={(input, option) => {
+                  if (!option?.label) return false;
+                  return option.label.toLowerCase().includes(input.toLowerCase());
+                }}
+                options={residents.map(r => ({
+                  key: r._id,
+                  value: r._id,
+                  label: `${formatResidentName(r)} - ${r.address?.purok || 'N/A'}`
+                }))}
+              />
             </Form.Item>
-            <Form.Item name="type" label="Type" rules={[{ required: true }]}>
+            <Form.Item name="type" label="Type" rules={[{ required: true, message: "Please select a type" }]} style={{ marginBottom: 12 }}>
               <Select
+              placeholder="Select type"
                 options={[
                   { value: "complaint", label: "Complaint" },
                   { value: "report", label: "Report" },
                 ]}
               />
             </Form.Item>
-            <Form.Item name="category" label="Category" rules={[{ required: true }]}>
+            <Form.Item name="category" label="Category" rules={[{ required: true, message: "Please select a category" }]} style={{ marginBottom: isOtherCategory ? 8 : 12 }}>
               <Select
+                placeholder="Select category"
                 options={[
                   { value: "Noise Complaint", label: "Noise Complaint" },
                   { value: "Property Dispute", label: "Property Dispute" },
@@ -498,15 +641,34 @@ export default function AdminReportsComplaints() {
                   { value: "Traffic/Parking", label: "Traffic/Parking" },
                   { value: "Other", label: "Other" },
                 ]}
+                onChange={val => {
+                  setIsOtherCategory(val === "Other");
+                  if (val !== "Other") setCustomCategory("");
+                }}
               />
             </Form.Item>
-            <Form.Item name="title" label="Title" rules={[{ required: true }]}>
-              <Input />
+            {isOtherCategory && (
+              <Form.Item
+                label="Please specify category"
+                required
+                style={{ marginBottom: 12 }}
+                validateStatus={!customCategory ? "error" : "success"}
+                help={!customCategory ? "Please enter a category" : ""}
+              >
+                <Input
+                  placeholder="Enter custom category"
+                  value={customCategory}
+                  onChange={e => setCustomCategory(e.target.value)}
+                />
+              </Form.Item>
+            )}
+            <Form.Item name="title" label="Title" rules={[{ required: true, message: "Please enter a title" }]} style={{ marginBottom: 12 }}>
+              <Input placeholder="Briefly title of the issue" />
             </Form.Item>
-            <Form.Item name="description" label="Description" rules={[{ required: true }]}>
-              <TextArea rows={4} />
+            <Form.Item name="description" label="Description" rules={[{ required: true, message: "Please enter a description" }]} style={{ marginBottom: 12 }}>
+              <TextArea rows={3} placeholder="Detailed description of the issue" />
             </Form.Item>
-            <Form.Item name="location" label="Purok" rules={[{ required: true }]}>
+            <Form.Item name="location" label="Purok" rules={[{ required: true, message: "Please select a purok" }]} style={{ marginBottom: 12 }}>
               <Select
                 placeholder="Select purok"
                 options={[
@@ -518,9 +680,9 @@ export default function AdminReportsComplaints() {
                 ]}
               />
             </Form.Item>
-            <Form.Item name="priority" label="Priority">
+            <Form.Item name="priority" label="Priority" rules={[{ required: true, message: "Please select a priority" }]} style={{ marginBottom: 0 }}>
               <Select
-                defaultValue="medium"
+                placeholder="Select priority"
                 options={[
                   { value: "low", label: "Low" },
                   { value: "medium", label: "Medium" },
@@ -579,11 +741,6 @@ export default function AdminReportsComplaints() {
               <Descriptions.Item label="Last Updated">
                 {dayjs(viewComplaint.updatedAt).format("MMMM DD, YYYY HH:mm")}
               </Descriptions.Item>
-              {viewComplaint.resolvedBy && (
-                <Descriptions.Item label="Resolved By">
-                  {viewComplaint.resolvedBy.username}
-                </Descriptions.Item>
-              )}
               {viewComplaint.resolvedAt && (
                 <Descriptions.Item label="Resolved At">
                   {dayjs(viewComplaint.resolvedAt).format("MMMM DD, YYYY HH:mm")}
