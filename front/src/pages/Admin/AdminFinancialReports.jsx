@@ -70,9 +70,6 @@ export default function AdminFinancialReports() {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [residents, setResidents] = useState([]);
   const [officials, setOfficials] = useState([]);
-  // Blockchain maps/state
-  const [blockchainFinanceMap, setBlockchainFinanceMap] = useState({});
-  const [blockchainRequestsSet, setBlockchainRequestsSet] = useState(new Set());
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,12 +81,6 @@ export default function AdminFinancialReports() {
     fetchResidents();
     fetchOfficials();
   }, [filters]);
-
-  // Initial blockchain data fetch (independent of filters)
-  useEffect(() => {
-    fetchBlockchainFinance();
-    fetchBlockchainRequests();
-  }, []);
 
   // Reset to page 1 when search or filter changes
   useEffect(() => {
@@ -130,6 +121,8 @@ export default function AdminFinancialReports() {
         headers: authHeaders()
       });
       
+      console.log('Dashboard data:', res.data);
+      console.log('Revenue by type:', res.data.revenueByType);
       setDashboardData(res.data);
     } catch (error) {
       console.error('Error fetching dashboard:', error);
@@ -173,16 +166,7 @@ export default function AdminFinancialReports() {
       const res = await axios.get(`${API_BASE}/api/admin/residents`, {
         headers: authHeaders()
       });
-      // Backend returns a plain array (controller.list => res.json(residents))
-      // Support both shapes: [ {...} ] or { residents: [ {...} ] }
-      const data = res.data;
-      const list = Array.isArray(data)
-        ? data
-        : (Array.isArray(data?.residents) ? data.residents : []);
-      setResidents(list);
-      if (!list.length) {
-        console.warn('fetchResidents: received empty list. Raw response:', data);
-      }
+      setResidents(res.data.residents || []);
     } catch (error) {
       console.error('Error fetching residents:', error);
     }
@@ -199,68 +183,10 @@ export default function AdminFinancialReports() {
     }
   };
 
-  // On-chain financial transactions
-  const fetchBlockchainFinance = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/api/blockchain/financial-transactions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const arr = Array.isArray(res.data) ? res.data : [];
-      const map = {};
-      arr.forEach(tx => { if (tx.txId) map[tx.txId] = tx; });
-      setBlockchainFinanceMap(map);
-    } catch (err) {
-      console.warn('Blockchain finance fetch failed:', err?.response?.data || err.message);
-    }
-  };
-
-  // On-chain document requests (used for document_request transactions verification)
-  const fetchBlockchainRequests = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/api/blockchain/requests`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const arr = Array.isArray(res.data) ? res.data : [];
-      const set = new Set();
-      arr.forEach(r => { if (r.requestId) set.add(r.requestId); });
-      setBlockchainRequestsSet(set);
-    } catch (err) {
-      console.warn('Blockchain requests fetch failed:', err?.response?.data || err.message);
-    }
-  };
-
   const handleCreateTransaction = async () => {
     try {
       setCreating(true);
       const values = await createForm.validateFields();
-      // Inject custom type description for 'other'
-      if (values.type === 'other') {
-        if (!values.customType || !values.customType.trim()) {
-          message.error('Please specify the custom transaction type');
-          setCreating(false);
-          return;
-        }
-        // Prefix description with custom type for clarity if not already
-        if (!values.description || !values.description.trim()) {
-          values.description = values.customType.trim();
-        } else if (!values.description.toLowerCase().startsWith(values.customType.toLowerCase())) {
-          values.description = `${values.customType.trim()} - ${values.description.trim()}`;
-        }
-        // Remove helper field before sending
-        delete values.customType;
-      }
-      // Default category to 'revenue' if not provided (should be provided)
-      if (!values.category) values.category = 'revenue';
-      // Normalize paymentMethod capitalization to match backend enum
-      if (values.paymentMethod) {
-        const pm = values.paymentMethod;
-        if (pm === 'gcash') values.paymentMethod = 'Gcash';
-        if (pm === 'bank_transfer') values.paymentMethod = 'Bank_transfer';
-        if (pm === 'cash') values.paymentMethod = 'Cash';
-        if (pm === 'other') values.paymentMethod = 'Other';
-      }
       
       await axios.post(`${API_BASE}/api/admin/financial/transactions`, values, {
         headers: authHeaders()
@@ -298,7 +224,7 @@ export default function AdminFinancialReports() {
             if (exportType === 'document_request_fees') {
               // If specific document types are selected
               if (documentTypes && documentTypes.length > 0) {
-                return t.type === 'document_fee' && documentTypes.some(docType => {
+                return t.type === 'document_request' && documentTypes.some(docType => {
                   const desc = t.description?.toLowerCase() || '';
                   if (docType === 'certificate_of_indigency') {
                     return desc.includes('indigency') || desc.includes('certificate of indigency');
@@ -312,8 +238,8 @@ export default function AdminFinancialReports() {
                   return false;
                 });
               }
-              // If no specific document types, include all document fees
-              return t.type === 'document_fee';
+              // If no specific document types, include all document requests
+              return t.type === 'document_request';
             }
             return false;
           });
@@ -374,14 +300,12 @@ export default function AdminFinancialReports() {
     setExporting(false);
   };
 
-
-
   const statistics = dashboardData.statistics || {};
   const revenueByType = dashboardData.revenueByType || {};
   
   // Calculate individual revenue types from revenueByType
-  const documentRequestRevenue = Number(revenueByType.document_request || 0);
-  const documentFeeRevenue = Number(revenueByType.document_fee || 0);
+  // Include both document_request and document_fee for backward compatibility
+  const documentRequestRevenue = Number(revenueByType.document_request || 0) + Number(revenueByType.document_fee || 0);
   const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
   const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
   const totalRevenue = Number(statistics.totalRevenue ?? 0);
@@ -390,21 +314,6 @@ export default function AdminFinancialReports() {
     try {
       setCreating(true);
       const values = await editForm.validateFields();
-      if (values.type === 'other' && values.customType) {
-        if (!values.description || !values.description.trim()) {
-          values.description = values.customType.trim();
-        } else if (!values.description.toLowerCase().startsWith(values.customType.toLowerCase())) {
-          values.description = `${values.customType.trim()} - ${values.description.trim()}`;
-        }
-        delete values.customType;
-      }
-      if (values.paymentMethod) {
-        const pm = values.paymentMethod;
-        if (pm === 'gcash') values.paymentMethod = 'Gcash';
-        if (pm === 'bank_transfer') values.paymentMethod = 'Bank_transfer';
-        if (pm === 'cash') values.paymentMethod = 'Cash';
-        if (pm === 'other') values.paymentMethod = 'Other';
-      }
       
       await axios.put(
         `${API_BASE}/api/admin/financial/transactions/${editTransaction._id}`, 
@@ -425,70 +334,6 @@ export default function AdminFinancialReports() {
   };
 
   // Handle Delete Transaction
-  const handleDeleteResidentTransactions = async (record) => {
-    try {
-      setDeletingId(record.__rowKey);
-      
-      let successCount = 0;
-      let failCount = 0;
-
-      // Delete each transaction individually based on its type
-      for (const tx of record.transactions) {
-        try {
-          let mongoId = tx.mongoId || tx._id;
-          let paymentIndex = tx.paymentIndex;
-          
-          // Handle composite IDs
-          if (typeof mongoId === 'string' && mongoId.includes('_')) {
-            const parts = mongoId.split('_');
-            
-            if (parts.length === 3 && (parts[0] === 'garbage' || parts[0] === 'streetlight')) {
-              // Utility payment with index: type_mongoId_index
-              mongoId = parts[1];
-              if (paymentIndex === undefined) {
-                paymentIndex = parseInt(parts[2]);
-              }
-            } else if (parts.length === 2) {
-              // Simple prefix format: type_mongoId (e.g., document_mongoId)
-              mongoId = parts[1];
-            }
-          }
-
-          if (!mongoId || !objectIdRegex.test(mongoId)) {
-            console.warn('Skipping invalid transaction ID:', tx);
-            failCount++;
-            continue;
-          }
-
-          // Build URL with paymentIndex query param if it's a utility payment
-          let deleteUrl = `${API_BASE}/api/admin/financial/transactions/${mongoId}`;
-          if (tx.isUtilityPayment && paymentIndex !== undefined && !isNaN(paymentIndex)) {
-            deleteUrl += `?paymentIndex=${paymentIndex}`;
-          }
-
-          await axios.delete(deleteUrl, { headers: authHeaders() });
-          successCount++;
-        } catch (error) {
-          console.error('Error deleting transaction:', tx, error);
-          failCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        message.success(`Successfully deleted ${successCount} transaction(s) for ${record.residentName}${failCount > 0 ? ` (${failCount} failed)` : ''}`);
-        await fetchDashboard();
-        await fetchTransactions();
-      } else {
-        message.error('Failed to delete any transactions');
-      }
-    } catch (error) {
-      console.error('Delete resident transactions error:', error);
-      message.error(error?.response?.data?.message || 'Failed to delete transactions');
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
   const handleDeleteTransaction = async (record) => {
     try {
       setDeletingId(record.__rowKey || record._id);
@@ -637,11 +482,7 @@ export default function AdminFinancialReports() {
       type: record.type,
       description: record.description,
       amount: record.amount,
-      category: record.category || 'revenue',
-      paymentMethod: (record.paymentMethod || 'Cash').toLowerCase() === 'cash' ? 'cash'
-        : (record.paymentMethod || '').toLowerCase() === 'gcash' ? 'gcash'
-        : (record.paymentMethod || '').toLowerCase() === 'bank_transfer' ? 'bank_transfer'
-        : (record.paymentMethod || '').toLowerCase() === 'other' ? 'other' : 'cash',
+      paymentMethod: record.paymentMethod || 'Cash',
       referenceNumber: record.referenceNumber
     });
     setEditOpen(true);
@@ -678,30 +519,9 @@ export default function AdminFinancialReports() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 100,
       render: (_, record) => (
-        <div className="flex gap-2">
-          <span className="text-gray-500 text-xs">Expand to see details</span>
-          {record.residentName !== 'No Resident' && (
-            <Popconfirm
-              title="Delete All Transactions"
-              description={`Are you sure you want to delete all ${record.transactionCount} transaction(s) for ${record.residentName}?`}
-              onConfirm={() => handleDeleteResidentTransactions(record)}
-              okText="Yes, Delete All"
-              cancelText="Cancel"
-              okButtonProps={{ danger: true }}
-            >
-              <Button
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                loading={deletingId === record.__rowKey}
-              >
-                Delete All
-              </Button>
-            </Popconfirm>
-          )}
-        </div>
+        <span className="text-gray-500 text-xs">Expand to see details</span>
       )
     }
   ];
@@ -719,13 +539,13 @@ export default function AdminFinancialReports() {
       dataIndex: 'type',
       key: 'type',
       render: (type) => (
-        <Tag color="blue">{type.replace('_', ' ').toUpperCase()}</Tag>
+        <Tag color="blue">{type?.replace('_', ' ').toUpperCase() || ''}</Tag>
       ),
       filters: [
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
-        { text: 'Document Request', value: 'document_request' },
-        { text: 'Document Fee', value: 'document_fee' },
+        { text: 'Document Request Fee', value: 'document_request' },
+        { text: 'Other', value: 'other' },
       ],
       onFilter: (value, record) => record.type === value,
     },
@@ -748,16 +568,6 @@ export default function AdminFinancialReports() {
       render: (date) => dayjs(date).format('MMM DD, YYYY HH:mm')
     },
     {
-      title: 'Blockchain',
-      dataIndex: 'blockchainStatus',
-      key: 'blockchainStatus',
-      render: (status) => {
-        const colorMap = { verified: 'green', edited: 'orange', deleted: 'red', pending: 'default' };
-        const label = (status || 'pending').toString().toUpperCase();
-        return <Tag color={colorMap[status] || 'default'}>{label}</Tag>;
-      }
-    },
-    {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
@@ -777,9 +587,9 @@ export default function AdminFinancialReports() {
           </Button>
           <Popconfirm
             title="Delete Transaction"
-            description={`Are you sure you want to delete transaction ${record.transactionId}?`}
+            description={`Do you want to delete transaction ${record.transactionId}?`}
             onConfirm={() => handleDeleteTransaction(record)}
-            okText="Yes, Delete"
+            okText="Delete"
             cancelText="Cancel"
             okButtonProps={{ danger: true }}
           >
@@ -807,24 +617,7 @@ export default function AdminFinancialReports() {
     }
   };
 
-  // Derive blockchain status for each transaction
-  const deriveBlockchainStatus = (tx) => {
-    if (tx.blockchain?.verified) return 'verified';
-    if (tx.isUtilityPayment) return 'pending';
-    if (tx.isDocumentRequest) {
-      const match = blockchainRequestsSet.has(tx.referenceNumber) || blockchainRequestsSet.has(tx.transactionId);
-      return match ? 'verified' : 'deleted';
-    }
-    const chainTx = blockchainFinanceMap[tx._id] || blockchainFinanceMap[tx.transactionId];
-    if (!chainTx) return 'deleted';
-    const amountMatch = Number(chainTx.amount) === Number(tx.amount);
-    const descMatch = (chainTx.description || '').toLowerCase() === (tx.description || '').toLowerCase();
-    return (amountMatch && descMatch) ? 'verified' : 'edited';
-  };
-
-  const enrichedTransactions = transactions.map(t => ({ ...t, blockchainStatus: deriveBlockchainStatus(t) }));
-
-  const filteredTransactions = enrichedTransactions.filter(t => {
+  const filteredTransactions = transactions.filter(t => {
     // Search filter
     const matchesSearch = [
       t.transactionId,
@@ -921,7 +714,7 @@ export default function AdminFinancialReports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-black">
-                    ₱{documentFeeRevenue.toLocaleString()}
+                    ₱{documentRequestRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
@@ -1003,41 +796,57 @@ export default function AdminFinancialReports() {
                 onChange={setFeeTypeFilter}
                 style={{ width: 200 }}
                 options={[
-                  { label: 'Document Request', value: 'document_request' },
-                  { label: 'Document Fee', value: 'document_fee' },
+                  { label: 'Document Request Fee', value: 'document_request' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
                   { label: 'Streetlight Fee', value: 'streetlight_fee' },
+                  { label: 'Other', value: 'other' },
                 ]}
               />
             </div>
             <div className="flex gap-2 flex-shrink-0">
+              <Button 
+                type="primary"
+                onClick={() => setCreateOpen(true)}
+              >
+                + Add Transaction
+              </Button>
               <Button 
                 loading={exporting}
                 onClick={() => setExportOpen(true)}
               >
                 Export to Excel
               </Button>
-              <Button 
-                type="primary"
-                onClick={() => setCreateOpen(true)}
-              >
-                Add Transaction
-              </Button>
             </div>
           </div>
           <div className="overflow-x-auto">
             <Table
-              columns={columns}
-              dataSource={groupedData}
+              rowKey="__rowKey"
               loading={loading}
+              dataSource={groupedData}
+              columns={columns}
               expandable={{
                 expandedRowRender: (record) => (
                   <Table
                     columns={expandedColumns}
                     dataSource={record.transactions}
-                    pagination={false}
+                    pagination={{
+                      defaultPageSize: 5,
+                      showTotal: (total) => `Total of ${total} transactions`,
+                      showSizeChanger: false,
+                      showQuickJumper: false,
+                      showLessItems: true,
+                      itemRender: (page, type, originalElement) => {
+                        if (type === 'prev') {
+                          return originalElement;
+                        }
+                        if (type === 'next') {
+                          return originalElement;
+                        }
+                        return null;
+                      },
+                    }}
                     rowKey={(tx) => tx.__rowKey ?? tx._id ?? getTransactionKey(tx)}
-                    size="small"
+                    size="medium"
                     className="ml-8"
                   />
                 ),
@@ -1051,11 +860,9 @@ export default function AdminFinancialReports() {
                 showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Transactions: ${filteredTransactions.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
-                defaultPageSize: 10,
               }}
               onChange={handleTableChange}
               scroll={{ x: 800 }}
-              rowKey={(record) => record.__rowKey}
             />
           </div>
         </div>
@@ -1128,7 +935,7 @@ export default function AdminFinancialReports() {
                       return currentExportTypes.some(exportType => {
                         if (exportType === 'garbage_fees') return t.type === 'garbage_fee';
                         if (exportType === 'streetlight_fees') return t.type === 'streetlight_fee';
-                        if (exportType === 'document_request_fees') return t.type === 'document_fee';
+                        if (exportType === 'document_request_fees') return t.type === 'document_request';
                         if (exportType === 'other') return t.type === 'other';
                         return false;
                       });
@@ -1278,180 +1085,32 @@ export default function AdminFinancialReports() {
           <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash', category: 'revenue' }}>
             <Row gutter={16}>
               <Col span={12}>
+                <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
+                  <Select placeholder="Select category">
+                    <Select.Option value="revenue">Revenue</Select.Option>
+                    <Select.Option value="expenses">Expenses</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}> 
-                  <Select placeholder="Select type">
-                    <Select.Option value="document_fee">Document Fee</Select.Option>
+                  <Select placeholder="Select transaction type">
+                    <Select.Option value="document_request">Document Request Fee</Select.Option>
                     <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
                     <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
-              <Col span={12}>
-                <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}> 
-                  <Select placeholder="Select category">
-                    <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expense">Expense</Select.Option>
-                    <Select.Option value="allocation">Allocation</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
             </Row>
-            {selectedCreateType === 'other' && (
-              <Row gutter={16}>
-                <Col span={24}>
-                  <Form.Item name="customType" label="Specify Other Transaction Type" rules={[{ required: true, message: 'Please specify the transaction type' }]}> 
-                    <Input placeholder="e.g. Maintenance Fee, Donation, Miscellaneous" />
-                  </Form.Item>
-                </Col>
-              </Row>
-            )}
             
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="residentId" label="Resident (Optional)">
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Select resident"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {residents.map(r => (
-                      <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.lastName}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="officialId" label="Official (Optional)">
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Select official"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {officials.map(o => (
-                      <Select.Option key={o._id} value={o._id}>
-                        {o.firstName} {o.lastName} - {o.position}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item name="description" label="Description" rules={[{ required: true }]}>
-              <Input.TextArea rows={3} />
-            </Form.Item>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
-                  <Input type="number" prefix="₱" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
-                  <Select placeholder="Select method">
-                    <Select.Option value="cash">Cash</Select.Option>
-                    <Select.Option value="gcash">GCash</Select.Option>
-                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
-                    <Select.Option value="other">Other</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item name="referenceNumber" label="Reference Number">
-              <Input placeholder="Enter reference number (optional)" />
-            </Form.Item>
-          </Form>
-        </Modal>
-
-        {/* View Transaction Modal */}
-        <Modal
-          title="Transaction Details"
-          open={viewOpen}
-          onCancel={() => setViewOpen(false)}
-          footer={null}
-          width={700}
-        >
-          {viewTransaction && (
-            <Descriptions bordered column={1}>
-              <Descriptions.Item label="Transaction ID">{viewTransaction.transactionId}</Descriptions.Item>
-              <Descriptions.Item label="Type">
-                <Tag color="blue">{viewTransaction.type.replace('_', ' ').toUpperCase()}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Description">{viewTransaction.description}</Descriptions.Item>
-              <Descriptions.Item label="Amount">₱{Number(viewTransaction.amount).toLocaleString()}</Descriptions.Item>
-
-              <Descriptions.Item label="Resident">
-                {viewTransaction.residentName || 
-                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
-              </Descriptions.Item>  
-              <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
-              <Descriptions.Item label="Transaction Date">
-                {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Blockchain Status">
-                {(() => {
-                  const status = viewTransaction.blockchainStatus || (viewTransaction.blockchain?.verified ? 'verified' : 'pending');
-                  const colorMap = { verified: 'green', edited: 'orange', deleted: 'red', pending: 'default' };
-                  return <Tag color={colorMap[status] || 'default'}>{status.toUpperCase()}</Tag>;
-                })()}
-              </Descriptions.Item>
-            </Descriptions>
-          )}
-        </Modal>
-
-        {/* Edit Transaction Modal */}
-        <Modal
-          title="Edit Financial Transaction"
-          open={editOpen}
-          onCancel={() => { 
-            setEditOpen(false); 
-            editForm.resetFields(); 
-            setEditTransaction(null);
-          }}
-          onOk={handleEditTransaction}
-          confirmLoading={creating}
-          width={700}
-        >
-          <Form form={editForm} layout="vertical">
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
-                  <Select placeholder="Select type">
-                    <Select.Option value="document_fee">Document Fee</Select.Option>
-                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-                    <Select.Option value="other">Other</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="category" label="Category" rules={[{ required: true }]}> 
-                  <Select placeholder="Select category">
-                    <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expense">Expense</Select.Option>
-                    <Select.Option value="allocation">Allocation</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-            {selectedEditType === 'other' && (
-              <Form.Item shouldUpdate noStyle>
-                {() => (
-                  <Form.Item name="customType" label="Specify Other Transaction Type" rules={[{ required: false }]}> 
-                    <Input placeholder="Update custom type (optional)" />
-                  </Form.Item>
-                )}
+            {selectedCreateType === 'other' && (
+              <Form.Item 
+                name="customType" 
+                label="Specify Transaction Type" 
+                rules={[{ required: true, message: 'Please specify the transaction type' }]}
+              >
+                <Input placeholder="Enter custom transaction type" />
               </Form.Item>
             )}
             
@@ -1496,28 +1155,177 @@ export default function AdminFinancialReports() {
               </Col>
             </Row>
 
-            <Form.Item name="description" label="Description" rules={[{ required: true }]}>
-              <Input.TextArea rows={3} />
+            <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter a description' }]}>
+              <Input.TextArea rows={3} placeholder="Enter description" />
             </Form.Item>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
-                  <Input type="number" prefix="₱" />
+                <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Please enter the amount' }]}>
+                  <Input type="number" prefix="₱" placeholder="Enter amount" />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
-                  <Select placeholder="Select method">
-                    <Select.Option value="cash">Cash</Select.Option>
-                    <Select.Option value="gcash">GCash</Select.Option>
-                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
+                <Form.Item name="paymentMethod" label="Payment Method">
+                  <Input value="Cash" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item name="referenceNumber" label="Reference Number">
+              <Input placeholder="Enter reference number" />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* View Transaction Modal */}
+        <Modal
+          title="Transaction Details"
+          open={viewOpen}
+          onCancel={() => setViewOpen(false)}
+          footer={null}
+          width={700}
+        >
+          {viewTransaction && (
+            <Descriptions bordered column={1}>
+              <Descriptions.Item label="Transaction ID">{viewTransaction.transactionId}</Descriptions.Item>
+              <Descriptions.Item label="Type">
+                <Tag color="blue">{viewTransaction.type?.replace('_', ' ').toUpperCase() || ''}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Description">{viewTransaction.description}</Descriptions.Item>
+              <Descriptions.Item label="Amount">₱{Number(viewTransaction.amount).toLocaleString()}</Descriptions.Item>
+
+              <Descriptions.Item label="Resident">
+                {viewTransaction.residentName || 
+                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
+              </Descriptions.Item>  
+              <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
+              <Descriptions.Item label="Reference Number">{viewTransaction.referenceNumber || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Transaction Date">
+                {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
+              </Descriptions.Item>
+              <Descriptions.Item label="Blockchain Hash">
+                {viewTransaction.blockchain?.hash || 'Not recorded'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Blockchain Verified">
+                {viewTransaction.blockchain?.verified ? 
+                  <Tag color="green">Yes</Tag> : 
+                  <Tag color="orange">Pending</Tag>
+                }
+              </Descriptions.Item>
+            </Descriptions>
+          )}
+        </Modal>
+
+        {/* Edit Transaction Modal */}
+        <Modal
+          title="Edit Financial Transaction"
+          open={editOpen}
+          onCancel={() => { 
+            setEditOpen(false); 
+            editForm.resetFields(); 
+            setEditTransaction(null);
+          }}
+          onOk={handleEditTransaction}
+          confirmLoading={creating}
+          width={700}
+        >
+          <Alert
+            message="Edit Financial Transaction"
+            description="Update the details of this financial transaction. You can modify the category, type, amount, and other information. Changes will be saved to the system."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          <div style={{ marginBottom: 16 }} />
+          <Form form={editForm} layout="vertical">
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
+                  <Select placeholder="Select category">
+                    <Select.Option value="revenue">Revenue</Select.Option>
+                    <Select.Option value="expenses">Expenses</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}>
+                  <Select placeholder="Select transaction type">
+                    <Select.Option value="document_request">Document Request</Select.Option>
+                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
+                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
             </Row>
+            
+            {selectedEditType === 'other' && (
+              <Form.Item 
+                name="customType" 
+                label="Specify Transaction Type" 
+                rules={[{ required: true, message: 'Please specify the transaction type' }]}
+              >
+                <Input placeholder="Enter custom transaction type" />
+              </Form.Item>
+            )}
+            
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="residentId" label="Resident (Optional)">
+                  <Select
+                    showSearch
+                    allowClear
+                    placeholder="Select resident"
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                  >
+                    {residents.map(r => (
+                      <Select.Option key={r._id} value={r._id}>
+                        {r.firstName} {r.lastName}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="officialId" label="Official (Optional)">
+                  <Select
+                    showSearch
+                    allowClear
+                    placeholder="Select official"
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                  >
+                    {officials.map(o => (
+                      <Select.Option key={o._id} value={o._id}>
+                        {o.firstName} {o.lastName} {o.position}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter a description' }]}>
+              <Input.TextArea rows={3} placeholder="Enter description" />
+            </Form.Item>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Please enter an amount' }]}>
+                  <Input type="number" prefix="₱" placeholder="Enter amount" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="paymentMethod" label="Payment Method">
+                  <Input value="Cash" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
             <Form.Item name="referenceNumber" label="Reference Number">
-              <Input placeholder="Enter reference number (optional)" />
+              <Input placeholder="Enter reference number" />
             </Form.Item>
           </Form>
         </Modal>
