@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import logo from '../../assets/logo.png';
 import { Layout, Menu, Avatar, Dropdown, Drawer } from 'antd';
-import { 
-  DashboardOutlined, 
-  FileTextOutlined, 
-  DollarOutlined, 
-  CommentOutlined, 
-  UserOutlined, 
+import {
+  DashboardOutlined,
+  FileTextOutlined,
+  DollarOutlined,
+  CommentOutlined,
+  UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -23,51 +23,36 @@ const ResidentNavbar = () => {
   const [residentName, setResidentName] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [viewportWidth, setViewportWidth] = useState(0);
 
   useEffect(() => {
-    // Function to load the name from localStorage
     const loadResidentName = () => {
       const userData = localStorage.getItem('userData');
       if (userData) {
         try {
           const parsedData = JSON.parse(userData);
           setResidentName(parsedData.firstName || 'Resident');
-        } catch (error) {
+        } catch {
           setResidentName('Resident');
         }
       } else {
         setResidentName('Resident');
       }
     };
-
-    // Load name on mount
     loadResidentName();
 
-    // Listen for profile updates
     const handleProfileUpdate = () => {
       loadResidentName();
     };
 
     window.addEventListener('profileUpdated', handleProfileUpdate);
-
-    // Cleanup listener on unmount
-    return () => {
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
-    };
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
   }, []);
 
   useEffect(() => {
     const handleResize = () => {
-      const width = window.innerWidth;
-      const mobile = width < 768;
-      setIsMobile(mobile);
-      setViewportWidth(width);
-      if (!mobile) {
-        setMobileMenuOpen(false);
-      }
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
     };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -95,176 +80,84 @@ const ResidentNavbar = () => {
     }
   ];
 
-  const renderNavigationMenu = (mode = 'horizontal') => (
+  const menuItems = [
+    {
+      key: '/resident/dashboard',
+      icon: <DashboardOutlined style={{ fontSize: '13px' }} />,
+      label: <NavLink to="/resident/dashboard">Dashboard</NavLink>,
+      onClick: () => setMobileMenuOpen(false)
+    },
+    {
+      key: '/resident/requests',
+      icon: <FileTextOutlined style={{ fontSize: '13px' }} />,
+      label: <NavLink to="/resident/requests">My Requests</NavLink>,
+      onClick: () => setMobileMenuOpen(false)
+    },
+    {
+      key: '/resident/payments',
+      icon: <DollarOutlined style={{ fontSize: '13px' }} />,
+      label: <NavLink to="/resident/payments">Payments</NavLink>,
+      onClick: () => setMobileMenuOpen(false)
+    },
+    {
+      key: '/resident/reports-complaints',
+      icon: <CommentOutlined style={{ fontSize: '13px' }} />,
+      label: <NavLink to="/resident/reports-complaints">Reports & Complaints</NavLink>,
+      onClick: () => setMobileMenuOpen(false)
+    },
+    {
+      key: '/resident/public-documents',
+      icon: <FileTextOutlined style={{ fontSize: '13px' }} />,
+      label: <NavLink to="/resident/public-documents">Public Docs</NavLink>,
+      onClick: () => setMobileMenuOpen(false)
+    },
+    {
+      key: '/resident/blockchain',
+      icon: <CloudSyncOutlined style={{ fontSize: '13px' }} />,
+      label: <NavLink to="/resident/blockchain">Blockchain</NavLink>,
+      onClick: () => setMobileMenuOpen(false)
+    }
+  ];
+
+  const renderNavigationMenu = () => (
     <Menu
-      key={`menu-${mode}-${viewportWidth}`}
-      mode={mode}
-      className={mode === 'horizontal' ? 'border-none' : ''}
+      mode="horizontal"
       selectedKeys={[location.pathname]}
-      style={{ fontSize: '13px' }}
+      overflowedIndicator={<EllipsisOutlined />}
+      style={{
+        fontSize: '13px',
+        flex: 1,
+        minWidth: 0
+      }}
+      className="border-none"
     >
-      <Menu.Item
-        key="/resident/dashboard"
-        icon={<DashboardOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline text-[13px]">
-          Dashboard
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/requests"
-        icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/requests" className="no-underline hover:no-underline text-[13px]">
-          My Requests
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/payments"
-        icon={<DollarOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/payments" className="no-underline hover:no-underline text-[13px]">
-          Payments
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/reports-complaints"
-        icon={<CommentOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline text-[13px]">
-          Reports & Complaints
-        </NavLink>
-      </Menu.Item>
-      {mode === 'horizontal' ? (
-        <Menu.SubMenu key="more" title="More" icon={<EllipsisOutlined style={{ fontSize: '13px' }} />}>
-          <Menu.Item
-            key="/resident/public-documents"
-            icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline text-[13px]">
-              Public Docs
-            </NavLink>
-          </Menu.Item>
-          <Menu.Item
-            key="/resident/blockchain"
-            icon={<CloudSyncOutlined style={{ fontSize: '13px' }} />}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline text-[13px]">
-              Blockchain
-            </NavLink>
-          </Menu.Item>
-        </Menu.SubMenu>
-      ) : (
-        <>
-          <Menu.Item
-            key="/resident/public-documents"
-            icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline text-[13px]">
-              Public Docs
-            </NavLink>
-          </Menu.Item>
-          <Menu.Item
-            key="/resident/blockchain"
-            icon={<CloudSyncOutlined style={{ fontSize: '13px' }} />}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline text-[13px]">
-              Blockchain
-            </NavLink>
-          </Menu.Item>
-        </>
-      )}
+      {menuItems.map(item => (
+        <Menu.Item key={item.key} icon={item.icon} onClick={item.onClick}>
+          {item.label}
+        </Menu.Item>
+      ))}
     </Menu>
   );
 
   const renderMobileMenu = () => (
-    <Menu
-      mode="inline"
-      selectedKeys={[location.pathname]}
-      style={{ fontSize: '13px' }}
-    >
-      <Menu.Item
-        key="/resident/dashboard"
-        icon={<DashboardOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline text-[13px]">
-          Dashboard
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/requests"
-        icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/requests" className="no-underline hover:no-underline text-[13px]">
-          My Requests
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/payments"
-        icon={<DollarOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/payments" className="no-underline hover:no-underline text-[13px]">
-          Payments
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/reports-complaints"
-        icon={<CommentOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline text-[13px]">
-          Reports & Complaints
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/public-documents"
-        icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/public-documents" className="no-underline hover:no-underline text-[13px]">
-          Public Docs
-        </NavLink>
-      </Menu.Item>
-      <Menu.Item
-        key="/resident/blockchain"
-        icon={<CloudSyncOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        <NavLink to="/resident/blockchain" className="no-underline hover:no-underline text-[13px]">
-          Blockchain
-        </NavLink>
-      </Menu.Item>
+    <Menu mode="inline" selectedKeys={[location.pathname]} style={{ fontSize: '13px' }}>
+      {menuItems.map(item => (
+        <Menu.Item key={item.key} icon={item.icon} onClick={item.onClick}>
+          {item.label}
+        </Menu.Item>
+      ))}
       <Menu.Divider />
-      <Menu.Item
-        key="/resident/profile"
-        icon={<UserOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => {
-          setMobileMenuOpen(false);
-          navigate('/resident/profile');
-        }}
-      >
-        <span className="text-[13px]">My Profile</span>
+      <Menu.Item key="/resident/profile" icon={<UserOutlined />} onClick={() => {
+        setMobileMenuOpen(false);
+        navigate('/resident/profile');
+      }}>
+        My Profile
       </Menu.Item>
-      <Menu.Item
-        key="logout"
-        icon={<LogoutOutlined style={{ fontSize: '13px' }} />}
-        onClick={() => {
-          setMobileMenuOpen(false);
-          handleLogout();
-        }}
-      >
-        <span className="text-[13px]">Logout</span>
+      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={() => {
+        setMobileMenuOpen(false);
+        handleLogout();
+      }}>
+        Logout
       </Menu.Item>
     </Menu>
   );
@@ -281,7 +174,8 @@ const ResidentNavbar = () => {
         flexWrap: isMobile ? 'wrap' : 'nowrap',
         background: '#fff',
         padding: '0 24px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+        overflowX: 'hidden'
       }}
     >
       <div className="flex items-center" style={{ minWidth: isMobile ? 'auto' : 220 }}>
@@ -300,8 +194,8 @@ const ResidentNavbar = () => {
           <>
             <img src={logo} alt="Logo" style={{ width: 48, height: 48, objectFit: 'contain', marginRight: 12 }} />
             <div className="flex flex-col justify-center">
-              <span className="text-lg font-semibold leading-tight">La Torre North</span>
-              <span className="text-sm font-normal text-gray-600 leading-tight">Barangay Management Information System</span>
+              <span className="text-sm font-semibold leading-tight">La Torre North</span>
+              <span className="text-xs font-normal text-gray-600 leading-tight">Barangay Management Information System</span>
             </div>
           </>
         )}
@@ -313,15 +207,15 @@ const ResidentNavbar = () => {
         </div>
       )}
 
-      <div className="hidden flex-1 justify-center md:flex" style={{ minWidth: 0 }}>
+      <div className="hidden md:flex flex-1 justify-center min-w-0 overflow-hidden">
         {renderNavigationMenu()}
       </div>
 
-      <div className="ml-auto md:ml-4 hidden md:flex">
+      <div className="ml-auto md:ml-4 hidden md:flex items-center min-w-[180px] justify-end">
         <Dropdown menu={{ items: profileMenu }} placement="bottomRight">
-          <div className="cursor-pointer flex items-center">
+          <div className="cursor-pointer flex items-center truncate">
             <Avatar icon={<UserOutlined />} />
-            <span className="ml-2">
+            <span className="ml-2 truncate text-sm text-black max-w-[160px]">
               {residentName ? `Welcome, ${residentName}!` : 'Welcome, Resident'}
             </span>
           </div>
@@ -340,9 +234,7 @@ const ResidentNavbar = () => {
           <div className="flex items-center gap-3">
             <Avatar icon={<UserOutlined />} size="large" />
             <div className="flex flex-col">
-              <span className="text-base font-semibold text-gray-800">
-                {residentName}
-              </span>
+              <span className="text-base font-semibold text-gray-800">{residentName}</span>
               <span className="text-xs text-gray-500">Resident</span>
             </div>
           </div>
