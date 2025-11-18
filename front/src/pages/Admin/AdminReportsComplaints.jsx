@@ -236,6 +236,11 @@ export default function AdminReportsComplaints() {
           {type.toUpperCase()}
         </Tag>
       ),
+      filters: [
+        { text: "Complaint", value: "complaint" },
+        { text: "Report", value: "report" },
+      ],
+      onFilter: (value, record) => record.type === value,
     },
     {
       title: "Title",
@@ -277,6 +282,13 @@ export default function AdminReportsComplaints() {
           {priority.toUpperCase()}
         </Tag>
       ),
+      filters: [
+        { text: "Low", value: "low" },
+        { text: "Medium", value: "medium" },
+        { text: "High", value: "high" },
+        { text: "Urgent", value: "urgent" },
+      ],
+      onFilter: (value, record) => record.priority === value,
     },
     {
       title: "Status",
@@ -289,6 +301,13 @@ export default function AdminReportsComplaints() {
           {status.toUpperCase()}
         </Tag>
       ),
+      filters: [
+        { text: "Pending", value: "pending" },
+        { text: "Investigating", value: "investigating" },
+        { text: "Resolved", value: "resolved" },
+        { text: "Closed", value: "closed" },
+      ],
+      onFilter: (value, record) => record.status === value,
     },
     {
       title: "Date Submitted",
