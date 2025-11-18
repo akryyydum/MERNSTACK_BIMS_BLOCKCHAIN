@@ -3,8 +3,8 @@ const router = express.Router();
 const { auth, authorize } = require("../middleware/authMiddleware");
 const { createRequest, list, getStats, getById, checkPaymentStatus } = require("../controllers/residentDocumentRequestController");
 
-// Protect all routes for residents only
-router.use(auth, authorize("resident"));
+// Protect all routes for residents and officials (officials can act on their own behalf)
+router.use(auth, authorize("resident", "official"));
 
 // List all document requests for the current resident
 router.get("/", list);

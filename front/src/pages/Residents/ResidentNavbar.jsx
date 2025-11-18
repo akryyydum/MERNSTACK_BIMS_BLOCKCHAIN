@@ -101,60 +101,61 @@ const ResidentNavbar = () => {
       mode={mode}
       className={mode === 'horizontal' ? 'border-none' : ''}
       selectedKeys={[location.pathname]}
+      style={{ fontSize: '13px' }}
     >
       <Menu.Item
         key="/resident/dashboard"
-        icon={<DashboardOutlined />}
+        icon={<DashboardOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline">
+        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline text-[13px]">
           Dashboard
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/requests"
-        icon={<FileTextOutlined />}
+        icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/requests" className="no-underline hover:no-underline">
+        <NavLink to="/resident/requests" className="no-underline hover:no-underline text-[13px]">
           My Requests
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/payments"
-        icon={<DollarOutlined />}
+        icon={<DollarOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/payments" className="no-underline hover:no-underline">
+        <NavLink to="/resident/payments" className="no-underline hover:no-underline text-[13px]">
           Payments
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/reports-complaints"
-        icon={<CommentOutlined />}
+        icon={<CommentOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline">
+        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline text-[13px]">
           Reports & Complaints
         </NavLink>
       </Menu.Item>
       {mode === 'horizontal' ? (
-        <Menu.SubMenu key="more" title="More" icon={<EllipsisOutlined />}>
+        <Menu.SubMenu key="more" title="More" icon={<EllipsisOutlined style={{ fontSize: '13px' }} />}>
           <Menu.Item
             key="/resident/public-documents"
-            icon={<FileTextOutlined />}
+            icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
             onClick={() => setMobileMenuOpen(false)}
           >
-            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline text-[13px]">
               Public Docs
             </NavLink>
           </Menu.Item>
           <Menu.Item
             key="/resident/blockchain"
-            icon={<CloudSyncOutlined />}
+            icon={<CloudSyncOutlined style={{ fontSize: '13px' }} />}
             onClick={() => setMobileMenuOpen(false)}
           >
-            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline text-[13px]">
               Blockchain
             </NavLink>
           </Menu.Item>
@@ -163,19 +164,19 @@ const ResidentNavbar = () => {
         <>
           <Menu.Item
             key="/resident/public-documents"
-            icon={<FileTextOutlined />}
+            icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
             onClick={() => setMobileMenuOpen(false)}
           >
-            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+            <NavLink to="/resident/public-documents" className="no-underline hover:no-underline text-[13px]">
               Public Docs
             </NavLink>
           </Menu.Item>
           <Menu.Item
             key="/resident/blockchain"
-            icon={<CloudSyncOutlined />}
+            icon={<CloudSyncOutlined style={{ fontSize: '13px' }} />}
             onClick={() => setMobileMenuOpen(false)}
           >
-            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+            <NavLink to="/resident/blockchain" className="no-underline hover:no-underline text-[13px]">
               Blockchain
             </NavLink>
           </Menu.Item>
@@ -188,81 +189,82 @@ const ResidentNavbar = () => {
     <Menu
       mode="inline"
       selectedKeys={[location.pathname]}
+      style={{ fontSize: '13px' }}
     >
       <Menu.Item
         key="/resident/dashboard"
-        icon={<DashboardOutlined />}
+        icon={<DashboardOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline">
+        <NavLink to="/resident/dashboard" className="no-underline hover:no-underline text-[13px]">
           Dashboard
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/requests"
-        icon={<FileTextOutlined />}
+        icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/requests" className="no-underline hover:no-underline">
+        <NavLink to="/resident/requests" className="no-underline hover:no-underline text-[13px]">
           My Requests
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/payments"
-        icon={<DollarOutlined />}
+        icon={<DollarOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/payments" className="no-underline hover:no-underline">
+        <NavLink to="/resident/payments" className="no-underline hover:no-underline text-[13px]">
           Payments
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/reports-complaints"
-        icon={<CommentOutlined />}
+        icon={<CommentOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline">
+        <NavLink to="/resident/reports-complaints" className="no-underline hover:no-underline text-[13px]">
           Reports & Complaints
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/public-documents"
-        icon={<FileTextOutlined />}
+        icon={<FileTextOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/public-documents" className="no-underline hover:no-underline">
+        <NavLink to="/resident/public-documents" className="no-underline hover:no-underline text-[13px]">
           Public Docs
         </NavLink>
       </Menu.Item>
       <Menu.Item
         key="/resident/blockchain"
-        icon={<CloudSyncOutlined />}
+        icon={<CloudSyncOutlined style={{ fontSize: '13px' }} />}
         onClick={() => setMobileMenuOpen(false)}
       >
-        <NavLink to="/resident/blockchain" className="no-underline hover:no-underline">
+        <NavLink to="/resident/blockchain" className="no-underline hover:no-underline text-[13px]">
           Blockchain
         </NavLink>
       </Menu.Item>
       <Menu.Divider />
       <Menu.Item
         key="/resident/profile"
-        icon={<UserOutlined />}
+        icon={<UserOutlined style={{ fontSize: '13px' }} />}
         onClick={() => {
           setMobileMenuOpen(false);
           navigate('/resident/profile');
         }}
       >
-        My Profile
+        <span className="text-[13px]">My Profile</span>
       </Menu.Item>
       <Menu.Item
         key="logout"
-        icon={<LogoutOutlined />}
+        icon={<LogoutOutlined style={{ fontSize: '13px' }} />}
         onClick={() => {
           setMobileMenuOpen(false);
           handleLogout();
         }}
       >
-        Logout
+        <span className="text-[13px]">Logout</span>
       </Menu.Item>
     </Menu>
   );

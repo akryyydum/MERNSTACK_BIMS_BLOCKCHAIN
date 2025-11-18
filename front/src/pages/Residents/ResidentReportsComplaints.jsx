@@ -50,14 +50,28 @@ export default function ResidentReportsComplaints() {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        message.error("You are not logged in.");
+        setLoading(false);
+        return;
+      }
       const res = await axios.get(
         `${API_BASE}/api/resident/complaints`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setComplaints(res.data);
     } catch (err) {
-      message.error("Failed to load complaints");
-      console.error(err);
+      const status = err.response?.status;
+      if (status === 404) {
+        message.error(err.response?.data?.message || "Resident profile not found");
+      } else if (status === 400) {
+        message.error(err.response?.data?.message || "Bad request loading complaints");
+      } else if (status === 401 || status === 403) {
+        message.error("Session expired. Please log in again.");
+      } else {
+        message.error("Failed to load complaints");
+      }
+      console.error('Fetch complaints error:', err.response?.data || err.message);
     }
     setLoading(false);
   };
@@ -88,7 +102,16 @@ export default function ResidentReportsComplaints() {
       setShowOtherCategory(false);
       fetchComplaints();
     } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to create complaint");
+      const status = err.response?.status;
+      if (status === 400 && err.response?.data?.missing) {
+        message.error(`Missing: ${err.response.data.missing.join(', ')}`);
+      } else if (status === 400 && err.response?.data?.errors) {
+        message.error(err.response.data.errors[0] || 'Validation error');
+      } else if (status === 404) {
+        message.error(err.response?.data?.message || 'Resident profile not found');
+      } else {
+        message.error(err?.response?.data?.message || "Failed to create complaint");
+      }
     }
     setCreating(false);
   };
@@ -120,7 +143,14 @@ export default function ResidentReportsComplaints() {
       setShowOtherCategoryEdit(false);
       fetchComplaints();
     } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to update complaint");
+      const status = err.response?.status;
+      if (status === 404) {
+        message.error(err.response?.data?.message || 'Complaint not found');
+      } else if (status === 400) {
+        message.error(err.response?.data?.message || 'Bad request updating complaint');
+      } else {
+        message.error(err?.response?.data?.message || "Failed to update complaint");
+      }
     }
     setUpdating(false);
   };

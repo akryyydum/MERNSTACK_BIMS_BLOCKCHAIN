@@ -90,14 +90,23 @@ export default function ResidentRequest() {
       if (error.response) {
         console.error("Error response:", error.response.data);
       }
-      // Fallback to localStorage
+      // Fallback to localStorage (prefer userData from login)
+      const userData = JSON.parse(localStorage.getItem("userData") || "{}");
       const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-      console.log("Fallback to localStorage userProfile:", userProfile);
-      if (userProfile._id) {
-        setResident(userProfile);
+      const fallbackResidentId = userData?.residentId || userProfile?._id;
+      const fallbackFirstName = userData?.firstName || userProfile?.firstName;
+      const fallbackLastName = userData?.lastName || userProfile?.lastName;
+      console.log("Fallback to localStorage userData/userProfile:", { userData, userProfile });
+      if (fallbackResidentId) {
+        const fallbackResident = {
+          _id: fallbackResidentId,
+          firstName: fallbackFirstName,
+          lastName: fallbackLastName,
+        };
+        setResident(fallbackResident);
         createForm.setFieldsValue({
-          residentId: userProfile._id,
-          requestFor: userProfile._id
+          residentId: fallbackResidentId,
+          requestFor: fallbackResidentId
         });
       }
     }
@@ -127,13 +136,15 @@ export default function ResidentRequest() {
         
         // Filter out the current resident from members list to avoid duplication
         // The current resident will be shown separately as "You"
-        const currentUserProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-        console.log("Current user profile:", currentUserProfile);
+        const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+        const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+        const currentResidentId = resident?._id || userData?.residentId || userProfile?._id;
+        console.log("Current resident context:", { currentResidentId, userData, userProfile });
         
         // Filter members that aren't the current user
         const otherMembers = res.data.members.filter(member => {
           console.log("Checking member:", member);
-          return member._id !== currentUserProfile._id;
+          return member._id !== currentResidentId;
         });
         
         console.log("Other household members:", otherMembers);
