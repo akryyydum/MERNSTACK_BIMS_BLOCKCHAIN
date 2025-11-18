@@ -300,6 +300,7 @@ export default function AdminFinancialReports() {
   const revenueByType = dashboardData.revenueByType || {};
   
   // Calculate individual revenue types from revenueByType
+  const documentRequestRevenue = Number(revenueByType.document_request || 0);
   const documentFeeRevenue = Number(revenueByType.document_fee || 0);
   const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
   const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
@@ -519,6 +520,7 @@ export default function AdminFinancialReports() {
       filters: [
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
+        { text: 'Document Request', value: 'document_request' },
         { text: 'Document Fee', value: 'document_fee' },
       ],
       onFilter: (value, record) => record.type === value,
@@ -770,6 +772,7 @@ export default function AdminFinancialReports() {
                 onChange={setFeeTypeFilter}
                 style={{ width: 200 }}
                 options={[
+                  { label: 'Document Request', value: 'document_request' },
                   { label: 'Document Fee', value: 'document_fee' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
                   { label: 'Streetlight Fee', value: 'streetlight_fee' },

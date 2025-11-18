@@ -27,7 +27,10 @@ export default function AdminUserManagement() {
   const [editOpen, setEditOpen] = useState(false);            
   const [editForm] = Form.useForm();                           
   const [editingUser, setEditingUser] = useState(null);         
-  const [savingEdit, setSavingEdit] = useState(false);          
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [usernameTaken, setUsernameTaken] = useState(false);
+  const [emailTaken, setEmailTaken] = useState(false);
+  const [mobileTaken, setMobileTaken] = useState(false);          
 
   const residentStepFields = {                                 
     1: ["username", "password", ["contact","email"], ["contact","mobile"]],
@@ -180,6 +183,9 @@ export default function AdminUserManagement() {
   const openCreate = () => {
     createForm.resetFields();
     createForm.setFieldsValue({ role: "official" });
+    setUsernameTaken(false);
+    setEmailTaken(false);
+    setMobileTaken(false);
     setCreateOpen(true);
   };
 
@@ -188,7 +194,17 @@ export default function AdminUserManagement() {
   const submitCreate = async () => {
     try {
       const values = await createForm.validateFields();
+      
+      // Check if username already exists
+      const existingUser = allUsers.find(u => u.username.toLowerCase() === values.username.toLowerCase());
+      if (existingUser) {
+        setUsernameTaken(true);
+        message.error("Username is already taken. Please choose a different username.");
+        return;
+      }
+      
       setCreating(true);
+      setUsernameTaken(false);
 
       // All roles now use the same validation: username, password, residentId, role
       if (!values.username || !values.password || !values.residentId || !values.role) {
@@ -230,6 +246,8 @@ export default function AdminUserManagement() {
   const openEdit = (record) => {
     setEditingUser(record);
     setEditOpen(true);
+    setEmailTaken(false);
+    setMobileTaken(false);
     editForm.setFieldsValue({
       fullName: record.fullName,
       username: record.username,
@@ -248,7 +266,36 @@ export default function AdminUserManagement() {
   const submitEdit = async () => {
     try {
       const values = await editForm.validateFields();
+      
+      // Check if email already exists (excluding current user)
+      if (values.contact?.email) {
+        const existingEmail = allUsers.find(u => 
+          u.contact?.email?.toLowerCase() === values.contact.email.toLowerCase() &&
+          u._id !== editingUser._id
+        );
+        if (existingEmail) {
+          setEmailTaken(true);
+          message.error("Email is already registered to another user.");
+          return;
+        }
+      }
+      
+      // Check if mobile already exists (excluding current user)
+      if (values.contact?.mobile) {
+        const existingMobile = allUsers.find(u => 
+          u.contact?.mobile === values.contact.mobile &&
+          u._id !== editingUser._id
+        );
+        if (existingMobile) {
+          setMobileTaken(true);
+          message.error("Mobile number is already registered to another user.");
+          return;
+        }
+      }
+      
       setSavingEdit(true);
+      setEmailTaken(false);
+      setMobileTaken(false);
       const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}`, {
         method: "PATCH",
         headers: authHeaders,
@@ -724,8 +771,30 @@ export default function AdminUserManagement() {
               label="Username"
               rules={[{ required: true, message: "Username is required" }]}
             >
-              <Input autoComplete="off" placeholder="Resident or Official username" />
+              <Input 
+                autoComplete="off" 
+                placeholder="Resident or Official username"
+                onChange={(e) => {
+                  const username = e.target.value;
+                  if (username) {
+                    const exists = allUsers.some(u => u.username.toLowerCase() === username.toLowerCase());
+                    setUsernameTaken(exists);
+                  } else {
+                    setUsernameTaken(false);
+                  }
+                }}
+              />
             </Form.Item>
+
+            {usernameTaken && (
+              <Alert
+                message="Username is already taken"
+                description="Please choose a different username."
+                type="error"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
 
             <Form.Item
               name="password"
@@ -803,15 +872,65 @@ export default function AdminUserManagement() {
               label="Email"
               rules={[{ type: "email", message: "Invalid email" }]}
             >
-              <Input type="email" placeholder="juan.delacruz@email.com" />
+              <Input 
+                type="email" 
+                placeholder="juan.delacruz@email.com"
+                onChange={(e) => {
+                  const email = e.target.value;
+                  if (email) {
+                    const exists = allUsers.some(u => 
+                      u.contact?.email?.toLowerCase() === email.toLowerCase() &&
+                      u._id !== editingUser?._id
+                    );
+                    setEmailTaken(exists);
+                  } else {
+                    setEmailTaken(false);
+                  }
+                }}
+              />
             </Form.Item>
+
+            {emailTaken && (
+              <Alert
+                message="Email is already registered"
+                description="This email is already used by another user."
+                type="error"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
 
             <Form.Item
               name={["contact", "mobile"]}
               label="Mobile"
             >
-              <Input type="tel" placeholder="09123456789" />
+              <Input 
+                type="tel" 
+                placeholder="09123456789"
+                onChange={(e) => {
+                  const mobile = e.target.value;
+                  if (mobile) {
+                    const exists = allUsers.some(u => 
+                      u.contact?.mobile === mobile &&
+                      u._id !== editingUser?._id
+                    );
+                    setMobileTaken(exists);
+                  } else {
+                    setMobileTaken(false);
+                  }
+                }}
+              />
             </Form.Item>
+
+            {mobileTaken && (
+              <Alert
+                message="Mobile number is already registered"
+                description="This mobile number is already used by another user."
+                type="error"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
 
             <Form.Item
               name="residentStatus"

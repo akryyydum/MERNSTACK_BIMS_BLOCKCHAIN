@@ -183,7 +183,13 @@ export default function AdminResidentManagement() {
         `${API_BASE}/api/admin/residents`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setResidents(res.data);
+      
+      console.log("Residents response:", res.data);
+      
+      // Handle both array and object responses
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setResidents(data);
+      
       // Clear selection when data refreshes
       setSelectedRowKeys([]);
       // Reset to first page when data is refreshed
@@ -193,6 +199,7 @@ export default function AdminResidentManagement() {
       console.error("Error response:", err.response?.data);
       console.error("Error status:", err.response?.status);
       message.error(err.response?.data?.message || "Failed to fetch residents");
+      setResidents([]); // Set empty array on error
     }
     setLoading(false);
   };
@@ -521,16 +528,16 @@ export default function AdminResidentManagement() {
   };
 
   // Statistics
-  const totalResidents = residents.length;
-  const maleResidents = residents.filter(r => r.sex === "male").length;
-  const femaleResidents = residents.filter(r => r.sex === "female").length;
+  const totalResidents = Array.isArray(residents) ? residents.length : 0;
+  const maleResidents = Array.isArray(residents) ? residents.filter(r => r.sex === "male").length : 0;
+  const femaleResidents = Array.isArray(residents) ? residents.filter(r => r.sex === "female").length : 0;
 
   // Purok statistics
-  const purok1Count = residents.filter(r => r.address?.purok === "Purok 1").length;
-  const purok2Count = residents.filter(r => r.address?.purok === "Purok 2").length;
-  const purok3Count = residents.filter(r => r.address?.purok === "Purok 3").length;
-  const purok4Count = residents.filter(r => r.address?.purok === "Purok 4").length;
-  const purok5Count = residents.filter(r => r.address?.purok === "Purok 5").length;
+  const purok1Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 1").length : 0;
+  const purok2Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 2").length : 0;
+  const purok3Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 3").length : 0;
+  const purok4Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 4").length : 0;
+  const purok5Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 5").length : 0;
 
   // Define all columns with visibility keys
   const allColumns = [
@@ -659,7 +666,7 @@ export default function AdminResidentManagement() {
   // Filter columns based on visibility
   const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
-  const filteredResidents = residents
+  const filteredResidents = (Array.isArray(residents) ? residents : [])
     .filter(r =>
       [
         r.firstName,

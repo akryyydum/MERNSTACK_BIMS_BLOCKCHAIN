@@ -1190,6 +1190,13 @@ const handleExport = async () => {
               {viewRequest.documentType === "Business Clearance" && (
                 <Descriptions.Item label="Business Name">{viewRequest.businessName || "-"}</Descriptions.Item>
               )}
+              <Descriptions.Item label="Amount">
+                {viewRequest.documentType === "Business Clearance" && (!viewRequest.amount || viewRequest.amount === 0)
+                  ? "To be set by admin"
+                  : viewRequest.amount !== undefined && viewRequest.amount !== null 
+                  ? `₱${viewRequest.amount.toFixed(2)}` 
+                  : "-"}
+              </Descriptions.Item>
               <Descriptions.Item label="Status">{viewRequest.status}</Descriptions.Item>
               <Descriptions.Item label="Requested At">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Updated At">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : ""}</Descriptions.Item>
@@ -1322,6 +1329,21 @@ const handleExport = async () => {
               />
             </Form.Item>
 
+            {selectedCreateDocType && (
+              <Alert
+                message={
+                  selectedCreateDocType === 'Indigency' 
+                    ? 'Amount: ₱0.00 (Free)' 
+                    : selectedCreateDocType === 'Barangay Clearance'
+                    ? 'Amount: ₱100.00'
+                    : 'Amount: To be set by admin upon acceptance'
+                }
+                type={selectedCreateDocType === 'Indigency' ? 'success' : 'info'}
+                showIcon
+                className="mb-4"
+              />
+            )}
+
             <Form.Item name="quantity" label="Quantity" initialValue={1} rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity (min 1)' }]}>
               <InputNumber min={1} className="w-full" />
             </Form.Item>
@@ -1404,9 +1426,9 @@ const handleExport = async () => {
                 { amount: Number(amount) },
                 { headers: { Authorization: `Bearer ${token}` } }
               );
-              setRequests(prev => prev.map(r => r._id === acceptRecord._id ? { ...r, status: 'accepted', feeAmount: Number(amount) } : r));
               message.success('Request accepted and recorded');
               setAcceptOpen(false);
+              await fetchRequests(); // Refresh the full list to get updated data
             } catch (err) {
               message.error(err?.response?.data?.message || 'Failed to accept request');
             }

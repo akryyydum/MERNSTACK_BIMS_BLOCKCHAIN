@@ -78,9 +78,15 @@ export default function AdminOfficialManagement() {
       }
       
       const data = await res.json();
-      setOfficials(data || []);
+      console.log("Officials response:", data);
+      
+      // Handle both array and object responses
+      const officials = Array.isArray(data) ? data : (data?.data || []);
+      setOfficials(officials);
     } catch (err) { 
-      message.error(err.message || "Failed to fetch officials"); 
+      console.error("Fetch officials error:", err);
+      message.error(err.message || "Failed to fetch officials");
+      setOfficials([]); // Set empty array on error
     }
     setLoading(false);
   };
@@ -97,9 +103,15 @@ export default function AdminOfficialManagement() {
       }
       
       const data = await res.json();
-      setResidents(data || []);
-    } catch (err) { 
-      message.error(err.message || "Failed to fetch residents"); 
+      console.log("Residents response (officials page):", data);
+      
+      // Handle both array and object responses
+      const residents = Array.isArray(data) ? data : (data?.data || []);
+      setResidents(residents);
+    } catch (err) {
+      console.error("Fetch residents error (officials page):", err);
+      message.error(err.message || "Failed to fetch residents");
+      setResidents([]); // Set empty array on error
     }
   };
 
@@ -275,7 +287,7 @@ export default function AdminOfficialManagement() {
     }
   ];
 
-  const filteredOfficials = officials.filter(o =>
+  const filteredOfficials = (Array.isArray(officials) ? officials : []).filter(o =>
     [o.fullName, o.position, o.contact?.email || o.email, o.contact?.mobile || o.mobile]
       .join(" ").toLowerCase().includes(search.toLowerCase())
   );

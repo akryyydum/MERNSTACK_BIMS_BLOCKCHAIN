@@ -53,7 +53,10 @@ exports.approve = async (req, res) => {
 
       // Save feeAmount chosen by admin when provided
       if (type === 'Business Clearance' && (amount !== undefined)) {
-        await DocumentRequest.findByIdAndUpdate(id, { feeAmount: unitAmount });
+        await DocumentRequest.findByIdAndUpdate(id, { 
+          feeAmount: unitAmount,
+          amount: unitAmount 
+        });
       }
 
       const total = unitAmount * qty;

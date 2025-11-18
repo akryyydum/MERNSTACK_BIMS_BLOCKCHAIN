@@ -74,6 +74,10 @@ export default function AdminGarbageFees() {
   const [exporting, setExporting] = useState(false);
   const [exportHasData, setExportHasData] = useState(true);
 
+  // State for select all and bulk operations
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [bulkResetLoading, setBulkResetLoading] = useState(false);
+
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('garbageFeesColumnsVisibility');
@@ -590,6 +594,51 @@ export default function AdminGarbageFees() {
       message.error(err?.response?.data?.message || "Failed to delete payment records");
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  // Bulk reset selected households
+  const handleBulkReset = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select households to reset');
+      return;
+    }
+
+    try {
+      setBulkResetLoading(true);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const householdId of selectedRowKeys) {
+        try {
+          await axios.delete(
+            `${API_BASE}/api/admin/households/${householdId}/garbage/payments`,
+            { headers: authHeaders() }
+          );
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to reset household ${householdId}:`, err);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        message.success(`Successfully reset ${successCount} household(s)`);
+      }
+      if (failCount > 0) {
+        message.error(`Failed to reset ${failCount} household(s)`);
+      }
+
+      setSelectedRowKeys([]);
+      await Promise.all([
+        fetchHouseholds(),
+        fetchGarbagePayments(),
+        fetchStatistics()
+      ]);
+    } catch (err) {
+      message.error('Reset all operation failed');
+    } finally {
+      setBulkResetLoading(false);
     }
   };
 
@@ -1167,26 +1216,35 @@ export default function AdminGarbageFees() {
       
       console.log('Fresh payment data for export:', freshGarbagePayments);
       
-      const { exportType, selectedMonth, paymentStatus } = values;
+      const { exportType, selectedMonth, paymentStatus, purokFilter } = values;
       let exportData = [];
       let filename = '';
       
+      // Filter households by purok if specified
+      let filteredHouseholds = households;
+      if (purokFilter && purokFilter !== 'all') {
+        filteredHouseholds = households.filter(h => h.address?.purok === purokFilter);
+      }
+      
       if (exportType === 'whole-year') {
         // Export whole year data
-        exportData = await generateYearlyExportData(freshGarbagePayments, paymentStatus);
-        filename = `Garbage_Fees_${new Date().getFullYear()}_${paymentStatus === 'all' ? 'Complete' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
+        exportData = await generateYearlyExportData(freshGarbagePayments, paymentStatus, filteredHouseholds);
+        const purokSuffix = purokFilter && purokFilter !== 'all' ? `_${purokFilter.replace(/\s+/g, '_')}` : '';
+        filename = `Garbage_Fees_${new Date().getFullYear()}${purokSuffix}_${paymentStatus === 'all' ? 'Complete' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       } else if (exportType === 'chosen-month') {
         // Export chosen month data
         const selectedMonthStr = dayjs(selectedMonth).format('YYYY-MM');
-        exportData = await generateMonthlyExportData(selectedMonthStr, freshGarbagePayments, paymentStatus);
+        exportData = await generateMonthlyExportData(selectedMonthStr, freshGarbagePayments, paymentStatus, filteredHouseholds);
         const monthName = dayjs(selectedMonth).format('MMMM_YYYY');
-        filename = `Garbage_Fees_${monthName}_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
+        const purokSuffix = purokFilter && purokFilter !== 'all' ? `_${purokFilter.replace(/\s+/g, '_')}` : '';
+        filename = `Garbage_Fees_${monthName}${purokSuffix}_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       } else if (exportType === 'current-month') {
         // Export current month data
         const currentMonth = dayjs().format('YYYY-MM');
-        exportData = await generateMonthlyExportData(currentMonth, freshGarbagePayments, paymentStatus);
+        exportData = await generateMonthlyExportData(currentMonth, freshGarbagePayments, paymentStatus, filteredHouseholds);
         const monthName = dayjs().format('MMMM_YYYY');
-        filename = `Garbage_Fees_${monthName}_Current_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
+        const purokSuffix = purokFilter && purokFilter !== 'all' ? `_${purokFilter.replace(/\s+/g, '_')}` : '';
+        filename = `Garbage_Fees_${monthName}${purokSuffix}_Current_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       }
 
       if (exportData.length === 0) {
@@ -1223,18 +1281,19 @@ export default function AdminGarbageFees() {
     }
   };
 
-  const generateYearlyExportData = async (paymentData, paymentStatus = 'all') => {
+  const generateYearlyExportData = async (paymentData, paymentStatus = 'all', householdsToExport = null) => {
     const exportData = [];
     const currentYear = new Date().getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => 
       dayjs().month(i).format('YYYY-MM')
     );
 
+    const householdList = householdsToExport || households;
     console.log('Generating yearly export with payments:', paymentData);
-    console.log('Households for export:', households);
+    console.log('Households for export:', householdList);
     console.log('Payment status filter:', paymentStatus);
 
-    for (const household of households) {
+    for (const household of householdList) {
       // Check if household should be included based on payment status filter
       const householdPayments = paymentData.filter(p => p.household?.householdId === household.householdId);
       const hasPaidPayments = householdPayments.some(p => p.amountPaid > 0);
@@ -1289,16 +1348,17 @@ export default function AdminGarbageFees() {
     return exportData;
   };
 
-  const generateMonthlyExportData = async (monthStr, paymentData, paymentStatus = 'all') => {
+  const generateMonthlyExportData = async (monthStr, paymentData, paymentStatus = 'all', householdsToExport = null) => {
     const exportData = [];
     const targetMonth = dayjs(monthStr);
 
+    const householdList = householdsToExport || households;
     console.log('Generating monthly export for:', monthStr);
     console.log('Payment data:', paymentData);
-    console.log('Households:', households);
+    console.log('Households:', householdList);
     console.log('Payment status filter:', paymentStatus);
 
-    for (const household of households) {
+    for (const household of householdList) {
       const payment = paymentData.find(p => 
         p.household?.householdId === household.householdId && 
         p.month === monthStr
@@ -1556,7 +1616,7 @@ export default function AdminGarbageFees() {
   // Filter columns based on visibility
   const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
-  const filteredHouseholds = households.filter(h =>
+  const filteredHouseholds = (Array.isArray(households) ? households : []).filter(h =>
     [
       h.householdId,
       h.address?.street,
@@ -1785,6 +1845,24 @@ export default function AdminGarbageFees() {
               </DropdownMenu>
             </div>
             <div className="flex flex-wrap gap-2">
+              {selectedRowKeys.length > 0 && (
+                <Popconfirm
+                  title="Reset All Garbage Payments"
+                  description={`Are you sure you want to reset ALL garbage payments for ${selectedRowKeys.length} selected household(s)? This action cannot be undone.`}
+                  onConfirm={handleBulkReset}
+                  okText="Reset All"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button 
+                    danger
+                    loading={bulkResetLoading}
+                    icon={<DeleteOutlined />}
+                  >
+                    Reset All ({selectedRowKeys.length})
+                  </Button>
+                </Popconfirm>
+              )}
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
@@ -1804,12 +1882,21 @@ export default function AdminGarbageFees() {
               loading={loading || refreshing}
               dataSource={filteredHouseholds}
               columns={columns}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: (selectedKeys) => setSelectedRowKeys(selectedKeys),
+                selections: [
+                  Table.SELECTION_ALL,
+                  Table.SELECTION_INVERT,
+                  Table.SELECTION_NONE,
+                ],
+              }}
               pagination={{
                 pageSize: 10,
                 showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total} Garbage fee payments`,
+                  `${range[0]}-${range[1]} of ${total} Garbage fee payments | Selected: ${selectedRowKeys.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
                 defaultPageSize: 10,
                 size: 'default'
@@ -2907,6 +2994,27 @@ export default function AdminGarbageFees() {
                 <Select.Option value="all">All (Paid and Unpaid)</Select.Option>
                 <Select.Option value="paid">Paid Only</Select.Option>
                 <Select.Option value="unpaid">Unpaid Only</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="purokFilter"
+              label="Filter by Purok (Optional)"
+            >
+              <Select 
+                placeholder="Select purok or leave as All"
+                allowClear
+                onChange={() => {
+                  const hasData = households && households.length > 0;
+                  setExportHasData(hasData);
+                }}
+              >
+                <Select.Option value="all">All Puroks</Select.Option>
+                <Select.Option value="Purok 1">Purok 1</Select.Option>
+                <Select.Option value="Purok 2">Purok 2</Select.Option>
+                <Select.Option value="Purok 3">Purok 3</Select.Option>
+                <Select.Option value="Purok 4">Purok 4</Select.Option>
+                <Select.Option value="Purok 5">Purok 5</Select.Option>
               </Select>
             </Form.Item>
 

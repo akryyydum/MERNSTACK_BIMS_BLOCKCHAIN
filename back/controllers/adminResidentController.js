@@ -102,6 +102,22 @@ exports.create = async (req, res) => {
       return res.status(400).json({ message: "Missing required resident fields" });
     }
 
+    // Validate uniqueness of email and mobile
+    if (normalizedEmail) {
+      const existingEmail = await Resident.findOne({ 'contact.email': normalizedEmail });
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email is already registered to another resident" });
+      }
+    }
+
+    if (contactData.mobile && contactData.mobile.trim()) {
+      const normalizedMobile = contactData.mobile.trim();
+      const existingMobile = await Resident.findOne({ 'contact.mobile': normalizedMobile });
+      if (existingMobile) {
+        return res.status(400).json({ message: "Mobile number is already registered to another resident" });
+      }
+    }
+
     const sanitizedContact = {};
     if (normalizedEmail) sanitizedContact.email = normalizedEmail;
     if (typeof contactData.mobile === "string" && contactData.mobile.trim()) {
@@ -203,11 +219,46 @@ exports.update = async (req, res) => {
   try {
     const { id } = req.params;
     const update = req.body;
+    
+    // Get the current resident to check if email/mobile is changing
+    const currentResident = await Resident.findById(id);
+    if (!currentResident) {
+      return res.status(404).json({ message: "Resident not found" });
+    }
+
+    // Validate email uniqueness if being updated
+    if (update.contact && update.contact.email) {
+      const normalizedEmail = update.contact.email.toLowerCase().trim();
+      if (normalizedEmail !== currentResident.contact?.email) {
+        const existingEmail = await Resident.findOne({ 
+          'contact.email': normalizedEmail,
+          _id: { $ne: id }
+        });
+        if (existingEmail) {
+          return res.status(400).json({ message: "Email is already registered to another resident" });
+        }
+      }
+    }
+
+    // Validate mobile uniqueness if being updated
+    if (update.contact && update.contact.mobile) {
+      const normalizedMobile = update.contact.mobile.trim();
+      if (normalizedMobile !== currentResident.contact?.mobile) {
+        const existingMobile = await Resident.findOne({ 
+          'contact.mobile': normalizedMobile,
+          _id: { $ne: id }
+        });
+        if (existingMobile) {
+          return res.status(400).json({ message: "Mobile number is already registered to another resident" });
+        }
+      }
+    }
+
     if (update.dateOfBirth && typeof update.dateOfBirth === "string") {
       update.dateOfBirth = new Date(update.dateOfBirth);
     }
+    
     const resident = await Resident.findByIdAndUpdate(id, update, { new: true });
-    if (!resident) return res.status(404).json({ message: "Resident not found" });
     res.json({ message: "Resident updated", resident });
   } catch (err) {
     res.status(500).json({ message: err.message });

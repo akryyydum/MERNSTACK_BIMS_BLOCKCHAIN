@@ -74,6 +74,10 @@ export default function AdminStreetLightFees() {
   const [exporting, setExporting] = useState(false);
   const [exportHasData, setExportHasData] = useState(true);
 
+  // State for select all and bulk operations
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [bulkResetLoading, setBulkResetLoading] = useState(false);
+
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('streetlightFeesColumnsVisibility');
@@ -566,6 +570,51 @@ export default function AdminStreetLightFees() {
       message.error(err?.response?.data?.message || "Failed to delete payment records");
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  // Bulk reset selected households
+  const handleBulkReset = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select households to reset');
+      return;
+    }
+
+    try {
+      setBulkResetLoading(true);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const householdId of selectedRowKeys) {
+        try {
+          await axios.delete(
+            `${API_BASE}/api/admin/households/${householdId}/streetlight/payments`,
+            { headers: authHeaders() }
+          );
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to reset household ${householdId}:`, err);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        message.success(`Successfully reset ${successCount} household(s)`);
+      }
+      if (failCount > 0) {
+        message.error(`Failed to reset ${failCount} household(s)`);
+      }
+
+      setSelectedRowKeys([]);
+      await Promise.all([
+        fetchHouseholds(),
+        fetchStreetlightPayments(),
+        fetchStatistics()
+      ]);
+    } catch (err) {
+      message.error('Reset all operation failed');
+    } finally {
+      setBulkResetLoading(false);
     }
   };
 
@@ -1125,26 +1174,35 @@ export default function AdminStreetLightFees() {
       
       console.log('Fresh streetlight payment data for export:', freshStreetlightPayments);
       
-      const { exportType, selectedMonth, paymentStatus } = values;
+      const { exportType, selectedMonth, paymentStatus, purokFilter } = values;
       let exportData = [];
       let filename = '';
       
+      // Filter households by purok if specified
+      let filteredHouseholds = households;
+      if (purokFilter && purokFilter !== 'all') {
+        filteredHouseholds = households.filter(h => h.address?.purok === purokFilter);
+      }
+      
       if (exportType === 'whole-year') {
         // Export whole year data
-        exportData = await generateYearlyExportData(freshStreetlightPayments, paymentStatus);
-        filename = `Streetlight_Fees_${new Date().getFullYear()}_${paymentStatus === 'all' ? 'Complete' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
+        exportData = await generateYearlyExportData(freshStreetlightPayments, paymentStatus, filteredHouseholds);
+        const purokSuffix = purokFilter && purokFilter !== 'all' ? `_${purokFilter.replace(/\s+/g, '_')}` : '';
+        filename = `Streetlight_Fees_${new Date().getFullYear()}${purokSuffix}_${paymentStatus === 'all' ? 'Complete' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       } else if (exportType === 'chosen-month') {
         // Export chosen month data
         const selectedMonthStr = dayjs(selectedMonth).format('YYYY-MM');
-        exportData = await generateMonthlyExportData(selectedMonthStr, freshStreetlightPayments, paymentStatus);
+        exportData = await generateMonthlyExportData(selectedMonthStr, freshStreetlightPayments, paymentStatus, filteredHouseholds);
         const monthName = dayjs(selectedMonth).format('MMMM_YYYY');
-        filename = `Streetlight_Fees_${monthName}_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
+        const purokSuffix = purokFilter && purokFilter !== 'all' ? `_${purokFilter.replace(/\s+/g, '_')}` : '';
+        filename = `Streetlight_Fees_${monthName}${purokSuffix}_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       } else if (exportType === 'current-month') {
         // Export current month data
         const currentMonth = dayjs().format('YYYY-MM');
-        exportData = await generateMonthlyExportData(currentMonth, freshStreetlightPayments, paymentStatus);
+        exportData = await generateMonthlyExportData(currentMonth, freshStreetlightPayments, paymentStatus, filteredHouseholds);
         const monthName = dayjs().format('MMMM_YYYY');
-        filename = `Streetlight_Fees_${monthName}_Current_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
+        const purokSuffix = purokFilter && purokFilter !== 'all' ? `_${purokFilter.replace(/\s+/g, '_')}` : '';
+        filename = `Streetlight_Fees_${monthName}${purokSuffix}_Current_${paymentStatus === 'all' ? 'All' : paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}.xlsx`;
       }
 
       if (exportData.length === 0) {
@@ -1181,18 +1239,19 @@ export default function AdminStreetLightFees() {
     }
   };
 
-  const generateYearlyExportData = async (paymentData, paymentStatus = 'all') => {
+  const generateYearlyExportData = async (paymentData, paymentStatus = 'all', householdsToExport = null) => {
     const exportData = [];
     const currentYear = new Date().getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => 
       dayjs().month(i).format('YYYY-MM')
     );
 
+    const householdList = householdsToExport || households;
     console.log('Generating yearly streetlight export with payments:', paymentData);
-    console.log('Households for export:', households);
+    console.log('Households for export:', householdList);
     console.log('Payment status filter:', paymentStatus);
 
-    for (const household of households) {
+    for (const household of householdList) {
       // Check if household should be included based on payment status filter
       const householdPayments = paymentData.filter(p => p.household && p.household.householdId === household.householdId);
       const hasPaidPayments = householdPayments.some(p => p.amountPaid > 0);
@@ -1246,16 +1305,17 @@ export default function AdminStreetLightFees() {
     return exportData;
   };
 
-  const generateMonthlyExportData = async (monthStr, paymentData, paymentStatus = 'all') => {
+  const generateMonthlyExportData = async (monthStr, paymentData, paymentStatus = 'all', householdsToExport = null) => {
     const exportData = [];
     const targetMonth = dayjs(monthStr);
 
+    const householdList = householdsToExport || households;
     console.log('Generating monthly streetlight export for:', monthStr);
     console.log('Payment data:', paymentData);
-    console.log('Households:', households);
+    console.log('Households:', householdList);
     console.log('Payment status filter:', paymentStatus);
 
-    for (const household of households) {
+    for (const household of householdList) {
       const payment = paymentData.find(p => 
         p.household?.householdId === household.householdId && 
         p.month === monthStr
@@ -1485,9 +1545,10 @@ export default function AdminStreetLightFees() {
   const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
   const filteredHouseholds = useMemo(() => {
-    if (!search) return households;
+    const safeHouseholds = Array.isArray(households) ? households : [];
+    if (!search) return safeHouseholds;
     const term = search.toLowerCase();
-    return households.filter((h) => {
+    return safeHouseholds.filter((h) => {
       const householdId = h.householdId?.toLowerCase() || "";
       const headName = fullName(h.headOfHousehold)?.toLowerCase() || "";
       const street = h.address?.street?.toLowerCase() || "";
@@ -1698,6 +1759,24 @@ export default function AdminStreetLightFees() {
               </DropdownMenu>
             </div>
             <div className="flex flex-wrap gap-2">
+              {selectedRowKeys.length > 0 && (
+                <Popconfirm
+                  title="Reset All Streetlight Payments"
+                  description={`Are you sure you want to reset ALL streetlight payments for ${selectedRowKeys.length} selected household(s)? This action cannot be undone.`}
+                  onConfirm={handleBulkReset}
+                  okText="Reset All"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button 
+                    danger
+                    loading={bulkResetLoading}
+                    icon={<DeleteOutlined />}
+                  >
+                    Reset All ({selectedRowKeys.length})
+                  </Button>
+                </Popconfirm>
+              )}
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
@@ -1717,12 +1796,21 @@ export default function AdminStreetLightFees() {
             dataSource={filteredHouseholds}
             rowKey="_id"
             loading={loading || refreshing}
+            rowSelection={{
+              selectedRowKeys,
+              onChange: (selectedKeys) => setSelectedRowKeys(selectedKeys),
+              selections: [
+                Table.SELECTION_ALL,
+                Table.SELECTION_INVERT,
+                Table.SELECTION_NONE,
+              ],
+            }}
             pagination={{
                 pageSize: 10,
                 showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total} Streetlight fee payments`,
+                  `${range[0]}-${range[1]} of ${total} Streetlight fee payments | Selected: ${selectedRowKeys.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
                 defaultPageSize: 10,
                 size: 'default'
@@ -2759,6 +2847,27 @@ export default function AdminStreetLightFees() {
                 <Select.Option value="all">All (Paid and Unpaid)</Select.Option>
                 <Select.Option value="paid">Paid Only</Select.Option>
                 <Select.Option value="unpaid">Unpaid Only</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="purokFilter"
+              label="Filter by Purok (Optional)"
+            >
+              <Select 
+                placeholder="Select purok or leave as All"
+                allowClear
+                onChange={() => {
+                  const hasData = households && households.length > 0;
+                  setExportHasData(hasData);
+                }}
+              >
+                <Select.Option value="all">All Puroks</Select.Option>
+                <Select.Option value="Purok 1">Purok 1</Select.Option>
+                <Select.Option value="Purok 2">Purok 2</Select.Option>
+                <Select.Option value="Purok 3">Purok 3</Select.Option>
+                <Select.Option value="Purok 4">Purok 4</Select.Option>
+                <Select.Option value="Purok 5">Purok 5</Select.Option>
               </Select>
             </Form.Item>
 

@@ -92,17 +92,30 @@ const getDashboard = async (req, res) => {
   // Combine non-utility transactions with utility transactions for calculations
   const allTransactions = [...nonUtilityTransactions, ...utilityTransactions];
 
+    // Fetch document requests with amount > 0 (only completed/claimed requests)
+    const documentRequests = await DocumentRequest.find({
+      status: { $in: ['completed', 'claimed'] },
+      amount: { $gt: 0 }
+    });
+    
+    const documentRevenue = documentRequests.reduce((total, doc) => {
+      return total + (doc.amount || 0);
+    }, 0);
+    
+    console.log('Document requests found:', documentRequests.length, 'Revenue:', documentRevenue);
+
     // Calculate statistics using correct totals
     const regularTransactionRevenue = nonUtilityTransactions
       .filter(t => t.category === 'revenue')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    // Use the calculated utility revenue instead of summing individual payments
-    const totalRevenue = regularTransactionRevenue + garbageRevenue + streetlightRevenue;
+    // Use the calculated utility revenue and document revenue
+    const totalRevenue = regularTransactionRevenue + garbageRevenue + streetlightRevenue + documentRevenue;
 
     console.log('Dashboard - Regular transaction revenue:', regularTransactionRevenue);
     console.log('Dashboard - Garbage revenue:', garbageRevenue);
     console.log('Dashboard - Streetlight revenue:', streetlightRevenue);
+    console.log('Dashboard - Document revenue:', documentRevenue);
     console.log('Dashboard - Total revenue calculated:', totalRevenue);
 
     const totalExpenses = allTransactions
@@ -142,6 +155,7 @@ const getDashboard = async (req, res) => {
     const revenueByType = {
       garbage_fee: garbageRevenue,
       streetlight_fee: streetlightRevenue,
+      document_request: documentRevenue,
       document_fee: nonUtilityTransactions.filter(t => t.type === 'document_fee').reduce((sum, t) => sum + t.amount, 0),
       permit_fee: nonUtilityTransactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
       other: nonUtilityTransactions
@@ -303,7 +317,58 @@ const getTransactions = async (req, res) => {
       console.log('Sample transaction type:', utilityTransactions[0].type);
       console.log('Sample transaction isUtilityPayment:', utilityTransactions[0].isUtilityPayment);
     }
-    allTransactions = [...allTransactions, ...utilityTransactions];
+
+    // Fetch document requests with amount > 0 (only completed/claimed requests)
+    const documentFilter = {};
+    if (startDate || endDate) {
+      documentFilter.updatedAt = {};
+      if (startDate) documentFilter.updatedAt.$gte = new Date(startDate);
+      if (endDate) documentFilter.updatedAt.$lte = new Date(endDate);
+    }
+    
+    const documentRequests = await DocumentRequest.find({
+      ...documentFilter,
+      status: { $in: ['completed', 'claimed'] },
+      amount: { $gt: 0 }
+    })
+      .populate('requestedBy', 'firstName lastName')
+      .populate('requestFor', 'firstName lastName')
+      .sort({ updatedAt: -1 });
+
+    console.log('Found document requests for transactions:', documentRequests.length);
+    
+    // Convert document requests to transaction format
+    const documentTransactions = documentRequests.map(doc => {
+      const requester = doc.requestedBy 
+        ? `${doc.requestedBy.firstName} ${doc.requestedBy.lastName}` 
+        : (doc.requestFor ? `${doc.requestFor.firstName} ${doc.requestFor.lastName}` : 'Unknown');
+      
+      return {
+        _id: `document_${doc._id}`,
+        transactionId: doc.trackingNumber || `DOC-${doc._id.toString().slice(-6).toUpperCase()}`,
+        type: 'document_request',
+        category: 'revenue',
+        description: `${doc.documentType} - ${doc.purpose}`,
+        amount: doc.amount,
+        transactionDate: doc.updatedAt,
+        status: 'completed',
+        paymentMethod: 'Cash',
+        referenceNumber: doc.trackingNumber || '',
+        resident: requester,
+        residentName: requester,
+        official: 'Barangay Office',
+        blockchain: doc.blockchain?.hash ? 'Recorded' : 'Pending',
+        createdAt: doc.requestedAt || doc.createdAt,
+        updatedAt: doc.updatedAt,
+        isDocumentRequest: true,
+        documentType: doc.documentType,
+        documentStatus: doc.status
+      };
+    });
+
+    console.log('Converted document request transactions for table:', documentTransactions.length);
+    
+    allTransactions = [...allTransactions, ...utilityTransactions, ...documentTransactions];
 
     // Apply filters after fetching all data
     console.log('All transactions before filtering:', allTransactions.length);

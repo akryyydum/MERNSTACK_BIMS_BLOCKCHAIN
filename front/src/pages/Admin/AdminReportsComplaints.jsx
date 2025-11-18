@@ -275,7 +275,7 @@ export default function AdminReportsComplaints() {
     },
   ];
 
-  const filteredComplaints = complaints.filter(c =>
+  const filteredComplaints = (Array.isArray(complaints) ? complaints : []).filter(c =>
     [
       c.title,
       c.description,

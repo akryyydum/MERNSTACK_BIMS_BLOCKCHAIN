@@ -96,10 +96,16 @@ export default function HouseholdManagement() {
     try {
       setLoading(true);
       const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
-      setHouseholds(res.data || []);
+      console.log("Households response:", res.data);
+      
+      // Handle both array and object responses
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setHouseholds(data);
       setCurrentPage(1); // Reset to first page when data is refreshed
     } catch (err) {
+      console.error("Fetch households error:", err);
       message.error(err?.response?.data?.message || "Failed to load households");
+      setHouseholds([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -549,7 +555,7 @@ export default function HouseholdManagement() {
   }));
 
   // Filtered for table search
-  const filteredHouseholds = households.filter(h =>
+  const filteredHouseholds = (Array.isArray(households) ? households : []).filter(h =>
     [
       h.householdId,
       h.address?.purok,
