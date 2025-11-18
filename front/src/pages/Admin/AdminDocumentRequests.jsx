@@ -3,7 +3,7 @@ import { Table, Input, InputNumber, Button, Modal, Descriptions, Tag, Select, me
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined } from "@ant-design/icons";
 import axios from "axios";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
@@ -49,6 +49,7 @@ export default function AdminDocumentRequests() {
   const [accepting, setAccepting] = useState(false);
   const [acceptRecord, setAcceptRecord] = useState(null);
   const [acceptForm] = Form.useForm();
+  const [deletingId, setDeletingId] = useState(null);
 
   const [createForm] = Form.useForm();
   const selectedCreateDocType = Form.useWatch("documentType", createForm); // NEW
@@ -208,6 +209,42 @@ export default function AdminDocumentRequests() {
     }
   };
 
+  const handleDeleteAllRequests = async (record) => {
+    try {
+      setDeletingId(record.__rowKey);
+      const token = localStorage.getItem("token");
+      
+      let successCount = 0;
+      let failCount = 0;
+
+      // Delete each request individually
+      for (const request of record.requests) {
+        try {
+          await axios.delete(
+            `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${request._id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          successCount++;
+        } catch (error) {
+          console.error('Error deleting request:', request, error);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        message.success(`Successfully deleted ${successCount} request(s) for ${record.residentName}${failCount > 0 ? ` (${failCount} failed)` : ''}`);
+        fetchRequests();
+      } else {
+        message.error('Failed to delete any requests');
+      }
+    } catch (error) {
+      console.error('Delete all requests error:', error);
+      message.error('Failed to delete requests');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const allColumns = [
     {
       title: "Resident Name",
@@ -256,8 +293,30 @@ export default function AdminDocumentRequests() {
       title: "Actions",
       key: "actions",
       columnKey: "actions",
-      render: () => (
-        <span className="text-gray-500 text-xs">Expand to see details</span>
+      width: 200,
+      render: (_, record) => (
+        <div className="flex gap-2">
+          <span className="text-gray-500 text-xs">Expand to see details</span>
+          {record.residentName !== 'Unknown Resident' && (
+            <Popconfirm
+              title="Delete All Requests"
+              description={`Are you sure you want to delete all ${record.totalRequests} request(s) for ${record.residentName}?`}
+              onConfirm={() => handleDeleteAllRequests(record)}
+              okText="Yes, Delete All"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                loading={deletingId === record.__rowKey}
+              >
+                Delete All
+              </Button>
+            </Popconfirm>
+          )}
+        </div>
       )
     }
   ];
@@ -398,11 +457,14 @@ export default function AdminDocumentRequests() {
       : 'Unknown Resident';
     
     if (!acc[residentKey]) {
+      // Find the latest resident data from residents array to get updated information
+      const latestResidentData = residents.find(r => r._id === person?._id) || person;
+      
       acc[residentKey] = {
         residentName: residentKey,
-        residentData: person,
-        civilStatus: person?.civilStatus || '-',
-        purok: person?.address?.purok || '-',
+        residentData: latestResidentData,
+        civilStatus: latestResidentData?.civilStatus || '-',
+        purok: latestResidentData?.address?.purok || '-',
         requests: [],
         totalRequests: 0,
         pendingCount: 0,
