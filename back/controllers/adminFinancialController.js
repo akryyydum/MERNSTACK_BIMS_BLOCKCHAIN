@@ -220,7 +220,7 @@ const getTransactions = async (req, res) => {
 
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName middleName lastName suffix')
-      .populate('officialId', 'firstName lastName position')
+      .populate('officialId', 'fullName position')
       .populate('createdBy', 'username fullName')
       .sort({ transactionDate: -1 })
       .lean();
@@ -473,10 +473,10 @@ const createTransaction = async (req, res) => {
     }
 
     if (officialId) {
-      const Official = require('../models/user.model'); // Adjust path as needed
-      const official = await Official.findById(officialId).select('firstName lastName');
-      if (official) {
-        officialName = `${official.firstName} ${official.lastName}`;
+      const User = require('../models/user.model');
+      const official = await User.findById(officialId).select('fullName');
+      if (official && official.fullName) {
+        officialName = official.fullName;
       }
     }
 
@@ -587,7 +587,7 @@ const generateReport = async (req, res) => {
     // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName lastName')
-      .populate('officialId', 'firstName lastName')
+      .populate('officialId', 'fullName position')
       .sort({ transactionDate: 1 });
 
     // Fetch streetlight payments and convert to transaction format for reports
@@ -690,10 +690,10 @@ const updateTransaction = async (req, res) => {
     }
 
     if (updates.officialId && updates.officialId !== transaction.officialId?.toString()) {
-      const Official = require('../models/user.model');
-      const official = await Official.findById(updates.officialId).select('firstName lastName');
-      if (official) {
-        updates.officialName = `${official.firstName} ${official.lastName}`;
+      const User = require('../models/user.model');
+      const official = await User.findById(updates.officialId).select('fullName');
+      if (official && official.fullName) {
+        updates.officialName = official.fullName;
       }
     }
 

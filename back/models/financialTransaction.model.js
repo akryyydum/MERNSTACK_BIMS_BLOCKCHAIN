@@ -20,8 +20,8 @@ const financialTransactionSchema = new mongoose.Schema({
   householdId: { type: mongoose.Schema.Types.ObjectId, ref: 'Household' },
   documentRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'DocumentRequest' },
   
-  // NEW: Add official reference
-  officialId: { type: mongoose.Schema.Types.ObjectId, ref: 'Official' },
+  // NEW: Add official reference (points to User with role 'official')
+  officialId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
   // NEW: Store names directly for faster access and historical records
   residentName: { type: String },
@@ -30,8 +30,8 @@ const financialTransactionSchema = new mongoose.Schema({
   // Payment details
   paymentMethod: {
     type: String,
-    enum: ['cash', 'gcash', 'bank_transfer', 'other'],
-    default: 'cash'
+    enum: ['Cash', 'Gcash', 'Bank_transfer', 'Other'],
+    default: 'Cash'
   },
   referenceNumber: { type: String },
   
@@ -101,10 +101,10 @@ financialTransactionSchema.pre('save', async function(next) {
   
   if (this.isModified('officialId') && this.officialId && !this.officialName) {
     try {
-      const Official = mongoose.model('Official');
-      const official = await Official.findById(this.officialId).select('firstName lastName');
-      if (official) {
-        this.officialName = `${official.firstName} ${official.lastName}`;
+      const User = mongoose.model('User');
+      const official = await User.findById(this.officialId).select('fullName');
+      if (official && official.fullName) {
+        this.officialName = official.fullName;
       }
     } catch (error) {
       console.error('Error fetching official name:', error);
