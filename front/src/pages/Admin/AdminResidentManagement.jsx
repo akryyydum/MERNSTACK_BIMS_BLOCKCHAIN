@@ -1048,7 +1048,7 @@ export default function AdminResidentManagement() {
                   setAddOpen(true);
                 }}
               >
-                Add Resident
+                + Add Resident
               </Button>
               <Button
                 onClick={() => {
@@ -1076,7 +1076,7 @@ export default function AdminResidentManagement() {
               {selectedRowKeys.length > 0 && (
                 <>
                   <Button onClick={handleClearSelection}>
-                    Clear Selection
+                    Undo Selection
                   </Button>
                   <Popconfirm
                     title={`Delete ${selectedRowKeys.length} resident(s)?`}
@@ -1156,7 +1156,7 @@ export default function AdminResidentManagement() {
               await handleExport();
             } catch (err) {
               if (err.message === "NO_DATA") {
-                // 🔥 Prevent modal from closing when no data found
+                //Prevent modal from closing when no data found
                 return Promise.reject();
               }
             }
@@ -1621,16 +1621,36 @@ export default function AdminResidentManagement() {
             {/* Step 1 - Personal */}
             <div style={{ display: addStep === 0 ? "block" : "none" }}>
               <div className="form-row">
-                <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+                <Form.Item 
+                  name="firstName" 
+                  label="First Name" 
+                  rules={[
+                    { required: true, message: 'First name is required' },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'First name may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input placeholder="e.g., JUAN" />
                 </Form.Item>
-                <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+                <Form.Item 
+                  name="lastName" 
+                  label="Last Name" 
+                  rules={[
+                    { required: true, message: 'Last name is required' },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'Last name may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input placeholder="e.g., CRUZ" />
                 </Form.Item>
               </div>
               
               <div className="form-row">
-                <Form.Item name="middleName" label="Middle Name">
+                <Form.Item 
+                  name="middleName" 
+                  label="Middle Name"
+                  rules={[
+                    { pattern: /^[A-Za-z\s-]*$/, message: 'Middle name may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input placeholder="e.g., DELA" />
                 </Form.Item>
                 <Form.Item name="suffix" label="Suffix">
@@ -1673,13 +1693,27 @@ export default function AdminResidentManagement() {
                     ]}
                   />
                 </Form.Item>
-                <Form.Item name="religion" label="Religion">
-                  <Input placeholder="e.g., Roman-Catholic" />
+                <Form.Item 
+                  name="religion" 
+                  label="Religion"
+                  rules={[
+                    { required: false },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
+                  <Input placeholder="e.g., ROMAN CATHOLIC" />
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity">
-                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+              <Form.Item 
+                name="ethnicity" 
+                label="Ethnicity"
+                rules={[
+                  { required: false },
+                  { pattern: /^[A-Za-z\s-]+$/, message: 'Ethnicity may contain letters, spaces, and hyphens (-)' }
+                ]}
+              >
+                <Input placeholder="e.g., TAGALOG, ILOCANO, IGOROT" />
               </Form.Item>
             </div>
 
@@ -1724,7 +1758,7 @@ export default function AdminResidentManagement() {
               </Form.Item>
               
               <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Teacher" />
+                <Input placeholder="e.g., TEACHER, ENGINEER, FARMER" />
               </Form.Item>
               
               <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
@@ -1748,10 +1782,18 @@ export default function AdminResidentManagement() {
               </Form.Item>
               
               <div className="form-row">
-                <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
+                <Form.Item 
+                  name={["contact", "mobile"]} 
+                  label="Mobile Number" 
+                  rules={[{ type: "string", required: false }]}
+                >
                   <Input placeholder="e.g., 09123456789" />
                 </Form.Item>
-                <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
+                <Form.Item 
+                  name={["contact", "email"]} 
+                  label="Email" 
+                  rules={[{ type: "email", required: false }]}
+                > 
                   <Input placeholder="e.g., juan.delacruz@email.com" />
                 </Form.Item>
               </div>
@@ -1830,16 +1872,36 @@ export default function AdminResidentManagement() {
             {/* Step 1 - Personal */}
             <div style={{ display: editStep === 0 ? "block" : "none" }}>
               <div className="form-row">
-                <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+                <Form.Item 
+                  name="firstName" 
+                  label="First Name" 
+                  rules={[
+                    { required: true, message: 'First name is required' },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'First name may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input />
                 </Form.Item>
-                <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+                <Form.Item 
+                  name="lastName" 
+                  label="Last Name" 
+                  rules={[
+                    { required: true, message: 'Last name is required' },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'Last name may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input />
                 </Form.Item>
               </div>
               
               <div className="form-row">
-                <Form.Item name="middleName" label="Middle Name">
+                <Form.Item 
+                  name="middleName" 
+                  label="Middle Name"
+                  rules={[
+                    { pattern: /^[A-Za-z\s-]*$/, message: 'Middle name may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input />
                 </Form.Item>
                 <Form.Item name="suffix" label="Suffix">
@@ -1880,12 +1942,26 @@ export default function AdminResidentManagement() {
                     ]}
                   />
                 </Form.Item>
-                <Form.Item name="religion" label="Religion">
+                <Form.Item 
+                  name="religion" 
+                  label="Religion"
+                  rules={[
+                    { required: false },
+                    { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
+                  ]}
+                >
                   <Input placeholder="e.g., Catholic, Protestant, Islam" />
                 </Form.Item>
               </div>
               
-              <Form.Item name="ethnicity" label="Ethnicity">
+              <Form.Item 
+                name="ethnicity" 
+                label="Ethnicity"
+                rules={[
+                  { required: false },
+                  { pattern: /^[A-Za-z\s-]+$/, message: 'Ethnicity may contain letters, spaces, and hyphens (-)' }
+                ]}
+              >
                 <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
               </Form.Item>
             </div>
@@ -1930,7 +2006,7 @@ export default function AdminResidentManagement() {
               </Form.Item>
               
               <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Teacher, Engineer, Farmer" />
+                <Input placeholder="e.g., TEACHER, ENGINEER, FARMER" />
               </Form.Item>
               
               <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
@@ -1954,10 +2030,18 @@ export default function AdminResidentManagement() {
               </Form.Item>
               
               <div className="form-row">
-                <Form.Item name={["contact", "mobile"]} label="Mobile Number" rules={[{ type: "string" }]}>
+                <Form.Item 
+                  name={["contact", "mobile"]} 
+                  label="Mobile Number" 
+                  rules={[{ type: "string", required: false }]}
+                >
                   <Input />
                 </Form.Item>
-                <Form.Item name={["contact", "email"]} label="Email" rules={[{ type: "email", required: false }]}> 
+                <Form.Item 
+                  name={["contact", "email"]} 
+                  label="Email" 
+                  rules={[{ type: "email", required: false }]}
+                > 
                   <Input />
                 </Form.Item>
               </div>
@@ -1994,7 +2078,6 @@ export default function AdminResidentManagement() {
               )}
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
               {/* Address and Purok fields removed as requested */}
-              <Descriptions.Item label="Status">{viewResident.status}</Descriptions.Item>
             </Descriptions>
           )}
         </Modal>

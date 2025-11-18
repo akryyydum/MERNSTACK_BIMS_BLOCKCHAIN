@@ -16,6 +16,8 @@ import {
 } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { UserOutlined } from "@ant-design/icons";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowUpRight } from "lucide-react";
 
 const API_URL = "/api/admin/officials";
 
@@ -55,6 +57,10 @@ export default function AdminOfficialManagement() {
   const [selectedOfficial, setSelectedOfficial] = useState(null);
   const [selectedResident, setSelectedResident] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 640);
@@ -66,6 +72,11 @@ export default function AdminOfficialManagement() {
     fetchOfficials(); 
     fetchResidents();
   }, []);
+  
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
   
   const fetchOfficials = async () => {
     setLoading(true);
@@ -387,10 +398,20 @@ export default function AdminOfficialManagement() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Failed to delete official");
       message.success("Official deleted!"); 
       
-      // Refresh data and wait for completion
-      await fetchOfficials();
-      await fetchResidents();
+      // adjust page if last item removed
+      if (filteredOfficials.length === 1 && currentPage > 1) setCurrentPage(currentPage - 1);
+      else {
+        // Refresh data and wait for completion
+        await fetchOfficials();
+        await fetchResidents();
+      }
     } catch (err) { message.error(err?.message || "Failed to delete official"); }
+  };
+  
+  // Pagination change handler
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
   };
 
   return (
@@ -416,30 +437,54 @@ export default function AdminOfficialManagement() {
 
           <div className="px-4 pb-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <AntCard className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
-                <div className="text-sm font-bold text-black">
-                  Total Officials
-                </div>
-                <div className="text-3xl font-bold text-black">
-                  {totalOfficials}
-                </div>
-              </AntCard>
-              <AntCard className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
-                <div className="text-sm font-bold text-black">
-                  Active Officials
-                </div>
-                <div className="text-3xl font-bold text-black">
-                  {activeOfficials}
-                </div>
-              </AntCard>
-              <AntCard className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4">
-                <div className="text-sm font-bold text-black">
-                  Inactive Officials
-                </div>
-                <div className="text-3xl font-bold text-black">
-                  {inactiveOfficials}
-                </div>
-              </AntCard>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Total Officials
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {totalOfficials}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {totalOfficials}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Active Officials
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {activeOfficials}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {activeOfficials}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">
+                    Inactive Officials
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {inactiveOfficials}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">
+                    {inactiveOfficials}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -511,9 +556,17 @@ export default function AdminOfficialManagement() {
                 loading={loading}
                 dataSource={filteredOfficials}
                 columns={columns}
-                pagination={{ pageSize: 10, showSizeChanger: false }}
-                scroll={{ x: 'max-content' }}
-                size="middle"
+                pagination={{
+                  current: currentPage,
+                  pageSize: pageSize,
+                  total: filteredOfficials.length,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} officials`,
+                  pageSizeOptions: ['10', '20', '50', '100'],
+                }}
+                onChange={handleTableChange}
+                scroll={{ x: 800 }}
               />
             )}
           </div>

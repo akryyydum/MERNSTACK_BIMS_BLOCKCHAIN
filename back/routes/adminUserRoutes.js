@@ -9,5 +9,6 @@ router.get("/", adminUserCtrl.list);
 router.post("/", adminUserCtrl.create);
 router.patch("/:id", adminUserCtrl.update);
 router.delete("/:id", adminUserCtrl.remove);
+router.post("/:id/change-password", adminUserCtrl.changePassword);
 
 module.exports = router;

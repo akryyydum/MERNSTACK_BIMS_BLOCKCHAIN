@@ -111,7 +111,8 @@ exports.create = async (req, res) => {
       isActive: true,
     });
 
-    await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id } });
+    // Link user to resident and set resident status to verified (automatically verified when created by admin)
+    await Resident.updateOne({ _id: resident._id }, { $set: { user: user._id, status: 'verified' } });
 
     res.status(201).json({
       _id: user._id,
@@ -220,6 +221,36 @@ exports.remove = async (req, res) => {
     );
     
     res.json({ message: "User deleted and resident references cleaned up" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/admin/users/:id/change-password
+exports.changePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ message: "New password is required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters" });
+    }
+
+    // Find the user
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Hash new password and update (admin can change without verifying current password)
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    await User.updateOne({ _id: id }, { $set: { passwordHash: newPasswordHash } });
+
+    res.json({ message: "Password changed successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
