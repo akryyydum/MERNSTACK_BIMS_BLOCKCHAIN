@@ -166,7 +166,7 @@ async function login(req, res) {
     };
     let tokenPayload = { id: user._id, role: user.role };
     
-    if (user.role === 'resident') {
+    if (user.role === 'resident' || user.role === 'official') {
       // Check if resident info exists and is verified
       const resident = await Resident.findOne({ user: user._id });
       const residentStatus = resident?.status || 'pending';

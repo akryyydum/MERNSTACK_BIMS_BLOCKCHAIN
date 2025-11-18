@@ -73,7 +73,7 @@ const Login = () => {
           content: `Your account is pending admin verification. Please wait for approval before accessing the ${dashboardType}.`,
           duration: 10,
         });
-        return; // Don't store anything
+        return; 
       }
 
       localStorage.setItem("token", res.data.token);
