@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown, Info } from "lucide-react";
-import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined } from "@ant-design/icons";
+import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined, CloseOutlined } from "@ant-design/icons";
 import axios from "axios";
 import * as XLSX from 'xlsx';
 import {
@@ -77,6 +77,7 @@ export default function AdminGarbageFees() {
   // State for select all and bulk operations
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [bulkResetLoading, setBulkResetLoading] = useState(false);
+  const [selectAllClicked, setSelectAllClicked] = useState(false);
 
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -646,6 +647,7 @@ export default function AdminGarbageFees() {
       }
 
       setSelectedRowKeys([]);
+      setSelectAllClicked(false);
       await Promise.all([
         fetchHouseholds(),
         fetchGarbagePayments(),
@@ -656,6 +658,21 @@ export default function AdminGarbageFees() {
     } finally {
       setBulkResetLoading(false);
     }
+  };
+
+  // Manual select all function for button
+  const handleSelectAll = () => {
+    const allKeys = filteredHouseholds.map(household => household._id);
+    setSelectedRowKeys(allKeys);
+    setSelectAllClicked(true);
+    message.success(`Selected all ${allKeys.length} household(s) across all pages`);
+  };
+
+  // Clear all selections
+  const handleClearSelection = () => {
+    setSelectedRowKeys([]);
+    setSelectAllClicked(false);
+    message.info("Cleared all selections");
   };
 
   // Streetlight payment functions for cross-payment functionality
@@ -1422,27 +1439,28 @@ export default function AdminGarbageFees() {
 
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
 
-  // Get all members with their household info for searching
-  const getAllMembersWithHousehold = () => {
+  // Get all members with their household info for searching - memoized for performance
+  const allMembersWithHousehold = useMemo(() => {
     const membersWithHousehold = [];
     
     households.forEach(household => {
       if (household.members && Array.isArray(household.members)) {
         household.members.forEach(member => {
+          const memberName = fullName(member);
           membersWithHousehold.push({
             id: member._id,
-            name: fullName(member),
+            name: memberName,
             member: member,
             household: household,
             isHead: member._id === household.headOfHousehold._id,
-            searchText: `${fullName(member)} ${household.householdId} ${household.address?.street} ${household.address?.purok}`.toLowerCase()
+            searchText: `${memberName} ${household.householdId} ${household.address?.street || ''} ${household.address?.purok || ''}`.toLowerCase()
           });
         });
       }
     });
     
     return membersWithHousehold;
-  };
+  }, [households]);
 
   const allColumns = [
     {
@@ -1865,24 +1883,6 @@ export default function AdminGarbageFees() {
               </DropdownMenu>
             </div>
             <div className="flex flex-wrap gap-2">
-              {selectedRowKeys.length > 0 && (
-                <Popconfirm
-                  title="Reset All Garbage Payments"
-                  description={`Are you sure you want to reset ALL garbage payments for ${selectedRowKeys.length} selected household(s)? This action cannot be undone.`}
-                  onConfirm={handleBulkReset}
-                  okText="Reset All"
-                  cancelText="Cancel"
-                  okButtonProps={{ danger: true }}
-                >
-                  <Button 
-                    danger
-                    loading={bulkResetLoading}
-                    icon={<DeleteOutlined />}
-                  >
-                    Reset All ({selectedRowKeys.length})
-                  </Button>
-                </Popconfirm>
-              )}
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
@@ -1894,6 +1894,30 @@ export default function AdminGarbageFees() {
               >
                 Export Excel
               </Button>
+
+              {!selectAllClicked && (
+                <Button onClick={handleSelectAll} type="default">
+                  Select All ({filteredHouseholds.length})
+                </Button>
+              )}
+
+              {selectedRowKeys.length > 0 && (
+                <>
+                  <Button onClick={handleClearSelection}>
+                    Undo Selection
+                  </Button>
+                  <Popconfirm
+                    title={`Reset ${selectedRowKeys.length} household(s)?`}
+                    description="This action cannot be undone."
+                    okButtonProps={{ danger: true }}
+                    onConfirm={handleBulkReset}
+                  >
+                    <Button danger>
+                      Reset All ({selectedRowKeys.length})
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -1904,7 +1928,12 @@ export default function AdminGarbageFees() {
               columns={columns}
               rowSelection={{
                 selectedRowKeys,
-                onChange: (selectedKeys) => setSelectedRowKeys(selectedKeys),
+                onChange: (selectedKeys) => {
+                  setSelectedRowKeys(selectedKeys);
+                  if (selectedKeys.length === 0) {
+                    setSelectAllClicked(false);
+                  }
+                },
                 selections: [
                   Table.SELECTION_ALL,
                   Table.SELECTION_INVERT,
@@ -1995,8 +2024,7 @@ export default function AdminGarbageFees() {
                 
                 if (searchType === 'member') {
                   // Member search: directly proceed to payment
-                  const allMembers = getAllMembersWithHousehold();
-                  const selectedMemberData = allMembers.find(m => m.id === values.memberId);
+                  const selectedMemberData = allMembersWithHousehold.find(m => m.id === values.memberId);
                   
                   if (selectedMemberData) {
                     setAddPaymentOpen(false);
@@ -2112,17 +2140,23 @@ export default function AdminGarbageFees() {
                   >
                     <Select
                       showSearch
-                      placeholder="Type member name to search..."
-                      optionFilterProp="children"
+                      placeholder="Type at least 2 characters to search..."
                       filterOption={(input, option) => {
-                        const memberData = getAllMembersWithHousehold().find(m => m.id === option?.value);
-                        return memberData?.searchText?.includes(input.toLowerCase()) || false;
+                        if (!input || input.length < 2) return false;
+                        return option?.searchtext?.includes(input.toLowerCase()) || false;
                       }}
+                      notFoundContent="Type at least 2 characters to search"
+                      virtual={true}
+                      listHeight={400}
                     >
-                      {getAllMembersWithHousehold().map(memberData => (
-                        <Select.Option key={memberData.id} value={memberData.id}>
+                      {allMembersWithHousehold.map(memberData => (
+                        <Select.Option 
+                          key={memberData.id} 
+                          value={memberData.id}
+                          searchtext={memberData.searchText}
+                        >
                           <span className="font-medium">{memberData.name}</span>
-                          {memberData.isHead && <> <Tag color="blue" size="small">Head of Household</Tag></>}
+                          {memberData.isHead && <> <Tag color="blue" size="small">Head</Tag></>}
                           {' - '}<span className="font-bold">{memberData.household.householdId}</span>
                           {memberData.household.address?.purok && ` - ${memberData.household.address.purok}`}
                         </Select.Option>
@@ -2963,7 +2997,6 @@ export default function AdminGarbageFees() {
               loading={exporting}
               disabled={!exportHasData}
               onClick={() => exportForm.submit()}
-              icon={<FileExcelOutlined />}
             >
               Export to Excel
             </Button>
@@ -3057,54 +3090,56 @@ export default function AdminGarbageFees() {
               </div>
             )}
 
-            <div className="bg-blue-50 p-3 rounded border border-blue-200">
-              <div className="text-sm text-blue-800">
-                <div className="font-semibold mb-2">Export Information:</div>
-                <Form.Item noStyle shouldUpdate>
-                  {({ getFieldValue }) => {
-                    const exportType = getFieldValue('exportType');
-                    const paymentStatus = getFieldValue('paymentStatus');
-                    
-                    const getPaymentStatusText = () => {
-                      switch(paymentStatus) {
-                        case 'paid': return 'Paid households only';
-                        case 'unpaid': return 'Unpaid households only';
-                        default: return 'All households (paid and unpaid)';
-                      }
-                    };
-                    
-                    if (exportType === 'current-month') {
-                      return (
-                        <div className="space-y-1">
-                          <div>• Current month: {dayjs().format('MMMM YYYY')}</div>
-                          <div>• Filter: {getPaymentStatusText()}</div>
-                          <div>• Shows payment dates, amounts, and balances</div>
-                        </div>
-                      );
-                    } else if (exportType === 'chosen-month') {
-                      const selectedMonth = getFieldValue('selectedMonth');
-                      return (
-                        <div className="space-y-1">
-                          <div>• Selected month: {selectedMonth ? dayjs(selectedMonth).format('MMMM YYYY') : 'Please select month'}</div>
-                          <div>• Filter: {getPaymentStatusText()}</div>
-                          <div>• Shows payment dates, amounts, and balances</div>
-                        </div>
-                      );
-                    } else if (exportType === 'whole-year') {
-                      return (
-                        <div className="space-y-1">
-                          <div>• Full year report: {new Date().getFullYear()}</div>
-                          <div>• Filter: {getPaymentStatusText()}</div>
-                          <div>• Monthly breakdown for selected households</div>
-                          <div>• Shows payment status for each month</div>
-                          <div>• Includes yearly totals and balances</div>
-                        </div>
-                      );
+            <div className="text-sm text-gray-500 mt-2">
+              <p><strong>Export Information:</strong></p>
+              <Form.Item noStyle shouldUpdate>
+                {({ getFieldValue }) => {
+                  const exportType = getFieldValue('exportType');
+                  const paymentStatus = getFieldValue('paymentStatus');
+                  
+                  const getPaymentStatusText = () => {
+                    switch(paymentStatus) {
+                      case 'paid': return 'Paid households only';
+                      case 'unpaid': return 'Unpaid households only';
+                      default: return 'All households (paid and unpaid)';
                     }
-                    return null;
-                  }}
-                </Form.Item>
-              </div>
+                  };
+                  
+                  if (exportType === 'current-month') {
+                    return (
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Current month: {dayjs().format('MMMM YYYY')}</li>
+                        <li>Filter: {getPaymentStatusText()}</li>
+                        <li>Household ID, Head of Household, Address (Purok)</li>
+                        <li>Business status (₱35 or ₱50/month)</li>
+                        <li>Payment dates, amounts, and balances</li>
+                      </ul>
+                    );
+                  } else if (exportType === 'chosen-month') {
+                    const selectedMonth = getFieldValue('selectedMonth');
+                    return (
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Selected month: {selectedMonth ? dayjs(selectedMonth).format('MMMM YYYY') : 'Please select month'}</li>
+                        <li>Filter: {getPaymentStatusText()}</li>
+                        <li>Household ID, Head of Household, Address (Purok)</li>
+                        <li>Business status (₱35 or ₱50/month)</li>
+                        <li>Payment dates, amounts, and balances</li>
+                      </ul>
+                    );
+                  } else if (exportType === 'whole-year') {
+                    return (
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Full year report: {new Date().getFullYear()}</li>
+                        <li>Filter: {getPaymentStatusText()}</li>
+                        <li>Monthly breakdown for selected households</li>
+                        <li>Payment status for each month (Jan-Dec)</li>
+                        <li>Yearly totals and balances</li>
+                      </ul>
+                    );
+                  }
+                  return null;
+                }}
+              </Form.Item>
             </div>
           </Form>
         </Modal>
