@@ -441,7 +441,7 @@ export default function HouseholdManagement() {
   const singleMemberHouseholds = households.filter(h => h.members?.length === 1).length;
   const familyHouseholds = households.filter(h => h.members?.length > 1).length;
 
-  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName].filter(Boolean).join(" ");
+  const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName, p?.suffix].filter(Boolean).join(" ");
 
   // Function to render household members
   const renderHouseholdMembers = (record) => {
@@ -551,7 +551,7 @@ export default function HouseholdManagement() {
 
   // Get resident options for select inputs
   const residentOptions = residents.map(r => ({
-    label: `${r.firstName} ${r.middleName || ''} ${r.lastName}`,
+    label: `${r.firstName} ${r.middleName || ''} ${r.lastName}${r.suffix ? ' ' + r.suffix : ''}`,
     value: r._id,
   }));
 
@@ -600,14 +600,14 @@ export default function HouseholdManagement() {
   // Watch head selections
   const addHeadValue = Form.useWatch("headOfHousehold", addForm);
   const addHeadOptions = useMemo(
-    () => availableResidentsForAdd.map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+    () => availableResidentsForAdd.map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}${r.suffix ? ' ' + r.suffix : ''}`, value: r._id })),
     [availableResidentsForAdd]
   );
   const addMemberOptions = useMemo(
     () =>
       availableResidentsForAdd
         .filter(r => String(r._id) !== String(addHeadValue || "")) // exclude selected head
-        .map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+        .map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}${r.suffix ? ' ' + r.suffix : ''}`, value: r._id })),
     [availableResidentsForAdd, addHeadValue]
   );
 
@@ -640,14 +640,14 @@ export default function HouseholdManagement() {
 
   const editHeadValue = Form.useWatch("headOfHousehold", editForm);
   const editHeadOptions = useMemo(
-    () => availableResidentsForEdit.map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+    () => availableResidentsForEdit.map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}${r.suffix ? ' ' + r.suffix : ''}`, value: r._id })),
     [availableResidentsForEdit]
   );
   const editMemberOptions = useMemo(
     () =>
       availableResidentsForEdit
         .filter(r => String(r._id) !== String(editHeadValue || "")) // exclude selected head
-        .map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}`, value: r._id })),
+        .map(r => ({ label: `${r.firstName} ${r.middleName || ""} ${r.lastName}${r.suffix ? ' ' + r.suffix : ''}`, value: r._id })),
     [availableResidentsForEdit, editHeadValue]
   );
 

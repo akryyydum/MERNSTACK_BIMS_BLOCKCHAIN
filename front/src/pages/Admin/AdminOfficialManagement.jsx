@@ -733,14 +733,14 @@ export default function AdminOfficialManagement() {
                 },
               ]}
             >
-              <Input placeholder="e.g., 09123456789" />
+              <Input placeholder="e.g., juan.delacruz@email.com" />
             </Form.Item>
             <Form.Item
               name="mobile"
               label="Mobile"
               rules={[]}
             >
-              <Input placeholder="e.g., juan.delacruz@email.com" />
+              <Input placeholder="e.g., 09123456789" />
             </Form.Item>
           </Form>
         </Modal>

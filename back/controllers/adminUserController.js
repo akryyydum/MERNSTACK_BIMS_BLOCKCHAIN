@@ -200,6 +200,36 @@ exports.update = async (req, res) => {
       }
     }
 
+    // Also update resident contact info
+    const residentUpdateOps = {};
+    const residentUnsetOps = {};
+    if (contact) {
+      if (contact.email !== undefined) {
+        const emailTrim = String(contact.email || "").toLowerCase().trim();
+        if (emailTrim) {
+          residentUpdateOps["contact.email"] = emailTrim;
+        } else {
+          residentUnsetOps["contact.email"] = "";
+        }
+      }
+      if (contact.mobile !== undefined) {
+        const mobileTrim = typeof contact.mobile === 'string' ? contact.mobile.trim() : contact.mobile;
+        if (mobileTrim) {
+          residentUpdateOps["contact.mobile"] = mobileTrim;
+        } else {
+          residentUnsetOps["contact.mobile"] = "";
+        }
+      }
+    }
+
+    // Update resident if there are contact changes
+    if (Object.keys(residentUpdateOps).length > 0 || Object.keys(residentUnsetOps).length > 0) {
+      const residentOps = {};
+      if (Object.keys(residentUpdateOps).length) residentOps.$set = residentUpdateOps;
+      if (Object.keys(residentUnsetOps).length) residentOps.$unset = residentUnsetOps;
+      await Resident.updateOne({ user: id }, residentOps);
+    }
+
     // Update resident status if provided
     if (residentStatus) {
       if (!['pending', 'verified', 'rejected'].includes(residentStatus)) {

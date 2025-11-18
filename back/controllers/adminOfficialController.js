@@ -8,7 +8,31 @@ exports.list = async (req, res) => {
       .select("-passwordHash -verificationToken")
       .sort({ createdAt: -1 })
       .lean();
-    res.json(officials);
+    
+    // Populate resident data for each official
+    const Resident = require("../models/resident.model");
+    const officialsWithResidentData = await Promise.all(
+      officials.map(async (official) => {
+        const resident = await Resident.findOne({ user: official._id })
+          .select('_id firstName middleName lastName suffix contact')
+          .lean();
+        
+        return {
+          ...official,
+          residentId: resident?._id || null,
+          // Override contact with resident's contact if available
+          contact: resident?.contact || official.contact,
+          // Add full name from resident if available
+          fullName: resident 
+            ? [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+                .filter(Boolean)
+                .join(' ')
+            : official.fullName
+        };
+      })
+    );
+    
+    res.json(officialsWithResidentData);
   } catch (err) {
     console.error("[adminOfficialController.list]", err);
     res.status(500).json({ message: err.message });
@@ -120,11 +144,12 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-  const { fullName, email, mobile, isActive, position } = req.body;
+    const { fullName, email, mobile, isActive, position } = req.body;
     const update = {};
     if (fullName) update.fullName = String(fullName).trim();
-  if (position !== undefined) update.position = String(position).trim();
+    if (position !== undefined) update.position = String(position).trim();
     if (typeof isActive === "boolean") update.isActive = isActive;
+    
     // Email: if provided as non-empty, set; if provided as empty, unset; if omitted, ignore
     if (email !== undefined) {
       const clean = String(email).toLowerCase().trim();
@@ -155,8 +180,41 @@ exports.update = async (req, res) => {
     if (!Object.keys(update).length) {
       return res.status(400).json({ message: "No valid fields to update" });
     }
+    
+    // Update the user
     const user = await User.findByIdAndUpdate(id, update, { new: true });
     if (!user) return res.status(404).json({ message: "Official not found" });
+    
+    // Also update resident contact info if there are contact changes
+    const Resident = require("../models/resident.model");
+    const residentUpdateOps = {};
+    const residentUnsetOps = {};
+    
+    if (email !== undefined) {
+      const clean = String(email).toLowerCase().trim();
+      if (clean.length > 0) {
+        residentUpdateOps["contact.email"] = clean;
+      } else {
+        residentUnsetOps["contact.email"] = "";
+      }
+    }
+    if (mobile !== undefined) {
+      const m = String(mobile).trim();
+      if (m.length > 0) {
+        residentUpdateOps["contact.mobile"] = m;
+      } else {
+        residentUnsetOps["contact.mobile"] = "";
+      }
+    }
+    
+    // Update resident if there are contact changes
+    if (Object.keys(residentUpdateOps).length > 0 || Object.keys(residentUnsetOps).length > 0) {
+      const residentOps = {};
+      if (Object.keys(residentUpdateOps).length) residentOps.$set = residentUpdateOps;
+      if (Object.keys(residentUnsetOps).length) residentOps.$unset = residentUnsetOps;
+      await Resident.updateOne({ user: id }, residentOps);
+    }
+    
     res.json({ message: "Official updated", user });
   } catch (err) {
     console.error("[adminOfficialController.update]", err);
