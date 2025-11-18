@@ -33,6 +33,7 @@ const documentRequestSchema = new mongoose.Schema({
   },
 
   requestedAt: { type: Date, default: Date.now },
+  completedAt: { type: Date },
   updatedAt: { type: Date, default: Date.now }
 });
 

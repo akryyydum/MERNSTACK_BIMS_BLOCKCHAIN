@@ -31,18 +31,28 @@ exports.list = async (req, res) => {
       User.countDocuments(q),
     ]);
 
-    // Populate resident status for each user
-    const itemsWithResidentStatus = await Promise.all(
+    // Populate resident status and contact info for each user
+    const itemsWithResidentData = await Promise.all(
       items.map(async (user) => {
-        const resident = await Resident.findOne({ user: user._id }).select('status').lean();
+        const resident = await Resident.findOne({ user: user._id })
+          .select('status contact firstName middleName lastName suffix')
+          .lean();
         return {
           ...user,
-          residentStatus: resident?.status || null
+          residentStatus: resident?.status || null,
+          // Override contact with resident's contact if available
+          contact: resident?.contact || user.contact,
+          // Add full name from resident if available
+          fullName: resident 
+            ? [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
+                .filter(Boolean)
+                .join(' ')
+            : user.fullName
         };
       })
     );
 
-    res.json({ items: itemsWithResidentStatus, total, page, limit });
+    res.json({ items: itemsWithResidentData, total, page, limit });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

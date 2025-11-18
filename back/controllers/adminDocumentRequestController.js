@@ -368,6 +368,7 @@ exports.completeRequest = async (req, res) => {
     
     const updateData = { 
       status: 'completed',
+      completedAt: new Date(),
       updatedAt: new Date()
     };
 

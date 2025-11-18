@@ -764,6 +764,11 @@ export default function ResidentDashboard() {
                           <p className="text-xs text-slate-500">
                             {isRequest ? 'Requested' : 'Submitted'} on {formatDate(item.createdAt || item.requestedAt)}
                           </p>
+                          {isRequest && item.status === "completed" && item.completedAt && (
+                            <p className="text-xs text-emerald-600 font-medium">
+                              Released on {formatDate(item.completedAt)}
+                            </p>
+                          )}
                         </div>
                         <div className="mt-4 flex justify-between items-center">
                           <span className="text-xs text-slate-500">Status:</span>

@@ -634,7 +634,7 @@ export default function ResidentRequest() {
                             baseAmount = 100;
                           } else if (request.documentType === "Business Clearance") {
                             // For business clearance, use assigned fee amount or stored amount
-                            if (request.status === "accepted" && (request.feeAmount || request.amount)) {
+                            if ((request.status === "accepted" || request.status === "completed") && (request.feeAmount || request.amount)) {
                               baseAmount = request.feeAmount || request.amount || 0;
                               const totalAmount = baseAmount * quantity;
                               return (
@@ -789,10 +789,14 @@ export default function ResidentRequest() {
                     } else if (viewRequest.documentType === "Barangay Clearance") {
                       baseAmount = 100;
                     } else if (viewRequest.documentType === "Business Clearance") {
-                      if (viewRequest.status === "accepted" && (viewRequest.feeAmount || viewRequest.amount)) {
+                      // Show amount for accepted or completed status
+                      if ((viewRequest.status === "accepted" || viewRequest.status === "completed") && (viewRequest.feeAmount || viewRequest.amount)) {
                         baseAmount = viewRequest.feeAmount || viewRequest.amount || 0;
-                      } else {
+                      } else if (viewRequest.status === "pending") {
                         return <p className="mt-1 text-sm text-amber-600 italic">Amount to be determined by admin</p>;
+                      } else {
+                        // For rejected status or if no amount set
+                        baseAmount = 0;
                       }
                     }
                     
@@ -885,7 +889,11 @@ export default function ResidentRequest() {
                         </div>
                         <div className="ml-4">
                           <p className="text-sm font-medium text-gray-800">Released</p>
-                          <p className="text-xs text-gray-500">Your document has been released</p>
+                          <p className="text-xs text-gray-500">
+                            {viewRequest.completedAt || viewRequest.releasedAt 
+                              ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() 
+                              : "Your document has been released"}
+                          </p>
                         </div>
                       </div>
                     )}

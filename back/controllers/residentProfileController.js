@@ -35,6 +35,7 @@ const updateProfile = async (req, res) => {
 
     // Extract updatable fields from request body
     const {
+      username,
       firstName,
       middleName,
       lastName,
@@ -53,6 +54,35 @@ const updateProfile = async (req, res) => {
       registeredVoter,
       contact
     } = req.body;
+
+    // Update username in User model if provided
+    if (username !== undefined && username && username.trim()) {
+      const trimmedUsername = username.trim();
+      
+      // Validate username length
+      if (trimmedUsername.length < 6) {
+        return res.status(400).json({ 
+          message: 'Username must be at least 6 characters',
+          errors: ['Username must be at least 6 characters']
+        });
+      }
+
+      // Check for duplicate username
+      const existingUser = await User.findOne({
+        _id: { $ne: userId },
+        username: new RegExp(`^${trimmedUsername}$`, 'i')
+      });
+      
+      if (existingUser) {
+        return res.status(400).json({ 
+          message: 'Username already exists',
+          errors: ['Username is already taken']
+        });
+      }
+
+      // Update username in User model
+      await User.findByIdAndUpdate(userId, { username: trimmedUsername });
+    }
 
     // Update fields if provided
     if (firstName !== undefined) resident.firstName = firstName;
@@ -82,8 +112,41 @@ const updateProfile = async (req, res) => {
 
     // Update contact if provided
     if (contact) {
-      if (contact.mobile !== undefined) resident.contact.mobile = contact.mobile;
-      if (contact.email !== undefined) resident.contact.email = contact.email;
+      // Validate email uniqueness if being updated
+      if (contact.email !== undefined && contact.email && contact.email.trim()) {
+        const normalizedEmail = contact.email.toLowerCase().trim();
+        const existingEmail = await Resident.findOne({
+          _id: { $ne: resident._id },
+          'contact.email': normalizedEmail
+        });
+        if (existingEmail) {
+          return res.status(400).json({ 
+            message: 'Email is already registered to another resident',
+            errors: ['Email is already registered to another resident']
+          });
+        }
+        resident.contact.email = normalizedEmail;
+      } else if (contact.email !== undefined) {
+        resident.contact.email = contact.email;
+      }
+
+      // Validate mobile uniqueness if being updated
+      if (contact.mobile !== undefined && contact.mobile && contact.mobile.trim()) {
+        const normalizedMobile = contact.mobile.trim();
+        const existingMobile = await Resident.findOne({
+          _id: { $ne: resident._id },
+          'contact.mobile': normalizedMobile
+        });
+        if (existingMobile) {
+          return res.status(400).json({ 
+            message: 'Mobile number is already registered to another resident',
+            errors: ['Mobile number is already registered to another resident']
+          });
+        }
+        resident.contact.mobile = normalizedMobile;
+      } else if (contact.mobile !== undefined) {
+        resident.contact.mobile = contact.mobile;
+      }
     }
 
     // Update the updatedAt timestamp
