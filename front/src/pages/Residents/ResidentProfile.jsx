@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Descriptions, Typography, Layout, message, Spin, Avatar, Input, Select, DatePicker, Button } from 'antd';
+import { Descriptions, Typography, Layout, message, Spin, Avatar, Input, Select, DatePicker, Button, Alert } from 'antd';
 import { 
   UserOutlined, 
   HomeOutlined, 
@@ -29,9 +29,16 @@ const ResidentProfile = () => {
   const [editedProfile, setEditedProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [emailTaken, setEmailTaken] = useState(false);
+  const [mobileTaken, setMobileTaken] = useState(false);
+  const [usernameTaken, setUsernameTaken] = useState(false);
+  const [allResidents, setAllResidents] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
 
   useEffect(() => {
     fetchProfile();
+    fetchAllResidents();
+    fetchAllUsers();
   }, []);
 
   const fetchProfile = async () => {
@@ -52,14 +59,44 @@ const ResidentProfile = () => {
     }
   };
 
+  const fetchAllResidents = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/residents?limit=10000`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAllResidents(response.data.items || []);
+    } catch (error) {
+      console.error('Error fetching residents:', error);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/users?limit=10000`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAllUsers(response.data.items || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   const handleEdit = () => {
     setIsEditing(true);
     setEditedProfile({ ...profile });
+    setEmailTaken(false);
+    setMobileTaken(false);
+    setUsernameTaken(false);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setEditedProfile({ ...profile });
+    setEmailTaken(false);
+    setMobileTaken(false);
+    setUsernameTaken(false);
   };
 
   // Validation function for fields that should not contain numbers or special characters
@@ -69,27 +106,27 @@ const ResidentProfile = () => {
   };
 
   const handleSave = async () => {
-    // Validate fields before saving
+    // Validate name fields before saving (only firstName, middleName, lastName should be alphabetic)
     const fieldsToValidate = [
       { key: 'firstName', label: 'First Name', value: editedProfile?.firstName },
       { key: 'middleName', label: 'Middle Name', value: editedProfile?.middleName },
       { key: 'lastName', label: 'Last Name', value: editedProfile?.lastName },
-      { key: 'civilStatus', label: 'Civil Status', value: editedProfile?.civilStatus },
-      { key: 'religion', label: 'Religion', value: editedProfile?.religion },
-      { key: 'ethnicity', label: 'Ethnicity', value: editedProfile?.ethnicity },
-      { key: 'citizenship', label: 'Citizenship', value: editedProfile?.citizenship },
-      { key: 'occupation', label: 'Occupation', value: editedProfile?.occupation },
     ];
     const newFieldErrors = {};
     for (const field of fieldsToValidate) {
       if (field.value && !isAlphaOnly(field.value)) {
-        newFieldErrors[field.key] = `${field.label} should not contain numbers or special characters!"`;
+        newFieldErrors[field.key] = `${field.label} should not contain numbers or special characters`;
       }
     }
     setFieldErrors(newFieldErrors);
     if (Object.keys(newFieldErrors).length > 0) {
-      // Optionally show a general error message
       message.error('Please correct the highlighted errors.');
+      return;
+    }
+
+    // Check for duplicate email/mobile/username before saving
+    if (emailTaken || mobileTaken || usernameTaken) {
+      message.error('Please fix duplicate email, mobile number, or username before saving.');
       return;
     }
 
@@ -97,9 +134,40 @@ const ResidentProfile = () => {
       setSaving(true);
       const token = localStorage.getItem('token');
       
+      // Prepare payload with only updatable fields
+      const payload = {
+        username: editedProfile.user?.username,
+        firstName: editedProfile.firstName,
+        middleName: editedProfile.middleName,
+        lastName: editedProfile.lastName,
+        suffix: editedProfile.suffix,
+        dateOfBirth: editedProfile.dateOfBirth,
+        birthPlace: editedProfile.birthPlace,
+        sex: editedProfile.sex,
+        civilStatus: editedProfile.civilStatus,
+        religion: editedProfile.religion,
+        ethnicity: editedProfile.ethnicity,
+        citizenship: editedProfile.citizenship,
+        occupation: editedProfile.occupation,
+        sectoralInformation: editedProfile.sectoralInformation,
+        employmentStatus: editedProfile.employmentStatus,
+        registeredVoter: editedProfile.registeredVoter,
+        address: {
+          purok: editedProfile.address?.purok,
+          barangay: editedProfile.address?.barangay,
+          municipality: editedProfile.address?.municipality,
+          province: editedProfile.address?.province,
+          zipCode: editedProfile.address?.zipCode
+        },
+        contact: {
+          mobile: editedProfile.contact?.mobile || '',
+          email: editedProfile.contact?.email || ''
+        }
+      };
+      
       const response = await axios.put(
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
-        editedProfile,
+        payload,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -127,7 +195,26 @@ const ResidentProfile = () => {
       message.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
-      message.error(error.response?.data?.message || 'Failed to update profile');
+      console.error('Error response:', error.response?.data);
+      
+      // Check if error is about duplicate email, mobile, or username
+      const errorMessage = error.response?.data?.message || '';
+      if (errorMessage.includes('Email is already registered')) {
+        setEmailTaken(true);
+      }
+      if (errorMessage.includes('Mobile number is already registered')) {
+        setMobileTaken(true);
+      }
+      if (errorMessage.includes('Username already exists') || errorMessage.includes('Username is already taken')) {
+        setUsernameTaken(true);
+      }
+      
+      // Show validation errors if available
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        error.response.data.errors.forEach(err => message.error(err));
+      } else {
+        message.error(error.response?.data?.message || 'Failed to update profile');
+      }
     } finally {
       setSaving(false);
     }
@@ -152,6 +239,30 @@ const ResidentProfile = () => {
     }));
   };
 
+  const handleUserChange = (field, value) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        [field]: value
+      }
+    }));
+
+    // Check for duplicate username
+    if (field === 'username' && value && value.trim()) {
+      const duplicate = allUsers.find(u => 
+        u._id !== profile.user?._id && 
+        u.username?.toLowerCase() === value.trim().toLowerCase()
+      );
+      setUsernameTaken(!!duplicate);
+      if (duplicate) {
+        message.warning('This username is already taken.');
+      }
+    } else if (field === 'username') {
+      setUsernameTaken(false);
+    }
+  };
+
   const handleContactChange = (field, value) => {
     setEditedProfile(prev => ({
       ...prev,
@@ -160,6 +271,33 @@ const ResidentProfile = () => {
         [field]: value
       }
     }));
+
+    // Check for duplicates when contact fields change
+    if (field === 'email' && value && value.trim()) {
+      const duplicate = allResidents.find(r => 
+        r._id !== profile._id && 
+        r.contact?.email?.toLowerCase() === value.trim().toLowerCase()
+      );
+      setEmailTaken(!!duplicate);
+      if (duplicate) {
+        message.warning('This email is already registered to another resident.');
+      }
+    } else if (field === 'email') {
+      setEmailTaken(false);
+    }
+
+    if (field === 'mobile' && value && value.trim()) {
+      const duplicate = allResidents.find(r => 
+        r._id !== profile._id && 
+        r.contact?.mobile === value.trim()
+      );
+      setMobileTaken(!!duplicate);
+      if (duplicate) {
+        message.warning('This mobile number is already registered to another resident.');
+      }
+    } else if (field === 'mobile') {
+      setMobileTaken(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -399,73 +537,48 @@ const ResidentProfile = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Civil Status">
                   {isEditing ? (
-                    <>
-                      <Select 
-                        value={editedProfile?.civilStatus} 
-                        onChange={(value) => handleInputChange('civilStatus', value)}
-                        style={{ width: '100%' }}
-                      >
-                        <Option value="single">Single</Option>
-                        <Option value="married">Married</Option>
-                        <Option value="widowed">Widowed</Option>
-                        <Option value="separated">Separated</Option>
-                      </Select>
-                      {fieldErrors.civilStatus && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.civilStatus}</div>
-                      )}
-                    </>
+                    <Select 
+                      value={editedProfile?.civilStatus} 
+                      onChange={(value) => handleInputChange('civilStatus', value)}
+                      style={{ width: '100%' }}
+                    >
+                      <Option value="single">Single</Option>
+                      <Option value="married">Married</Option>
+                      <Option value="widowed">Widowed</Option>
+                      <Option value="separated">Separated</Option>
+                    </Select>
                   ) : (profile.civilStatus ? profile.civilStatus.charAt(0).toUpperCase() + profile.civilStatus.slice(1) : 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Religion">
                   {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.religion} 
-                        onChange={(e) => handleInputChange('religion', e.target.value)}
-                      />
-                      {fieldErrors.religion && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.religion}</div>
-                      )}
-                    </>
+                    <Input 
+                      value={editedProfile?.religion} 
+                      onChange={(e) => handleInputChange('religion', e.target.value)}
+                    />
                   ) : (profile.religion || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Ethnicity">
                   {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.ethnicity} 
-                        onChange={(e) => handleInputChange('ethnicity', e.target.value)}
-                      />
-                      {fieldErrors.ethnicity && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.ethnicity}</div>
-                      )}
-                    </>
+                    <Input 
+                      value={editedProfile?.ethnicity} 
+                      onChange={(e) => handleInputChange('ethnicity', e.target.value)}
+                    />
                   ) : (profile.ethnicity || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Citizenship">
                   {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.citizenship} 
-                        onChange={(e) => handleInputChange('citizenship', e.target.value)}
-                      />
-                      {fieldErrors.citizenship && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.citizenship}</div>
-                      )}
-                    </>
+                    <Input 
+                      value={editedProfile?.citizenship} 
+                      onChange={(e) => handleInputChange('citizenship', e.target.value)}
+                    />
                   ) : (profile.citizenship || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Occupation">
                   {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.occupation} 
-                        onChange={(e) => handleInputChange('occupation', e.target.value)}
-                      />
-                      {fieldErrors.occupation && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.occupation}</div>
-                      )}
-                    </>
+                    <Input 
+                      value={editedProfile?.occupation} 
+                      onChange={(e) => handleInputChange('occupation', e.target.value)}
+                    />
                   ) : (profile.occupation || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Sectoral Information">
@@ -539,6 +652,30 @@ const ResidentProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {(emailTaken || mobileTaken) && (
+                <div className="mb-4 space-y-2">
+                  {emailTaken && (
+                    <Alert
+                      message="Email already registered"
+                      description="This email is already used by another resident. Please use a different email."
+                      type="error"
+                      showIcon
+                      closable
+                      onClose={() => setEmailTaken(false)}
+                    />
+                  )}
+                  {mobileTaken && (
+                    <Alert
+                      message="Mobile number already registered"
+                      description="This mobile number is already used by another resident. Please use a different number."
+                      type="error"
+                      showIcon
+                      closable
+                      onClose={() => setMobileTaken(false)}
+                    />
+                  )}
+                </div>
+              )}
               <Descriptions column={1} size="middle" bordered>
                 <Descriptions.Item label="Mobile Number">
                   {isEditing ? (
@@ -546,6 +683,7 @@ const ResidentProfile = () => {
                       value={editedProfile?.contact?.mobile} 
                       onChange={(e) => handleContactChange('mobile', e.target.value)}
                       placeholder="e.g., 09123456789"
+                      status={mobileTaken ? 'error' : ''}
                     />
                   ) : (profile.contact?.mobile || 'N/A')}
                 </Descriptions.Item>
@@ -556,6 +694,7 @@ const ResidentProfile = () => {
                       onChange={(e) => handleContactChange('email', e.target.value)}
                       type="email"
                       placeholder="e.g., email@example.com"
+                      status={emailTaken ? 'error' : ''}
                     />
                   ) : (profile.contact?.email || 'N/A')}
                 </Descriptions.Item>
@@ -572,8 +711,29 @@ const ResidentProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {usernameTaken && (
+                <div className="mb-4">
+                  <Alert
+                    message="Username already taken"
+                    description="This username is already used by another user. Please choose a different username."
+                    type="error"
+                    showIcon
+                    closable
+                    onClose={() => setUsernameTaken(false)}
+                  />
+                </div>
+              )}
               <Descriptions column={1} size="middle" bordered>
-                <Descriptions.Item label="Username">{profile.user?.username || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Username">
+                  {isEditing ? (
+                    <Input 
+                      value={editedProfile?.user?.username} 
+                      onChange={(e) => handleUserChange('username', e.target.value)}
+                      placeholder="Enter username (min. 6 characters)"
+                      status={usernameTaken ? 'error' : ''}
+                    />
+                  ) : (profile.user?.username || 'N/A')}
+                </Descriptions.Item>
                 <Descriptions.Item label="Role">
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                     profile.user?.role === 'official' 

@@ -219,12 +219,28 @@ const getTransactions = async (req, res) => {
     if (officialId) filter.officialId = officialId;
 
     const transactions = await FinancialTransaction.find(filter)
-      .populate('residentId', 'firstName lastName')
+      .populate('residentId', 'firstName middleName lastName suffix')
       .populate('officialId', 'firstName lastName position')
       .populate('createdBy', 'username fullName')
-      .sort({ transactionDate: -1 });
+      .sort({ transactionDate: -1 })
+      .lean();
+    
+    // Update resident names dynamically from populated data
+    const updatedTransactions = transactions.map(txn => {
+      if (txn.residentId) {
+        const residentName = [
+          txn.residentId.firstName,
+          txn.residentId.middleName,
+          txn.residentId.lastName,
+          txn.residentId.suffix
+        ].filter(Boolean).join(' ');
+        return { ...txn, residentName };
+      }
+      return txn;
+    });
+    
     // Remove utility transactions to avoid duplicates when we add synthesized utility transactions below
-    const nonUtilityTransactions = transactions.filter(
+    const nonUtilityTransactions = updatedTransactions.filter(
       (t) => !['garbage_fee', 'streetlight_fee'].includes(t.type)
     );
 
