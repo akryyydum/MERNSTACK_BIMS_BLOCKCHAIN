@@ -129,7 +129,7 @@ const getDashboard = async (req, res) => {
     const balance = totalRevenue - totalExpenses - totalAllocations;
 
     // Transaction counts by type
-    const documentFees = allTransactions.filter(t => t.type === 'document_fee').length;
+    const documentFees = allTransactions.filter(t => t.type === 'document_request').length;
     const garbageFees = allTransactions.filter(t => t.type === 'garbage_fee').length;
     const electricFees = allTransactions.filter(t => t.type === 'electric_fee').length;
     const streetlightFees = allTransactions.filter(t => t.type === 'streetlight_fee').length;
@@ -156,10 +156,10 @@ const getDashboard = async (req, res) => {
       garbage_fee: garbageRevenue,
       streetlight_fee: streetlightRevenue,
       document_request: documentRevenue,
-      document_fee: nonUtilityTransactions.filter(t => t.type === 'document_fee').reduce((sum, t) => sum + t.amount, 0),
+      document_request: nonUtilityTransactions.filter(t => t.type === 'document_request').reduce((sum, t) => sum + t.amount, 0),
       permit_fee: nonUtilityTransactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
       other: nonUtilityTransactions
-        .filter(t => !['document_fee', 'permit_fee'].includes(t.type) && t.category === 'revenue')
+        .filter(t => !['document_request', 'permit_fee'].includes(t.type) && t.category === 'revenue')
         .reduce((sum, t) => sum + t.amount, 0)
     };
 
@@ -542,7 +542,7 @@ const syncDocumentFees = async (req, res) => {
     for (const doc of documentRequests) {
       // Create financial transaction
       const transaction = new FinancialTransaction({
-        type: 'document_fee',
+        type: 'document_request',
         category: 'revenue',
         description: `${doc.documentType} - ${doc.purpose}`,
         amount: doc.totalFee || 0,
