@@ -30,7 +30,13 @@ export default function AdminUserManagement() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [usernameTaken, setUsernameTaken] = useState(false);
   const [emailTaken, setEmailTaken] = useState(false);
-  const [mobileTaken, setMobileTaken] = useState(false);          
+  const [mobileTaken, setMobileTaken] = useState(false);
+
+  // Change Password Modal
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [changePasswordForm] = Form.useForm();
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [currentPasswordError, setCurrentPasswordError] = useState(false);          
 
   const residentStepFields = {                                 
     1: ["username", "password", ["contact","email"], ["contact","mobile"]],
@@ -262,6 +268,44 @@ export default function AdminUserManagement() {
     });
   };
 
+  // Open change password modal
+  const openChangePassword = () => {
+    changePasswordForm.resetFields();
+    setCurrentPasswordError(false);
+    setChangePasswordOpen(true);
+  };
+
+  // Submit change password
+  const submitChangePassword = async () => {
+    try {
+      const values = await changePasswordForm.validateFields();
+      setChangingPassword(true);
+
+      // Change to new password (admin can change without current password)
+      const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}/change-password`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          newPassword: values.newPassword,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to change password");
+      }
+
+      message.success("Password changed successfully");
+      setChangePasswordOpen(false);
+      changePasswordForm.resetFields();
+    } catch (e) {
+      if (e?.errorFields) return;
+      message.error(e.message);
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   // + submit edit
   const submitEdit = async () => {
     try {
@@ -302,7 +346,6 @@ export default function AdminUserManagement() {
         body: JSON.stringify({
           fullName: values.fullName,
           username: values.username,
-          password: values.password, // Only included if provided
           role: values.role,
           isActive: values.isActive,
           isVerified: values.isVerified,
@@ -346,7 +389,7 @@ export default function AdminUserManagement() {
         .toLowerCase()
         .includes(search.toLowerCase());
       // Status filter
-      const matchesStatus = !statusFilter || statusFilter.length === 0 || statusFilter.includes(user.residentStatus || 'pending');
+      const matchesStatus = !statusFilter || statusFilter.length === 0 || statusFilter.includes((user.residentStatus || 'pending'));
       // Role filter
       const matchesRole = !roleFilter || roleFilter.length === 0 || roleFilter.includes(user.role);
       return matchesSearch && matchesStatus && matchesRole;
@@ -407,13 +450,13 @@ export default function AdminUserManagement() {
       ],
       filteredValue: roleFilter || null,
       onFilter: (value, record) => {
-        // This is handled by filteredUsers, but keep for UI sync
         return record.role === value;
       },
     },
     {
       title: "Status",
-      key: "verified",
+      dataIndex: "residentStatus",
+      key: "residentStatus",
       render: (_, r) => {
         const status = r.residentStatus || 'pending';
         const statusColors = {
@@ -436,7 +479,6 @@ export default function AdminUserManagement() {
       ],
       filteredValue: statusFilter || null,
       onFilter: (value, record) => {
-        // This is handled by filteredUsers, but keep for UI sync
         return (record.residentStatus || 'pending') === value;
       },
     },
@@ -458,8 +500,8 @@ export default function AdminUserManagement() {
       ),
     },
     {
-      title: "Status",
-      key: "status",
+      title: "Status Switch",
+      key: "statusSwitch",
       render: (_, r) => {
         const status = r.residentStatus || 'pending';
         const isVerified = status === 'verified';
@@ -476,22 +518,13 @@ export default function AdminUserManagement() {
           </div>
         );
       },
-      filters: [
-        { text: "Verified", value: "verified" },
-        { text: "Pending", value: "pending" },
-      ],
-      onFilter: (value, record) => {
-        const status = record.residentStatus || 'pending';
-        if (value === 'verified') return status === 'verified';
-        return status === 'pending';
-      },
     },
     {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
         <div className="flex gap-2">
-          <Button size="small" onClick={() => openEdit(r)}>Edit</Button> {/* + */}
+          <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
           <Popconfirm
             title="Delete user?"
             description="This action cannot be undone."
@@ -517,7 +550,7 @@ export default function AdminUserManagement() {
   const handleTableChangeWithStatus = (pagination, filters) => {
     setCurrentPage(pagination.current);
     setPageSize(pagination.pageSize);
-    setStatusFilter(filters.verified || null);
+    setStatusFilter(filters.residentStatus || null);
     setRoleFilter(filters.role || null);
   };
 
@@ -609,8 +642,8 @@ export default function AdminUserManagement() {
               </Card>
             </div>
             
-            {/* Row 2: Pending Users, Active Users, Inactive Users */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {/* Row 2: Pending Users, Active Users, Inactive Users - Full Width */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
               <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
                   <CardTitle className="text-sm font-bold text-black">
@@ -678,8 +711,7 @@ export default function AdminUserManagement() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {/* Removed Add Resident */}
-            <Button type="primary" onClick={openCreate}>Create User</Button>
+            <Button type="primary" onClick={openCreate}> + Create User</Button>
           </div>
         </div>
 
@@ -748,7 +780,6 @@ export default function AdminUserManagement() {
               />
             </Form.Item>
 
-            {/* All roles now use resident selection */}
             <Form.Item
               name="residentId"
               label="Select Resident (no account yet)"
@@ -762,7 +793,7 @@ export default function AdminUserManagement() {
                 optionFilterProp="label"
                 options={unlinkedResidents.map(r => ({
                   value: r._id,
-                  label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""} • ${r.address?.purok || ""}`,
+                  label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""}${r.suffix ? " " + r.suffix : ""} • ${r.address?.purok || ""}`,
                 }))}
               />
             </Form.Item>
@@ -798,10 +829,32 @@ export default function AdminUserManagement() {
 
             <Form.Item
               name="password"
-              label="Temporary password"
-              rules={[{ required: true, message: "Password is required" }, { min: 6 }]}
+              label="Create a password"
+              rules={[
+                { required: true, message: "Password is required" },
+                { min: 6, message: "Password must be at least 6 characters" }
+              ]}
             >
               <Input.Password autoComplete="new-password" placeholder="At least 6 characters" />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              label="Re-type password"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: "Please confirm your password" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Passwords do not match'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password placeholder="Re-enter password" />
             </Form.Item>
 
             {/* Optional preview */}
@@ -825,10 +878,18 @@ export default function AdminUserManagement() {
           confirmLoading={savingEdit}
           onCancel={() => { setEditOpen(false); setEditingUser(null); }}
           okText="Save"
-          width={window.innerWidth < 600 ? "95vw" : 520}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+          width={window.innerWidth < 600 ? "95vw" : 800}
+          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 16 }}
         >
-          <Form form={editForm} layout="vertical">
+          <Alert
+            message="Edit User Information"
+            description="Update user credentials and contact information. Email and mobile must be unique across all users."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          <div style={{ marginBottom: 16 }} />
+          <Form form={editForm} layout="vertical" style={{ gap: 0 }}>
             <Form.Item
               name="fullName"
               label="Full name"
@@ -845,12 +906,10 @@ export default function AdminUserManagement() {
               <Input placeholder="Required, unique" />
             </Form.Item>
 
-            <Form.Item
-              name="password"
-              label="Password"
-              rules={[{ min: 6, message: "Password must be at least 6 characters" }]}
-            >
-              <Input.Password placeholder="Leave blank to keep current password (min 6 chars)" />
+            <Form.Item label={<span>Password </span>} required>
+              <Button type="default" onClick={openChangePassword}>
+                Change Password
+              </Button>
             </Form.Item>
 
             <Form.Item
@@ -903,6 +962,11 @@ export default function AdminUserManagement() {
             <Form.Item
               name={["contact", "mobile"]}
               label="Mobile"
+              rules={[{
+                required: false,
+                pattern: /^09\d{9}$/,
+                message: "Only numbers are allowed"
+              }]}
             >
               <Input 
                 type="tel" 
@@ -943,6 +1007,62 @@ export default function AdminUserManagement() {
                   { value: "verified", label: "Verified" },
                 ]}
               />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Change Password Modal */}
+        <Modal
+          title="Change Password"
+          open={changePasswordOpen}
+          onOk={submitChangePassword}
+          confirmLoading={changingPassword}
+          onCancel={() => {
+            setChangePasswordOpen(false);
+            changePasswordForm.resetFields();
+            setCurrentPasswordError(false);
+          }}
+          okText="Change Password"
+          width={window.innerWidth < 600 ? "95vw" : 500}
+          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+        >
+          <Alert
+            message="Change User Password"
+            description="Provide a new password for this user. The new password must be at least 6 characters long."
+            type="warning"
+            showIcon
+            className="mb-4"
+          />
+          <div style={{ marginBottom: 16 }} />
+          <Form form={changePasswordForm} layout="vertical">
+            <Form.Item
+              name="newPassword"
+              label="New Password"
+              rules={[
+                { required: true, message: "New password is required" },
+                { min: 6, message: "Password must be at least 6 characters" },
+              ]}
+            >
+              <Input.Password placeholder="Enter new password (min 6 chars)" />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              label="Re-type New Password"
+              dependencies={['newPassword']}
+              rules={[
+                { required: true, message: "Please confirm your new password" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('newPassword') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Passwords do not match'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password placeholder="Re-enter new password" />
             </Form.Item>
           </Form>
         </Modal>
