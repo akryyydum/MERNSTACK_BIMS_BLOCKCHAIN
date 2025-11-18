@@ -263,8 +263,6 @@ export default function AdminResidentManagement() {
     setEditing(false);
   };
 
-  // Reject Resident - REMOVED, moved to AdminUserManagement
-
   // Delete Resident
   const handleDelete = async (id) => {
     try {
@@ -1462,7 +1460,7 @@ export default function AdminResidentManagement() {
             
             {!exportHasData && (
               <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
-                <p className="font-semibold">⚠️ No data matches the selected filters</p>
+                <p className="font-semibold">No data matches the selected filters</p>
                 <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
               </div>
             )}
@@ -1510,20 +1508,27 @@ export default function AdminResidentManagement() {
               />
             </Form.Item>
 
+
             <Form.Item
-              label="Select Excel File"
+              label={
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Select Excel File
+                </span>
+              }
               rules={[{ required: true, message: "Please select a file" }]}
             >
-              <Input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  setImportFile(file);
-                }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  style={{ cursor: 'pointer', flex: 1 }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    setImportFile(file);
+                  }}
+                />
+              </div>
             </Form.Item>
-
             {importFile && (
               <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded">
                 <strong>Selected file:</strong> {importFile.name}
@@ -1625,7 +1630,7 @@ export default function AdminResidentManagement() {
                   name="firstName" 
                   label="First Name" 
                   rules={[
-                    { required: true, message: 'First name is required' },
+                    { required: true, message: 'First Name is required' },
                     { pattern: /^[A-Za-z\s-]+$/, message: 'First name may contain letters, spaces, and hyphens (-)' }
                   ]}
                 >
@@ -1635,7 +1640,7 @@ export default function AdminResidentManagement() {
                   name="lastName" 
                   label="Last Name" 
                   rules={[
-                    { required: true, message: 'Last name is required' },
+                    { required: true, message: 'Last Name is required' },
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Last name may contain letters, spaces, and hyphens (-)' }
                   ]}
                 >
@@ -1659,14 +1664,14 @@ export default function AdminResidentManagement() {
               </div>
               
               <div className="form-row">
-                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true, message: 'Date of Birth is required' }]}>
                   <DatePicker 
                     className="w-full" 
                     disabledDate={current => current && current > new Date()}
                     placeholder="Select date of birth"
                   />
                 </Form.Item>
-                <Form.Item name="sex" label="Sex" rules={[{ required: true }]}>
+                <Form.Item name="sex" label="Sex" rules={[{ required: true, message: 'Sex is required' }]}>
                   <Select
                     placeholder="Select sex"
                     options={[
@@ -1677,12 +1682,12 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
+              <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true, message: 'Birth Place is required' }]}>
                 <Input placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA" />
               </Form.Item>
               
               <div className="form-row">
-                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true, message: 'Civil Status is required' }]}>
                   <Select
                     placeholder="Select civil status"
                     options={[
@@ -1719,7 +1724,7 @@ export default function AdminResidentManagement() {
 
             {/* Step 2 - Address */}
             <div style={{ display: addStep === 1 ? "block" : "none" }}>
-              <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
+              <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true, message: 'Purok is required' }]}>
                 <Select
                   placeholder="Select purok"
                   options={[
@@ -1734,7 +1739,7 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-                  <Input placeholder="La Torre North" disabled />
+                  <Input placeholder="LA TORRE NORTH" disabled />
                 </Form.Item>
                 <Form.Item name={["address", "zipCode"]} label="ZIP Code">
                   <Input placeholder="3700" disabled />
@@ -1743,10 +1748,10 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-                  <Input placeholder="Bayombong" disabled />
+                  <Input placeholder="BAYOMBONG" disabled />
                 </Form.Item>
                 <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-                  <Input placeholder="Nueva Vizcaya" disabled />
+                  <Input placeholder="NUEVA VIZCAYA" disabled />
                 </Form.Item>
               </div>
             </div>
@@ -1754,10 +1759,10 @@ export default function AdminResidentManagement() {
             {/* Step 3 - Other & Contact */}
             <div style={{ display: addStep === 2 ? "block" : "none" }}>
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-                <Input placeholder="e.g., Filipino" disabled />
+                <Input placeholder="e.g., FILIPINO" disabled />
               </Form.Item>
               
-              <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
+              <Form.Item name="occupation" label="Occupation" rules={[{ required: true, message: 'Occupation is required' }]}>
                 <Input placeholder="e.g., TEACHER, ENGINEER, FARMER" />
               </Form.Item>
               
@@ -1785,14 +1790,14 @@ export default function AdminResidentManagement() {
                 <Form.Item 
                   name={["contact", "mobile"]} 
                   label="Mobile Number" 
-                  rules={[{ type: "string", required: false }]}
+                  rules={[{ type: "string", required: false, pattern: /^09\d{9}$/, message: 'Please enter a valid mobile number' }]}
                 >
                   <Input placeholder="e.g., 09123456789" />
                 </Form.Item>
                 <Form.Item 
                   name={["contact", "email"]} 
                   label="Email" 
-                  rules={[{ type: "email", required: false }]}
+                  rules={[{ type: "email", required: false, message: 'Please enter a valid email address' }]}
                 > 
                   <Input placeholder="e.g., juan.delacruz@email.com" />
                 </Form.Item>
@@ -1842,6 +1847,14 @@ export default function AdminResidentManagement() {
             ),
           ]}
         >
+          <Alert
+            message="Edit Resident Information"
+            description="Update the resident's information across the three steps: Personal Information, Address, and Additional Info. Use the Next/Previous buttons to navigate between steps."
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          <div style={{ marginBottom: 16 }} />
           <Steps
             size="small"
             current={editStep}
@@ -1880,7 +1893,7 @@ export default function AdminResidentManagement() {
                     { pattern: /^[A-Za-z\s-]+$/, message: 'First name may contain letters, spaces, and hyphens (-)' }
                   ]}
                 >
-                  <Input />
+                  <Input placeholder="e.g., JUAN" />
                 </Form.Item>
                 <Form.Item 
                   name="lastName" 
@@ -1890,7 +1903,7 @@ export default function AdminResidentManagement() {
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Last name may contain letters, spaces, and hyphens (-)' }
                   ]}
                 >
-                  <Input />
+                  <Input placeholder="e.g., CRUZ" />
                 </Form.Item>
               </div>
               
@@ -1902,23 +1915,24 @@ export default function AdminResidentManagement() {
                     { pattern: /^[A-Za-z\s-]*$/, message: 'Middle name may contain letters, spaces, and hyphens (-)' }
                   ]}
                 >
-                  <Input />
+                  <Input placeholder="e.g., DELA" />
                 </Form.Item>
                 <Form.Item name="suffix" label="Suffix">
-                  <Input />
+                  <Input placeholder="e.g., Jr., Sr., III" />
                 </Form.Item>
               </div>
               
               <div className="form-row">
-                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true }]}>
+                <Form.Item name="dateOfBirth" label="Date of Birth" rules={[{ required: true, message: 'Date of Birth is required' }]}>
                   <DatePicker 
                     className="w-full" 
                     disabledDate={current => current && current > new Date()}
                     placeholder="Select date of birth"
                   />
                 </Form.Item>
-                <Form.Item name="sex" label="Sex" rules={[{ required: true }]}>
+                <Form.Item name="sex" label="Sex" rules={[{ required: true, message: 'Sex is required' }]}>
                   <Select
+                    placeholder="Select sex"
                     options={[
                       { value: "male", label: "Male" },
                       { value: "female", label: "Female" },
@@ -1927,13 +1941,14 @@ export default function AdminResidentManagement() {
                 </Form.Item>
               </div>
               
-              <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true }]}>
-                <Input />
+              <Form.Item name="birthPlace" label="Birth Place" rules={[{ required: true, message: 'Birth Place is required' }]}>
+                <Input placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA" />
               </Form.Item>
               
               <div className="form-row">
-                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true }]}>
+                <Form.Item name="civilStatus" label="Civil Status" rules={[{ required: true, message: 'Civil Status is required' }]}>
                   <Select
+                    placeholder="Select civil status"
                     options={[
                       { value: "single", label: "Single" },
                       { value: "married", label: "Married" },
@@ -1950,7 +1965,7 @@ export default function AdminResidentManagement() {
                     { pattern: /^[A-Za-z\s-]+$/, message: 'Religion may contain letters, spaces, and hyphens (-)' }
                   ]}
                 >
-                  <Input placeholder="e.g., Catholic, Protestant, Islam" />
+                  <Input placeholder="e.g., ROMAN CATHOLIC" />
                 </Form.Item>
               </div>
               
@@ -1962,14 +1977,15 @@ export default function AdminResidentManagement() {
                   { pattern: /^[A-Za-z\s-]+$/, message: 'Ethnicity may contain letters, spaces, and hyphens (-)' }
                 ]}
               >
-                <Input placeholder="e.g., Ilocano, Tagalog, Igorot" />
+                <Input placeholder="e.g., TAGALOG, ILOCANO, IGOROT" />
               </Form.Item>
             </div>
             
             {/* Step 2 - Address */}
             <div style={{ display: editStep === 1 ? "block" : "none" }}>
-              <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
+              <Form.Item name="purok" label="Purok" rules={[{ required: true, message: 'Purok is required' }]}>
                 <Select
+                  placeholder="Select purok"
                   options={[
                     { value: "Purok 1", label: "Purok 1" },
                     { value: "Purok 2", label: "Purok 2" },
@@ -1982,19 +1998,19 @@ export default function AdminResidentManagement() {
               
               <div className="form-row">
                 <Form.Item name={["address", "barangay"]} label="Barangay" rules={[{ required: true }]}>
-                  <Input disabled />
+                  <Input placeholder="La Torre North" disabled />
                 </Form.Item>
                 <Form.Item name={["address", "zipCode"]} label="ZIP Code">
-                  <Input disabled />
+                  <Input placeholder="3700" disabled />
                 </Form.Item>
               </div>
               
               <div className="form-row">
                 <Form.Item name={["address", "municipality"]} label="Municipality" rules={[{ required: true }]}>
-                  <Input disabled />
+                  <Input placeholder="Bayombong" disabled />
                 </Form.Item>
                 <Form.Item name={["address", "province"]} label="Province" rules={[{ required: true }]}>
-                  <Input disabled />
+                  <Input placeholder="Nueva Vizcaya" disabled />
                 </Form.Item>
               </div>
             </div>
@@ -2002,7 +2018,7 @@ export default function AdminResidentManagement() {
             {/* Step 3 - Other & Contact */}
             <div style={{ display: editStep === 2 ? "block" : "none" }}>
               <Form.Item name="citizenship" label="Citizenship" rules={[{ required: true }]}>
-                <Input disabled />
+                <Input placeholder="e.g., Filipino" disabled />
               </Form.Item>
               
               <Form.Item name="occupation" label="Occupation" rules={[{ required: true }]}>
@@ -2011,7 +2027,7 @@ export default function AdminResidentManagement() {
               
               <Form.Item name="sectoralInformation" label="Sectoral Information" rules={[{ required: false }]}>
                 <Select
-                  placeholder="Select sectoral information"
+                  placeholder="Select sectoral information (optional)"
                   options={SECTORAL_OPTIONS}
                   allowClear
                 />
@@ -2019,7 +2035,7 @@ export default function AdminResidentManagement() {
               
               <Form.Item name="employmentStatus" label="Employment Status" rules={[{ required: false }]}>
                 <Select
-                  placeholder="Select employment status"
+                  placeholder="Select employment status (optional)"
                   options={EMPLOYMENT_STATUS_OPTIONS}
                   allowClear
                 />
@@ -2035,14 +2051,14 @@ export default function AdminResidentManagement() {
                   label="Mobile Number" 
                   rules={[{ type: "string", required: false }]}
                 >
-                  <Input />
+                  <Input placeholder="e.g., 09123456789" />
                 </Form.Item>
                 <Form.Item 
                   name={["contact", "email"]} 
                   label="Email" 
                   rules={[{ type: "email", required: false }]}
                 > 
-                  <Input />
+                  <Input placeholder="e.g., juan.delacruz@email.com" />
                 </Form.Item>
               </div>
             </div>

@@ -45,6 +45,9 @@ async function register(req, res) {
     if (!username || !password) {
       return res.status(400).json({ message: 'username and password are required' });
     }
+    if (username.length < 6) {
+      return res.status(400).json({ message: 'Username must be at least 6 characters' });
+    }
     if (!firstName || !lastName || !dateOfBirth) {
       return res.status(400).json({ message: 'firstName, lastName, and dateOfBirth are required' });
     }

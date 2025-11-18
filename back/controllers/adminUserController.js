@@ -57,6 +57,9 @@ exports.create = async (req, res) => {
     if (!username || !password || !residentId || !role) {
       return res.status(400).json({ message: "username, password, residentId, and role are required" });
     }
+    if (username.length < 6) {
+      return res.status(400).json({ message: "Username must be at least 6 characters" });
+    }
 
     if (!["resident", "admin", "official"].includes(role)) {
       return res.status(400).json({ message: "Invalid role. Must be resident, admin, or official" });

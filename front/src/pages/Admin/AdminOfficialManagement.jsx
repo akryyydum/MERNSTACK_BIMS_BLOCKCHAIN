@@ -287,10 +287,11 @@ export default function AdminOfficialManagement() {
           <Button size="small" onClick={() => openEdit(o)}>Edit</Button>
           <Popconfirm
             title="Delete official?"
+            description="This action cannot be undone."
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(o._id)}
           >
-            <Button danger size="small">Del</Button>
+            <Button danger size="small">Delete</Button>
           </Popconfirm>
         </Space>
       ),
@@ -677,7 +678,7 @@ export default function AdminOfficialManagement() {
               name="position"
               label="Position"
               rules={[
-                { required: true, message: "Position is required" },
+                { required: true, message: "Please select a position" },
                 {
                   validator: async (_, value) => {
                     if (value) {
@@ -732,14 +733,14 @@ export default function AdminOfficialManagement() {
                 },
               ]}
             >
-              <Input placeholder="Optional" />
+              <Input placeholder="e.g., 09123456789" />
             </Form.Item>
             <Form.Item
               name="mobile"
               label="Mobile"
               rules={[]}
             >
-              <Input placeholder="Optional" />
+              <Input placeholder="e.g., juan.delacruz@email.com" />
             </Form.Item>
           </Form>
         </Modal>
@@ -776,8 +777,8 @@ export default function AdminOfficialManagement() {
           ]}
         >
           <Form form={editForm} layout="vertical">
-            <Form.Item name="fullName" label="Full Name" rules={[{ required: true }]}>
-              <Input />
+            <Form.Item name="fullName" label="Full Name" rules={[{ required: true, message: "Full Name is required" }]}> 
+              <Input disabled />
             </Form.Item>
             <Form.Item 
               name="position" 

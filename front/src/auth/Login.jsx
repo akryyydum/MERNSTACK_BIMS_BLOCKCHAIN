@@ -351,6 +351,7 @@ const Login = () => {
               name="username"
               rules={[
                 { required: true, message: "Please input your username!" },
+                { min: 6, message: "Username must be at least 6 characters" },
               ]}
               validateStatus={loginError ? "error" : ""}
             >
@@ -712,12 +713,12 @@ const Login = () => {
                     name="username"
                     rules={[
                       { required: true, message: "Username is required" },
-                      { min: 3, message: "At least 3 characters" },
+                      { min: 6, message: "Username must be at least 6 characters" },
                       { pattern: /^[a-zA-Z0-9._-]+$/, message: "Use letters, numbers, . _ -" },
                     ]}
                     className="mb-2"
                   >
-                    <Input size="middle" autoComplete="off" placeholder="e.g., juan.delacruz" />
+                    <Input size="middle" autoComplete="off" placeholder="e.g., juan.cruz (min. 6 characters)" />
                   </Form.Item>
 
                   <Form.Item label="Password" name="password" rules={[{ required: true, min: 6 }]} className="mb-2">

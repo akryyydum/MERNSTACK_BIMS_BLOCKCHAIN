@@ -800,11 +800,14 @@ export default function AdminUserManagement() {
             <Form.Item
               name="username"
               label="Username"
-              rules={[{ required: true, message: "Username is required" }]}
+              rules={[
+                { required: true, message: "Username is required" },
+                { min: 6, message: "Username must be at least 6 characters" },
+              ]}
             >
               <Input 
                 autoComplete="off" 
-                placeholder="Resident or Official username"
+                placeholder="Username (min. 6 characters)"
                 onChange={(e) => {
                   const username = e.target.value;
                   if (username) {
@@ -901,9 +904,12 @@ export default function AdminUserManagement() {
             <Form.Item
               name="username"
               label="Username"
-              rules={[{ required: true, message: "Username is required" }]}
+              rules={[
+                { required: true, message: "Username is required" },
+                { min: 6, message: "Username must be at least 6 characters" },
+              ]}
             >
-              <Input placeholder="Required, unique" />
+              <Input placeholder="Username (min. 6 characters)" />
             </Form.Item>
 
             <Form.Item label={<span>Password </span>} required>

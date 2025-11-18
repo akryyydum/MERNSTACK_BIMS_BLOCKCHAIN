@@ -585,40 +585,37 @@ export default function AdminDashboard() {
           {/* Total Residents */}
           <MetricCard
             icon={<TeamOutlined />}
-            title="Total Residents"
+            title={<span className="font-bold">Total Residents</span>}
             value={statsData.totalResidents.value}
             change={statsData.totalResidents.change}
             sinceLast={statsData.totalResidents.sinceLast}
             trendData={generateTrendData.residents}
             loading={residentsCardLoading}
           />
-          
           {/* Pending Document Requests */}
           <MetricCard
             icon={<FileProtectOutlined />}
-            title="Pending Document Requests"
+            title={<span className="font-bold">Pending Document Requests</span>}
             value={statsData.pendingRequests.value}
             change={statsData.pendingRequests.change}
             sinceLast={statsData.pendingRequests.sinceLast}
             trendData={generateTrendData.docRequests}
             loading={pendingCardLoading}
           />
-          
           {/* Total Financial Transactions */}
           <MetricCard
             icon={<DollarCircleOutlined />}
-            title="Total Financial Transactions"
+            title={<span className="font-bold">Total Financial Transactions</span>}
             value={statsData.totalTransactions.value}
             change={statsData.totalTransactions.change}
             sinceLast={statsData.totalTransactions.sinceLast}
             trendData={generateTrendData.revenue}
             loading={transactionsCardLoading}
           />
-          
           {/* Total Revenue */}
           <MetricCard
             icon={<DollarCircleOutlined />}
-            title="Total Revenue"
+            title={<span className="font-bold">Total Revenue</span>}
             value={statsData.totalRevenue.value}
             change={statsData.totalRevenue.change}
             sinceLast={statsData.totalRevenue.sinceLast}
@@ -635,7 +632,7 @@ export default function AdminDashboard() {
               <CardContent className="p-6">
                 <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Total Request Trend</h3>
+                    <h3 className="text-lg font-bold text-gray-900"><span className="font-bold">Total Request Trend</span></h3>
                     <p className="text-sm text-gray-500">
                       {requestTrendPeriod === '7days' ? 'Document requests and complaints in the last 7 days' :
                       'Document requests and complaints from January to December'}
@@ -730,7 +727,7 @@ export default function AdminDashboard() {
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Male and Female Residents</h3>
+                  <h3 className="text-lg font-bold text-gray-900"> <span className="font-bold">Male and Female Residents</span></h3>
                   <p className="text-sm text-gray-500">Gender distribution of registered residents</p>
                 </div>
                 
@@ -793,7 +790,7 @@ export default function AdminDashboard() {
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <CardContent className="p-6">
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900">Purok Distribution</h3>
+                  <h3 className="text-lg font-bold text-gray-900"><span className="font-bold">Purok Distribution</span></h3>
                   <p className="text-sm text-gray-500">Residents by purok area</p>
                 </div>
                 
@@ -858,7 +855,7 @@ export default function AdminDashboard() {
               <CardContent className="p-6">
                 <div className="mb-4">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <CloudServerOutlined /> Blockchain Network Status
+                    <CloudServerOutlined /> <span className="font-bold">Blockchain Network Status</span>
                   </h3>
                 </div>
               

@@ -97,9 +97,10 @@ export default function HouseholdManagement() {
       setLoading(true);
       const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
       console.log("Households response:", res.data);
-      
       // Handle both array and object responses
-      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      let data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      // Sort so the most recently added household appears first (assuming last in array is newest)
+      data = [...data].reverse();
       setHouseholds(data);
       setCurrentPage(1); // Reset to first page when data is refreshed
     } catch (err) {
@@ -776,7 +777,7 @@ export default function HouseholdManagement() {
                   setAddOpen(true);
                 }}
               >
-                Add Household
+                + Add Household
               </Button>
               <Button 
                 onClick={() => setExportOpen(true)}
@@ -795,7 +796,7 @@ export default function HouseholdManagement() {
               {selectedRowKeys.length > 0 && (
                 <>
                   <Button onClick={handleClearSelection}>
-                    Clear Selection
+                    Undo Selection
                   </Button>
                   <Popconfirm
                     title={`Delete ${selectedRowKeys.length} household(s)?`}
@@ -848,7 +849,7 @@ export default function HouseholdManagement() {
                 total: filteredHouseholds.length,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} households`,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
               }}
               onChange={handleTableChange}
@@ -881,7 +882,7 @@ export default function HouseholdManagement() {
           <div style={{ marginBottom: 16 }} />
           <Form form={addForm} layout="vertical">
             {/* Head of Household (only unassigned residents) */}
-            <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true }]}>
+            <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true, message: 'Please select the head of household' }]}>
               <Select
                 options={addHeadOptions}
                 showSearch
@@ -901,7 +902,7 @@ export default function HouseholdManagement() {
             </Form.Item>
 
             {/* Members (exclude already assigned and the selected head) */}
-            <Form.Item name="members" label="Household Members" rules={[{ required: true }]}>
+            <Form.Item name="members" label="Household Members" rules={[{ required: true, message: 'Please select at least one member' }]}>
               <Select
                 mode="multiple"
                 options={addMemberOptions}
@@ -912,7 +913,7 @@ export default function HouseholdManagement() {
               />
             </Form.Item>
 
-            <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true }]}>
+            <Form.Item name={["address", "purok"]} label="Purok" rules={[{ required: true, message: 'Please select the purok' }]}>
               <Select
                 options={[
                   { value: "Purok 1", label: "Purok 1" },
@@ -921,6 +922,7 @@ export default function HouseholdManagement() {
                   { value: "Purok 4", label: "Purok 4" },
                   { value: "Purok 5", label: "Purok 5" },
                 ]}
+                placeholder="Select purok number"
               />
             </Form.Item>
 
@@ -940,7 +942,7 @@ export default function HouseholdManagement() {
               ]}
             >
               <Input
-                placeholder="e.g., Sari-sari store, Restaurant, etc."
+                placeholder="e.g., Sari-Sari store, Restaurant, etc."
                 disabled={!Form.useWatch('hasBusiness', addForm)}
               />
             </Form.Item>
