@@ -301,6 +301,7 @@ export default function AdminOfficialManagement() {
           <Popconfirm
             title="Delete official?"
             description="This action cannot be undone."
+            okText="Delete"
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(o._id)}
           >
@@ -520,7 +521,16 @@ export default function AdminOfficialManagement() {
               className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
             />
             </div>
-            <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-wrap gap-2 items-center">
+                <Button 
+                  type="primary" 
+                  onClick={() => setAddOpen(true)}
+                  disabled={getAvailableResidents().length === 0}
+                  title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
+                >
+                  + Add Official
+                </Button>
               <Button 
                 icon={<ReloadOutlined />}
                 onClick={async () => {
@@ -534,15 +544,6 @@ export default function AdminOfficialManagement() {
               >
                 Refresh
               </Button>
-              <div className="flex flex-col items-end gap-1">
-                <Button 
-                  type="primary" 
-                  onClick={() => setAddOpen(true)}
-                  disabled={getAvailableResidents().length === 0}
-                  title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
-                >
-                  + Add Official
-                </Button>
                 {getAvailableResidents().length === 0 && (
                   <span className="text-xs text-gray-500">
                     All residents are already officials
