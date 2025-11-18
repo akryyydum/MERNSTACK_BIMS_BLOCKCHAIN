@@ -107,27 +107,44 @@ export default function AdminDocumentRequests() {
     })();
   }, []);
 
-  // Validate export data availability when modal opens
-  useEffect(() => {
+  // Validate export data availability when modal opens or form changes
+  const validateExportData = () => {
     if (!exportOpen) return;
 
-    const validateExportData = () => {
-      const formValues = exportForm.getFieldsValue();
-      const { docTypeFilter, purokFilter } = formValues;
+    const formValues = exportForm.getFieldsValue();
+    const { docTypeFilter, purokFilter, rangeType, period } = formValues;
 
-      let filtered = requests;
-      if (docTypeFilter && docTypeFilter !== 'all') {
-        filtered = filtered.filter(r => r.documentType === docTypeFilter);
+    let filtered = requests || [];
+    
+    // Apply date range filter
+    if (rangeType && period) {
+      try {
+        const { start, end } = getRange(rangeType, period);
+        filtered = filtered.filter(r => {
+          const t = dayjs(r.requestedAt).valueOf();
+          return t >= start.valueOf() && t <= end.valueOf();
+        });
+      } catch (e) {
+        console.log('Date range filter error:', e);
       }
-      if (purokFilter && purokFilter !== 'all') {
-        filtered = filtered.filter(r => r.requestedBy?.address?.purok === purokFilter);
-      }
+    }
+    
+    // Apply document type filter
+    if (docTypeFilter && docTypeFilter !== 'all') {
+      filtered = filtered.filter(r => r.documentType === docTypeFilter);
+    }
+    
+    // Apply purok filter
+    if (purokFilter && purokFilter !== 'all') {
+      filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === purokFilter.toString());
+    }
 
-      setExportHasData(filtered.length > 0);
-    };
+    setExportHasData(filtered.length > 0);
+  };
 
+  useEffect(() => {
     validateExportData();
-  }, [exportOpen, requests, exportForm]);
+  }, [exportOpen, requests]);
 
   // Helper: newest first
   const sortByNewest = (arr) =>
@@ -937,7 +954,11 @@ const handleExport = async () => {
       }
 
       if (!filtered.length) {
-        message.warning("No requests found for the selected filters.");
+        Modal.warning({
+          title: 'No Data Available',
+          content: 'There are no document requests matching your selected filters to export. Please adjust your filter criteria and try again.',
+          okText: 'OK'
+        });
         return;
       }
 
@@ -1580,36 +1601,14 @@ const handleExport = async () => {
           okButtonProps={{ disabled: !exportHasData }}
           width={420}
         >
-          <Form form={exportForm} layout="vertical" initialValues={{ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() }}>
+          <Form 
+            form={exportForm} 
+            layout="vertical" 
+            initialValues={{ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() }}
+            onValuesChange={validateExportData}
+          >
             <Form.Item name="reportType" label="Report Type" rules={[{ required: true }]}>
               <Select
-                onChange={() => {
-                  const formValues = exportForm.getFieldsValue();
-                  const { docTypeFilter, purokFilter, rangeType, period } = formValues;
-                  
-                  let filtered = requests;
-                  
-                  // Apply date range filter if period is set
-                  if (rangeType && period) {
-                    const { start, end } = getRange(rangeType, period);
-                    filtered = filtered.filter(r => {
-                      const t = dayjs(r.requestedAt).valueOf();
-                      return t >= start.valueOf() && t <= end.valueOf();
-                    });
-                  }
-                  
-                  // Apply document type filter
-                  if (docTypeFilter && docTypeFilter !== 'all') {
-                    filtered = filtered.filter(r => r.documentType === docTypeFilter);
-                  }
-                  
-                  // Apply purok filter
-                  if (purokFilter && purokFilter !== 'all') {
-                    filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === purokFilter.toString());
-                  }
-                  
-                  setExportHasData(filtered.length > 0);
-                }}
                 options={[
                   { value: 'detailed', label: 'Detailed Rows' },
                   { value: 'top_requesters', label: 'Top Requesters (Most Requests)' },
@@ -1618,33 +1617,6 @@ const handleExport = async () => {
             </Form.Item>
             <Form.Item name="docTypeFilter" label="Document Type">
               <Select
-                onChange={(value) => {
-                  const formValues = exportForm.getFieldsValue();
-                  const { purokFilter, rangeType, period } = formValues;
-                  
-                  let filtered = requests;
-                  
-                  // Apply date range filter if period is set
-                  if (rangeType && period) {
-                    const { start, end } = getRange(rangeType, period);
-                    filtered = filtered.filter(r => {
-                      const t = dayjs(r.requestedAt).valueOf();
-                      return t >= start.valueOf() && t <= end.valueOf();
-                    });
-                  }
-                  
-                  // Apply document type filter
-                  if (value && value !== 'all') {
-                    filtered = filtered.filter(r => r.documentType === value);
-                  }
-                  
-                  // Apply purok filter
-                  if (purokFilter && purokFilter !== 'all') {
-                    filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === purokFilter.toString());
-                  }
-                  
-                  setExportHasData(filtered.length > 0);
-                }}
                 options={[
                   { value: 'all', label: 'All' },
                   { value: 'Certificate of Indigency', label: 'Certificate of Indigency' },
@@ -1657,33 +1629,6 @@ const handleExport = async () => {
               <Select
                 showSearch
                 optionFilterProp="label"
-                onChange={(value) => {
-                  const formValues = exportForm.getFieldsValue();
-                  const { docTypeFilter, rangeType, period } = formValues;
-                  
-                  let filtered = requests;
-                  
-                  // Apply date range filter if period is set
-                  if (rangeType && period) {
-                    const { start, end } = getRange(rangeType, period);
-                    filtered = filtered.filter(r => {
-                      const t = dayjs(r.requestedAt).valueOf();
-                      return t >= start.valueOf() && t <= end.valueOf();
-                    });
-                  }
-                  
-                  // Apply document type filter
-                  if (docTypeFilter && docTypeFilter !== 'all') {
-                    filtered = filtered.filter(r => r.documentType === docTypeFilter);
-                  }
-                  
-                  // Apply purok filter
-                  if (value && value !== 'all') {
-                    filtered = filtered.filter(r => (r?.residentId?.address?.purok || '').toString() === value.toString());
-                  }
-                  
-                  setExportHasData(filtered.length > 0);
-                }}
                 options={[
                   { value: 'all', label: 'All' },
                   ...uniquePuroks.map((p) => ({ value: p, label: String(p) })),

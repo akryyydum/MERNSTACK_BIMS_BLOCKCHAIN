@@ -87,24 +87,59 @@ export default function AdminFinancialReports() {
     setCurrentPage(1);
   }, [search, feeTypeFilter]);
 
-  // Validate export data availability when modal opens
-  useEffect(() => {
+  // Validate export data availability when modal opens or form changes
+  const validateExportData = () => {
     if (!exportOpen) return;
 
-    const validateExportData = () => {
-      const formValues = exportForm.getFieldsValue();
-      const { exportTypes, months } = formValues;
+    const formValues = exportForm.getFieldsValue();
+    const { exportTypes, months, documentTypes, year } = formValues;
 
-      // Check if there are any transactions matching the filters
-      if (transactions && transactions.length > 0) {
-        setExportHasData(true);
-      } else {
-        setExportHasData(false);
-      }
-    };
+    let filteredData = transactions || [];
+    
+    // Filter by transaction types
+    if (exportTypes && exportTypes.length > 0 && !exportTypes.includes('all')) {
+      filteredData = filteredData.filter(t => {
+        return exportTypes.some(exportType => {
+          if (exportType === 'garbage_fees') return t.type === 'garbage_fee';
+          if (exportType === 'streetlight_fees') return t.type === 'streetlight_fee';
+          if (exportType === 'document_request_fees') {
+            if (documentTypes && documentTypes.length > 0) {
+              return t.type === 'document_request' && documentTypes.some(docType => {
+                const desc = t.description?.toLowerCase() || '';
+                if (docType === 'certificate_of_indigency') return desc.includes('indigency');
+                if (docType === 'barangay_clearance') return desc.includes('barangay clearance');
+                if (docType === 'business_clearance') return desc.includes('business clearance');
+                return false;
+              });
+            }
+            return t.type === 'document_request';
+          }
+          return false;
+        });
+      });
+    }
+    
+    // Filter by year and months
+    if (months && months.length > 0 && !months.includes('all')) {
+      // Specific months selected
+      filteredData = filteredData.filter(t => {
+        const transactionMonth = dayjs(t.transactionDate).format('YYYY-MM');
+        return months.includes(transactionMonth);
+      });
+    } else if (year) {
+      // All months selected, but filter by year
+      filteredData = filteredData.filter(t => {
+        const transactionYear = dayjs(t.transactionDate).year();
+        return transactionYear === year;
+      });
+    }
 
+    setExportHasData(filteredData.length > 0);
+  };
+
+  useEffect(() => {
     validateExportData();
-  }, [exportOpen, transactions, exportForm]);
+  }, [exportOpen, transactions]);
 
   // Helper function for auth headers
   const authHeaders = () => {
@@ -209,7 +244,7 @@ export default function AdminFinancialReports() {
       
       // Get form values
       const values = await exportForm.validateFields();
-      const { exportTypes, months, documentTypes } = values;
+      const { exportTypes, months, documentTypes, year } = values;
       
       // Filter transactions based on selected fee types (multiple)
       let filteredData = transactions;
@@ -247,16 +282,27 @@ export default function AdminFinancialReports() {
         });
       }
       
-      // Filter by months (skip if "all" is selected)
+      // Filter by year and months
       if (months && months.length > 0 && !months.includes('all')) {
+        // Specific months selected
         filteredData = filteredData.filter(t => {
           const transactionMonth = dayjs(t.transactionDate).format('YYYY-MM');
           return months.includes(transactionMonth);
         });
+      } else if (year) {
+        // All months selected, but filter by year
+        filteredData = filteredData.filter(t => {
+          const transactionYear = dayjs(t.transactionDate).year();
+          return transactionYear === year;
+        });
       }
       
       if (filteredData.length === 0) {
-        message.warning('No transactions found with the selected filters');
+        Modal.warning({
+          title: 'No Data Available',
+          content: 'There are no transactions matching your selected filters to export. Please adjust your filter criteria and try again.',
+          okText: 'OK'
+        });
         setExporting(false);
         return;
       }
@@ -893,6 +939,7 @@ export default function AdminFinancialReports() {
               year: dayjs().year(),
               months: ['all']
             }}
+            onValuesChange={validateExportData}
           >
             <Form.Item 
               name="exportTypes" 
