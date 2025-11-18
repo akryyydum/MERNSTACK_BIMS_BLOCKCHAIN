@@ -182,8 +182,17 @@ export default function AdminFinancialReports() {
     try {
       setCreating(true);
       const values = await createForm.validateFields();
-      
-      await axios.post(`${API_BASE}/api/admin/financial/transactions`, values, {
+
+      const payload = { ...values };
+      // If Others selected, keep type='other' and fold custom type into description
+      if (payload.type === 'other' && payload.customType) {
+        const baseDesc = payload.description || '';
+        payload.description = `${payload.customType}${baseDesc ? ` - ${baseDesc}` : ''}`;
+      }
+      // Remove helper field if present
+      delete payload.customType;
+
+      await axios.post(`${API_BASE}/api/admin/financial/transactions`, payload, {
         headers: authHeaders()
       });
       
@@ -543,7 +552,8 @@ export default function AdminFinancialReports() {
       type: record.type,
       description: record.description,
       amount: record.amount,
-      paymentMethod: record.paymentMethod || 'Cash',
+      paymentMethod: (record.paymentMethod || 'cash').toLowerCase(),
+      category: record.category || 'revenue',
       referenceNumber: record.referenceNumber
     });
     setEditOpen(true);
@@ -627,7 +637,6 @@ export default function AdminFinancialReports() {
         { text: 'Garbage Fee', value: 'garbage_fee' },
         { text: 'Streetlight Fee', value: 'streetlight_fee' },
         { text: 'Document Request', value: 'document_request' },
-        { text: 'Document Fee', value: 'document_fee' },
       ],
       onFilter: (value, record) => record.type === value,
     },
@@ -879,7 +888,6 @@ export default function AdminFinancialReports() {
                 style={{ width: 200 }}
                 options={[
                   { label: 'Document Request', value: 'document_request' },
-                  { label: 'Document Fee', value: 'document_fee' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
                   { label: 'Streetlight Fee', value: 'streetlight_fee' },
                 ]}
@@ -1150,14 +1158,40 @@ export default function AdminFinancialReports() {
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
-          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash' }}>
+          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'cash', category: 'revenue' }}>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
-                  <Select>
+                <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}> 
+                  <Select
+                    onChange={(val) => {
+                      // Reset custom type when changing away from 'other'
+                      if (val !== 'other') {
+                        createForm.setFieldsValue({ customType: undefined });
+                      }
+                    }}
+                  >
                     <Select.Option value="document_fee">Document Fee</Select.Option>
-                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
+                    <Select.Option value="permit_fee">Permit Fee</Select.Option>
+                    <Select.Option value="other">Others</Select.Option>
+                  </Select>
+                </Form.Item>
+                {/* Custom type prompt when selecting Others */}
+                {createForm.getFieldValue('type') === 'other' && (
+                  <Form.Item
+                    name="customType"
+                    label="Specify Transaction Type"
+                    rules={[{ required: true, message: 'Please specify the transaction type' }]}
+                  >
+                    <Input placeholder="e.g., Donation, Sponsorship, Miscellaneous" />
+                  </Form.Item>
+                )}
+              </Col>
+              <Col span={12}>
+                <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
+                  <Select>
+                    <Select.Option value="revenue">Revenue</Select.Option>
+                    <Select.Option value="expense">Expense</Select.Option>
+                    <Select.Option value="allocation">Allocation</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
@@ -1209,13 +1243,18 @@ export default function AdminFinancialReports() {
             </Form.Item>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
-                  <Input type="number" prefix="₱" />
+                <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Please enter the amount' }]}> 
+                  <Input type="number" min={0} step={0.01} prefix="₱" />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="paymentMethod" label="Payment Method">
-                  <Input value="Cash" disabled />
+                <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
+                  <Select>
+                    <Select.Option value="cash">Cash</Select.Option>
+                    <Select.Option value="gcash">GCash</Select.Option>
+                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
+                    <Select.Option value="other">Other</Select.Option>
+                  </Select>
                 </Form.Item>
               </Col>
             </Row>
@@ -1274,13 +1313,26 @@ export default function AdminFinancialReports() {
           width={700}
         >
           <Form form={editForm} layout="vertical">
-            <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}>
-              <Select>
-                <Select.Option value="document_fee">Document Fee</Select.Option>
-                <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
-              </Select>
-            </Form.Item>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="type" label="Transaction Type" rules={[{ required: true }]}> 
+                  <Select>
+                    <Select.Option value="document_fee">Document Fee</Select.Option>
+                    <Select.Option value="permit_fee">Permit Fee</Select.Option>
+                    <Select.Option value="other">Others</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="category" label="Category" rules={[{ required: true }]}>
+                  <Select>
+                    <Select.Option value="revenue">Revenue</Select.Option>
+                    <Select.Option value="expense">Expense</Select.Option>
+                    <Select.Option value="allocation">Allocation</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
             
             <Row gutter={16}>
               <Col span={12}>
@@ -1329,12 +1381,17 @@ export default function AdminFinancialReports() {
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
-                  <Input type="number" prefix="₱" />
+                  <Input type="number" min={0} step={0.01} prefix="₱" />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="paymentMethod" label="Payment Method">
-                  <Input value="Cash" disabled />
+                <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}> 
+                  <Select>
+                    <Select.Option value="cash">Cash</Select.Option>
+                    <Select.Option value="gcash">GCash</Select.Option>
+                    <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
+                    <Select.Option value="other">Other</Select.Option>
+                  </Select>
                 </Form.Item>
               </Col>
             </Row>

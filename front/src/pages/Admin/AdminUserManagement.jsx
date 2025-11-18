@@ -784,7 +784,7 @@ export default function AdminUserManagement() {
               name="role"
               label="Role"
               rules={[{ required: true, message: "Role is required" }]}
-              initialValue="official"
+              initialValue="resident"
             >
               <Select
                 options={[

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Table,
   Input,
@@ -15,7 +15,7 @@ import {
   Alert,
 } from "antd";
 import { AdminLayout } from "./AdminSidebar";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 
@@ -71,6 +71,19 @@ export default function AdminOfficialManagement() {
   useEffect(() => { 
     fetchOfficials(); 
     fetchResidents();
+  }, []);
+  
+  // Refresh data when page becomes visible (user switches back to tab/page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchResidents();
+        fetchOfficials();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
   
   // Reset to page 1 when search changes
@@ -231,8 +244,8 @@ export default function AdminOfficialManagement() {
     return availableResidents;
   };
 
-  // Columns
-  const columns = [
+  // Columns (memoized to re-render when residents data changes)
+  const columns = useMemo(() => [
     { 
       title: "Full Name", 
       dataIndex: "fullName", 
@@ -297,7 +310,7 @@ export default function AdminOfficialManagement() {
       ),
       responsive: ['xs','sm','md','lg']
     }
-  ];
+  ], [residents]); // Re-create columns when residents data changes
 
   const filteredOfficials = (Array.isArray(officials) ? officials : []).filter(o =>
     [o.fullName, o.position, o.contact?.email || o.email, o.contact?.mobile || o.mobile]
@@ -387,7 +400,9 @@ export default function AdminOfficialManagement() {
       });
       if (!res.ok) throw new Error((await res.json()).message || "Failed to update official");
       message.success("Official updated!");
-      setEditOpen(false); fetchOfficials();
+      setEditOpen(false); 
+      await fetchOfficials();
+      await fetchResidents();
     } catch (err) { message.error(err?.message || "Failed to update official"); }
     setEditing(false);
   };
@@ -505,20 +520,35 @@ export default function AdminOfficialManagement() {
               className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
             />
             </div>
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-wrap gap-2 items-center">
               <Button 
-                type="primary" 
-                onClick={() => setAddOpen(true)}
-                disabled={getAvailableResidents().length === 0}
-                title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
+                icon={<ReloadOutlined />}
+                onClick={async () => {
+                  setLoading(true);
+                  await fetchResidents();
+                  await fetchOfficials();
+                  message.success('Data refreshed');
+                  setLoading(false);
+                }}
+                title="Refresh data"
               >
-                + Add Official
+                Refresh
               </Button>
-              {getAvailableResidents().length === 0 && (
-                <span className="text-xs text-gray-500">
-                  All residents are already officials
-                </span>
-              )}
+              <div className="flex flex-col items-end gap-1">
+                <Button 
+                  type="primary" 
+                  onClick={() => setAddOpen(true)}
+                  disabled={getAvailableResidents().length === 0}
+                  title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
+                >
+                  + Add Official
+                </Button>
+                {getAvailableResidents().length === 0 && (
+                  <span className="text-xs text-gray-500">
+                    All residents are already officials
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
