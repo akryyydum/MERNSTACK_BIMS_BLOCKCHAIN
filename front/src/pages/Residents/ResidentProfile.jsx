@@ -101,26 +101,49 @@ const ResidentProfile = () => {
 
   // Validation function for fields that should not contain numbers or special characters
   const isAlphaOnly = (value) => {
-    // Allow spaces and letters only
-    return /^[A-Za-z\s]+$/.test(value || '');
+    // Allow spaces, letters, and hyphens (-)
+    return /^[A-Za-z\s-]+$/.test(value || '');
+  };
+
+  // Validation function for username
+  const isValidUsername = (value) => {
+    // Allow letters, numbers, dots, underscores, and hyphens
+    return /^[a-zA-Z0-9._-]+$/.test(value || '');
   };
 
   const handleSave = async () => {
-    // Validate name fields before saving (only firstName, middleName, lastName should be alphabetic)
+    // Validate name fields before saving
     const fieldsToValidate = [
-      { key: 'firstName', label: 'First Name', value: editedProfile?.firstName },
-      { key: 'middleName', label: 'Middle Name', value: editedProfile?.middleName },
-      { key: 'lastName', label: 'Last Name', value: editedProfile?.lastName },
+      { key: 'firstName', label: 'First Name', value: editedProfile?.firstName, required: true },
+      { key: 'middleName', label: 'Middle Name', value: editedProfile?.middleName, required: false },
+      { key: 'lastName', label: 'Last Name', value: editedProfile?.lastName, required: true },
+      { key: 'religion', label: 'Religion', value: editedProfile?.religion, required: false },
+      { key: 'ethnicity', label: 'Ethnicity', value: editedProfile?.ethnicity, required: false },
     ];
     const newFieldErrors = {};
+    
+    // Validate name, religion, and ethnicity fields (alphabetic with spaces and hyphens)
     for (const field of fieldsToValidate) {
-      if (field.value && !isAlphaOnly(field.value)) {
-        newFieldErrors[field.key] = `${field.label} should not contain numbers or special characters`;
+      if (field.required && (!field.value || field.value.trim() === '')) {
+        newFieldErrors[field.key] = `${field.label} is required`;
+      } else if (field.value && !isAlphaOnly(field.value)) {
+        newFieldErrors[field.key] = `${field.label} may contain letters, spaces, and hyphens (-) only`;
       }
     }
+    
+    // Validate username
+    const username = editedProfile?.user?.username;
+    if (!username || username.trim() === '') {
+      newFieldErrors['username'] = 'Username is required';
+    } else if (username.length < 6) {
+      newFieldErrors['username'] = 'Username must be at least 6 characters';
+    } else if (!isValidUsername(username)) {
+      newFieldErrors['username'] = 'Username may contain letters, numbers, . _ - only';
+    }
+    
     setFieldErrors(newFieldErrors);
     if (Object.keys(newFieldErrors).length > 0) {
-      message.error('Please correct the highlighted errors.');
+      message.error('Please correct the highlighted errors before saving.');
       return;
     }
 
@@ -225,8 +248,37 @@ const ResidentProfile = () => {
       ...prev,
       [field]: value
     }));
-    // Clear error for this field on change
-    setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+    
+    // Real-time validation
+    const newFieldErrors = { ...fieldErrors };
+    
+    // Validate name fields (firstName, lastName, middleName)
+    if (['firstName', 'lastName'].includes(field)) {
+      if (!value || value.trim() === '') {
+        newFieldErrors[field] = `${field === 'firstName' ? 'First Name' : 'Last Name'} is required`;
+      } else if (!isAlphaOnly(value)) {
+        newFieldErrors[field] = `${field === 'firstName' ? 'First Name' : 'Last Name'} may contain letters, spaces, and hyphens (-) only`;
+      } else {
+        delete newFieldErrors[field];
+      }
+    } else if (field === 'middleName') {
+      if (value && !isAlphaOnly(value)) {
+        newFieldErrors[field] = 'Middle Name may contain letters, spaces, and hyphens (-) only';
+      } else {
+        delete newFieldErrors[field];
+      }
+    }
+    
+    // Validate religion and ethnicity (optional but must be alphabetic if provided)
+    if (['religion', 'ethnicity'].includes(field)) {
+      if (value && !isAlphaOnly(value)) {
+        newFieldErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} may contain letters, spaces, and hyphens (-) only`;
+      } else {
+        delete newFieldErrors[field];
+      }
+    }
+    
+    setFieldErrors(newFieldErrors);
   };
 
   const handleAddressChange = (field, value) => {
@@ -248,18 +300,35 @@ const ResidentProfile = () => {
       }
     }));
 
-    // Check for duplicate username
-    if (field === 'username' && value && value.trim()) {
-      const duplicate = allUsers.find(u => 
-        u._id !== profile.user?._id && 
-        u.username?.toLowerCase() === value.trim().toLowerCase()
-      );
-      setUsernameTaken(!!duplicate);
-      if (duplicate) {
-        message.warning('This username is already taken.');
+    // Real-time validation for username
+    if (field === 'username') {
+      const newFieldErrors = { ...fieldErrors };
+      
+      if (!value || value.trim() === '') {
+        newFieldErrors['username'] = 'Username is required';
+      } else if (value.length < 6) {
+        newFieldErrors['username'] = 'Username must be at least 6 characters';
+      } else if (!isValidUsername(value)) {
+        newFieldErrors['username'] = 'Username may contain letters, numbers, . _ - only';
+      } else {
+        delete newFieldErrors['username'];
       }
-    } else if (field === 'username') {
-      setUsernameTaken(false);
+      
+      setFieldErrors(newFieldErrors);
+      
+      // Check for duplicate username
+      if (value && value.trim()) {
+        const duplicate = allUsers.find(u => 
+          u._id !== profile.user?._id && 
+          u.username?.toLowerCase() === value.trim().toLowerCase()
+        );
+        setUsernameTaken(!!duplicate);
+        if (duplicate) {
+          message.warning('This username is already taken.');
+        }
+      } else {
+        setUsernameTaken(false);
+      }
     }
   };
 
@@ -463,9 +532,11 @@ const ResidentProfile = () => {
                       <Input 
                         value={editedProfile?.firstName} 
                         onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        status={fieldErrors.firstName ? 'error' : ''}
+                        placeholder="e.g., JUAN"
                       />
                       {fieldErrors.firstName && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.firstName}</div>
+                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.firstName}</div>
                       )}
                     </>
                   ) : (profile.firstName || 'N/A')}
@@ -476,9 +547,11 @@ const ResidentProfile = () => {
                       <Input 
                         value={editedProfile?.middleName} 
                         onChange={(e) => handleInputChange('middleName', e.target.value)}
+                        status={fieldErrors.middleName ? 'error' : ''}
+                        placeholder="e.g., DELA"
                       />
                       {fieldErrors.middleName && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.middleName}</div>
+                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.middleName}</div>
                       )}
                     </>
                   ) : (profile.middleName || 'N/A')}
@@ -489,9 +562,11 @@ const ResidentProfile = () => {
                       <Input 
                         value={editedProfile?.lastName} 
                         onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        status={fieldErrors.lastName ? 'error' : ''}
+                        placeholder="e.g., CRUZ"
                       />
                       {fieldErrors.lastName && (
-                        <div style={{ color: 'red', fontSize: 12 }}>{fieldErrors.lastName}</div>
+                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.lastName}</div>
                       )}
                     </>
                   ) : (profile.lastName || 'N/A')}
@@ -520,6 +595,7 @@ const ResidentProfile = () => {
                     <Input 
                       value={editedProfile?.birthPlace} 
                       onChange={(e) => handleInputChange('birthPlace', e.target.value)}
+                      placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA"
                     />
                   ) : (profile.birthPlace || 'N/A')}
                 </Descriptions.Item>
@@ -551,18 +627,32 @@ const ResidentProfile = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Religion">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.religion} 
-                      onChange={(e) => handleInputChange('religion', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.religion} 
+                        onChange={(e) => handleInputChange('religion', e.target.value)}
+                        status={fieldErrors.religion ? 'error' : ''}
+                        placeholder="e.g., ROMAN CATHOLIC"
+                      />
+                      {fieldErrors.religion && (
+                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.religion}</div>
+                      )}
+                    </>
                   ) : (profile.religion || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Ethnicity">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.ethnicity} 
-                      onChange={(e) => handleInputChange('ethnicity', e.target.value)}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.ethnicity} 
+                        onChange={(e) => handleInputChange('ethnicity', e.target.value)}
+                        status={fieldErrors.ethnicity ? 'error' : ''}
+                        placeholder="e.g., ILOCANO, TAGALOG, IGOROT"
+                      />
+                      {fieldErrors.ethnicity && (
+                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.ethnicity}</div>
+                      )}
+                    </>
                   ) : (profile.ethnicity || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Citizenship">
@@ -578,6 +668,7 @@ const ResidentProfile = () => {
                     <Input 
                       value={editedProfile?.occupation} 
                       onChange={(e) => handleInputChange('occupation', e.target.value)}
+                      placeholder="e.g., TEACHER, ENGINEER, FARMER"
                     />
                   ) : (profile.occupation || 'N/A')}
                 </Descriptions.Item>
@@ -726,12 +817,17 @@ const ResidentProfile = () => {
               <Descriptions column={1} size="middle" bordered>
                 <Descriptions.Item label="Username">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.user?.username} 
-                      onChange={(e) => handleUserChange('username', e.target.value)}
-                      placeholder="Enter username (min. 6 characters)"
-                      status={usernameTaken ? 'error' : ''}
-                    />
+                    <>
+                      <Input 
+                        value={editedProfile?.user?.username} 
+                        onChange={(e) => handleUserChange('username', e.target.value)}
+                        placeholder="e.g., juan.cruz (min. 6 characters)"
+                        status={usernameTaken || fieldErrors.username ? 'error' : ''}
+                      />
+                      {fieldErrors.username && (
+                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.username}</div>
+                      )}
+                    </>
                   ) : (profile.user?.username || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Role">
