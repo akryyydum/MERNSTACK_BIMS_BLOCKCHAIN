@@ -64,6 +64,9 @@ export default function AdminDocumentRequests() {
   const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
   const [exportHasData, setExportHasData] = useState(true);
 
+  // Dynamic settings for document fees
+  const [settings, setSettings] = useState(null);
+
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('documentRequestColumnsVisibility');
@@ -92,6 +95,16 @@ export default function AdminDocumentRequests() {
     fetchResidents();
     fetchHouseholds();
     fetchCaptain();
+    // Fetch settings (admin endpoint)
+    (async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/settings`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setSettings(res.data || null);
+      } catch (_) {}
+    })();
   }, []);
 
   // Validate export data availability when modal opens
@@ -1306,9 +1319,11 @@ const handleExport = async () => {
               const values = await createForm.validateFields();
               
               // Calculate amount based on document type for admin requests
+              const indigencyFee = settings?.documentFees?.indigency ?? 0;
+              const clearanceFee = settings?.documentFees?.barangayClearance ?? 100;
               let amount = 0;
-              if (values.documentType === 'Certificate of Indigency') amount = 0;
-              else if (values.documentType === 'Barangay Clearance') amount = 100;
+              if (values.documentType === 'Certificate of Indigency') amount = Number(indigencyFee) || 0;
+              else if (values.documentType === 'Barangay Clearance') amount = Number(clearanceFee) || 0;
               else if (values.documentType === 'Business Clearance') amount = 0; // Set by admin later
               
               const payload = {
@@ -1425,9 +1440,9 @@ const handleExport = async () => {
               <Alert
                 message={
                   selectedCreateDocType === 'Certificate of Indigency' 
-                    ? 'Amount: ₱0.00 (Free)' 
+                    ? `Amount: ₱${Number(settings?.documentFees?.indigency ?? 0).toFixed(2)}` 
                     : selectedCreateDocType === 'Barangay Clearance'
-                    ? 'Amount: ₱100.00'
+                    ? `Amount: ₱${Number(settings?.documentFees?.barangayClearance ?? 100).toFixed(2)}`
                     : 'Amount: To be set by admin upon acceptance'
                 }
                 type={selectedCreateDocType === 'Certificate of Indigency' ? 'success' : 'info'}

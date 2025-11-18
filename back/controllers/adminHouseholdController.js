@@ -1,6 +1,7 @@
 const Household = require("../models/household.model");
 const Resident = require("../models/resident.model");
 const Counter = require("../models/counter.model");
+const Settings = require('../models/settings.model');
 // const GasPayment = require("../models/gasPayment.model");
 const UtilityPayment = require("../models/utilityPayment.model");
 const FinancialTransaction = require("../models/financialTransaction.model");
@@ -159,17 +160,20 @@ function monthKey(d) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// Helper function to calculate garbage fee based on business status
-function calculateGarbageFee(household) {
-  const baseRate = 35; // PHP 35 for households without business
-  const businessRate = 50; // PHP 50 for households with business
-  
-  return household.hasBusiness ? businessRate : baseRate;
+// Effective fee helpers using Settings fee history
+async function calculateGarbageFee(household, monthKeyStr) {
+  const monthStr = monthKeyStr || monthKey();
+  const regularAnnual = await Settings.getEffectiveFee('garbage_regular_annual', monthStr);
+  const businessAnnual = await Settings.getEffectiveFee('garbage_business_annual', monthStr);
+  const annual = household.hasBusiness ? businessAnnual : regularAnnual;
+  // Values are stored as monthly totals
+  return Number(annual);
 }
 
-// Helper function to calculate streetlight fee (fixed rate for all households)
-function calculateStreetlightFee() {
-  return 10; // PHP 10 per month for all households (120 yearly)
+async function calculateStreetlightFee(monthKeyStr) {
+  const monthStr = monthKeyStr || monthKey();
+  const fee = await Settings.getEffectiveFee('streetlight_monthly', monthStr);
+  return Number(fee);
 }
 
 // Generic summary fetcher
@@ -184,9 +188,9 @@ async function getUtilitySummary(householdId, type, month) {
     let totalCharge;
     
     if (type === "garbage") {
-      totalCharge = calculateGarbageFee(hh);
+      totalCharge = await calculateGarbageFee(hh, m);
     } else if (type === "streetlight") {
-      totalCharge = calculateStreetlightFee();
+      totalCharge = await calculateStreetlightFee(m);
     } else {
       totalCharge = Number(snap?.currentMonthCharge || 0);
     }
@@ -227,9 +231,9 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
   if (!summary) {
     let defaultCharge;
     if (type === "garbage") {
-      defaultCharge = calculateGarbageFee(hh);
+      defaultCharge = await calculateGarbageFee(hh, m);
     } else if (type === "streetlight") {
-      defaultCharge = calculateStreetlightFee();
+      defaultCharge = await calculateStreetlightFee(m);
     } else {
       defaultCharge = hh?.electricFee?.currentMonthCharge || 0;
     }
@@ -455,13 +459,20 @@ exports.getGarbageStatistics = async (req, res) => {
     const households = await Household.find({}).lean();
     const totalHouseholds = households.length;
     
-    // Calculate expected monthly revenue based on actual household business status
+    // Expected monthly (current month) and yearly totals using historical fees
     let expectedMonthly = 0;
-    households.forEach(household => {
-      expectedMonthly += household.hasBusiness ? 50 : 35;
-    });
-    
-    const expectedYearly = expectedMonthly * 12;
+    let expectedYearly = 0;
+    const currentMonthStr = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    for (const hh of households) {
+      // Current month expected
+      const currentMonthFee = await calculateGarbageFee(hh, currentMonthStr);
+      expectedMonthly += currentMonthFee;
+      // Each month of year
+      for (let m = 1; m <= 12; m++) {
+        const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
+        expectedYearly += await calculateGarbageFee(hh, monthStr);
+      }
+    }
     
     // Get all garbage payments for current year
     const yearPayments = await UtilityPayment.find({ 
@@ -477,44 +488,33 @@ exports.getGarbageStatistics = async (req, res) => {
     
     const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     
-    households.forEach(household => {
-      const defaultFee = household.hasBusiness ? 50 : 35;
+    for (const household of households) {
       let householdYearlyBalance = 0;
       let householdYearlyPaid = 0;
-      
-      // Check all months of current year for this household
       for (let month = 1; month <= 12; month++) {
         const monthStr = `${currentYear}-${String(month).padStart(2, '0')}`;
-        
-        // Find payment record for this month
-        const monthPayment = yearPayments.find(payment => 
-          payment.household && payment.household.toString() === household._id.toString() && 
+        const monthPayment = yearPayments.find(payment =>
+          payment.household && payment.household.toString() === household._id.toString() &&
           payment.month === monthStr
         );
-        
+        const defaultFee = await calculateGarbageFee(household, monthStr);
         if (monthPayment) {
           householdYearlyBalance += Number(monthPayment.balance || 0);
           householdYearlyPaid += Number(monthPayment.amountPaid || 0);
-          
-          // If this is current month, add to monthly totals
           if (monthStr === currentMonth) {
             totalMonthlyBalance += Number(monthPayment.balance || 0);
             totalMonthlyCollected += Number(monthPayment.amountPaid || 0);
           }
         } else {
-          // No payment record means full balance is due
           householdYearlyBalance += defaultFee;
-          
-          // If this is current month, add to monthly totals
           if (monthStr === currentMonth) {
             totalMonthlyBalance += defaultFee;
           }
         }
       }
-      
       totalYearlyBalance += householdYearlyBalance;
       totalYearlyCollected += householdYearlyPaid;
-    });
+    }
     
     // Calculate collection rate
     const collectionRate = expectedYearly > 0 ? ((totalYearlyCollected / expectedYearly) * 100) : 0;
@@ -572,8 +572,9 @@ exports.getStreetlightStatistics = async (req, res) => {
     const households = await Household.find({}).lean();
     const totalHouseholds = households.length;
     
-    // Calculate expected revenue (fixed rate of PHP 10 per household)
-    const expectedRevenue = totalHouseholds * calculateStreetlightFee();
+    // Calculate expected revenue using potential historical streetlight fee for current month
+    const currentMonthFee = await calculateStreetlightFee(currentMonth);
+    const expectedRevenue = totalHouseholds * currentMonthFee;
     
     // Get current month payments
     const currentMonthPayments = await UtilityPayment.find({ 
@@ -586,8 +587,8 @@ exports.getStreetlightStatistics = async (req, res) => {
     const totalOutstanding = expectedRevenue - totalCollected;
     const collectionRate = expectedRevenue > 0 ? ((totalCollected / expectedRevenue) * 100) : 0;
     
-    // Fixed monthly rate for all households
-    const monthlyRate = calculateStreetlightFee();
+    // Current month applied rate
+    const monthlyRate = currentMonthFee;
     
     res.json({
       totalHouseholds,
@@ -826,15 +827,17 @@ exports.getGarbageStatistics = async (req, res) => {
 
     console.log('Total households found:', totalHouseholds);
 
-    // Calculate expected totals
+    // Calculate expected totals using historical fees
     let expectedMonthly = 0;
     let expectedYearly = 0;
-    
-    households.forEach(household => {
-      const monthlyFee = household.hasBusiness ? 50 : 35;
-      expectedMonthly += monthlyFee;
-      expectedYearly += monthlyFee * 12;
-    });
+    for (const hh of households) {
+      const currentMonthFee = await calculateGarbageFee(hh, currentMonth);
+      expectedMonthly += currentMonthFee;
+      for (let m = 1; m <= 12; m++) {
+        const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
+        expectedYearly += await calculateGarbageFee(hh, monthStr);
+      }
+    }
 
     console.log('Expected monthly total:', expectedMonthly);
     console.log('Expected yearly total:', expectedYearly);
@@ -853,12 +856,8 @@ exports.getGarbageStatistics = async (req, res) => {
     
     garbagePayments.forEach(payment => {
       if (payment.household && payment.amountPaid > 0) {
-        console.log(`Payment: ${payment.household.householdId} - ${payment.month} - ₱${payment.amountPaid}`);
         yearlyCollected += payment.amountPaid || 0;
-        
-        if (payment.month === currentMonth) {
-          monthlyCollected += payment.amountPaid || 0;
-        }
+        if (payment.month === currentMonth) monthlyCollected += payment.amountPaid || 0;
       }
     });
 
@@ -880,8 +879,9 @@ exports.getGarbageStatistics = async (req, res) => {
     res.json({
       totalHouseholds,
       feeStructure: {
-        noBusiness: 35,
-        withBusiness: 50,
+        // Provide base current month rates (derived from average household current month fees for transparency)
+        noBusiness: await Settings.getEffectiveFee('garbage_regular_annual', currentMonth),
+        withBusiness: await Settings.getEffectiveFee('garbage_business_annual', currentMonth),
         expectedMonthly,
         expectedYearly
       },
@@ -920,10 +920,16 @@ exports.getStreetlightStatistics = async (req, res) => {
 
     console.log('Total households found:', totalHouseholds);
 
-    // Calculate expected totals (fixed ₱10 per household)
-    const monthlyRate = 10;
-    const expectedMonthly = totalHouseholds * monthlyRate;
-    const expectedYearly = expectedMonthly * 12;
+    // Calculate expected totals using historical streetlight fee changes
+    let expectedMonthly = 0;
+    let expectedYearly = 0;
+    const currentMonthRate = await calculateStreetlightFee(currentMonth);
+    expectedMonthly = totalHouseholds * currentMonthRate;
+    for (let m = 1; m <= 12; m++) {
+      const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
+      const rate = await calculateStreetlightFee(monthStr);
+      expectedYearly += totalHouseholds * rate;
+    }
 
     console.log('Expected monthly total:', expectedMonthly);
     console.log('Expected yearly total:', expectedYearly);
@@ -942,12 +948,8 @@ exports.getStreetlightStatistics = async (req, res) => {
     
     streetlightPayments.forEach(payment => {
       if (payment.household && payment.amountPaid > 0) {
-        console.log(`Payment: ${payment.household.householdId} - ${payment.month} - ₱${payment.amountPaid}`);
         yearlyCollected += payment.amountPaid || 0;
-        
-        if (payment.month === currentMonth) {
-          monthlyCollected += payment.amountPaid || 0;
-        }
+        if (payment.month === currentMonth) monthlyCollected += payment.amountPaid || 0;
       }
     });
 
@@ -969,7 +971,7 @@ exports.getStreetlightStatistics = async (req, res) => {
 
     res.json({
       totalHouseholds,
-      monthlyRate,
+      monthlyRate: currentMonthRate,
       totalCollected: {
         yearly: yearlyCollected,
         monthly: monthlyCollected

@@ -79,6 +79,28 @@ export default function AdminStreetLightFees() {
   const [bulkResetLoading, setBulkResetLoading] = useState(false);
   const [selectAllClicked, setSelectAllClicked] = useState(false);
 
+  // Dynamic settings for fees
+  const [settings, setSettings] = useState(null);
+  const getStreetlightMonthlyFee = () => {
+    return settings && Number.isFinite(Number(settings.streetlightMonthlyFee))
+      ? Number(settings.streetlightMonthlyFee)
+      : 10;
+  };
+  const getStreetlightEffectiveMonth = () => {
+    if (!settings?.feeHistory) return null;
+    const entries = settings.feeHistory.filter(f => f.kind === 'streetlightMonthlyFee');
+    if (!entries.length) return null;
+    const latest = entries.sort((a,b)=> (a.effectiveMonth < b.effectiveMonth ? 1 : -1))[0];
+    return latest.effectiveMonth;
+  };
+  const getGarbageMonthlyFee = (hasBusiness) => {
+    if (settings) {
+      const monthly = hasBusiness ? Number(settings.garbageFeeBusinessAnnual || 0) : Number(settings.garbageFeeRegularAnnual || 0);
+      return Number.isFinite(monthly) && monthly >= 0 ? monthly : (hasBusiness ? 50 : 35);
+    }
+    return hasBusiness ? 50 : 35;
+  };
+
   // Column visibility state with localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem('streetlightFeesColumnsVisibility');
@@ -124,6 +146,20 @@ export default function AdminStreetLightFees() {
   useEffect(() => {
     fetchHouseholds();
     fetchStreetlightPayments();
+  }, []);
+
+  // Fetch settings once
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/settings`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        const data = await res.json();
+        if (res.ok) setSettings(data);
+      } catch (_) {}
+    };
+    fetchSettings();
   }, []);
 
   // Refetch payment status when selected year changes while modal is open
@@ -224,7 +260,7 @@ export default function AdminStreetLightFees() {
           };
         } catch (err) {
           // If no payment record exists, consider it unpaid
-          const defaultFee = 10; // Fixed fee for streetlight
+          const defaultFee = getStreetlightMonthlyFee();
           monthStatuses[monthStr] = {
             month: monthStr,
             totalCharge: defaultFee,
@@ -414,7 +450,7 @@ export default function AdminStreetLightFees() {
     payForm.setFieldValue("selectedMonths", allAllowedMonths);
     
     // Update total charge calculation
-    const fee = 10;
+    const fee = getStreetlightMonthlyFee();
     const totalCharge = allAllowedMonths.length * fee;
     payForm.setFieldValue("totalCharge", totalCharge);
     payForm.setFieldValue("amount", totalCharge);
@@ -445,7 +481,7 @@ export default function AdminStreetLightFees() {
     setSelectedMonths(initialMonths);
     
     // Calculate initial totals
-    const defaultFee = 10; // Fixed fee for streetlight
+    const defaultFee = getStreetlightMonthlyFee();
     const totalCharge = initialMonths.length * defaultFee;
     
     payForm.setFieldsValue({
@@ -503,7 +539,7 @@ export default function AdminStreetLightFees() {
         }
       }
       
-      const fee = 10;
+      const fee = getStreetlightMonthlyFee();
       const amount = Number(values.amount);
       if (!amount || amount <= 0) {
         message.error("Amount must be greater than 0");
@@ -672,7 +708,7 @@ export default function AdminStreetLightFees() {
         } catch (err) {
           // If no payment record exists, consider it unpaid
           const household = households.find(h => h._id === householdId);
-          const defaultFee = household?.hasBusiness ? 50 : 35;
+          const defaultFee = getGarbageMonthlyFee(household?.hasBusiness);
           monthStatuses[monthStr] = {
             month: monthStr,
             totalCharge: defaultFee,
@@ -730,8 +766,8 @@ export default function AdminStreetLightFees() {
       setGarbageSelectedMonths(initialMonths);
       
       // Calculate initial totals
-      const defaultFee = payHousehold?.hasBusiness ? 50 : 35;
-      const totalCharge = initialMonths.length * defaultFee;
+      const defaultFee = getGarbageMonthlyFee(payHousehold?.hasBusiness);
+      const totalCharge = initialMonths.length * getStreetlightMonthlyFee();
       
       garbageForm.setFieldsValue({
         hasBusiness: payHousehold?.hasBusiness || false,
@@ -799,7 +835,7 @@ export default function AdminStreetLightFees() {
         const payload = {
           month: monthKey,
           amount: streetlightAmountPerMonth,
-          totalCharge: 10,
+          totalCharge: getStreetlightMonthlyFee(),
           method: streetlightValues.method,
           reference: streetlightValues.reference,
           paidBy: payHousehold?.payingMember?._id || payHousehold?.headOfHousehold?._id,
@@ -816,7 +852,7 @@ export default function AdminStreetLightFees() {
       });
 
       // Process Garbage Payment
-      const garbageFee = garbageValues.hasBusiness ? 50 : 35;
+      const garbageFee = getGarbageMonthlyFee(garbageValues.hasBusiness);
       const garbageAmountPerMonth = Number(garbageValues.amount) / garbageSelectedMonths.length;
       
       const garbagePaymentPromises = garbageSelectedMonths.map(monthKey => {
@@ -905,7 +941,7 @@ export default function AdminStreetLightFees() {
         const payload = {
           month: monthKey,
           amount: amountPerMonth,
-          totalCharge: garbageForm.getFieldValue("hasBusiness") ? 50 : 35,
+          totalCharge: getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness")),
           method: values.method || "Cash",
           reference: values.reference,
           hasBusiness: Boolean(garbageForm.getFieldValue("hasBusiness")),
@@ -1039,7 +1075,7 @@ export default function AdminStreetLightFees() {
     garbageForm.setFieldValue("selectedMonths", allAllowedMonths);
     
     // Update total charge calculation
-    const fee = garbageForm.getFieldValue("hasBusiness") ? 50 : 35;
+    const fee = getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness"));
     const totalCharge = allAllowedMonths.length * fee;
     garbageForm.setFieldValue("totalCharge", totalCharge);
     garbageForm.setFieldValue("amount", totalCharge);
@@ -1083,7 +1119,7 @@ export default function AdminStreetLightFees() {
   // Stat state
   const [stats, setStats] = useState({
     totalHouseholds: 0,
-    monthlyRate: 10,
+    monthlyRate: getStreetlightMonthlyFee(),
     totalCollected: {
       yearly: 0,
       monthly: 0
@@ -1121,7 +1157,7 @@ export default function AdminStreetLightFees() {
       });
       
       const totalHouseholds = households.length;
-      const monthlyRate = 10; // Fixed rate for streetlight
+      const monthlyRate = getStreetlightMonthlyFee();
       
       // Calculate yearly collections (only count payments with valid household references)
       const yearlyPayments = payments.filter(p => {
@@ -1195,7 +1231,7 @@ export default function AdminStreetLightFees() {
   
   useEffect(() => {
     fetchStatistics();
-  }, [households]);
+  }, [households, settings]);
 
   // Excel Export Functions
   const exportToExcel = async (values) => {
@@ -1305,7 +1341,7 @@ export default function AdminStreetLightFees() {
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
-        'Monthly Fee': '₱10',
+        'Monthly Fee': `₱${Number(getStreetlightMonthlyFee()).toFixed(2)}`,
       };
 
       // Add monthly payment status for the year
@@ -1328,7 +1364,7 @@ export default function AdminStreetLightFees() {
                 dayjs(p.month + '-01').year() === currentYear)
         .reduce((sum, p) => sum + p.amountPaid, 0);
         
-      const expectedFee = 10; // Fixed rate for streetlight
+      const expectedFee = getStreetlightMonthlyFee();
       const expectedTotal = expectedFee * 12;
       const balance = expectedTotal - totalPaid;
 
@@ -1360,7 +1396,7 @@ export default function AdminStreetLightFees() {
 
       console.log(`Streetlight payment for ${household.householdId} in ${monthStr}:`, payment);
 
-      const expectedFee = 10; // Fixed rate for streetlight
+      const expectedFee = getStreetlightMonthlyFee();
       const paidAmount = payment ? payment.amountPaid : 0;
       const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
       const balance = expectedFee - paidAmount;
@@ -1380,7 +1416,7 @@ export default function AdminStreetLightFees() {
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
-        'Monthly Fee': `₱${expectedFee}`,
+        'Monthly Fee': `₱${Number(expectedFee).toFixed(2)}`,
         'Paid Amount': `₱${paidAmount}`,
         'Payment Status': status,
         'Balance': `₱${balance}`,
@@ -1463,42 +1499,34 @@ export default function AdminStreetLightFees() {
       title: "Monthly Fee",
       key: "monthlyFee",
       columnKey: "monthlyFee",
-      render: () => "₱10.00", // Fixed fee for streetlight
+      render: () => `₱${Number(getStreetlightMonthlyFee()).toFixed(2)}`,
     },
     {
       title: "Payment Status",
       key: "paymentStatus",
       columnKey: "paymentStatus",
       render: (_, record) => {
-        // Calculate overall payment status for current year
-        const defaultFee = 10;
-  const currentYear = streetlightYear;
-        let totalExpected = 0;
-        let totalPaid = 0;
-        
-        // Check all months of current year
+        // Mirror the view modal's logic to ensure matching status
+        const currentYear = streetlightYear;
+        let allPaid = true;
+        let anyPaid = false;
+        const isSameHousehold = (a, b) => {
+          if (!a || !b) return false;
+          return String(a) === String(b);
+        };
         for (let month = 1; month <= 12; month++) {
           const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
-          totalExpected += defaultFee;
-          
-          const monthPayment = streetlightPayments.find(payment => 
-            payment.household?._id === record._id && payment.month === monthStr
-          );
-          
-          if (monthPayment) {
-            totalPaid += Number(monthPayment.amountPaid || 0);
-          }
+          const monthPayment = streetlightPayments.find(payment => {
+            const h1 = payment.household?._id || payment.household;
+            const h2 = record._id;
+            return isSameHousehold(h1, h2) && payment.month === monthStr;
+          });
+          if (!monthPayment || monthPayment.status !== 'paid') allPaid = false;
+          if (monthPayment && (monthPayment.status === 'paid' || monthPayment.status === 'partial')) anyPaid = true;
         }
-        
-        const balance = totalExpected - totalPaid;
-        
-        if (balance <= 0) {
-          return <Tag color="green">Fully Paid</Tag>;
-        } else if (totalPaid > 0) {
-          return <Tag color="orange">Partially Paid</Tag>;
-        } else {
-          return <Tag color="red">Unpaid</Tag>;
-        }
+        if (allPaid) return <Tag color="green">Fully Paid</Tag>;
+        if (anyPaid) return <Tag color="orange">Partially Paid</Tag>;
+        return <Tag color="red">Unpaid</Tag>;
       },
     },
     {
@@ -1507,7 +1535,7 @@ export default function AdminStreetLightFees() {
       columnKey: "balance",
       render: (_, record) => {
         // Calculate total unpaid balance for current year
-        const defaultFee = 10;
+        const defaultFee = getStreetlightMonthlyFee();
   const currentYear = streetlightYear;
         let totalBalance = 0;
         let totalPaid = 0;
@@ -1645,11 +1673,14 @@ export default function AdminStreetLightFees() {
                 <CardContent>
                   <div className="space-y-1">
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Monthly:</span> ₱{stats.monthlyRate}
+                      <span className="font-semibold">Monthly:</span> ₱{Number(stats.monthlyRate).toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-600">
-                      <span className="font-semibold">Yearly:</span> ₱{stats.monthlyRate * 12}
+                      <span className="font-semibold">Yearly:</span> ₱{(Number(stats.monthlyRate) * 12).toFixed(2)}
                     </div>
+                    {getStreetlightEffectiveMonth() && (
+                      <div className="text-xs text-gray-500">Effective Since: {dayjs(getStreetlightEffectiveMonth()+'-01').format('MMM YYYY')}</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -2163,11 +2194,14 @@ export default function AdminStreetLightFees() {
             <div className="space-y-2 p-3 bg-gray-50 rounded-lg mb-3">
               <div className="text-sm font-semibold text-gray-700">Fee Information</div>
               <div className="text-sm text-gray-600">
-                <span className="font-medium">Monthly Rate:</span> ₱10.00 (fixed for all households)
+                <span className="font-medium">Monthly Rate:</span> ₱{Number(getStreetlightMonthlyFee()).toFixed(2)} (current effective)
               </div>
               <div className="text-sm text-gray-600">
-                <span className="font-medium">Annual Rate:</span> ₱120.00
+                <span className="font-medium">Annual Rate:</span> ₱{(Number(getStreetlightMonthlyFee()) * 12).toFixed(2)}
               </div>
+              {getStreetlightEffectiveMonth() && (
+                <div className="text-xs text-gray-500">Effective Since: {dayjs(getStreetlightEffectiveMonth()+'-01').format('MMM YYYY')}</div>
+              )}
               <div className="text-xs text-gray-500">
                 💡 Streetlight fees are the same for all households regardless of business status
               </div>
@@ -2271,7 +2305,7 @@ export default function AdminStreetLightFees() {
                                 payForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
                                 // Update total charge calculation
-                                const fee = 10;
+                                const fee = getStreetlightMonthlyFee();
                                 const totalCharge = newSelectedMonths.length * fee;
                                 payForm.setFieldValue("totalCharge", totalCharge);
                                 payForm.setFieldValue("amount", totalCharge);
@@ -2288,7 +2322,7 @@ export default function AdminStreetLightFees() {
                                 payForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
                                 // Update total charge calculation
-                                const fee = 10;
+                                const fee = getStreetlightMonthlyFee();
                                 const totalCharge = newSelectedMonths.length * fee;
                                 payForm.setFieldValue("totalCharge", totalCharge);
                                 payForm.setFieldValue("amount", totalCharge);
@@ -2352,8 +2386,8 @@ export default function AdminStreetLightFees() {
                 <div className="font-semibold text-blue-800 mb-1">Payment Summary:</div>
                 <div className="space-y-0.5 text-xs">
                   <div>Selected Months: {selectedMonths.length}</div>
-                  <div>Fee per Month: ₱10.00</div>
-                  <div>Total Amount: ₱{(selectedMonths.length * 10).toFixed(2)}</div>
+                  <div>Fee per Month: ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}</div>
+                  <div>Total Amount: ₱{(selectedMonths.length * Number(getStreetlightMonthlyFee())).toFixed(2)}</div>
                   <div className="text-xs text-blue-600 mt-1">
                     {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                   </div>
@@ -2438,7 +2472,7 @@ export default function AdminStreetLightFees() {
                     className="text-blue-600"
                   />
                   <span className={`text-sm ${!garbageForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    P35 - No Business
+                    ₱{getGarbageMonthlyFee(false).toFixed(2)} - No Business
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2451,7 +2485,7 @@ export default function AdminStreetLightFees() {
                     className="text-blue-600"
                   />
                   <span className={`text-sm ${garbageForm.getFieldValue("hasBusiness") ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    P50 - With Business
+                    ₱{getGarbageMonthlyFee(true).toFixed(2)} - With Business
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 italic">
@@ -2557,7 +2591,7 @@ export default function AdminStreetLightFees() {
                                 garbageForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
                                 // Update total charge calculation
-                                const fee = garbageForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                const fee = getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness"));
                                 const totalCharge = newSelectedMonths.length * fee;
                                 garbageForm.setFieldValue("totalCharge", totalCharge);
                                 garbageForm.setFieldValue("amount", totalCharge);
@@ -2574,7 +2608,7 @@ export default function AdminStreetLightFees() {
                                 garbageForm.setFieldValue("selectedMonths", newSelectedMonths);
                                 
                                 // Update total charge calculation
-                                const fee = garbageForm.getFieldValue("hasBusiness") ? 50 : 35;
+                                const fee = getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness"));
                                 const totalCharge = newSelectedMonths.length * fee;
                                 garbageForm.setFieldValue("totalCharge", totalCharge);
                                 garbageForm.setFieldValue("amount", totalCharge);
@@ -2658,8 +2692,8 @@ export default function AdminStreetLightFees() {
                     <div className="font-medium text-green-700 mb-2">Streetlight Fees</div>
                     <div className="space-y-1 text-xs">
                       <div>Selected Months: {selectedMonths.length}</div>
-                      <div>Fee per Month: ₱10.00</div>
-                      <div className="font-medium">Subtotal: ₱{(selectedMonths.length * 10).toFixed(2)}</div>
+                      <div>Fee per Month: ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}</div>
+                      <div className="font-medium">Subtotal: ₱{(selectedMonths.length * Number(getStreetlightMonthlyFee())).toFixed(2)}</div>
                       <div className="text-xs text-green-600 mt-1">
                         {selectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                       </div>
@@ -2673,7 +2707,7 @@ export default function AdminStreetLightFees() {
                   <div className="space-y-1 text-xs">
                     <div>Selected Months: {garbageSelectedMonths.length}</div>
                     <div>Fee per Month: ₱{garbageForm.getFieldValue("hasBusiness") ? "50.00" : "35.00"}</div>
-                    <div className="font-medium">Subtotal: ₱{(garbageSelectedMonths.length * (garbageForm.getFieldValue("hasBusiness") ? 50 : 35)).toFixed(2)}</div>
+                    <div className="font-medium">Subtotal: ₱{(garbageSelectedMonths.length * (getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness")))).toFixed(2)}</div>
                     <div className="text-xs text-green-600 mt-1">
                       {garbageSelectedMonths.map(m => dayjs(`${m}-01`).format("MMM YYYY")).join(", ")}
                     </div>
@@ -2684,8 +2718,8 @@ export default function AdminStreetLightFees() {
                 <div className="border-t border-green-300 pt-2 mt-3">
                   <div className="font-bold text-green-800 text-center">
                     GRAND TOTAL: ₱{(
-                      (selectedMonths.length * 10) + 
-                      (garbageSelectedMonths.length * (garbageForm.getFieldValue("hasBusiness") ? 50 : 35))
+                      (selectedMonths.length * Number(getStreetlightMonthlyFee())) + 
+                      (garbageSelectedMonths.length * (getGarbageMonthlyFee(garbageForm.getFieldValue("hasBusiness"))))
                     ).toFixed(2)}
                   </div>
                 </div>
@@ -2717,10 +2751,7 @@ export default function AdminStreetLightFees() {
                 {`${viewHousehold.address?.street || ""}, ${viewHousehold.address?.purok || ""}, ${viewHousehold.address?.barangay || ""}`}
               </Descriptions.Item>
               <Descriptions.Item label="Monthly Fee">
-                ₱10.00 (fixed rate)
-              </Descriptions.Item>
-              <Descriptions.Item label="Current Balance">
-                ₱{Number(viewHousehold.streetlightFee?.balance || 10).toFixed(2)}
+                ₱{Number(getStreetlightMonthlyFee()).toFixed(2)}{getStreetlightEffectiveMonth() ? ` (effective ${dayjs(getStreetlightEffectiveMonth()+'-01').format('MMM YYYY')})` : ''}
               </Descriptions.Item>
               <Descriptions.Item label="Last Payment">
                 {viewHousehold.streetlightFee?.lastPaymentDate 

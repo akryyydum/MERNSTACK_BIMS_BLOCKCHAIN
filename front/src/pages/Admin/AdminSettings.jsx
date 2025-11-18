@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Form, Input, Button, message, Divider, Alert } from "antd";
+import React, { useState, useEffect } from "react";
+import { Form, Input, Button, message, Divider, Alert, InputNumber, Spin, Popconfirm } from "antd";
 import { LockOutlined, UserOutlined, InfoCircleOutlined, SafetyOutlined, BellOutlined } from "@ant-design/icons";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,10 @@ export default function AdminSettings() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
+  const [feesForm] = Form.useForm();
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [updatingFees, setUpdatingFees] = useState(false);
+  const [settings, setSettings] = useState(null);
 
   const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
   const token = localStorage.getItem("token");
@@ -53,6 +57,62 @@ export default function AdminSettings() {
       message.error(err.message || "Failed to change password");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch current settings
+  const fetchSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/settings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to load settings');
+      setSettings(data);
+      feesForm.setFieldsValue({
+        garbageFeeRegularAnnual: data.garbageFeeRegularAnnual,
+        garbageFeeBusinessAnnual: data.garbageFeeBusinessAnnual,
+        streetlightMonthlyFee: data.streetlightMonthlyFee,
+        indigencyFee: data.documentFees?.indigency,
+        barangayClearanceFee: data.documentFees?.barangayClearance
+      });
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleUpdateFees = async (values) => {
+    setUpdatingFees(true);
+    try {
+      const payload = {
+        garbageFeeRegularAnnual: Number(values.garbageFeeRegularAnnual),
+        garbageFeeBusinessAnnual: Number(values.garbageFeeBusinessAnnual),
+        streetlightMonthlyFee: Number(values.streetlightMonthlyFee),
+        documentFees: {
+          indigency: Number(values.indigencyFee),
+          barangayClearance: Number(values.barangayClearanceFee)
+        }
+      };
+      const res = await fetch(`${API_BASE}/api/admin/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update fees');
+      setSettings(data);
+      message.success('Fees updated successfully');
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setUpdatingFees(false);
     }
   };
 
@@ -232,8 +292,58 @@ export default function AdminSettings() {
               </Card>
             </div>
 
-            {/* Row 2: System Information and Security Settings */}
+            {/* Row 2: Fee Configuration and System Information */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Fee Configuration Card */}
+              <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
+                    <BellOutlined />
+                    <span>Fee Configuration</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {settingsLoading ? (
+                    <div className="flex items-center justify-center py-8"><Spin /></div>
+                  ) : (
+                    <Form form={feesForm} layout="vertical" onFinish={handleUpdateFees}>
+                      <Divider orientation="left">Garbage Fees (Monthly)</Divider>
+                      <Form.Item label="Regular Household Monthly Fee" name="garbageFeeRegularAnnual" rules={[{ required: true, message: 'Enter regular monthly garbage fee' }]}> 
+                        <InputNumber className="w-full" min={0} addonAfter="PHP" />
+                      </Form.Item>
+                      <Form.Item label="Business Household Monthly Fee" name="garbageFeeBusinessAnnual" rules={[{ required: true, message: 'Enter business monthly garbage fee' }]}> 
+                        <InputNumber className="w-full" min={0} addonAfter="PHP" />
+                      </Form.Item>
+                      <Divider orientation="left">Streetlight Fee (Monthly)</Divider>
+                      <Form.Item label="Streetlight Monthly Fee" name="streetlightMonthlyFee" rules={[{ required: true, message: 'Enter streetlight monthly fee' }]}> 
+                        <InputNumber className="w-full" min={0} addonAfter="PHP" />
+                      </Form.Item>
+                      <Divider orientation="left">Document Request Fees</Divider>
+                      <Form.Item label="Indigency Certificate Fee" name="indigencyFee" rules={[{ required: true, message: 'Enter indigency certificate fee' }]}> 
+                        <InputNumber className="w-full" min={0} addonAfter="PHP" />
+                      </Form.Item>
+                      <Form.Item label="Barangay Clearance Fee" name="barangayClearanceFee" rules={[{ required: true, message: 'Enter barangay clearance fee' }]}> 
+                        <InputNumber className="w-full" min={0} addonAfter="PHP" />
+                      </Form.Item>
+                      <Form.Item className="mb-0">
+                        <Popconfirm
+                          title="Confirm Fee Update"
+                          description="Are you sure you want to change these fees?  Past paid months stay the same; new rates apply to current/future months."
+                          okText="Yes, Update"
+                          cancelText="Cancel"
+                          onConfirm={() => {
+                            feesForm
+                              .validateFields()
+                              .then(vals => handleUpdateFees(vals));
+                          }}
+                        >
+                          <Button type="primary" htmlType="button" loading={updatingFees} className="w-full md:w-auto">Update Fees</Button>
+                        </Popconfirm>
+                      </Form.Item>
+                    </Form>
+                  )}
+                </CardContent>
+              </Card>
               {/* System Information Card */}
               <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
                 <CardHeader>
