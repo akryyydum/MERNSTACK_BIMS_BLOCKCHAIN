@@ -1160,8 +1160,33 @@ export default function AdminFinancialReports() {
             </Form.Item>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Please enter the amount' }]}>
-                  <Input type="number" prefix="₱" placeholder="Enter amount" />
+                <Form.Item 
+                  name="amount" 
+                  label="Amount" 
+                  rules={[
+                    { required: true, message: 'Please enter the amount' },
+                    () => ({
+                      validator(_, value) {
+                        if (!value) return Promise.reject();
+                        const numValue = Number(value);
+                        if (numValue < 0) return Promise.reject(new Error('Amount cannot be negative'));
+                        if (numValue === 0) return Promise.reject(new Error('Amount must be greater than 0'));
+                        if (numValue > 100000) return Promise.reject(new Error('Amount cannot exceed ₱100,000'));
+                        return Promise.resolve();
+                      },
+                    }),
+                  ]}
+                >
+                  <Input 
+                    type="number" 
+                    prefix="₱" 
+                    placeholder="Enter amount (max ₱100,000)" 
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                        e.preventDefault();
+                      }
+                    }}
+                  />
                 </Form.Item>
               </Col>
               <Col span={12}>
@@ -1314,8 +1339,27 @@ export default function AdminFinancialReports() {
             </Form.Item>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[{ required: true, message: 'Please enter an amount' }]}>
-                  <Input type="number" prefix="₱" placeholder="Enter amount" />
+                <Form.Item name="amount" label="Amount" rules={[
+                  { required: true, message: 'Please enter an amount' },
+                  {
+                    validator: (_, value) => {
+                      if (!value) {
+                        return Promise.reject();
+                      }
+                      if (value < 0) {
+                        return Promise.reject('Amount cannot be negative');
+                      }
+                      if (value <= 0) {
+                        return Promise.reject('Amount must be greater than 0');
+                      }
+                      if (value > 100000) {
+                        return Promise.reject('Amount cannot exceed ₱100,000');
+                      }
+                      return Promise.resolve();
+                    }
+                  }
+                ]}>
+                  <Input type="number" prefix="₱" placeholder="Enter amount (max ₱100,000)" />
                 </Form.Item>
               </Col>
               <Col span={12}>

@@ -2545,6 +2545,11 @@ export default function AdminGarbageFees() {
                       e.preventDefault();
                     }
                   }}
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                      e.preventDefault();
+                    }
+                  }}
                 />
               </Form.Item>
               <Form.Item name="method" label="Payment Method" className="mb-0">
@@ -2822,6 +2827,11 @@ export default function AdminGarbageFees() {
                   inputMode="numeric"
                   onKeyPress={e => {
                     if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
                       e.preventDefault();
                     }
                   }}

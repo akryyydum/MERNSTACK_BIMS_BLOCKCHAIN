@@ -2378,7 +2378,21 @@ export default function AdminStreetLightFees() {
               <Form.Item
                 name="amount"
                 label="Amount to Pay"
-                rules={[{ required: true, message: "Enter amount to pay" }]}
+                rules={[
+                  { required: true, message: "Enter amount to pay" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const total = Number(getFieldValue("totalCharge") || 0);
+                      if (value === undefined) return Promise.reject();
+                      if (Number(value) < 0) return Promise.reject(new Error("Amount cannot be negative"));
+                      if (Number(value) === 0) return Promise.reject(new Error("Amount must be greater than 0"));
+                      if (Number(value) > total + 1e-6) {
+                        return Promise.reject(new Error("Amount cannot exceed total charge"));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
                 className="mb-0"
               >
                 <InputNumber 
@@ -2390,6 +2404,11 @@ export default function AdminStreetLightFees() {
                   inputMode="numeric"
                   onKeyPress={e => {
                     if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
                       e.preventDefault();
                     }
                   }}
@@ -2703,6 +2722,11 @@ export default function AdminStreetLightFees() {
                   inputMode="numeric"
                   onKeyPress={e => {
                     if (!/[0-9]/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
                       e.preventDefault();
                     }
                   }}
