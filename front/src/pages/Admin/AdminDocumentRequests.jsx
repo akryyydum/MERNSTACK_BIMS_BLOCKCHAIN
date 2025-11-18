@@ -313,7 +313,7 @@ export default function AdminDocumentRequests() {
           {record.residentName !== 'Unknown Resident' && (
             <Popconfirm
               title="Delete All Requests"
-              description={`Are you sure you want to delete all ${record.totalRequests} request(s) for ${record.residentName}?`}
+              description={`Do you want to delete all ${record.totalRequests} request(s) for ${record.residentName}?`}
               onConfirm={() => handleDeleteAllRequests(record)}
               okText="Delete"
               cancelText="Cancel"
