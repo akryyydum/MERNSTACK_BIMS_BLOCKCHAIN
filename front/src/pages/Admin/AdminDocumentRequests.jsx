@@ -724,7 +724,9 @@ function toSuperscript(suffix) {
 
 function buildTemplateData(docType, record) {
   const r = record.requestFor || record.residentId || {};
-  const fullName = [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" ") || "-";
+  // Use middle initial instead of full middle name
+  const middleInitial = r.middleName ? `${r.middleName.charAt(0)}.` : '';
+  const fullName = [r.firstName, middleInitial, r.lastName, r.suffix].filter(Boolean).join(" ") || "-";
   const requestedAt = record.requestedAt ? new Date(record.requestedAt) : new Date();
 
 const dayNum = requestedAt.getDate();
