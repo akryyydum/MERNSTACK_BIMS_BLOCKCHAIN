@@ -2,8 +2,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Table, Input, Button, Modal, Form, Select, message, Popconfirm, Descriptions, Checkbox, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight } from "lucide-react";
-import { UserOutlined, FileExcelOutlined } from "@ant-design/icons";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { UserOutlined, FileExcelOutlined, FilterOutlined } from "@ant-design/icons";
 import axios from "axios";
 import * as XLSX from 'xlsx';
 
@@ -518,6 +518,14 @@ export default function HouseholdManagement() {
       title: "Purok",
       dataIndex: ["address", "purok"],
       key: "purok",
+      filters: [
+        { text: "Purok 1", value: "Purok 1" },
+        { text: "Purok 2", value: "Purok 2" },
+        { text: "Purok 3", value: "Purok 3" },
+        { text: "Purok 4", value: "Purok 4" },
+        { text: "Purok 5", value: "Purok 5" },
+      ],
+      onFilter: (value, record) => record.address?.purok === value,
     },
     {
       title: "Business Status",
@@ -535,6 +543,11 @@ export default function HouseholdManagement() {
         }
         return <span className="text-gray-500">No Business</span>;
       },
+      filters: [
+        { text: "With Business", value: true },
+        { text: "No Business", value: false },
+      ],
+      onFilter: (value, record) => record.hasBusiness === value,
     },
     {
       title: "Actions",

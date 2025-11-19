@@ -1007,7 +1007,7 @@ export default function AdminUserManagement() {
 
             <Form.Item
               name={["contact", "mobile"]}
-              label="Mobile"
+              label="Mobile Number"
               rules={[{
                 required: false,
                 pattern: /^09\d{9}$/,
