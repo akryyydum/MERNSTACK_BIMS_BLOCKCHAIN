@@ -175,7 +175,6 @@ const getDashboard = async (req, res) => {
           documentFees,
           garbageFees,
           electricFees,
-          streetlightFees,
           permitFees,
           total: allTransactions.length
         }
@@ -190,7 +189,6 @@ const getDashboard = async (req, res) => {
   }
 };
 
-// Get transactions with filters
 const getTransactions = async (req, res) => {
   try {
     console.log('=== getTransactions called ===');
@@ -202,9 +200,8 @@ const getTransactions = async (req, res) => {
       type, 
       category, 
       status,
-      residentId,
-      officialId
-    } = req.query;
+      residentId
+    } = req.query; // officialId removed
 
   let allTransactions = [];
 
@@ -221,12 +218,12 @@ const getTransactions = async (req, res) => {
     if (category) filter.category = category;
     if (status) filter.status = status;
     if (residentId) filter.residentId = residentId;
-    if (officialId) filter.officialId = officialId;
+    // officialId filtering removed
 
     console.log('Fetching FinancialTransactions with filter:', filter);
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName middleName lastName suffix')
-      .populate('officialId', 'fullName position')
+      // officialId populate removed
       .populate('createdBy', 'username fullName')
       .sort({ transactionDate: -1 })
       .lean();
@@ -323,7 +320,7 @@ const getTransactions = async (req, res) => {
           transactionDate: paymentEntry.paidAt,
           status: 'completed',
           paymentMethod: paymentEntry.method || 'Cash',
-          referenceNumber: paymentEntry.reference || '',
+          // referenceNumber removed
           resident: residentFullName,
           residentName: residentFullName,
           // residentId left out on purpose: this is a synthesized row from UtilityPayment
@@ -381,7 +378,7 @@ const getTransactions = async (req, res) => {
         transactionDate: doc.updatedAt,
         status: 'completed',
         paymentMethod: 'Cash',
-        referenceNumber: doc.trackingNumber || '',
+        // referenceNumber removed
         resident: requester,
         residentName: requester,
         official: 'Barangay Office',
@@ -467,31 +464,25 @@ const createTransaction = async (req, res) => {
       description,
       amount,
       residentId,
-      officialId,
       householdId,
       paymentMethod,
-      referenceNumber,
       allocation
-    } = req.body;
+    } = req.body; // officialId removed
 
     // Fetch and store names
     let residentName = null;
-    let officialName = null;
 
     if (residentId) {
       const resident = await Resident.findById(residentId).select('firstName lastName');
       if (resident) {
         residentName = `${resident.firstName} ${resident.lastName}`;
       }
+    } else {
+      // Default name when no resident is selected
+      residentName = 'Barangay Official';
     }
 
-    if (officialId) {
-      const User = require('../models/user.model');
-      const official = await User.findById(officialId).select('fullName');
-      if (official && official.fullName) {
-        officialName = official.fullName;
-      }
-    }
+    // officialId removed: no longer recorded
 
     const transaction = new FinancialTransaction({
       type,
@@ -499,12 +490,9 @@ const createTransaction = async (req, res) => {
       description,
       amount,
       residentId,
-      officialId,
       residentName,
-      officialName,
       householdId,
       paymentMethod,
-      referenceNumber,
       allocation,
       createdBy: req.user.id,
       status: 'completed'
@@ -552,7 +540,7 @@ const syncDocumentFees = async (req, res) => {
         residentName: `${doc.residentId.firstName} ${doc.residentId.lastName}`,
         documentRequestId: doc._id,
         paymentMethod: doc.paymentMethod || 'cash',
-        referenceNumber: doc.referenceNumber,
+        // referenceNumber removed
         createdBy: req.user.id,
         status: 'completed'
       });
@@ -600,7 +588,6 @@ const generateReport = async (req, res) => {
     // Fetch regular financial transactions
     const transactions = await FinancialTransaction.find(filter)
       .populate('residentId', 'firstName lastName')
-      .populate('officialId', 'fullName position')
       .sort({ transactionDate: 1 });
 
     // Fetch streetlight payments and convert to transaction format for reports
@@ -637,7 +624,7 @@ const generateReport = async (req, res) => {
           transactionDate: paymentEntry.paidAt,
           status: 'completed',
           paymentMethod: paymentEntry.method || 'cash',
-          referenceNumber: paymentEntry.reference,
+          // referenceNumber removed
           residentId: payment.household?.head || null,
           householdId: payment.household?._id,
           month: payment.month,
@@ -702,13 +689,7 @@ const updateTransaction = async (req, res) => {
       }
     }
 
-    if (updates.officialId && updates.officialId !== transaction.officialId?.toString()) {
-      const User = require('../models/user.model');
-      const official = await User.findById(updates.officialId).select('fullName');
-      if (official && official.fullName) {
-        updates.officialName = official.fullName;
-      }
-    }
+    // official updates removed; officials are no longer recorded
 
     // Update fields
     Object.assign(transaction, updates);

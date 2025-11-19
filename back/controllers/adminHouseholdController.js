@@ -301,7 +301,6 @@ async function payUtility(householdId, type, { month, amount, totalCharge, metho
       residentId: hh.headOfHousehold,
       householdId: hh._id,
       paymentMethod: method || "cash",
-      referenceNumber: reference,
       status: "completed",
       transactionDate: paymentRecord.paidAt,
       createdBy: user?.id || user?._id,

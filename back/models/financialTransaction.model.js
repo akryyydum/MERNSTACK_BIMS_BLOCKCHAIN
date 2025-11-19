@@ -33,7 +33,7 @@ const financialTransactionSchema = new mongoose.Schema({
     enum: ['Cash', 'Gcash', 'Bank_transfer', 'Other'],
     default: 'Cash'
   },
-  referenceNumber: { type: String },
+  // referenceNumber removed (no longer used)
   
   // Status and dates
   status: {

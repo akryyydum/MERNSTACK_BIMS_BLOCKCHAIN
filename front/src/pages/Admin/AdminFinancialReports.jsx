@@ -69,7 +69,7 @@ export default function AdminFinancialReports() {
 
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [residents, setResidents] = useState([]);
-  const [officials, setOfficials] = useState([]);
+  // Officials removed: no longer recorded
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,7 +79,6 @@ export default function AdminFinancialReports() {
     fetchDashboard();
     fetchTransactions();
     fetchResidents();
-    fetchOfficials();
   }, [filters]);
 
   // Reset to page 1 when search or filter changes
@@ -201,22 +200,22 @@ export default function AdminFinancialReports() {
       const res = await axios.get(`${API_BASE}/api/admin/residents`, {
         headers: authHeaders()
       });
-      setResidents(res.data.residents || []);
+      const raw = res.data;
+      const list = Array.isArray(raw) ? raw : (raw?.residents || raw?.data || []);
+      if (!Array.isArray(list)) {
+        console.warn('Unexpected residents response shape:', raw);
+        setResidents([]);
+      } else {
+        setResidents(list);
+      }
+      console.log('Residents loaded:', list.length);
     } catch (error) {
       console.error('Error fetching residents:', error);
+      setResidents([]);
     }
   };
 
-  const fetchOfficials = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/admin/officials`, {
-        headers: authHeaders()
-      });
-      setOfficials(res.data || []);
-    } catch (error) {
-      console.error('Error fetching officials:', error);
-    }
-  };
+  // Removed: officials API no longer needed
 
   const handleCreateTransaction = async () => {
     try {
@@ -529,10 +528,60 @@ export default function AdminFinancialReports() {
       description: record.description,
       amount: record.amount,
       paymentMethod: record.paymentMethod || 'Cash',
-      referenceNumber: record.referenceNumber
     });
     setEditOpen(true);
   };
+
+  // Delete all transactions for a grouped resident (Financial + Document + Utility payments)
+  async function handleDeleteAllTransactions(groupRecord) {
+    try {
+      setDeletingId(groupRecord.__rowKey);
+      const token = localStorage.getItem('token');
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const tx of groupRecord.transactions) {
+        try {
+          // Utility synthesized payment (garbage/streetlight) entries
+          if (tx.isUtilityPayment && tx.mongoId && tx.paymentIndex !== undefined) {
+            await axios.delete(`${API_BASE}/api/admin/financial/transactions/${tx.mongoId}?paymentIndex=${tx.paymentIndex}`, { headers: { Authorization: `Bearer ${token}` } });
+            successCount++;
+            continue;
+          }
+          // Real FinancialTransaction
+          const isObjectId = typeof tx._id === 'string' && /^[0-9a-fA-F]{24}$/.test(tx._id);
+          if (isObjectId) {
+            await axios.delete(`${API_BASE}/api/admin/financial/transactions/${tx._id}`, { headers: { Authorization: `Bearer ${token}` } });
+            successCount++;
+            continue;
+          }
+          // DocumentRequest synthetic id pattern: document_<mongoId>
+          if (typeof tx._id === 'string' && tx._id.startsWith('document_')) {
+            const docId = tx._id.replace('document_', '');
+            if (/^[0-9a-fA-F]{24}$/.test(docId)) {
+              await axios.delete(`${API_BASE}/api/admin/document-requests/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
+              successCount++;
+              continue;
+            }
+          }
+        } catch (innerErr) {
+          console.error('Delete error (single tx):', tx, innerErr);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        message.success(`Deleted ${successCount} transaction(s) for ${groupRecord.residentName}${failCount ? ` (${failCount} failed)` : ''}`);
+        await fetchTransactions();
+      } else {
+        message.error('No transactions deleted');
+      }
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Bulk deletion failed');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const columns = [
     {
@@ -567,7 +616,29 @@ export default function AdminFinancialReports() {
       key: 'actions',
       width: 100,
       render: (_, record) => (
-        <span className="text-gray-500 text-xs">Expand to see details</span>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500 text-xs whitespace-nowrap">Expand to see details</span>
+          {record.transactionCount > 0 && (
+            <Popconfirm
+              title="Delete All Transactions"
+              description={`Delete all ${record.transactionCount} transaction(s) for ${record.residentName}? This cannot be undone.`}
+              okText="Delete"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleDeleteAllTransactions(record)}
+            >
+              <Button 
+                size="small" 
+                danger 
+                icon={<DeleteOutlined />} 
+                className="w-fit" 
+                loading={deletingId === record.__rowKey}
+              >
+                Delete All
+              </Button>
+            </Popconfirm>
+          )}
+        </div>
       )
     }
   ];
@@ -688,8 +759,8 @@ export default function AdminFinancialReports() {
   // Group transactions by resident for expandable table
   const groupedTransactions = filteredTransactions.reduce((acc, transaction) => {
     const residentKey = transaction.residentName || 
-                       (transaction.residentId ? `${transaction.residentId.firstName} ${transaction.residentId.lastName}` : 
-                       (transaction.resident || 'No Resident'));
+               (transaction.residentId ? `${transaction.residentId.firstName} ${transaction.residentId.lastName}` : 
+               (transaction.resident || 'Barangay Official'));
     
     if (!acc[residentKey]) {
       acc[residentKey] = {
@@ -709,6 +780,7 @@ export default function AdminFinancialReports() {
   }, {});
 
   const groupedData = Object.values(groupedTransactions);
+
 
   return (
     <AdminLayout>
@@ -852,7 +924,7 @@ export default function AdminFinancialReports() {
             <div className="flex gap-2 flex-shrink-0">
               <Button 
                 type="primary"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => { fetchResidents(); setCreateOpen(true); }}
               >
                 + Add Transaction
               </Button>
@@ -1181,25 +1253,7 @@ export default function AdminFinancialReports() {
                   </Select>
                 </Form.Item>
               </Col>
-              <Col span={12}>
-                <Form.Item name="officialId" label="Official (Optional)">
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Select official"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {officials.map(o => (
-                      <Select.Option key={o._id} value={o._id}>
-                        {o.firstName} {o.lastName} - {o.position}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+              {/* Official selection removed */}
             </Row>
 
             <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter a description' }]}>
@@ -1242,9 +1296,6 @@ export default function AdminFinancialReports() {
                 </Form.Item>
               </Col>
             </Row>
-            <Form.Item name="referenceNumber" label="Reference Number">
-              <Input placeholder="Enter reference number" />
-            </Form.Item>
           </Form>
         </Modal>
 
@@ -1267,21 +1318,11 @@ export default function AdminFinancialReports() {
 
               <Descriptions.Item label="Resident">
                 {viewTransaction.residentName || 
-                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || '-'))}
+                 (viewTransaction.residentId ? `${viewTransaction.residentId.firstName} ${viewTransaction.residentId.lastName}` : (viewTransaction.resident || 'Barangay Official'))}
               </Descriptions.Item>  
               <Descriptions.Item label="Payment Method">{viewTransaction.paymentMethod}</Descriptions.Item>
-              <Descriptions.Item label="Reference Number">{viewTransaction.referenceNumber || '-'}</Descriptions.Item>
               <Descriptions.Item label="Transaction Date">
                 {dayjs(viewTransaction.transactionDate).format('MMMM DD, YYYY HH:mm')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Blockchain Hash">
-                {viewTransaction.blockchain?.hash || 'Not recorded'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Blockchain Verified">
-                {viewTransaction.blockchain?.verified ? 
-                  <Tag color="green">Yes</Tag> : 
-                  <Tag color="orange">Pending</Tag>
-                }
               </Descriptions.Item>
             </Descriptions>
           )}
@@ -1360,25 +1401,7 @@ export default function AdminFinancialReports() {
                   </Select>
                 </Form.Item>
               </Col>
-              <Col span={12}>
-                <Form.Item name="officialId" label="Official (Optional)">
-                  <Select
-                    showSearch
-                    allowClear
-                    placeholder="Select official"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                  >
-                    {officials.map(o => (
-                      <Select.Option key={o._id} value={o._id}>
-                        {o.firstName} {o.lastName} {o.position}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+              {/* Official selection removed */}
             </Row>
 
             <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter a description' }]}>
@@ -1415,9 +1438,6 @@ export default function AdminFinancialReports() {
                 </Form.Item>
               </Col>
             </Row>
-            <Form.Item name="referenceNumber" label="Reference Number">
-              <Input placeholder="Enter reference number" />
-            </Form.Item>
           </Form>
         </Modal>
       </div>
