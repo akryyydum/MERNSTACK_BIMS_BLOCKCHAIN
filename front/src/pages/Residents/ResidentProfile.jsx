@@ -111,6 +111,19 @@ const ResidentProfile = () => {
     return /^[a-zA-Z0-9._-]+$/.test(value || '');
   };
 
+  // Validation function for mobile number (Philippine format)
+  const isValidMobile = (value) => {
+    if (!value || value.trim() === '') return true; // Optional field
+    // Must be numbers only, minimum 11 and maximum 12 digits
+    return /^\d{11,12}$/.test(value || '');
+  };
+
+  // Validation function for email format
+  const isValidEmail = (value) => {
+    if (!value || value.trim() === '') return true; // Optional field
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  };
+
   const handleSave = async () => {
     // Validate name fields before saving
     const fieldsToValidate = [
@@ -139,6 +152,18 @@ const ResidentProfile = () => {
       newFieldErrors['username'] = 'Username must be at least 6 characters';
     } else if (!isValidUsername(username)) {
       newFieldErrors['username'] = 'Username may contain letters, numbers, . _ - only';
+    }
+    
+    // Validate email format
+    const email = editedProfile?.contact?.email;
+    if (email && email.trim() && !isValidEmail(email)) {
+      newFieldErrors['email'] = 'Please enter a valid email address';
+    }
+    
+    // Validate mobile format
+    const mobile = editedProfile?.contact?.mobile;
+    if (mobile && mobile.trim() && !isValidMobile(mobile)) {
+      newFieldErrors['mobile'] = 'Mobile number must be numbers only (11-12 digits)';
     }
     
     setFieldErrors(newFieldErrors);
@@ -634,23 +659,96 @@ const ResidentProfile = () => {
               <Descriptions column={1} size="middle" bordered>
                 <Descriptions.Item label="Mobile Number">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.contact?.mobile} 
-                      onChange={(e) => handleContactChange('mobile', e.target.value)}
-                      placeholder="e.g., 09123456789"
-                      status={mobileTaken ? 'error' : ''}
-                    />
+                    <div>
+                      <Input 
+                        value={editedProfile?.contact?.mobile} 
+                        onChange={(e) => {
+                          const mobile = e.target.value;
+                          
+                          // Only allow numbers
+                          if (mobile && !/^\d*$/.test(mobile)) {
+                            return; // Don't update if non-numeric
+                          }
+                          
+                          handleContactChange('mobile', mobile);
+                          
+                          // Clear error if empty (optional field)
+                          if (!mobile || !mobile.trim()) {
+                            setMobileTaken(false);
+                            setFieldErrors(prev => ({ ...prev, mobile: undefined }));
+                            return;
+                          }
+                          
+                          // Validate mobile format (11-12 digits)
+                          if (mobile.length < 11) {
+                            setFieldErrors(prev => ({ ...prev, mobile: 'Minimum 11 digits' }));
+                            setMobileTaken(false);
+                            return;
+                          } else if (mobile.length > 12) {
+                            setFieldErrors(prev => ({ ...prev, mobile: 'Maximum 12 digits' }));
+                            setMobileTaken(false);
+                            return;
+                          } else {
+                            setFieldErrors(prev => ({ ...prev, mobile: undefined }));
+                          }
+                          
+                          // Check for duplicates
+                          const exists = allResidents.some(r => 
+                            r.contact?.mobile === mobile.trim() &&
+                            r._id !== profile._id
+                          );
+                          setMobileTaken(exists);
+                        }}
+                        placeholder="e.g., 09123456789"
+                        status={mobileTaken || fieldErrors.mobile ? 'error' : ''}
+                        maxLength={12}
+                      />
+                      {fieldErrors.mobile && (
+                        <div className="text-red-500 text-xs mt-1">{fieldErrors.mobile}</div>
+                      )}
+                    </div>
                   ) : (profile.contact?.mobile || 'N/A')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Email Address">
                   {isEditing ? (
-                    <Input 
-                      value={editedProfile?.contact?.email} 
-                      onChange={(e) => handleContactChange('email', e.target.value)}
-                      type="email"
-                      placeholder="e.g., email@example.com"
-                      status={emailTaken ? 'error' : ''}
-                    />
+                    <div>
+                      <Input 
+                        value={editedProfile?.contact?.email} 
+                        onChange={(e) => {
+                          const email = e.target.value;
+                          handleContactChange('email', email);
+                          
+                          // Clear error if empty (optional field)
+                          if (!email || !email.trim()) {
+                            setEmailTaken(false);
+                            setFieldErrors(prev => ({ ...prev, email: undefined }));
+                            return;
+                          }
+                          
+                          // Validate email format
+                          if (!isValidEmail(email)) {
+                            setFieldErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
+                            return;
+                          } else {
+                            setFieldErrors(prev => ({ ...prev, email: undefined }));
+                          }
+                          
+                          // Check for duplicates
+                          const normalizedEmail = email.trim().toLowerCase();
+                          const exists = allResidents.some(r => 
+                            r.contact?.email?.toLowerCase() === normalizedEmail &&
+                            r._id !== profile._id
+                          );
+                          setEmailTaken(exists);
+                        }}
+                        type="email"
+                        placeholder="e.g., email@example.com"
+                        status={emailTaken || fieldErrors.email ? 'error' : ''}
+                      />
+                      {fieldErrors.email && (
+                        <div className="text-red-500 text-xs mt-1">{fieldErrors.email}</div>
+                      )}
+                    </div>
                   ) : (profile.contact?.email || 'N/A')}
                 </Descriptions.Item>
               </Descriptions>
@@ -684,7 +782,41 @@ const ResidentProfile = () => {
                     <>
                       <Input 
                         value={editedProfile?.user?.username} 
-                        onChange={(e) => handleUserChange('username', e.target.value)}
+                        onChange={(e) => {
+                          const username = e.target.value;
+                          handleUserChange('username', username);
+                          
+                          // Clear errors if empty
+                          if (!username || !username.trim()) {
+                            setUsernameTaken(false);
+                            setFieldErrors(prev => ({ ...prev, username: 'Username is required' }));
+                            return;
+                          }
+                          
+                          // Validate username length
+                          if (username.length < 6) {
+                            setFieldErrors(prev => ({ ...prev, username: 'Username must be at least 6 characters' }));
+                            setUsernameTaken(false);
+                            return;
+                          }
+                          
+                          // Validate username format
+                          if (!isValidUsername(username)) {
+                            setFieldErrors(prev => ({ ...prev, username: 'Username may contain letters, numbers, . _ - only' }));
+                            setUsernameTaken(false);
+                            return;
+                          }
+                          
+                          // Clear format errors
+                          setFieldErrors(prev => ({ ...prev, username: undefined }));
+                          
+                          // Check for duplicates (excluding current user)
+                          const exists = allUsers.some(u => 
+                            u.username.toLowerCase() === username.toLowerCase() &&
+                            u._id !== profile.user?._id
+                          );
+                          setUsernameTaken(exists);
+                        }}
                         placeholder="e.g., juan.cruz (min. 6 characters)"
                         status={usernameTaken || fieldErrors.username ? 'error' : ''}
                       />
