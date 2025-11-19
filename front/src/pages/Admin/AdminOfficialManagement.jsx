@@ -382,15 +382,13 @@ export default function AdminOfficialManagement() {
       
       const token = localStorage.getItem("token");
       
-      // Build payload without blank optional fields
+      // Build payload - always include email and mobile (even as empty string) so backend knows to update/clear them
       const submitData = {
         residentId: values.residentId,
         position: values.position,
+        email: (values.email || '').trim(),
+        mobile: (values.mobile || '').trim()
       };
-      const email = (values.email || '').trim();
-      const mobile = (values.mobile || '').trim();
-      if (email) submitData.email = email;
-      if (mobile) submitData.mobile = mobile;
       
       const res = await fetch(API_URL, {
         method: "POST",

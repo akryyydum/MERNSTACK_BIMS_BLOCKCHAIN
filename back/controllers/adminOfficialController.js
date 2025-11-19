@@ -62,11 +62,32 @@ exports.create = async (req, res) => {
     }
 
     if (user) {
-      // Update existing user account to official role
+      // Update existing user account to official role using same logic as update function
       user.role = "official";
       user.position = position?.trim();
-      if (email) user.contact.email = String(email).toLowerCase().trim();
-      if (mobile) user.contact.mobile = mobile;
+      
+      // Handle email - if provided as empty string, remove it
+      if (email !== undefined) {
+        const cleanEmail = String(email).toLowerCase().trim();
+        if (cleanEmail.length > 0) {
+          if (!user.contact) user.contact = {};
+          user.contact.email = cleanEmail;
+        } else {
+          if (user.contact) user.contact.email = undefined;
+        }
+      }
+      
+      // Handle mobile - if provided as empty string, remove it
+      if (mobile !== undefined) {
+        const cleanMobile = String(mobile).trim();
+        if (cleanMobile.length > 0) {
+          if (!user.contact) user.contact = {};
+          user.contact.mobile = cleanMobile;
+        } else {
+          if (user.contact) user.contact.mobile = undefined;
+        }
+      }
+      
       await user.save();
     } else {
       // Create new user account for the resident
@@ -120,6 +141,37 @@ exports.create = async (req, res) => {
 
       // Link the user to the resident
       resident.user = user._id;
+    }
+    
+    // Update resident contact info using same logic as update function
+    const residentUpdateOps = {};
+    const residentUnsetOps = {};
+    
+    if (email !== undefined) {
+      const clean = String(email).toLowerCase().trim();
+      if (clean.length > 0) {
+        residentUpdateOps["contact.email"] = clean;
+      } else {
+        residentUnsetOps["contact.email"] = "";
+      }
+    }
+    if (mobile !== undefined) {
+      const m = String(mobile).trim();
+      if (m.length > 0) {
+        residentUpdateOps["contact.mobile"] = m;
+      } else {
+        residentUnsetOps["contact.mobile"] = "";
+      }
+    }
+    
+    // Update resident if there are contact changes
+    if (Object.keys(residentUpdateOps).length > 0 || Object.keys(residentUnsetOps).length > 0) {
+      const residentOps = {};
+      if (Object.keys(residentUpdateOps).length) residentOps.$set = residentUpdateOps;
+      if (Object.keys(residentUnsetOps).length) residentOps.$unset = residentUnsetOps;
+      await Resident.updateOne({ _id: residentId }, residentOps);
+    } else {
+      // Just save to link user if no contact updates
       await resident.save();
     }
 
