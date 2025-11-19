@@ -458,24 +458,112 @@ const createTransaction = async (req, res) => {
       amount,
       residentId,
       householdId,
-      paymentMethod
+      paymentMethod,
+      hasBusiness,
+      documentType
     } = req.body; // officialId removed
 
     // Fetch and store names
     let residentName = null;
+    let actualHouseholdId = householdId;
 
     if (residentId) {
       const resident = await Resident.findById(residentId).select('firstName lastName');
       if (resident) {
         residentName = `${resident.firstName} ${resident.lastName}`;
+        
+        // If no householdId provided, try to find resident's household
+        if (!actualHouseholdId && (type === 'garbage_fee' || type === 'streetlight_fee')) {
+          const Household = require('../models/household.model');
+          const household = await Household.findOne({
+            $or: [
+              { headOfHousehold: residentId },
+              { members: residentId }
+            ]
+          });
+          if (household) {
+            actualHouseholdId = household._id;
+          }
+        }
       }
     } else {
       // Default name when no resident is selected
       residentName = 'Barangay Official';
     }
 
+    // Handle utility payment types (garbage_fee, streetlight_fee)
+    if (type === 'garbage_fee' || type === 'streetlight_fee') {
+      if (!actualHouseholdId) {
+        return res.status(400).json({ 
+          message: 'Household ID is required for utility payments. Please ensure the resident is associated with a household.' 
+        });
+      }
+
+      const utilityType = type === 'garbage_fee' ? 'garbage' : 'streetlight';
+      const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
+      // Find or create utility payment record for current month
+      let utilityPayment = await UtilityPayment.findOne({
+        household: actualHouseholdId,
+        type: utilityType,
+        month: currentMonth
+      });
+
+      if (!utilityPayment) {
+        // Create new utility payment record
+        utilityPayment = new UtilityPayment({
+          household: actualHouseholdId,
+          type: utilityType,
+          month: currentMonth,
+          totalCharge: Number(amount),
+          amountPaid: Number(amount),
+          balance: 0,
+          status: 'paid',
+          payments: [{
+            amount: Number(amount),
+            method: paymentMethod || 'Cash',
+            paidAt: new Date()
+          }]
+        });
+      } else {
+        // Add payment to existing record
+        utilityPayment.payments.push({
+          amount: Number(amount),
+          method: paymentMethod || 'Cash',
+          paidAt: new Date()
+        });
+        utilityPayment.amountPaid += Number(amount);
+        utilityPayment.balance = Math.max(0, utilityPayment.totalCharge - utilityPayment.amountPaid);
+        utilityPayment.status = utilityPayment.balance === 0 ? 'paid' : 
+                                utilityPayment.amountPaid > 0 ? 'partial' : 'unpaid';
+      }
+
+      await utilityPayment.save();
+
+      // Also update household hasBusiness if garbage fee and hasBusiness is provided
+      if (type === 'garbage_fee' && hasBusiness !== undefined) {
+        const Household = require('../models/household.model');
+        await Household.findByIdAndUpdate(actualHouseholdId, { hasBusiness: hasBusiness });
+      }
+
+      return res.status(201).json({
+        message: 'Utility payment recorded successfully',
+        transaction: {
+          _id: `${utilityType}_${utilityPayment._id}_${utilityPayment.payments.length - 1}`,
+          type: type,
+          description: description,
+          amount: amount,
+          residentName: residentName,
+          transactionDate: new Date(),
+          paymentMethod: paymentMethod || 'Cash',
+          isUtilityPayment: true
+        }
+      });
+    }
+
     // officialId removed: no longer recorded
 
+    // Handle regular financial transactions (document_request, other)
     const transaction = new FinancialTransaction({
       type,
       category,
@@ -483,7 +571,7 @@ const createTransaction = async (req, res) => {
       amount,
       residentId,
       residentName,
-      householdId,
+      householdId: actualHouseholdId,
       paymentMethod,
       createdBy: req.user.id,
       status: 'completed'

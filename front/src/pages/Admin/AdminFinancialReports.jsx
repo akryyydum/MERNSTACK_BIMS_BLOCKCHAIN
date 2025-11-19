@@ -81,6 +81,7 @@ export default function AdminFinancialReports() {
 
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [residents, setResidents] = useState([]);
+  const [households, setHouseholds] = useState([]);
   // Officials removed: no longer recorded
 
   // Pagination state
@@ -91,6 +92,7 @@ export default function AdminFinancialReports() {
     fetchDashboard();
     fetchTransactions();
     fetchResidents();
+    fetchHouseholds();
   }, [filters]);
 
   // Reset to page 1 when search or filter changes
@@ -257,12 +259,69 @@ export default function AdminFinancialReports() {
     }
   };
 
+  const fetchHouseholds = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/admin/households`, {
+        headers: authHeaders()
+      });
+      const list = Array.isArray(res.data) ? res.data : [];
+      setHouseholds(list);
+      console.log('Households loaded:', list.length);
+    } catch (error) {
+      console.error('Error fetching households:', error);
+      setHouseholds([]);
+    }
+  };
+
+  // Filter residents based on hasBusiness selection for garbage fees
+  const getFilteredResidents = (hasBusiness) => {
+    if (hasBusiness === undefined || hasBusiness === null) {
+      return residents; // Show all residents if no filter
+    }
+
+    // Get household IDs that match the hasBusiness criteria
+    const matchingHouseholdIds = households
+      .filter(h => h.hasBusiness === hasBusiness)
+      .map(h => h._id);
+
+    // Get resident IDs from matching households (head and members)
+    const matchingResidentIds = new Set();
+    households
+      .filter(h => h.hasBusiness === hasBusiness)
+      .forEach(household => {
+        if (household.headOfHousehold) {
+          matchingResidentIds.add(
+            typeof household.headOfHousehold === 'string' 
+              ? household.headOfHousehold 
+              : household.headOfHousehold._id
+          );
+        }
+        if (household.members && Array.isArray(household.members)) {
+          household.members.forEach(member => {
+            matchingResidentIds.add(
+              typeof member === 'string' ? member : member._id
+            );
+          });
+        }
+      });
+
+    // Filter residents by matching IDs
+    return residents.filter(r => matchingResidentIds.has(r._id));
+  };
+
   // Removed: officials API no longer needed
 
   const handleCreateTransaction = async () => {
     try {
       setCreating(true);
       const values = await createForm.validateFields();
+      
+      // Validation: Utility fees require a resident
+      if ((values.type === 'garbage_fee' || values.type === 'streetlight_fee') && !values.residentId) {
+        message.error('Please select a resident for utility payments');
+        setCreating(false);
+        return;
+      }
       
       await axios.post(`${API_BASE}/api/admin/financial/transactions`, values, {
         headers: authHeaders()
@@ -966,7 +1025,7 @@ export default function AdminFinancialReports() {
             <div className="flex gap-2 flex-shrink-0">
               <Button 
                 type="primary"
-                onClick={() => { fetchResidents(); setCreateOpen(true); }}
+                onClick={() => { fetchResidents(); fetchHouseholds(); setCreateOpen(true); }}
               >
                 + Add Transaction
               </Button>
@@ -1290,17 +1349,20 @@ export default function AdminFinancialReports() {
             )}
 
             {selectedCreateType === 'garbage_fee' && (
-              <Form.Item 
-                name="hasBusiness" 
-                label="Has Business?" 
-                rules={[{ required: true, message: 'Please select' }]}
-                initialValue={false}
-              >
-                <Select placeholder="Select option">
-                  <Select.Option value={false}>No (₱35/month)</Select.Option>
-                  <Select.Option value={true}>Yes (₱50/month)</Select.Option>
-                </Select>
-              </Form.Item>
+              <>
+                <Form.Item 
+                  name="hasBusiness" 
+                  label="Has Business?" 
+                  rules={[{ required: true, message: 'Please select' }]}
+                  initialValue={false}
+                  extra="Selecting this option will filter residents by their household's business status"
+                >
+                  <Select placeholder="Select option">
+                    <Select.Option value={false}>No (₱35/month)</Select.Option>
+                    <Select.Option value={true}>Yes (₱50/month)</Select.Option>
+                  </Select>
+                </Form.Item>
+              </>
             )}
             {selectedCreateType === 'streetlight_fee' && (
               <Form.Item label="Streetlight Fee Amount">
@@ -1314,28 +1376,40 @@ export default function AdminFinancialReports() {
             )}
             
             <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="residentId" label="Resident (Optional)">
+              <Col span={24}>
+                <Form.Item 
+                  name="residentId"
+                  label={selectedCreateType === 'garbage_fee' || selectedCreateType === 'streetlight_fee' ? 'Resident (Required for Utility Fees)' : 'Resident (Optional)'}
+                  rules={[
+                    {
+                      required: selectedCreateType === 'garbage_fee' || selectedCreateType === 'streetlight_fee',
+                      message: 'Please select a resident for utility payments'
+                    }
+                  ]}
+                >
                   <Select
                     showSearch
                     allowClear
-                    placeholder="Select resident"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
+                    placeholder={
+                      selectedCreateType === 'garbage_fee' && selectedCreateHasBusiness === undefined
+                        ? "Please select 'Has Business?' first"
+                        : "Select resident"
                     }
+                    disabled={selectedCreateType === 'garbage_fee' && selectedCreateHasBusiness === undefined}
                     style={{ width: '100%' }}
-                    dropdownStyle={{ minWidth: 350, maxHeight: 400, overflow: 'auto' }}
+                    dropdownStyle={{ minWidth: 250 }}
                   >
-                    {residents.map(r => (
+                    {(selectedCreateType === 'garbage_fee'
+                      ? getFilteredResidents(selectedCreateHasBusiness)
+                      : residents
+                    ).map(r => (
                       <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.lastName}
+                        {r.firstName} {r.middleName ? r.middleName + ' ' : ''}{r.lastName}
                       </Select.Option>
                     ))}
                   </Select>
                 </Form.Item>
               </Col>
-              {/* Official selection removed */}
             </Row>
 
             <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter a description' }]}>
@@ -1478,16 +1552,19 @@ export default function AdminFinancialReports() {
             )}
 
             {selectedEditType === 'garbage_fee' && (
-              <Form.Item 
-                name="hasBusiness" 
-                label="Has Business?" 
-                rules={[{ required: true, message: 'Please select' }]}
-              >
-                <Select placeholder="Select option">
-                  <Select.Option value={false}>No (₱35/month)</Select.Option>
-                  <Select.Option value={true}>Yes (₱50/month)</Select.Option>
-                </Select>
-              </Form.Item>
+              <>
+                <Form.Item 
+                  name="hasBusiness" 
+                  label="Has Business?" 
+                  rules={[{ required: true, message: 'Please select' }]}
+                  extra="Selecting this option will filter residents by their household's business status"
+                >
+                  <Select placeholder="Select option">
+                    <Select.Option value={false}>No (₱35/month)</Select.Option>
+                    <Select.Option value={true}>Yes (₱50/month)</Select.Option>
+                  </Select>
+                </Form.Item>
+              </>
             )}
             {selectedEditType === 'streetlight_fee' && (
               <Form.Item label="Streetlight Fee Amount">
@@ -1501,26 +1578,40 @@ export default function AdminFinancialReports() {
             )}
             
             <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="residentId" label="Resident (Optional)">
+              <Col span={24}>
+                <Form.Item 
+                  name="residentId"
+                  label={selectedEditType === 'garbage_fee' || selectedEditType === 'streetlight_fee' ? 'Resident (Required for Utility Fees)' : 'Resident (Optional)'}
+                  rules={[
+                    {
+                      required: selectedEditType === 'garbage_fee' || selectedEditType === 'streetlight_fee',
+                      message: 'Please select a resident for utility payments'
+                    }
+                  ]}
+                >
                   <Select
                     showSearch
                     allowClear
-                    placeholder="Select resident"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
+                    placeholder={
+                      selectedEditType === 'garbage_fee' && selectedEditHasBusiness === undefined
+                        ? "Please select 'Has Business?' first"
+                        : "Select resident"
                     }
+                    disabled={selectedEditType === 'garbage_fee' && selectedEditHasBusiness === undefined}
+                    style={{ width: '100%' }}
+                    dropdownStyle={{ minWidth: 250 }}
                   >
-                    {residents.map(r => (
+                    {(selectedEditType === 'garbage_fee'
+                      ? getFilteredResidents(selectedEditHasBusiness)
+                      : residents
+                    ).map(r => (
                       <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.lastName}
+                        {r.firstName} {r.middleName ? r.middleName + ' ' : ''}{r.lastName}
                       </Select.Option>
                     ))}
                   </Select>
                 </Form.Item>
               </Col>
-              {/* Official selection removed */}
             </Row>
 
             <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter a description' }]}>
