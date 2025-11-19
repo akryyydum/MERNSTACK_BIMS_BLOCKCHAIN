@@ -104,7 +104,7 @@ exports.createRequest = async (req, res) => {
       const settings = await Settings.getSingleton();
       const indigencyFee = settings.documentFees?.indigency ?? 0;
       const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
-      if (type === 'Indigency') unitAmount = indigencyFee;
+      if (type === 'Certificate of Indigency') unitAmount = indigencyFee;
       else if (type === 'Barangay Clearance') unitAmount = clearanceFee;
       else if (type === 'Business Clearance') unitAmount = Number(amount || 0);
 

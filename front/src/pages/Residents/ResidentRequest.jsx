@@ -40,7 +40,7 @@ export default function ResidentRequest() {
   const [householdMembers, setHouseholdMembers] = useState([]);
   const [isInHousehold, setIsInHousehold] = useState(true);
   const [documentPricing, setDocumentPricing] = useState({
-    "Indigency": 0,
+    "Certificate of Indigency": 0,
     "Barangay Clearance": 100,
     "Business Clearance": 0 // Will be set by admin
   });
@@ -1100,7 +1100,7 @@ export default function ResidentRequest() {
                   createForm.setFieldValue("amount", totalAmount);
                 }}
                 options={[
-                  { value: "Indigency", label: "Certificate of Indigency" },
+                  { value: "Certificate of Indigency", label: "Certificate of Indigency" },
                   { value: "Barangay Clearance", label: "Barangay Clearance" },
                   { value: "Business Clearance", label: "Business Clearance" },
                 ]}

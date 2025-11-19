@@ -56,9 +56,9 @@ exports.approve = async (req, res) => {
       const settings = await Settings.getSingleton();
       const indigencyFee = settings.documentFees?.indigency ?? 0;
       const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
-      if (type === 'Indigency') unitAmount = indigencyFee;
+      if (type === 'Certificate of Indigency') unitAmount = indigencyFee;
       else if (type === 'Barangay Clearance') unitAmount = clearanceFee;
-      else if (type === 'Business Clearance') unitAmount = Number(amount || request.feeAmount || 0);
+      else if (type === 'Business Clearance') unitAmount = Number(amount || 0);
 
       // Save feeAmount chosen by admin when provided
       if (type === 'Business Clearance' && (amount !== undefined)) {
@@ -307,7 +307,7 @@ exports.create = async (req, res) => {
       const settings = await Settings.getSingleton();
       const indigencyFee = settings.documentFees?.indigency ?? 0;
       const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
-      if (documentType === 'Indigency') documentAmount = indigencyFee;
+      if (documentType === 'Certificate of Indigency') documentAmount = indigencyFee;
       else if (documentType === 'Barangay Clearance') documentAmount = clearanceFee;
       else if (documentType === 'Business Clearance') documentAmount = 0; // Set by admin later
     }
