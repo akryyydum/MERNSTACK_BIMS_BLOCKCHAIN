@@ -441,6 +441,13 @@ export default function HouseholdManagement() {
   const singleMemberHouseholds = households.filter(h => h.members?.length === 1).length;
   const familyHouseholds = households.filter(h => h.members?.length > 1).length;
 
+  // Purok Statistics
+  const purok1Count = Array.isArray(households) ? households.filter(h => h.address?.purok === "Purok 1").length : 0;
+  const purok2Count = Array.isArray(households) ? households.filter(h => h.address?.purok === "Purok 2").length : 0;
+  const purok3Count = Array.isArray(households) ? households.filter(h => h.address?.purok === "Purok 3").length : 0;
+  const purok4Count = Array.isArray(households) ? households.filter(h => h.address?.purok === "Purok 4").length : 0;
+  const purok5Count = Array.isArray(households) ? households.filter(h => h.address?.purok === "Purok 5").length : 0;
+
   const fullName = (p) => [p?.firstName, p?.middleName, p?.lastName, p?.suffix].filter(Boolean).join(" ");
 
   // Function to render household members
@@ -750,6 +757,70 @@ export default function HouseholdManagement() {
                   <div className="text-3xl font-bold text-black">
                     {familyHouseholds}
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Second Row: Purok Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
+              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok1Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok1Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 2</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok2Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok2Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 3</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok3Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok3Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 4</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok4Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok4Count}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-black">Purok 5</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {purok5Count}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-black">{purok5Count}</div>
                 </CardContent>
               </Card>
             </div>

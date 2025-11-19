@@ -21,6 +21,25 @@ import { ArrowUpRight } from "lucide-react";
 
 const API_URL = "/api/admin/officials";
 
+// Position hierarchy for sorting (lower number = higher rank)
+const POSITION_HIERARCHY = {
+  "Barangay Captain": 1,
+  "Barangay Secretary": 2,
+  "Barangay Treasurer": 3,
+  "SK Chairman": 4,
+  "Barangay Kagawad": 5,
+  "Barangay IPMR": 6,
+  "Admin Assistant": 7,
+  "Barangay Nutrition Scholar": 8,
+  "Day Care Worker": 9,
+  "Chief Tanod": 10,
+  "Barangay Health Worker": 11,
+  "Barangay Tanod": 12,
+  "Barangay Utility Worker": 13,
+  "SWM Driver": 14,
+  "Garbage Collector": 15,
+};
+
 // Position limits configuration
 const POSITION_LIMITS = {
   // Single positions (limit 1)
@@ -105,7 +124,23 @@ export default function AdminOfficialManagement() {
       console.log("Officials response:", data);
       
       // Handle both array and object responses
-      const officials = Array.isArray(data) ? data : (data?.data || []);
+      let officials = Array.isArray(data) ? data : (data?.data || []);
+      
+      // Sort officials by position hierarchy
+      officials = officials.sort((a, b) => {
+        const rankA = POSITION_HIERARCHY[a.position] || 999;
+        const rankB = POSITION_HIERARCHY[b.position] || 999;
+        
+        // If same position, sort by name
+        if (rankA === rankB) {
+          const nameA = a.fullName || '';
+          const nameB = b.fullName || '';
+          return nameA.localeCompare(nameB);
+        }
+        
+        return rankA - rankB;
+      });
+      
       setOfficials(officials);
     } catch (err) { 
       console.error("Fetch officials error:", err);
@@ -250,7 +285,7 @@ export default function AdminOfficialManagement() {
       title: "Full Name", 
       dataIndex: "fullName", 
       key: "fullName", 
-      width: 200, 
+      width: 220, 
       ellipsis: true,
       render: (_, record) => formatOfficialDisplayName(record),
       responsive: ['xs','sm','md','lg']
@@ -259,10 +294,26 @@ export default function AdminOfficialManagement() {
       title: "Position",
       dataIndex: "position",
       key: "position",
-      width: 160,
+      width: 200,
       ellipsis: true,
-      render: v => v || '-',
-      responsive: ['sm','md','lg']
+      render: (v, record) => {
+        const hierarchy = POSITION_HIERARCHY[v] || 999;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              #{hierarchy}
+            </span>
+            <span>{v || '-'}</span>
+          </div>
+        );
+      },
+      responsive: ['sm','md','lg'],
+      sorter: (a, b) => {
+        const rankA = POSITION_HIERARCHY[a.position] || 999;
+        const rankB = POSITION_HIERARCHY[b.position] || 999;
+        return rankA - rankB;
+      },
+      defaultSortOrder: 'ascend',
     },
     {
       title: "Email",
@@ -558,29 +609,37 @@ export default function AdminOfficialManagement() {
                 dataSource={filteredOfficials}
                 loading={loading}
                 locale={{ emptyText: 'No officials found' }}
-                renderItem={item => (
-                  <List.Item className="border rounded-lg px-3 py-2 mb-2 shadow-sm">
-                    <div className="w-full flex flex-col gap-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-semibold">{item.fullName}</span>
-                        <Tag color={item.isActive ? 'green':'red'}>{item.isActive ? 'Active':'Inactive'}</Tag>
+                renderItem={item => {
+                  const hierarchy = POSITION_HIERARCHY[item.position] || 999;
+                  return (
+                    <List.Item className="border rounded-lg px-3 py-2 mb-2 shadow-sm">
+                      <div className="w-full flex flex-col gap-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="font-semibold">{formatOfficialDisplayName(item)}</span>
+                          <Tag color={item.isActive ? 'green':'red'}>{item.isActive ? 'Active':'Inactive'}</Tag>
+                        </div>
+                        <div className="text-gray-600 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            #{hierarchy}
+                          </span>
+                          <span>{item.position || '—'}</span>
+                        </div>
+                        <div className="text-gray-500 break-all">{item.contact?.email || item.email}</div>
+                        <div className="text-gray-500">{item.contact?.mobile || item.mobile}</div>
+                        <div className="flex gap-2 pt-1">
+                          <Button size="small" onClick={() => openEdit(item)}>Edit</Button>
+                          <Popconfirm
+                            title="Delete official?"
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => handleDelete(item._id)}
+                          >
+                            <Button size="small" danger>Delete</Button>
+                          </Popconfirm>
+                        </div>
                       </div>
-                      <div className="text-gray-600">{item.position || '—'}</div>
-                      <div className="text-gray-500 break-all">{item.contact?.email || item.email}</div>
-                      <div className="text-gray-500">{item.contact?.mobile || item.mobile}</div>
-                      <div className="flex gap-2 pt-1">
-                        <Button size="small" onClick={() => openEdit(item)}>Edit</Button>
-                        <Popconfirm
-                          title="Delete official?"
-                          okButtonProps={{ danger: true }}
-                          onConfirm={() => handleDelete(item._id)}
-                        >
-                          <Button size="small" danger>Delete</Button>
-                        </Popconfirm>
-                      </div>
-                    </div>
-                  </List.Item>
-                )}
+                    </List.Item>
+                  );
+                }}
               />
             ) : (
               <Table
