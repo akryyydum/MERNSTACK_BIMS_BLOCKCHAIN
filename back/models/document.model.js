@@ -16,7 +16,7 @@ const documentRequestSchema = new mongoose.Schema({
   amount: { type: Number, default: 0 }, // Document fee amount
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'declined', 'completed'],
+    enum: ['pending', 'accepted', 'declined', 'completed', 'released'],
     default: 'pending'
   },
   // Optional business name for Business Clearance

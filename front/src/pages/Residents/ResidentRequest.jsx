@@ -314,6 +314,7 @@ export default function ResidentRequest() {
   const totalRequests = requests.length;
   const pendingRequests = requests.filter(r => r.status === "pending").length;
   const approvedRequests = requests.filter(r => r.status === "accepted").length;
+  const releasedRequests = requests.filter(r => r.status === "released" || r.status === "completed").length;
   const rejectedRequests = requests.filter(r => r.status === "declined" || r.status === "rejected").length;
 
   const filteredRequests = requests.filter(r => {
@@ -322,6 +323,8 @@ export default function ResidentRequest() {
       return r.status === "pending";
     } else if (search === "approved") {
       return r.status === "accepted";
+    } else if (search === "released") {
+      return r.status === "released" || r.status === "completed";
     } else if (search === "rejected") {
       return r.status === "declined" || r.status === "rejected";
     }
@@ -439,7 +442,7 @@ export default function ResidentRequest() {
         <Card className="w-full">
           <CardContent className="space-y-6">
             {/* Request Statistics Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
               <Card className="w-full border border-blue-200 bg-blue-50">
                 <CardContent className="space-y-2 px-4 py-5 sm:px-6">
                   <p className="text-sm font-medium text-blue-700">All Requests</p>
@@ -456,6 +459,12 @@ export default function ResidentRequest() {
                 <CardContent className="space-y-2 px-4 py-5 sm:px-6">
                   <p className="text-sm font-medium text-emerald-700">Approved</p>
                   <p className="text-2xl font-bold text-emerald-900">{approvedRequests}</p>
+                </CardContent>
+              </Card>
+              <Card className="w-full border border-purple-200 bg-purple-50">
+                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
+                  <p className="text-sm font-medium text-purple-700">Released</p>
+                  <p className="text-2xl font-bold text-purple-900">{releasedRequests}</p>
                 </CardContent>
               </Card>
               <Card className="w-full border border-rose-200 bg-rose-50">
@@ -488,6 +497,11 @@ export default function ResidentRequest() {
                 children: null,
               },
               {
+                key: 'released',
+                label: 'Released',
+                children: null,
+              },
+              {
                 key: 'rejected',
                 label: 'Rejected',
                 children: null,
@@ -500,6 +514,8 @@ export default function ResidentRequest() {
                 setSearch("pending");
               } else if (key === 'approved') {
                 setSearch("approved");
+              } else if (key === 'released') {
+                setSearch("released");
               } else if (key === 'rejected') {
                 setSearch("rejected");
               }
@@ -597,8 +613,8 @@ export default function ResidentRequest() {
                             REJECTED
                           </span>
                         )}
-                        {request.status === "completed" && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        {(request.status === "completed" || request.status === "released") && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
                             RELEASED
                           </span>
                         )}
@@ -737,8 +753,8 @@ export default function ResidentRequest() {
                       REJECTED
                     </div>
                   )}
-                  {viewRequest.status === "completed" && (
-                    <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+                  {(viewRequest.status === "completed" || viewRequest.status === "released") && (
+                    <div className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-medium">
                       RELEASED
                     </div>
                   )}
@@ -862,8 +878,8 @@ export default function ResidentRequest() {
                     {viewRequest.status !== "pending" && (
                       <div className="flex items-start">
                         <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10
-                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-green-500" : "bg-red-500"}`}>
-                          {viewRequest.status === "accepted" || viewRequest.status === "completed" ? (
+                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" || viewRequest.status === "released" ? "bg-green-500" : "bg-red-500"}`}>
+                          {viewRequest.status === "accepted" || viewRequest.status === "completed" || viewRequest.status === "released" ? (
                             <CheckCircleOutlined className="text-white text-xs" />
                           ) : (
                             <CloseCircleOutlined className="text-white text-xs" />
@@ -871,7 +887,7 @@ export default function ResidentRequest() {
                         </div>
                         <div className="ml-3">
                           <p className="text-xs font-medium text-gray-800">
-                            {viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}
+                            {viewRequest.status === "accepted" || viewRequest.status === "completed" || viewRequest.status === "released" ? "Approved" : "Rejected"}
                           </p>
                           <p className="text-xs text-gray-500">
                             {viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}
@@ -881,9 +897,9 @@ export default function ResidentRequest() {
                     )}
                     
                     {/* Released Step (Shown only for released docs) */}
-                    {viewRequest.status === "completed" && (
+                    {(viewRequest.status === "completed" || viewRequest.status === "released") && (
                       <div className="flex items-start">
-                        <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                        <div className="flex-shrink-0 h-7 w-7 rounded-full bg-purple-500 flex items-center justify-center z-10">
                           <CheckCircleOutlined className="text-white text-xs" />
                         </div>
                         <div className="ml-3">
