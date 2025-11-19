@@ -9,7 +9,7 @@ const financialTransactionSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['revenue', 'expense', 'allocation'],
+    enum: ['revenue', 'expense'],
     required: true
   },
   description: { type: String, required: true },
@@ -52,15 +52,6 @@ const financialTransactionSchema = new mongoose.Schema({
     issuedBy: String,
     issuedAt: Date,
     verified: { type: Boolean, default: false }
-  },
-  
-  // Allocation details (for resource allocation)
-  allocation: {
-    department: String,
-    project: String,
-    purpose: String,
-    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    approvedAt: Date
   },
   
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

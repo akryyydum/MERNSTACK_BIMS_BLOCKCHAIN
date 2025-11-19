@@ -93,7 +93,7 @@ exports.createRequest = async (req, res) => {
       purpose,
       businessName,
       quantity: Math.max(Number(quantity || 1), 1),
-      amount: Number(amount || 0)   // Document fee
+      amount: Number(amount || 0)   // Document request fee
     });
     
     // Create financial transaction for the document request
@@ -122,7 +122,7 @@ exports.createRequest = async (req, res) => {
 
       // Create financial transaction (even for $0 amounts for audit trail)
       await FinancialTransaction.create({
-        type: 'document_fee',
+        type: 'document_request',
         category: 'revenue',
         description: `${type} x ${qty}`,
         amount: Number(total) || 0,

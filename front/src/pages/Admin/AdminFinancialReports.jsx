@@ -28,6 +28,14 @@ const getTransactionKey = (transaction = {}) => {
   return String(rawKey ?? "");
 };
 
+// Helper function to format transaction type for display
+const formatTransactionType = (type) => {
+  if (!type) return '';
+  // Handle legacy 'document_fee' by treating it as 'document_request'
+  const normalizedType = type === 'document_fee' ? 'document_request' : type;
+  return normalizedType.replace(/_/g, ' ').toUpperCase();
+};
+
 export default function AdminFinancialReports() {
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState({});
@@ -51,6 +59,10 @@ export default function AdminFinancialReports() {
   // Watchers for dynamic form behavior
   const selectedCreateType = Form.useWatch('type', createForm);
   const selectedEditType = Form.useWatch('type', editForm);
+  const selectedCreateDocType = Form.useWatch('documentType', createForm);
+  const selectedEditDocType = Form.useWatch('documentType', editForm);
+  const selectedCreateHasBusiness = Form.useWatch('hasBusiness', createForm);
+  const selectedEditHasBusiness = Form.useWatch('hasBusiness', editForm);
   
   // Export state
   const [selectedExportTypes, setSelectedExportTypes] = useState([]);
@@ -85,6 +97,36 @@ export default function AdminFinancialReports() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, feeTypeFilter]);
+
+  // Auto-set amount removed - garbage and streetlight fees are now manual input
+
+  // Auto-populate description when document type is selected in create form
+  useEffect(() => {
+    if (selectedCreateType === 'document_request' && selectedCreateDocType) {
+      const currentDesc = createForm.getFieldValue('description') || '';
+      // Only auto-set if description is empty or starts with a document type prefix
+      const docTypes = ['Certificate of Indigency', 'Barangay Clearance', 'Business Clearance'];
+      const hasPrefix = docTypes.some(type => currentDesc.startsWith(type));
+      if (!currentDesc || hasPrefix) {
+        createForm.setFieldsValue({ description: `${selectedCreateDocType} - ` });
+      }
+    }
+  }, [selectedCreateDocType]);
+
+  // Auto-set amount removed - garbage and streetlight fees are now manual input
+
+  // Auto-populate description when document type is selected in edit form
+  useEffect(() => {
+    if (selectedEditType === 'document_request' && selectedEditDocType) {
+      const currentDesc = editForm.getFieldValue('description') || '';
+      // Only auto-set if description is empty or starts with a document type prefix
+      const docTypes = ['Certificate of Indigency', 'Barangay Clearance', 'Business Clearance'];
+      const hasPrefix = docTypes.some(type => currentDesc.startsWith(type));
+      if (!currentDesc || hasPrefix) {
+        editForm.setFieldsValue({ description: `${selectedEditDocType} - ` });
+      }
+    }
+  }, [selectedEditDocType]);
 
   // Validate export data availability when modal opens or form changes
   const validateExportData = () => {
@@ -349,8 +391,8 @@ export default function AdminFinancialReports() {
   const revenueByType = dashboardData.revenueByType || {};
   
   // Calculate individual revenue types from revenueByType
-  // Include both document_request and document_fee for backward compatibility
-  const documentRequestRevenue = Number(revenueByType.document_request || 0) + Number(revenueByType.document_fee || 0);
+  // Include both document_request for backward compatibility
+  const documentRequestRevenue = Number(revenueByType.document_request || 0);
   const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
   const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
   const totalRevenue = Number(statistics.totalRevenue ?? 0);
@@ -399,7 +441,7 @@ export default function AdminFinancialReports() {
         
         // Handle different composite ID formats:
         // 1. "garbage_MONGOID_INDEX" or "streetlight_MONGOID_INDEX" (utility payments with index)
-        // 2. "document_MONGOID" (document fees without index)
+        // 2. "document_MONGOID" (document request fees without index)
         // 3. Other formats
         
         if (parts.length === 3 && (parts[0] === 'garbage' || parts[0] === 'streetlight')) {
@@ -656,7 +698,7 @@ export default function AdminFinancialReports() {
       dataIndex: 'type',
       key: 'type',
       render: (type) => (
-        <Tag color="blue">{type?.replace('_', ' ').toUpperCase() || ''}</Tag>
+        <Tag color="blue">{formatTransactionType(type)}</Tag>
       ),
       filters: [
         { text: 'Garbage Fee', value: 'garbage_fee' },
@@ -1207,7 +1249,7 @@ export default function AdminFinancialReports() {
                 <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
                   <Select placeholder="Select category">
                     <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expenses">Expenses</Select.Option>
+                    <Select.Option value="expense">Expenses</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
@@ -1232,6 +1274,44 @@ export default function AdminFinancialReports() {
                 <Input placeholder="Enter custom transaction type" />
               </Form.Item>
             )}
+
+            {selectedCreateType === 'document_request' && (
+              <Form.Item 
+                name="documentType" 
+                label="Document Type" 
+                rules={[{ required: true, message: 'Please select a document type' }]}
+              >
+                <Select placeholder="Select document type">
+                  <Select.Option value="Certificate of Indigency">Certificate of Indigency</Select.Option>
+                  <Select.Option value="Barangay Clearance">Barangay Clearance</Select.Option>
+                  <Select.Option value="Business Clearance">Business Clearance</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+
+            {selectedCreateType === 'garbage_fee' && (
+              <Form.Item 
+                name="hasBusiness" 
+                label="Has Business?" 
+                rules={[{ required: true, message: 'Please select' }]}
+                initialValue={false}
+              >
+                <Select placeholder="Select option">
+                  <Select.Option value={false}>No (₱35/month)</Select.Option>
+                  <Select.Option value={true}>Yes (₱50/month)</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+            {selectedCreateType === 'streetlight_fee' && (
+              <Form.Item label="Streetlight Fee Amount">
+                <Input
+                  value={createForm.getFieldValue('amount') || ''}
+                  prefix="₱"
+                  readOnly
+                  placeholder="12.00 (Fixed Amount)"
+                />
+              </Form.Item>
+            )}
             
             <Row gutter={16}>
               <Col span={12}>
@@ -1244,6 +1324,8 @@ export default function AdminFinancialReports() {
                     filterOption={(input, option) =>
                       option.children.toLowerCase().includes(input.toLowerCase())
                     }
+                    style={{ width: '100%' }}
+                    dropdownStyle={{ minWidth: 350, maxHeight: 400, overflow: 'auto' }}
                   >
                     {residents.map(r => (
                       <Select.Option key={r._id} value={r._id}>
@@ -1281,7 +1363,7 @@ export default function AdminFinancialReports() {
                   <Input 
                     type="number" 
                     prefix="₱" 
-                    placeholder="Enter amount (max ₱100,000)" 
+                    placeholder="Enter amount (max ₱100,000)"
                     onKeyDown={(e) => {
                       if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
                         e.preventDefault();
@@ -1311,7 +1393,7 @@ export default function AdminFinancialReports() {
             <Descriptions bordered column={1}>
               <Descriptions.Item label="Transaction ID">{viewTransaction.transactionId}</Descriptions.Item>
               <Descriptions.Item label="Type">
-                <Tag color="blue">{viewTransaction.type?.replace('_', ' ').toUpperCase() || ''}</Tag>
+                <Tag color="blue">{formatTransactionType(viewTransaction.type)}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Description">{viewTransaction.description}</Descriptions.Item>
               <Descriptions.Item label="Amount">₱{Number(viewTransaction.amount).toLocaleString()}</Descriptions.Item>
@@ -1355,7 +1437,7 @@ export default function AdminFinancialReports() {
                 <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
                   <Select placeholder="Select category">
                     <Select.Option value="revenue">Revenue</Select.Option>
-                    <Select.Option value="expenses">Expenses</Select.Option>
+                    <Select.Option value="expense">Expenses</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
@@ -1378,6 +1460,43 @@ export default function AdminFinancialReports() {
                 rules={[{ required: true, message: 'Please specify the transaction type' }]}
               >
                 <Input placeholder="Enter custom transaction type" />
+              </Form.Item>
+            )}
+
+            {selectedEditType === 'document_request' && (
+              <Form.Item 
+                name="documentType" 
+                label="Document Type" 
+                rules={[{ required: true, message: 'Please select a document type' }]}
+              >
+                <Select placeholder="Select document type">
+                  <Select.Option value="Certificate of Indigency">Certificate of Indigency</Select.Option>
+                  <Select.Option value="Barangay Clearance">Barangay Clearance</Select.Option>
+                  <Select.Option value="Business Clearance">Business Clearance</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+
+            {selectedEditType === 'garbage_fee' && (
+              <Form.Item 
+                name="hasBusiness" 
+                label="Has Business?" 
+                rules={[{ required: true, message: 'Please select' }]}
+              >
+                <Select placeholder="Select option">
+                  <Select.Option value={false}>No (₱35/month)</Select.Option>
+                  <Select.Option value={true}>Yes (₱50/month)</Select.Option>
+                </Select>
+              </Form.Item>
+            )}
+            {selectedEditType === 'streetlight_fee' && (
+              <Form.Item label="Streetlight Fee Amount">
+                <Input
+                  value={editForm.getFieldValue('amount') || ''}
+                  prefix="₱"
+                  readOnly
+                  placeholder="12.00"
+                />
               </Form.Item>
             )}
             
@@ -1409,17 +1528,20 @@ export default function AdminFinancialReports() {
             </Form.Item>
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="amount" label="Amount" rules={[
-                  { required: true, message: 'Please enter an amount' },
-                  {
-                    validator: (_, value) => {
-                      if (!value) {
-                        return Promise.reject();
-                      }
-                      if (value < 0) {
-                        return Promise.reject('Amount cannot be negative');
-                      }
-                      if (value <= 0) {
+                <Form.Item 
+                  name="amount" 
+                  label="Amount" 
+                  rules={[
+                    { required: true, message: 'Please enter an amount' },
+                    {
+                      validator: (_, value) => {
+                        if (!value) {
+                          return Promise.reject();
+                        }
+                        if (value < 0) {
+                          return Promise.reject('Amount cannot be negative');
+                        }
+                        if (value <= 0) {
                         return Promise.reject('Amount must be greater than 0');
                       }
                       if (value > 100000) {
@@ -1429,7 +1551,11 @@ export default function AdminFinancialReports() {
                     }
                   }
                 ]}>
-                  <Input type="number" prefix="₱" placeholder="Enter amount (max ₱100,000)" />
+                  <Input 
+                    type="number" 
+                    prefix="₱" 
+                    placeholder="Enter amount (max ₱100,000)"
+                  />
                 </Form.Item>
               </Col>
               <Col span={12}>

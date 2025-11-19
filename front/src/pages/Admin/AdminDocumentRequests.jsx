@@ -64,7 +64,7 @@ export default function AdminDocumentRequests() {
   const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
   const [exportHasData, setExportHasData] = useState(true);
 
-  // Dynamic settings for document fees
+  // Dynamic settings for document request fees
   const [settings, setSettings] = useState(null);
 
   // Column visibility state with localStorage persistence

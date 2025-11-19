@@ -122,11 +122,7 @@ const getDashboard = async (req, res) => {
       .filter(t => t.category === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const totalAllocations = allTransactions
-      .filter(t => t.category === 'allocation')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const balance = totalRevenue - totalExpenses - totalAllocations;
+    const balance = totalRevenue - totalExpenses;
 
     // Transaction counts by type
     const documentFees = allTransactions.filter(t => t.type === 'document_request').length;
@@ -140,14 +136,12 @@ const getDashboard = async (req, res) => {
     allTransactions.forEach(transaction => {
       const monthKey = new Date(transaction.transactionDate).toISOString().substring(0, 7); // YYYY-MM
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { revenue: 0, expenses: 0, allocations: 0 };
+        monthlyData[monthKey] = { revenue: 0, expenses: 0 };
       }
       if (transaction.category === 'revenue') {
         monthlyData[monthKey].revenue += transaction.amount;
       } else if (transaction.category === 'expense') {
         monthlyData[monthKey].expenses += transaction.amount;
-      } else if (transaction.category === 'allocation') {
-        monthlyData[monthKey].allocations += transaction.amount;
       }
     });
 
@@ -169,7 +163,6 @@ const getDashboard = async (req, res) => {
       statistics: {
         totalRevenue,
         totalExpenses,
-        totalAllocations,
         balance,
         transactionCounts: {
           documentFees,
@@ -465,8 +458,7 @@ const createTransaction = async (req, res) => {
       amount,
       residentId,
       householdId,
-      paymentMethod,
-      allocation
+      paymentMethod
     } = req.body; // officialId removed
 
     // Fetch and store names
@@ -493,7 +485,6 @@ const createTransaction = async (req, res) => {
       residentName,
       householdId,
       paymentMethod,
-      allocation,
       createdBy: req.user.id,
       status: 'completed'
     });
@@ -518,7 +509,7 @@ const createTransaction = async (req, res) => {
   }
 };
 
-// Sync document fees from document requests
+// Sync document request fees from document requests
 const syncDocumentFees = async (req, res) => {
   try {
     // Find all approved document requests that haven't been synced
@@ -554,20 +545,20 @@ const syncDocumentFees = async (req, res) => {
       // Mirror to Fabric (non-blocking)
       try {
         const result = await submitFinancialTransactionToFabric(transaction);
-        if (!result.ok) console.warn('Fabric sync warning for document fee:', result.error);
+        if (!result.ok) console.warn('Fabric sync warning for document request fee:', result.error);
       } catch (fbErr) {
-        console.error('Error submitting synced document fee to Fabric:', fbErr.message || fbErr);
+        console.error('Error submitting synced document request fee to Fabric:', fbErr.message || fbErr);
       }
 
       syncedCount++;
     }
 
     res.json({
-      message: `Successfully synced ${syncedCount} document fee(s)`,
+      message: `Successfully synced ${syncedCount} document request fee(s)`,
       syncedCount
     });
   } catch (error) {
-    console.error('Error syncing document fees:', error);
+    console.error('Error syncing document request fees:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -643,11 +634,10 @@ const generateReport = async (req, res) => {
     const summary = {
       totalRevenue: allTransactions.filter(t => t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0),
       totalExpenses: allTransactions.filter(t => t.category === 'expense').reduce((sum, t) => sum + t.amount, 0),
-      totalAllocations: allTransactions.filter(t => t.category === 'allocation').reduce((sum, t) => sum + t.amount, 0),
       transactionCount: allTransactions.length
     };
 
-    summary.balance = summary.totalRevenue - summary.totalExpenses - summary.totalAllocations;
+    summary.balance = summary.totalRevenue - summary.totalExpenses;
 
     res.json({
       report: {

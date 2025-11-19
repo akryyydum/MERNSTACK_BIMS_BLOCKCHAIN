@@ -48,7 +48,7 @@ exports.approve = async (req, res) => {
       return res.status(404).json({ message: "Document request not found" });
     }
 
-    // Compute document fees and record financial transaction
+    // Compute document request fees and record financial transaction
     try {
       const qty = Math.max(Number(request.quantity || 1), 1);
       const type = request.documentType;
@@ -81,7 +81,7 @@ exports.approve = async (req, res) => {
 
       // Only create a transaction if total known (>=0). For 0, we still log for audit
       const createdTx = await FinancialTransaction.create({
-        type: 'document_fee',
+        type: 'document_request',
         category: 'revenue',
         description: `${type} x ${qty}`,
         amount: Number(total) || 0,
@@ -100,7 +100,7 @@ exports.approve = async (req, res) => {
         const result = await submitFinancialTransactionToFabric(createdTx);
         if (!result.ok) console.warn('Fabric submit returned error:', result.error);
       } catch (fbErr) {
-        console.error('Error submitting document fee transaction to Fabric:', fbErr.message || fbErr);
+        console.error('Error submitting document request fee transaction to Fabric:', fbErr.message || fbErr);
       }
     } catch (txErr) {
       console.error('Error creating financial transaction for document request:', txErr.message);

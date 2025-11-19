@@ -13,7 +13,7 @@ const documentRequestSchema = new mongoose.Schema({
   // Quantity of copies requested
   quantity: { type: Number, default: 1, min: 1 },
   purpose: { type: String },
-  amount: { type: Number, default: 0 }, // Document fee amount
+  amount: { type: Number, default: 0 }, // Document request fee amount
   status: {
     type: String,
     enum: ['pending', 'accepted', 'declined', 'completed', 'released'],
