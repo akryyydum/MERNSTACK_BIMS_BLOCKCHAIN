@@ -527,167 +527,43 @@ const ResidentProfile = () => {
             <CardContent>
               <Descriptions column={1} size="middle" bordered>
                 <Descriptions.Item label="First Name">
-                  {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.firstName} 
-                        onChange={(e) => handleInputChange('firstName', e.target.value)}
-                        status={fieldErrors.firstName ? 'error' : ''}
-                        placeholder="e.g., JUAN"
-                      />
-                      {fieldErrors.firstName && (
-                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.firstName}</div>
-                      )}
-                    </>
-                  ) : (profile.firstName || 'N/A')}
+                  {profile.firstName || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Middle Name">
-                  {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.middleName} 
-                        onChange={(e) => handleInputChange('middleName', e.target.value)}
-                        status={fieldErrors.middleName ? 'error' : ''}
-                        placeholder="e.g., DELA"
-                      />
-                      {fieldErrors.middleName && (
-                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.middleName}</div>
-                      )}
-                    </>
-                  ) : (profile.middleName || 'N/A')}
+                  {profile.middleName || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Last Name">
-                  {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.lastName} 
-                        onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        status={fieldErrors.lastName ? 'error' : ''}
-                        placeholder="e.g., CRUZ"
-                      />
-                      {fieldErrors.lastName && (
-                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.lastName}</div>
-                      )}
-                    </>
-                  ) : (profile.lastName || 'N/A')}
+                  {profile.lastName || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Suffix">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.suffix} 
-                      onChange={(e) => handleInputChange('suffix', e.target.value)}
-                      placeholder="Jr., Sr., III, etc."
-                    />
-                  ) : (profile.suffix || 'N/A')}
+                  {profile.suffix || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Date of Birth">
-                  {isEditing ? (
-                    <DatePicker 
-                      value={editedProfile?.dateOfBirth ? dayjs(editedProfile.dateOfBirth) : null}
-                      onChange={(date) => handleInputChange('dateOfBirth', date ? date.toISOString() : null)}
-                      format="YYYY-MM-DD"
-                      style={{ width: '100%' }}
-                    />
-                  ) : formatDate(profile.dateOfBirth)}
+                  {formatDate(profile.dateOfBirth)}
                 </Descriptions.Item>
                 <Descriptions.Item label="Birth Place">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.birthPlace} 
-                      onChange={(e) => handleInputChange('birthPlace', e.target.value)}
-                      placeholder="e.g., BAYOMBONG, NUEVA VIZCAYA"
-                    />
-                  ) : (profile.birthPlace || 'N/A')}
+                  {profile.birthPlace || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Gender">
-                  {isEditing ? (
-                    <Select 
-                      value={editedProfile?.sex} 
-                      onChange={(value) => handleInputChange('sex', value)}
-                      style={{ width: '100%' }}
-                    >
-                      <Option value="male">Male</Option>
-                      <Option value="female">Female</Option>
-                    </Select>
-                  ) : (profile.sex ? profile.sex.charAt(0).toUpperCase() + profile.sex.slice(1) : 'N/A')}
+                  {profile.sex ? profile.sex.charAt(0).toUpperCase() + profile.sex.slice(1) : 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Civil Status">
-                  {isEditing ? (
-                    <Select 
-                      value={editedProfile?.civilStatus} 
-                      onChange={(value) => handleInputChange('civilStatus', value)}
-                      style={{ width: '100%' }}
-                    >
-                      <Option value="single">Single</Option>
-                      <Option value="married">Married</Option>
-                      <Option value="widowed">Widowed</Option>
-                      <Option value="separated">Separated</Option>
-                    </Select>
-                  ) : (profile.civilStatus ? profile.civilStatus.charAt(0).toUpperCase() + profile.civilStatus.slice(1) : 'N/A')}
+                  {profile.civilStatus ? profile.civilStatus.charAt(0).toUpperCase() + profile.civilStatus.slice(1) : 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Religion">
-                  {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.religion} 
-                        onChange={(e) => handleInputChange('religion', e.target.value)}
-                        status={fieldErrors.religion ? 'error' : ''}
-                        placeholder="e.g., ROMAN CATHOLIC"
-                      />
-                      {fieldErrors.religion && (
-                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.religion}</div>
-                      )}
-                    </>
-                  ) : (profile.religion || 'N/A')}
+                  {profile.religion || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Ethnicity">
-                  {isEditing ? (
-                    <>
-                      <Input 
-                        value={editedProfile?.ethnicity} 
-                        onChange={(e) => handleInputChange('ethnicity', e.target.value)}
-                        status={fieldErrors.ethnicity ? 'error' : ''}
-                        placeholder="e.g., ILOCANO, TAGALOG, IGOROT"
-                      />
-                      {fieldErrors.ethnicity && (
-                        <div style={{ color: '#ff4d4f', fontSize: 12, marginTop: 4 }}>{fieldErrors.ethnicity}</div>
-                      )}
-                    </>
-                  ) : (profile.ethnicity || 'N/A')}
+                  {profile.ethnicity || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Citizenship">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.citizenship} 
-                      onChange={(e) => handleInputChange('citizenship', e.target.value)}
-                    />
-                  ) : (profile.citizenship || 'N/A')}
+                  {profile.citizenship || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Occupation">
-                  {isEditing ? (
-                    <Input 
-                      value={editedProfile?.occupation} 
-                      onChange={(e) => handleInputChange('occupation', e.target.value)}
-                      placeholder="e.g., TEACHER, ENGINEER, FARMER"
-                    />
-                  ) : (profile.occupation || 'N/A')}
+                  {profile.occupation || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Sectoral Information">
-                  {isEditing ? (
-                    <Select 
-                      value={editedProfile?.sectoralInformation} 
-                      onChange={(value) => handleInputChange('sectoralInformation', value)}
-                      style={{ width: '100%' }}
-                    >
-                      <Option value="None">None</Option>
-                      <Option value="Solo Parent">Solo Parent</Option>
-                      <Option value="OFW (Overseas Filipino Worker)">OFW (Overseas Filipino Worker)</Option>
-                      <Option value="PWD (Person with Disability)">PWD (Person with Disability)</Option>
-                      <Option value="OSC (Out of School Children)">OSC (Out of School Children)</Option>
-                      <Option value="OSY (Out of School Youth)">OSY (Out of School Youth)</Option>
-                      <Option value="OSA (Out of School Adult)">OSA (Out of School Adult)</Option>
-                    </Select>
-                  ) : (profile.sectoralInformation || 'None')}
+                  {profile.sectoralInformation || 'None'}
                 </Descriptions.Item>
               </Descriptions>
             </CardContent>
@@ -704,19 +580,7 @@ const ResidentProfile = () => {
             <CardContent>
               <Descriptions column={1} size="middle" bordered>
                 <Descriptions.Item label="Purok">
-                  {isEditing ? (
-                    <Select 
-                      value={editedProfile?.address?.purok} 
-                      onChange={(value) => handleAddressChange('purok', value)}
-                      style={{ width: '100%' }}
-                    >
-                      <Option value="Purok 1">Purok 1</Option>
-                      <Option value="Purok 2">Purok 2</Option>
-                      <Option value="Purok 3">Purok 3</Option>
-                      <Option value="Purok 4">Purok 4</Option>
-                      <Option value="Purok 5">Purok 5</Option>
-                    </Select>
-                  ) : (profile.address?.purok || 'N/A')}
+                  {profile.address?.purok || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Barangay">
                   {profile.address?.barangay || 'N/A'}
