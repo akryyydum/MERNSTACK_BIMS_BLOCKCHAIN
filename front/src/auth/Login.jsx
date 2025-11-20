@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions, Switch, Modal } from "antd";
+import logo from "../assets/logo.png";
+import bg from "../assets/bg.jpg";
 
 // Sectoral Information options
 const SECTORAL_OPTIONS = [
@@ -332,7 +334,7 @@ const Login = () => {
       >
         <div className="flex flex-col items-center gap-4">
           <img
-            src="../assets/logo.png"
+            src={logo}
             alt="Barangay Logo"
             className="h-28 w-28 animate-spin"
             style={{ animationDuration: "3s" }}
@@ -354,7 +356,7 @@ const Login = () => {
       {/* Left Side - Full Image */}
       <div className="hidden md:block relative w-3/5 h-screen">
         <img
-          src="../assets/bg.jpg"
+          src={bg}
           alt="Barangay"
           className="object-cover w-full h-full"
         />
@@ -367,7 +369,7 @@ const Login = () => {
         <div className="w-full max-w-md m-8">
           <div className="flex justify-center mb-6">
             <img
-              src="../assets/logo.png"
+              src={logo}
               alt="Logo"
               className="h-30 w-30"
             />
