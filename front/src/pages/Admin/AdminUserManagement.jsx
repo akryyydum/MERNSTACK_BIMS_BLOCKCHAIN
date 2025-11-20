@@ -8,6 +8,58 @@ import { UserOutlined } from "@ant-design/icons";
 const { Search } = Input;
 const { Option } = Select;
 
+// Add responsive styles for modals
+const modalStyles = `
+  @media (max-width: 480px) {
+    .user-modal-responsive .ant-modal-header {
+      padding: 12px 16px;
+    }
+    .user-modal-responsive .ant-modal-title {
+      font-size: 16px;
+    }
+    .user-modal-responsive .ant-modal-footer {
+      padding: 10px 12px;
+    }
+    .user-modal-responsive .ant-btn {
+      font-size: 13px;
+      padding: 4px 12px;
+      height: auto;
+    }
+    .responsive-form .ant-form-item-label > label {
+      font-size: 13px;
+    }
+    .responsive-form .ant-form-item-explain,
+    .responsive-form .ant-form-item-extra {
+      font-size: 11px;
+    }
+    .ant-alert-icon {
+      font-size: 16px;
+    }
+  }
+  
+  @media (min-width: 481px) and (max-width: 768px) {
+    .user-modal-responsive .ant-modal-header {
+      padding: 14px 18px;
+    }
+    .user-modal-responsive .ant-modal-title {
+      font-size: 18px;
+    }
+    .user-modal-responsive .ant-modal-footer {
+      padding: 12px 16px;
+    }
+    .user-modal-responsive .ant-btn {
+      font-size: 14px;
+    }
+    .responsive-form .ant-form-item-label > label {
+      font-size: 14px;
+    }
+    .responsive-form .ant-form-item-explain,
+    .responsive-form .ant-form-item-extra {
+      font-size: 12px;
+    }
+  }
+`;
+
 export default function AdminUserManagement() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
@@ -572,6 +624,7 @@ export default function AdminUserManagement() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{modalStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300 " >
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -585,10 +638,10 @@ export default function AdminUserManagement() {
           {/* Statistics Section */}
           <div className="px-4 pb-4">
             {/* Row 1: Total Users, Total Officials, Total Residents, Verified Users */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -597,14 +650,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Officials
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -613,14 +666,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.role === "official").length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Residents
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -629,14 +682,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.role === "resident").length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Verified Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -645,7 +698,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.residentStatus === 'verified').length}
                   </div>
                 </CardContent>
@@ -653,10 +706,10 @@ export default function AdminUserManagement() {
             </div>
             
             {/* Row 2: Pending Users, Active Users, Inactive Users - Full Width */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mt-2 md:mt-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Pending Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -665,14 +718,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => (u.residentStatus || 'pending') === 'pending').length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Active Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -681,14 +734,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.isActive).length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 md:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Inactive Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -697,7 +750,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => !u.isActive).length}
                   </div>
                 </CardContent>
@@ -725,24 +778,29 @@ export default function AdminUserManagement() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <Table
-            rowKey="_id"
-            loading={loading}
-            dataSource={filteredUsers}
-            columns={columns}
-            pagination={{
-              current: currentPage,
-              pageSize: pageSize,
-              total: filteredUsers.length,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
-              pageSizeOptions: ['10', '20', '50', '100'],
-            }}
-            onChange={handleTableChangeWithStatus}
-            scroll={{ x: 800 }}
-          />
+        <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="min-w-full inline-block align-middle">
+            <div className="overflow-hidden">
+              <Table
+                rowKey="_id"
+                loading={loading}
+                dataSource={filteredUsers}
+                columns={columns}
+                pagination={{
+                  current: currentPage,
+                  pageSize: pageSize,
+                  total: filteredUsers.length,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+                  pageSizeOptions: ['10', '20', '50', '100'],
+                }}
+                onChange={handleTableChangeWithStatus}
+                scroll={{ x: 800 }}
+                className="responsive-table"
+              />
+            </div>
+          </div>
         </div>
   </div>
         <Modal
@@ -752,13 +810,18 @@ export default function AdminUserManagement() {
           confirmLoading={creating}
           onCancel={() => setCreateOpen(false)}
           okText="Create"
-          width={window.innerWidth < 600 ? "95vw" : 520}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 520}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '80vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
           afterOpenChange={(open) => {
             if (open) {
               fetchUnlinkedResidents(); // Fetch for all roles now
             }
           }}
+          className="user-modal-responsive"
         >
           <Alert
             message="Create New User Account"
@@ -766,20 +829,30 @@ export default function AdminUserManagement() {
             type="info"
             showIcon
             className="mb-12"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '12px' : '16px'
+            }}
           />
-          <div style={{ marginBottom: 16 }} />
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
           <Form
             form={createForm}
             layout="vertical"
             onValuesChange={(changed) => {
               if (changed.role) fetchUnlinkedResidents(); // Fetch when role changes
             }}
+            style={{
+              '--form-item-margin': window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px'
+            }}
+            className="responsive-form"
           >
             <Form.Item
               name="role"
               label="Role"
               rules={[{ required: true, message: "Role is required" }]}
               initialValue="resident"
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Select
                 options={[
@@ -787,6 +860,7 @@ export default function AdminUserManagement() {
                   { value: "admin", label: "Admin", disabled: adminCount >= 1 },
                   { value: "resident", label: "Resident" },
                 ]}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -795,6 +869,7 @@ export default function AdminUserManagement() {
               label="Select Resident (no account yet)"
               rules={[{ required: true, message: "Please select a resident" }]}
               extra="List shows residents without a linked user account."
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Select
                 loading={loadingUnlinked}
@@ -805,6 +880,7 @@ export default function AdminUserManagement() {
                   value: r._id,
                   label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""}${r.suffix ? " " + r.suffix : ""} • ${r.address?.purok || ""}`,
                 }))}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
             <Form.Item
@@ -814,6 +890,7 @@ export default function AdminUserManagement() {
                 { required: true, message: "Username is required" },
                 { min: 6, message: "Username must be at least 6 characters" },
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 autoComplete="off" 
@@ -827,6 +904,7 @@ export default function AdminUserManagement() {
                     setUsernameTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -836,7 +914,11 @@ export default function AdminUserManagement() {
                 description="Please choose a different username."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
@@ -847,8 +929,13 @@ export default function AdminUserManagement() {
                 { required: true, message: "Password is required" },
                 { min: 6, message: "Password must be at least 6 characters" }
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input.Password autoComplete="new-password" placeholder="At least 6 characters" />
+              <Input.Password 
+                autoComplete="new-password" 
+                placeholder="At least 6 characters"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             <Form.Item
@@ -866,8 +953,12 @@ export default function AdminUserManagement() {
                   },
                 }),
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input.Password placeholder="Re-enter password" />
+              <Input.Password 
+                placeholder="Re-enter password"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             {/* Optional preview */}
@@ -891,8 +982,13 @@ export default function AdminUserManagement() {
           confirmLoading={savingEdit}
           onCancel={() => { setEditOpen(false); setEditingUser(null); }}
           okText="Save"
-          width={window.innerWidth < 600 ? "95vw" : 800}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 16 }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 800}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '80vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
+          className="user-modal-responsive"
         >
           <Alert
             message="Edit User Information"
@@ -900,15 +996,24 @@ export default function AdminUserManagement() {
             type="info"
             showIcon
             className="mb-4"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '8px' : '12px'
+            }}
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={editForm} layout="vertical" style={{ gap: 0 }}>
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
+          <Form form={editForm} layout="vertical" style={{ gap: 0 }} className="responsive-form">
             <Form.Item
               name="fullName"
               label="Full name"
               rules={[{ required: true, message: "Full name is required" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input disabled />
+              <Input 
+                disabled
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             <Form.Item
@@ -918,6 +1023,7 @@ export default function AdminUserManagement() {
                 { required: true, message: "Username is required" },
                 { min: 6, message: "Username must be at least 6 characters" },
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 placeholder="Username (minimum of 6 characters)"
@@ -933,6 +1039,7 @@ export default function AdminUserManagement() {
                     setUsernameTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -942,12 +1049,23 @@ export default function AdminUserManagement() {
                 description="Please choose a different username."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
-            <Form.Item label={<span>Password </span>} required>
-              <Button type="default" onClick={openChangePassword}>
+            <Form.Item 
+              label={<span>Password </span>} 
+              required
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}>
+              <Button 
+                type="default" 
+                onClick={openChangePassword}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              >
                 Change Password
               </Button>
             </Form.Item>
@@ -956,6 +1074,7 @@ export default function AdminUserManagement() {
               name="role"
               label="Role"
               rules={[{ required: true, message: "Role is required" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Select
                 options={[
@@ -963,6 +1082,7 @@ export default function AdminUserManagement() {
                   { value: "official", label: "Official" },
                   { value: "resident", label: "Resident" },
                 ]}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -970,6 +1090,7 @@ export default function AdminUserManagement() {
               name={["contact", "email"]}
               label="Email"
               rules={[{ type: "email", message: "Invalid email" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 type="email" 
@@ -986,6 +1107,7 @@ export default function AdminUserManagement() {
                     setEmailTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -995,7 +1117,11 @@ export default function AdminUserManagement() {
                 description="This email is already used by another user."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
@@ -1007,6 +1133,7 @@ export default function AdminUserManagement() {
                 pattern: /^09\d{9}$/,
                 message: "Only numbers are allowed"
               }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 type="tel" 
@@ -1023,6 +1150,7 @@ export default function AdminUserManagement() {
                     setMobileTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -1032,7 +1160,11 @@ export default function AdminUserManagement() {
                 description="This mobile number is already used by another user."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
@@ -1040,12 +1172,14 @@ export default function AdminUserManagement() {
               name="residentStatus"
               label="Resident Status"
               rules={[{ required: true, message: "Status is required" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '8px' : window.innerWidth < 768 ? '12px' : '24px' }}
             >
               <Select
                 options={[
                   { value: "pending", label: "Pending" },
                   { value: "verified", label: "Verified" },
                 ]}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
           </Form>
@@ -1063,8 +1197,13 @@ export default function AdminUserManagement() {
             setCurrentPasswordError(false);
           }}
           okText="Change Password"
-          width={window.innerWidth < 600 ? "95vw" : 500}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 500}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '70vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
+          className="user-modal-responsive"
         >
           <Alert
             message="Change User Password"
@@ -1072,9 +1211,14 @@ export default function AdminUserManagement() {
             type="warning"
             showIcon
             className="mb-4"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '8px' : '12px'
+            }}
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={changePasswordForm} layout="vertical">
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
+          <Form form={changePasswordForm} layout="vertical" className="responsive-form">
             <Form.Item
               name="newPassword"
               label="New Password"
@@ -1082,8 +1226,12 @@ export default function AdminUserManagement() {
                 { required: true, message: "New password is required" },
                 { min: 6, message: "Password must be at least 6 characters" },
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input.Password placeholder="Enter new password (min 6 chars)" />
+              <Input.Password 
+                placeholder="Enter new password (min 6 chars)"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             <Form.Item
@@ -1101,8 +1249,12 @@ export default function AdminUserManagement() {
                   },
                 }),
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '8px' : window.innerWidth < 768 ? '12px' : '24px' }}
             >
-              <Input.Password placeholder="Re-enter new password" />
+              <Input.Password 
+                placeholder="Re-enter new password"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
           </Form>
         </Modal>
