@@ -479,47 +479,47 @@ export default function AdminPublicDocuments() {
           </nav>
 
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <Card className="bg-slate-50 rounded-2xl shadow-md py-4 p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <Card className="bg-slate-50 rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold">
+                  <CardTitle className="text-xs md:text-sm font-bold">
                     Total Documents
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{totalDocs}</div>
+                  <div className="text-xl md:text-3xl font-bold">{totalDocs}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold">
+                  <CardTitle className="text-xs md:text-sm font-bold">
                     Total Size
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl font-semibold">
+                  <div className="text-base md:text-xl font-semibold">
                     {(totalSize / 1024 / 1024).toFixed(2)} MB
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold">
+                  <CardTitle className="text-xs md:text-sm font-bold">
                     Categories
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl font-semibold">{categories.length}</div>
+                  <div className="text-base md:text-xl font-semibold">{categories.length}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 rounded-2xl shadow-md py-4 p-4">
+              <Card className="bg-slate-50 rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold">
+                  <CardTitle className="text-xs md:text-sm font-bold">
                     Top Category
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl font-semibold">
+                  <div className="text-base md:text-xl font-semibold">
                     {topCat || "—"}
                   </div>
                 </CardContent>
@@ -548,53 +548,103 @@ export default function AdminPublicDocuments() {
                     setUploadOpen(true);
                     form.resetFields();
                   }}
+                  className="hidden sm:inline-flex"
                 >
                   Upload
                 </Button>
               </div>
             </div>
-          <div className="overflow-x-auto">
-            <Table
-              rowKey="_id"
-              loading={loading}
-              dataSource={filtered}
-              columns={columns}
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: 900 }}
-            />
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <div className="overflow-hidden">
+                <Table
+                  rowKey="_id"
+                  loading={loading}
+                  dataSource={filtered}
+                  columns={columns}
+                  pagination={{ 
+                    pageSize: 10,
+                    showSizeChanger: false,
+                    responsive: true,
+                    className: "px-4 sm:px-0"
+                  }}
+                  scroll={{ x: 900 }}
+                  className="mobile-responsive-table"
+                />
+              </div>
+            </div>
           </div>
         </div>
+        <style jsx global>{`
+          @media (max-width: 768px) {
+            .mobile-responsive-table .ant-table {
+              font-size: 12px !important;
+            }
+            .mobile-responsive-table .ant-table-thead > tr > th {
+              padding: 8px 6px !important;
+              font-size: 11px !important;
+              font-weight: 600 !important;
+              white-space: nowrap;
+            }
+            .mobile-responsive-table .ant-table-tbody > tr > td {
+              padding: 8px 6px !important;
+              font-size: 12px !important;
+              white-space: nowrap;
+            }
+            .mobile-responsive-table .ant-btn-sm {
+              font-size: 11px !important;
+              padding: 2px 6px !important;
+              height: 26px !important;
+            }
+            .mobile-responsive-table .ant-tag {
+              font-size: 11px !important;
+              padding: 0 6px !important;
+              margin: 1px !important;
+            }
+            .mobile-responsive-table .ant-table-tbody > tr > td .flex {
+              gap: 4px;
+            }
+          }
+          @media (max-width: 640px) {
+            .mobile-responsive-table .ant-table-tbody > tr > td {
+              white-space: nowrap !important;
+            }
+          }
+        `}</style>
 
         <Modal
-          title="Upload Public Document"
+          title={<span className="text-base md:text-lg">Upload Public Document</span>}
           open={uploadOpen}
           onCancel={() => setUploadOpen(false)}
           onOk={handleUpload}
           confirmLoading={uploading}
           okText="Upload"
           width={600}
+          className="mobile-responsive-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
-            message="Upload Public Document"
-            description="Upload a document that will be visible to all residents. Provide a title, optional description, and select a category. Supported file types include PDF, Word, Excel, and images."
+            message={<span className="text-sm md:text-base">Upload Public Document</span>}
+            description={<span className="text-xs md:text-sm">Upload a document that will be visible to all residents. Provide a title, optional description, and select a category. Supported file types include PDF, Word, Excel, and images.</span>}
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-3 md:mb-4"
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form layout="vertical" form={form}>
+          <div style={{ marginBottom: 12 }} />
+          <Form layout="vertical" form={form} className="mobile-responsive-form">
             <Form.Item
               name="title"
-              label="Title"
+              label={<span className="text-xs md:text-sm">Title</span>}
               rules={[{ required: true, message: "Title required" }]}
             >
-              <Input />
+              <Input className="text-sm" />
             </Form.Item>
-            <Form.Item name="description" label="Description">
-              <Input.TextArea rows={3} />
+            <Form.Item name="description" label={<span className="text-xs md:text-sm">Description</span>}>
+              <Input.TextArea rows={3} className="text-sm" />
             </Form.Item>
-            <Form.Item name="category" label="Category" initialValue="General">
+            <Form.Item name="category" label={<span className="text-xs md:text-sm">Category</span>} initialValue="General">
               <Select
+                className="text-sm"
                 options={[
                   "General",
                   "Announcement",
@@ -606,7 +656,7 @@ export default function AdminPublicDocuments() {
             </Form.Item>
             <Form.Item
               name="file"
-              label="File"
+              label={<span className="text-xs md:text-sm">File</span>}
               valuePropName="fileList"
               rules={[{ required: true, message: "File required" }]}
               getValueFromEvent={e => {
@@ -623,7 +673,7 @@ export default function AdminPublicDocuments() {
                 <p className="ant-upload-drag-icon">
                   <UploadOutlined />
                 </p>
-                <p className="ant-upload-text">
+                <p className="ant-upload-text text-xs md:text-sm">
                   Click or drag file here (max 5MB)
                 </p>
               </Upload.Dragger>
@@ -632,7 +682,7 @@ export default function AdminPublicDocuments() {
         </Modal>
 
         <Modal
-          title="Document Details"
+          title={<span className="text-base md:text-lg">Document Details</span>}
           open={viewOpen}
           onCancel={() => setViewOpen(false)}
           footer={[
@@ -641,46 +691,51 @@ export default function AdminPublicDocuments() {
                 key="download"
                 icon={<DownloadOutlined />}
                 onClick={() => download(viewDoc)}
+                className="text-xs md:text-sm"
               >
                 Download
               </Button>
             ),
-            <Button key="close" onClick={() => setViewOpen(false)}>
+            <Button key="close" onClick={() => setViewOpen(false)} className="text-xs md:text-sm">
               Close
             </Button>,
           ]}
           width={650}
+          className="mobile-responsive-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           {viewDoc && (
-            <Descriptions bordered column={1} size="middle">
-              <Descriptions.Item label="Title">
-                {viewDoc.title}
+            <Descriptions bordered column={1} size="middle" className="mobile-responsive-descriptions">
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Title</span>}>
+                <span className="text-xs md:text-sm">{viewDoc.title}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Description">
-                {viewDoc.description || "-"}
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Description</span>}>
+                <span className="text-xs md:text-sm">{viewDoc.description || "-"}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Category">
-                {viewDoc.category}
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Category</span>}>
+                <span className="text-xs md:text-sm">{viewDoc.category}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Original Name">
-                {viewDoc.originalName}
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Original Name</span>}>
+                <span className="text-xs md:text-sm break-all">{viewDoc.originalName}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Type">
-                {viewDoc.mimeType}
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Type</span>}>
+                <span className="text-xs md:text-sm">{viewDoc.mimeType}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Size">
-                {(
-                  viewDoc.size /
-                  1024 /
-                  (viewDoc.size / 1024 < 1024 ? 1 : 1024)
-                ).toFixed(2)}{" "}
-                {viewDoc.size / 1024 < 1024 ? "KB" : "MB"}
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Size</span>}>
+                <span className="text-xs md:text-sm">
+                  {(
+                    viewDoc.size /
+                    1024 /
+                    (viewDoc.size / 1024 < 1024 ? 1 : 1024)
+                  ).toFixed(2)}{" "}
+                  {viewDoc.size / 1024 < 1024 ? "KB" : "MB"}
+                </span>
               </Descriptions.Item>
-              <Descriptions.Item label="Uploaded At">
-                {dayjs(viewDoc.createdAt).format("YYYY-MM-DD HH:mm")}
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Uploaded At</span>}>
+                <span className="text-xs md:text-sm">{dayjs(viewDoc.createdAt).format("YYYY-MM-DD HH:mm")}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Blockchain Status">
-                <Tag color={STATUS_COLORS[viewDoc.status] || 'default'}>
+              <Descriptions.Item label={<span className="text-xs md:text-sm">Blockchain Status</span>}>
+                <Tag color={STATUS_COLORS[viewDoc.status] || 'default'} className="text-xs">
                   {viewDoc.status === 'not_registered' ? 'UNREGISTERED' : (viewDoc.status || 'N/A').toUpperCase()}
                 </Tag>
               </Descriptions.Item>
@@ -689,7 +744,7 @@ export default function AdminPublicDocuments() {
         </Modal>
 
         <Modal
-          title={previewDoc ? `Preview: ${previewDoc.title}` : "Document Preview"}
+          title={<span className="text-base md:text-lg">{previewDoc ? `Preview: ${previewDoc.title}` : "Document Preview"}</span>}
           open={previewOpen}
           onCancel={closePreview}
           footer={[
@@ -698,19 +753,88 @@ export default function AdminPublicDocuments() {
                 key="download"
                 icon={<DownloadOutlined />}
                 onClick={() => download(previewDoc)}
+                className="text-xs md:text-sm"
               >
                 Download
               </Button>
             ),
-            <Button key="close" onClick={closePreview}>
+            <Button key="close" onClick={closePreview} className="text-xs md:text-sm">
               Close
             </Button>,
           ]}
           width={820}
+          className="mobile-responsive-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
           destroyOnClose
         >
           {renderPreviewContent()}
         </Modal>
+        <style jsx global>{`
+          @media (max-width: 768px) {
+            .mobile-responsive-modal .ant-modal-header {
+              padding: 12px 16px;
+            }
+            .mobile-responsive-modal .ant-modal-body {
+              padding: 12px 16px;
+            }
+            .mobile-responsive-modal .ant-modal-footer {
+              padding: 8px 16px;
+            }
+            .mobile-responsive-modal .ant-modal-footer .ant-btn {
+              font-size: 12px;
+              padding: 4px 12px;
+              height: 28px;
+            }
+            .mobile-responsive-form .ant-form-item {
+              margin-bottom: 12px;
+            }
+            .mobile-responsive-form .ant-form-item-label {
+              padding-bottom: 4px;
+            }
+            .mobile-responsive-form .ant-input,
+            .mobile-responsive-form .ant-input-textarea,
+            .mobile-responsive-form .ant-select-selector {
+              font-size: 13px;
+            }
+            .mobile-responsive-descriptions .ant-descriptions-item-label,
+            .mobile-responsive-descriptions .ant-descriptions-item-content {
+              padding: 8px 12px;
+            }
+          }
+          @media (max-width: 640px) {
+            .mobile-responsive-modal .ant-modal-header {
+              padding: 10px 12px;
+            }
+            .mobile-responsive-modal .ant-modal-body {
+              padding: 10px 12px;
+              max-height: calc(100vh - 180px);
+              overflow-y: auto;
+            }
+            .mobile-responsive-modal .ant-modal-footer {
+              padding: 6px 12px;
+            }
+            .mobile-responsive-modal .ant-modal-footer .ant-btn {
+              font-size: 11px;
+              padding: 3px 10px;
+              height: 26px;
+            }
+            .mobile-responsive-form .ant-form-item {
+              margin-bottom: 10px;
+            }
+            .mobile-responsive-form .ant-input,
+            .mobile-responsive-form .ant-input-textarea,
+            .mobile-responsive-form .ant-select-selector {
+              font-size: 12px;
+            }
+            .mobile-responsive-form .ant-upload-drag {
+              padding: 12px;
+            }
+            .mobile-responsive-descriptions .ant-descriptions-item-label,
+            .mobile-responsive-descriptions .ant-descriptions-item-content {
+              padding: 6px 8px;
+            }
+          }
+        `}</style>
       </div>
     </AdminLayout>
   );
