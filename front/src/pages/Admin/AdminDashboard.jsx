@@ -501,30 +501,30 @@ export default function AdminDashboard() {
 
     return (
       <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
-              {icon}
-              <span>{title}</span>
+        <CardContent className="p-3 md:p-6">
+          <div className="flex items-start justify-between mb-2 md:mb-4">
+            <div className="flex items-center gap-1 md:gap-2 text-gray-600 text-xs md:text-sm">
+              <span className="text-sm md:text-base">{icon}</span>
+              <span className="text-xs md:text-sm leading-tight">{title}</span>
             </div>
           </div>
           
-          <div className="mb-3">
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="mb-2 md:mb-3">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
               {isRevenue ? `₱${value.toLocaleString()}` : value.toLocaleString()}
             </div>
-            <div className="text-xs text-gray-500 mt-1">{sinceLast}</div>
+            <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">{sinceLast}</div>
           </div>
           
           <div className="flex items-center gap-1">
-            <span className={`text-sm font-semibold ml-auto flex items-center gap-1 ${changeColor}`}>
+            <span className={`text-xs md:text-sm font-semibold ml-auto flex items-center gap-1 ${changeColor}`}>
               {Math.abs(change).toFixed(1)}%
-              <TrendIcon className="text-xs" />
+              <TrendIcon className="text-[10px] md:text-xs" />
             </span>
           </div>
           
           {/* Mini trend line */}
-          <div className="mt-3 h-8">
+          <div className="mt-2 md:mt-3 h-6 md:h-8">
             <ChartContainer config={chartConfig} className="h-full w-full">
                 <LineChart width={254} height={32} data={normalizedTrend}>
                   <Line 
@@ -579,7 +579,7 @@ export default function AdminDashboard() {
         {/* Content Container */}
         <div className="px-4 pb-4 space-y-4">
           {/* Top Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {/* Total Residents */}
           <MetricCard
             icon={<TeamOutlined />}
@@ -627,19 +627,19 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 gap-4">
             {/* Total Request Trend (full width) */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-4 flex items-start md:items-center justify-between flex-col md:flex-row gap-3 md:gap-4">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900"><span className="font-bold">Total Request Trend</span></h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="text-base md:text-lg font-bold text-gray-900"><span className="font-bold">Total Request Trend</span></h3>
+                    <p className="text-xs md:text-sm text-gray-500">
                       {requestTrendPeriod === '7days' ? 'Document requests and complaints in the last 7 days' :
                       'Document requests and complaints from January to December'}
                     </p>
                   </div>
-                  <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                  <div className="flex gap-1 md:gap-2 bg-gray-100 p-1 rounded-lg w-full md:w-auto">
                     <button
                       onClick={() => setRequestTrendPeriod('7days')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 font-['Poppins'] ${
+                      className={`flex-1 md:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-200 font-['Poppins'] ${
                         requestTrendPeriod === '7days'
                           ? 'bg-white text-blue-600 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
@@ -649,7 +649,7 @@ export default function AdminDashboard() {
                     </button>
                     <button
                       onClick={() => setRequestTrendPeriod('12months')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 font-['Poppins'] ${
+                      className={`flex-1 md:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-200 font-['Poppins'] ${
                         requestTrendPeriod === '12months'
                           ? 'bg-white text-blue-600 shadow-md'
                           : 'text-gray-600 hover:text-gray-900'
@@ -660,7 +660,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               
-              <div className="h-80">
+              <div className="h-64 md:h-80">
                 {requestTrendLoading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-8 w-full" />
@@ -727,16 +727,16 @@ export default function AdminDashboard() {
           </div>
 
           {/* Male/Female Demographics, Purok Distribution, and Blockchain Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Male and Female Residents */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900"> <span className="font-bold">Male and Female Residents</span></h3>
-                  <p className="text-sm text-gray-500">Gender distribution of registered residents</p>
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900"> <span className="font-bold">Male and Female Residents</span></h3>
+                  <p className="text-xs md:text-sm text-gray-500">Gender distribution of registered residents</p>
                 </div>
                 
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   {genderCardLoading ? (
                     <div className="flex flex-col items-center justify-center space-y-4">
                       <Skeleton className="h-48 w-48 rounded-full" />
@@ -799,13 +799,13 @@ export default function AdminDashboard() {
 
             {/* Purok Distribution */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900"><span className="font-bold">Purok Distribution</span></h3>
-                  <p className="text-sm text-gray-500">Residents by purok area</p>
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900"><span className="font-bold">Purok Distribution</span></h3>
+                  <p className="text-xs md:text-sm text-gray-500">Residents by purok area</p>
                 </div>
                 
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   {purokCardLoading ? (
                     <div className="flex flex-col items-center justify-center space-y-4">
                       <Skeleton className="h-44 w-44 rounded-full" />
@@ -871,14 +871,14 @@ export default function AdminDashboard() {
 
             {/* Blockchain Network Status */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                     <CloudServerOutlined /> <span className="font-bold">Blockchain Network Status</span>
                   </h3>
                 </div>
               
-              <div className="h-64">
+              <div className="h-56 md:h-64">
                 {blockchainCardLoading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-6 w-40" />
@@ -924,14 +924,14 @@ export default function AdminDashboard() {
           </div>
 
           {/* Tables Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <ThunderboltOutlined /> Recent Document Requests
               </CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="overflow-x-auto p-3 md:p-6">
               {docTableLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />
@@ -956,12 +956,12 @@ export default function AdminDashboard() {
           </Card>
 
           <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <CardHeader>
+            <CardHeader className="p-4 md:p-6">
               <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <DollarCircleOutlined /> Recent Payment Fees
               </CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="overflow-x-auto p-3 md:p-6">
               {paymentTableLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />

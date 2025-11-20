@@ -118,3 +118,37 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Responsive table styles */
+@media (max-width: 768px) {
+  .responsive-table .ant-table {
+    font-size: 0.875rem;
+  }
+  
+  .responsive-table .ant-table-thead > tr > th {
+    padding: 8px 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  
+  .responsive-table .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+    font-size: 0.813rem;
+  }
+  
+  .responsive-table .ant-btn-sm {
+    padding: 0 8px;
+    font-size: 0.75rem;
+    height: 28px;
+  }
+  
+  .responsive-table .ant-select-sm {
+    font-size: 0.75rem;
+  }
+  
+  .responsive-table .ant-tag {
+    font-size: 0.75rem;
+    padding: 0 4px;
+  }
+}
+
