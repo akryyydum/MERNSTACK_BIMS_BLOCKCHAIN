@@ -376,40 +376,7 @@ export default function AdminSettings() {
                 </CardContent>
               </Card>
 
-              {/* Security Settings Card */}
-              <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
-                    <SafetyOutlined />
-                    <span>Security & Privacy</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                      <div>
-                        <p className="font-medium text-gray-900">Two-Factor Authentication</p>
-                        <p className="text-sm text-gray-500 mt-1">Add an extra layer of security to your account</p>
-                      </div>
-                      <span className="text-sm text-orange-600 font-medium">Not Enabled</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                      <div>
-                        <p className="font-medium text-gray-900">Session Timeout</p>
-                        <p className="text-sm text-gray-500 mt-1">Auto logout after inactivity</p>
-                      </div>
-                      <span className="text-sm text-gray-600 font-medium">30 minutes</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3">
-                      <div>
-                        <p className="font-medium text-gray-900">Login Activity</p>
-                        <p className="text-sm text-gray-500 mt-1">Track login history and active sessions</p>
-                      </div>
-                      <span className="text-sm text-green-600 font-medium">Monitored</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              
             </div>
             
           </div>
