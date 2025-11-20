@@ -19,8 +19,9 @@ import { UserOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 
-// Use environment variable for backend API base (configure VITE_API_BASE_URL in .env and Vercel dashboard)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || ""; // e.g. https://your-backend.example.com
+// Use environment variable for backend API base.
+// Supports both VITE_API_BASE_URL and legacy VITE_API_URL for compatibility.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const OFFICIALS_ENDPOINT = `${API_BASE}/api/admin/officials`;
 const RESIDENTS_ENDPOINT = `${API_BASE}/api/admin/residents`;
 
