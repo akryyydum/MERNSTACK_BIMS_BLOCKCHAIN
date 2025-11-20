@@ -18,6 +18,91 @@ import {
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
+// Responsive styles for mobile and tablet
+const responsiveStyles = `
+  @media (max-width: 768px) {
+    .streetlight-action-buttons {
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      row-gap: 8px !important;
+    }
+    .streetlight-action-buttons .ant-btn {
+      flex: 1 1 45%;
+      min-width: 120px;
+      max-width: 100%;
+    }
+  }
+    .streetlight-modal-responsive .ant-modal-header {
+      padding: 12px 16px;
+    }
+    .streetlight-modal-responsive .ant-modal-title {
+      font-size: 15px;
+      line-height: 1.3;
+    }
+    .streetlight-modal-responsive .ant-modal-footer {
+      padding: 10px 16px !important;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .streetlight-modal-responsive .ant-modal-footer .ant-btn {
+      margin: 0 !important;
+      flex: 1 1 auto;
+      min-width: 80px !important;
+    }
+    .responsive-streetlight-form .ant-form-item-label > label {
+      font-size: 13px;
+    }
+    .responsive-streetlight-form .ant-form-item-explain,
+    .responsive-streetlight-form .ant-form-item-extra {
+      font-size: 11px;
+    }
+    .streetlight-fees-table .ant-table {
+      font-size: 12px;
+    }
+    .streetlight-fees-table .ant-table-thead > tr > th {
+      padding: 8px 6px;
+      font-size: 11px;
+    }
+    .streetlight-fees-table .ant-table-tbody > tr > td {
+      padding: 8px 6px;
+      font-size: 12px;
+    }
+    .streetlight-fees-table .ant-btn-sm {
+      font-size: 11px;
+      padding: 2px 6px;
+      height: 26px;
+    }
+    .streetlight-fees-table .ant-tag {
+      font-size: 11px;
+      padding: 0 6px;
+      margin: 1px;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .streetlight-modal-responsive .ant-modal {
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px !important;
+      top: 12px !important;
+    }
+    .streetlight-modal-responsive .ant-modal-body {
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+      padding: 12px !important;
+    }
+    .streetlight-modal-responsive .ant-modal-header {
+      padding: 10px 12px;
+    }
+    .streetlight-modal-responsive .ant-modal-title {
+      font-size: 14px;
+    }
+    .streetlight-fees-table .ant-table-tbody > tr > td {
+      white-space: nowrap;
+    }
+  }
+`;
+
 export default function AdminStreetLightFees() {
   const [loading, setLoading] = useState(false);
   const [households, setHouseholds] = useState([]);
@@ -1588,7 +1673,7 @@ export default function AdminStreetLightFees() {
         };
         const hasPayments = streetlightPayments.some(payment => isSameHousehold(payment.household?._id, r._id) || isSameHousehold(payment.household, r._id));
         return (
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1">
             <Button size="small" onClick={() => openView(r)}>View</Button>
             <Button size="small" onClick={() => openPaymentHistory(r)}>History</Button>
             {hasPayments && (
@@ -1627,6 +1712,7 @@ export default function AdminStreetLightFees() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{responsiveStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -1639,10 +1725,10 @@ export default function AdminStreetLightFees() {
           </nav>
           
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Households
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1651,14 +1737,14 @@ export default function AdminStreetLightFees() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {stats.totalHouseholds}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Fee Structure
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1668,21 +1754,21 @@ export default function AdminStreetLightFees() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Monthly:</span> ₱{Number(stats.monthlyRate).toFixed(2)}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Yearly:</span> ₱{(Number(stats.monthlyRate) * 12).toFixed(2)}
                     </div>
                     {getStreetlightEffectiveMonth() && (
-                      <div className="text-xs text-gray-500">Effective Since: {dayjs(getStreetlightEffectiveMonth()+'-01').format('MMM YYYY')}</div>
+                      <div className="text-[10px] md:text-xs text-gray-500">Effective Since: {dayjs(getStreetlightEffectiveMonth()+'-01').format('MMM YYYY')}</div>
                     )}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Collected
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1692,18 +1778,18 @@ export default function AdminStreetLightFees() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Year:</span> ₱{stats.totalCollected?.yearly || 0}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Month:</span> ₱{stats.totalCollected?.monthly || 0}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Balance
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1713,18 +1799,18 @@ export default function AdminStreetLightFees() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Year:</span> ₱{stats.outstanding?.yearly || 0}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Month:</span> ₱{stats.outstanding?.monthly || 0}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 md:py-10 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 lg:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Collection Rate
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1733,7 +1819,7 @@ export default function AdminStreetLightFees() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {stats.collectionRate || 0}%
                   </div>
                 </CardContent>
@@ -1823,7 +1909,7 @@ export default function AdminStreetLightFees() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 streetlight-action-buttons">
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
@@ -1862,51 +1948,53 @@ export default function AdminStreetLightFees() {
             </div>
           </div>
 
-          <Table
-            columns={columns}
-            dataSource={filteredHouseholds}
-            rowKey="_id"
-            loading={loading || refreshing}
-            rowSelection={{
-              selectedRowKeys,
-              onChange: (selectedKeys) => {
-                setSelectedRowKeys(selectedKeys);
-                if (selectedKeys.length === 0) {
-                  setSelectAllClicked(false);
-                }
-              },
-              selections: [
-                Table.SELECTION_ALL,
-                Table.SELECTION_INVERT,
-                Table.SELECTION_NONE,
-              ],
-            }}
-            pagination={{
-                pageSize: 10,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total} Streetlight fee payments | Selected: ${selectedRowKeys.length}`,
-                pageSizeOptions: ['10', '20', '50', '100'],
-                defaultPageSize: 10,
-                size: 'default'
-              }}
-              scroll={{ x: 800 }}
-          />
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <div className="min-w-full inline-block align-middle">
+              <div className="overflow-hidden">
+                <Table
+                  size="middle"
+                  columns={columns}
+                  dataSource={filteredHouseholds}
+                  rowKey="_id"
+                  loading={loading || refreshing}
+                  rowSelection={{
+                    selectedRowKeys,
+                    onChange: (selectedKeys) => {
+                      setSelectedRowKeys(selectedKeys);
+                      if (selectedKeys.length === 0) {
+                        setSelectAllClicked(false);
+                      }
+                    },
+                    selections: [
+                      Table.SELECTION_ALL,
+                      Table.SELECTION_INVERT,
+                      Table.SELECTION_NONE,
+                    ],
+                  }}
+                  pagination={{
+                      pageSize: 10,
+                      showSizeChanger: true,
+                      showQuickJumper: true,
+                      showTotal: (total, range) => 
+                        `${range[0]}-${range[1]} of ${total} Streetlight fee payments | Selected: ${selectedRowKeys.length}`,
+                      pageSizeOptions: ['10', '20', '50', '100'],
+                      defaultPageSize: 10,
+                      size: 'default'
+                    }}
+                    scroll={{ x: 800 }}
+                    className="streetlight-fees-table"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Add Payment Modal */}
         <Modal
-          title={
-            <div>
-              {searchType === 'household' ? 'Add Streetlight Fee Payment' : 'Add Payment by Member'}
-              {!showMemberSelection && (
-                <div className="flex gap-2 mt-2">
-                </div>
-              )}
-            </div>
-          }
+          title="Add Streetlight Fee Payment"
           open={addPaymentOpen}
+          destroyOnClose
+          className="streetlight-modal-responsive"
           onCancel={() => {
             setAddPaymentOpen(false);
             setShowMemberSelection(false);
@@ -1980,24 +2068,29 @@ export default function AdminStreetLightFees() {
                 console.error("Form validation failed:", err);
               }
             }}>
-              {showMemberSelection ? 'Continue to Payment' : 
-               searchType === 'member' ? 'Continue to Payment' : 
-               'Select Member'}
+              {searchType === 'member' ? "Proceed to Payment" : 
+               showMemberSelection ? "Proceed to Payment" : "Select Member"}
             </Button>
           ]}
-          width={900}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 900}
+          bodyStyle={{ 
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
-          <Form form={addPaymentForm} layout="vertical" size="large">
+          <Form form={addPaymentForm} layout="vertical" size={window.innerWidth < 640 ? 'middle' : 'large'} className="responsive-streetlight-form">
             {!showMemberSelection ? (
               <div className="space-y-4">
                 {/* Search Type Selection */}
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
                   <div className="text-base font-medium mb-4">How would you like to search?</div>
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
                       type={searchType === 'household' ? 'primary' : 'default'}
                       icon={<HomeOutlined />}
                       size="large"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setSearchType('household');
                         addPaymentForm.resetFields();
@@ -2009,6 +2102,7 @@ export default function AdminStreetLightFees() {
                       type={searchType === 'member' ? 'primary' : 'default'}
                       icon={<UserOutlined />}
                       size="large"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setSearchType('member');
                         addPaymentForm.resetFields();
@@ -2018,7 +2112,9 @@ export default function AdminStreetLightFees() {
                     </Button>
                   </div>
                 </div>
+
                 {searchType === 'household' ? (
+                  // Household Search
                   <Form.Item
                     name="householdId"
                     label="Select Household"
@@ -2026,7 +2122,7 @@ export default function AdminStreetLightFees() {
                   >
                     <Select
                       showSearch
-                      placeholder="Search by household ID, head of household, or address"
+                      placeholder="Search by household ID, head of household, or Purok"
                       optionFilterProp="label"
                       filterOption={(input, option) =>
                         (option?.label || '').toLowerCase().includes(input.toLowerCase())
@@ -2044,6 +2140,7 @@ export default function AdminStreetLightFees() {
                     </Select>
                   </Form.Item>
                 ) : (
+                  // Member Search
                   <Form.Item
                     name="memberId"
                     label="Search by Member Name"
@@ -2075,6 +2172,7 @@ export default function AdminStreetLightFees() {
                     </Select>
                   </Form.Item>
                 )}
+                
                 <div className="text-xs text-gray-500">
                   💡 {searchType === 'household' 
                     ? "Select a household, then choose which member is making the payment" 
@@ -2090,7 +2188,7 @@ export default function AdminStreetLightFees() {
                     {selectedHouseholdForPayment?.householdId} - {fullName(selectedHouseholdForPayment?.headOfHousehold)}
                   </p>
                   <p className="text-sm text-blue-600">
-                    {selectedHouseholdForPayment?.address?.street}, {selectedHouseholdForPayment?.address?.purok}
+                    {selectedHouseholdForPayment?.address?.street}{selectedHouseholdForPayment?.address?.purok ? `, ${selectedHouseholdForPayment?.address?.purok}` : ""}
                   </p>
                 </div>
                 
@@ -2137,6 +2235,7 @@ export default function AdminStreetLightFees() {
             </div>
           }
           open={payOpen}
+          className="streetlight-modal-responsive"
           onCancel={() => { 
             setPayOpen(false); 
             setPayHousehold(null); 
@@ -2181,11 +2280,16 @@ export default function AdminStreetLightFees() {
               Record Streetlight Payment
             </Button>
           ]}
-          width={1300}
-          centered
-          style={{ top: 20 }}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : window.innerWidth < 1024 ? '95%' : 1300}
+          centered={window.innerWidth >= 768}
+          style={{ top: window.innerWidth < 768 ? 12 : 20 }}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
-          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
+          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }} size={window.innerWidth < 640 ? 'small' : 'middle'} className="responsive-streetlight-form">
             <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Streetlight Maintenance Fee" size="small" />
             </Form.Item>
@@ -2441,6 +2545,7 @@ export default function AdminStreetLightFees() {
             </div>
           }
           open={garbagePayOpen}
+          className="streetlight-modal-responsive"
           onCancel={() => { 
             setGarbagePayOpen(false);
             setGarbageSelectedMonths([]);
@@ -2478,11 +2583,16 @@ export default function AdminStreetLightFees() {
               Record Payment for Both
             </Button>
           ]}
-          width={1300}
-          centered
-          style={{ top: 20 }}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : window.innerWidth < 1024 ? '95%' : 1300}
+          centered={window.innerWidth >= 768}
+          style={{ top: window.innerWidth < 768 ? 12 : 20 }}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
-          <Form form={garbageForm} layout="vertical" initialValues={{ method: "Cash" }}>
+          <Form form={garbageForm} layout="vertical" initialValues={{ method: "Cash" }} size={window.innerWidth < 640 ? 'small' : 'middle'} className="responsive-streetlight-form">
             <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Garbage Collection Fee" size="small" />
             </Form.Item>
@@ -2775,9 +2885,15 @@ export default function AdminStreetLightFees() {
         <Modal
           title="Household Details"
           open={viewOpen}
+          className="streetlight-modal-responsive"
           onCancel={() => setViewOpen(false)}
           footer={null}
-          width={700}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 700}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
           {viewHousehold && (
             <Descriptions bordered column={1} size="middle">
@@ -2835,13 +2951,19 @@ export default function AdminStreetLightFees() {
         <Modal
           title={`Payment History${historyHousehold ? ` — ${historyHousehold.householdId}` : ""}`}
           open={historyOpen}
+          className="streetlight-modal-responsive"
           onCancel={() => {
             setHistoryOpen(false);
             setHistoryHousehold(null);
             setHistoryData([]);
           }}
           footer={null}
-          width={800}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 800}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
           {historyHousehold && (
             <div>
@@ -2909,6 +3031,7 @@ export default function AdminStreetLightFees() {
         <Modal
           title="Export Streetlight Fees to Excel"
           open={exportOpen}
+          className="streetlight-modal-responsive"
           onCancel={() => {
             setExportOpen(false);
             exportForm.resetFields();
@@ -2932,10 +3055,17 @@ export default function AdminStreetLightFees() {
               Export to Excel
             </Button>
           ]}
-          width={500}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 500}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
           <Form
             form={exportForm}
+            size={window.innerWidth < 640 ? 'small' : 'middle'}
+            className="responsive-streetlight-form"
             layout="vertical"
             onFinish={exportToExcel}
             onValuesChange={() => {
