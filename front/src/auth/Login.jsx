@@ -399,7 +399,6 @@ const Login = () => {
               name="username"
               rules={[
                 { required: true, message: "Please input your username!" },
-                { min: 6, message: "Username must be at least 6 characters" },
               ]}
               validateStatus={loginError ? "error" : ""}
             >

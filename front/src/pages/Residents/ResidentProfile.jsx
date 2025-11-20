@@ -1,4 +1,18 @@
+// Custom hook to detect if screen is mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false
+  );
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return isMobile;
+}
 import React, { useState, useEffect } from 'react';
+
+
 import { Descriptions, Typography, Layout, message, Spin, Avatar, Input, Select, DatePicker, Button, Alert } from 'antd';
 import { 
   UserOutlined, 
@@ -34,6 +48,7 @@ const ResidentProfile = () => {
   const [usernameTaken, setUsernameTaken] = useState(false);
   const [allResidents, setAllResidents] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchProfile();
@@ -423,9 +438,9 @@ const ResidentProfile = () => {
     return (
       <div>
         <ResidentNavbar />
-        <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center min-h-[400px]">
-            <Spin size="large" />
+        <main className="mx-auto w-full max-w-9xl space-y-3 px-2 py-3 sm:space-y-8 sm:px-4 sm:py-6 lg:px-8">
+          <div className="flex justify-center items-center min-h-[200px] sm:min-h-[400px]">
+            <Spin size="small" className="sm:size-large" />
           </div>
         </main>
       </div>
@@ -436,10 +451,10 @@ const ResidentProfile = () => {
     return (
       <div>
         <ResidentNavbar />
-        <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-9xl space-y-3 px-2 py-3 sm:space-y-8 sm:px-4 sm:py-6 lg:px-8">
           <Card className="w-full">
-            <CardContent className="text-center py-12">
-              <Title level={3}>Profile not found</Title>
+            <CardContent className="text-center py-6 sm:py-12">
+              <Title level={3} className="text-sm sm:text-2xl">Profile not found</Title>
             </CardContent>
           </Card>
         </main>
@@ -465,36 +480,39 @@ const ResidentProfile = () => {
                     : 'View your complete resident profile information, contact details, and account status.'}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex sm:flex-row flex-col gap-2 sm:items-center items-stretch w-full sm:w-auto">
                 {!isEditing ? (
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<EditOutlined />}
                     onClick={handleEdit}
-                    size="large"
+                    size={isMobile ? 'small' : 'large'}
+                    className={isMobile ? 'text-base px-4 h-10 min-w-[120px] w-full' : 'text-base px-6 h-10 min-w-[120px]'}
                   >
                     Edit Profile
                   </Button>
                 ) : (
-                  <>
-                    <Button 
+                  <div className="flex sm:flex-row flex-col gap-2 w-full sm:w-auto">
+                    <Button
                       icon={<CloseOutlined />}
                       onClick={handleCancel}
-                      size="large"
+                      size={isMobile ? 'small' : 'large'}
                       disabled={saving}
+                      className={isMobile ? 'text-base px-4 h-10 min-w-[120px] w-full' : 'text-base px-6 h-10 min-w-[120px]'}
                     >
                       Cancel
                     </Button>
-                    <Button 
+                    <Button
                       type="primary"
                       icon={<SaveOutlined />}
                       onClick={handleSave}
-                      size="large"
+                      size={isMobile ? 'small' : 'large'}
                       loading={saving}
+                      className={isMobile ? 'text-base px-4 h-10 min-w-[120px] w-full' : 'text-base px-6 h-10 min-w-[120px]'}
                     >
                       Save Changes
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
