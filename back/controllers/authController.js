@@ -1,5 +1,6 @@
 const User = require('../models/user.model');
 const Resident = require('../models/resident.model');
+const UnverifiedResident = require('../models/unverifiedResident.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -85,7 +86,7 @@ async function register(req, res) {
 
     const passwordHash = await bcrypt.hash(password, 10);
     
-    // Create User first
+    // Create User first (mark isVerified false until resident record is linked & verified)
     const user = await User.create({
       username: normalize(username),
       passwordHash,
@@ -95,12 +96,30 @@ async function register(req, res) {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined
       },
-      isVerified: true,
+      isVerified: false,
       isActive: true,
     });
+    // Try to match existing resident roster (assumes pre-loaded canonical residents without user linkage)
+    const existingResidentRoster = await Resident.findOne({
+      firstName: normalize(firstName),
+      lastName: normalize(lastName),
+      dateOfBirth: new Date(dateOfBirth)
+    });
 
-    // Create Resident record linked to the user
-    const resident = await Resident.create({
+    if (existingResidentRoster) {
+      // If already linked to another user, abort
+      if (existingResidentRoster.user) {
+        return res.status(400).json({ message: 'Resident record already linked to an account. Contact admin.' });
+      }
+      existingResidentRoster.user = user._id;
+      existingResidentRoster.status = existingResidentRoster.status || 'pending';
+      await existingResidentRoster.save();
+      // User stays unverified until resident.status becomes 'verified'
+      return res.status(201).json({ message: 'Registration received. Your existing resident record is now linked and pending verification.' });
+    }
+
+    // Create unverified resident entry (to be approved by admin later)
+    await UnverifiedResident.create({
       user: user._id,
       firstName,
       middleName,
@@ -114,17 +133,17 @@ async function register(req, res) {
       ethnicity,
       address,
       citizenship,
-  occupation,
+      occupation,
       sectoralInformation,
       registeredVoter: typeof registeredVoter === 'boolean' ? registeredVoter : false,
       contact: {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined
       },
-      status: 'pending', // new registrations start as pending
+      status: 'pending'
     });
 
-    res.status(201).json({ message: 'Registration successful! You can log in immediately.' });
+    res.status(201).json({ message: 'Registration submitted. Awaiting admin approval.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
