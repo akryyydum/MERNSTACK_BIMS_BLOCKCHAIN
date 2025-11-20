@@ -18,6 +18,91 @@ import {
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 
+// Responsive styles for mobile and tablet
+const responsiveStyles = `
+  @media (max-width: 768px) {
+    .garbage-action-buttons {
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      row-gap: 8px !important;
+    }
+    .garbage-action-buttons .ant-btn {
+      flex: 1 1 45%;
+      min-width: 120px;
+      max-width: 100%;
+    }
+  }
+    .garbage-modal-responsive .ant-modal-header {
+      padding: 12px 16px;
+    }
+    .garbage-modal-responsive .ant-modal-title {
+      font-size: 15px;
+      line-height: 1.3;
+    }
+    .garbage-modal-responsive .ant-modal-footer {
+      padding: 10px 16px !important;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .garbage-modal-responsive .ant-modal-footer .ant-btn {
+      margin: 0 !important;
+      flex: 1 1 auto;
+      min-width: 80px !important;
+    }
+    .responsive-garbage-form .ant-form-item-label > label {
+      font-size: 13px;
+    }
+    .responsive-garbage-form .ant-form-item-explain,
+    .responsive-garbage-form .ant-form-item-extra {
+      font-size: 11px;
+    }
+    .garbage-fees-table .ant-table {
+      font-size: 12px;
+    }
+    .garbage-fees-table .ant-table-thead > tr > th {
+      padding: 8px 6px;
+      font-size: 11px;
+    }
+    .garbage-fees-table .ant-table-tbody > tr > td {
+      padding: 8px 6px;
+      font-size: 12px;
+    }
+    .garbage-fees-table .ant-btn-sm {
+      font-size: 11px;
+      padding: 2px 6px;
+      height: 26px;
+    }
+    .garbage-fees-table .ant-tag {
+      font-size: 11px;
+      padding: 0 6px;
+      margin: 1px;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .garbage-modal-responsive .ant-modal {
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px !important;
+      top: 12px !important;
+    }
+    .garbage-modal-responsive .ant-modal-body {
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+      padding: 12px !important;
+    }
+    .garbage-modal-responsive .ant-modal-header {
+      padding: 10px 12px;
+    }
+    .garbage-modal-responsive .ant-modal-title {
+      font-size: 14px;
+    }
+    .garbage-fees-table .ant-table-tbody > tr > td {
+      white-space: nowrap;
+    }
+  }
+`;
+
 export default function AdminGarbageFees() {
   const [loading, setLoading] = useState(false);
   const [households, setHouseholds] = useState([]);
@@ -1709,7 +1794,7 @@ export default function AdminGarbageFees() {
         );
         
         return (
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1">
             <Button size="small" onClick={() => openView(r)}>View</Button>
             <Button size="small" onClick={() => openPaymentHistory(r)}>History</Button>
             {hasPayments && (
@@ -1754,6 +1839,7 @@ export default function AdminGarbageFees() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{responsiveStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -1765,10 +1851,10 @@ export default function AdminGarbageFees() {
           </nav>
           
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Households
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1777,14 +1863,14 @@ export default function AdminGarbageFees() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {stats.totalHouseholds}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Fee Structure
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1794,30 +1880,30 @@ export default function AdminGarbageFees() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">No Business (Monthly):</span> ₱{Number(stats.feeStructure?.noBusiness || 35).toFixed(2)}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">With Business (Monthly):</span> ₱{Number(stats.feeStructure?.withBusiness || 50).toFixed(2)}
                     </div>
-                    <div className="text-xs text-gray-500 pt-1">
+                    <div className="text-[10px] md:text-xs text-gray-500 pt-1">
                       Aggregate Monthly (All Households): ₱{(stats.feeStructure?.expectedMonthly || 0).toFixed(2)}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-[10px] md:text-xs text-gray-500">
                       Aggregate Yearly (All Households): ₱{(stats.feeStructure?.expectedYearly || 0).toFixed(2)}
                     </div>
                     {settings?.feeHistory && (() => {
                       const gbHist = settings.feeHistory.filter(f => f.kind === 'garbageFeeRegularAnnual' || f.kind === 'garbageFeeBusinessAnnual');
                       if (!gbHist.length) return null;
                       const latestMonth = gbHist.sort((a,b)=> (a.effectiveMonth < b.effectiveMonth ? 1 : -1))[0].effectiveMonth;
-                      return <div className="text-xs text-gray-400">Effective Since: {dayjs(latestMonth+'-01').format('MMM YYYY')}</div>;
+                      return <div className="text-[10px] md:text-xs text-gray-400">Effective Since: {dayjs(latestMonth+'-01').format('MMM YYYY')}</div>;
                     })()}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Collected
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1827,18 +1913,18 @@ export default function AdminGarbageFees() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Year:</span> ₱{stats.totalCollected?.yearly || 0}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Month:</span> ₱{stats.totalCollected?.monthly || 0}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Balance
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1848,18 +1934,18 @@ export default function AdminGarbageFees() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Year:</span> ₱{stats.balance?.yearly || 0}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">Month:</span> ₱{stats.balance?.monthly || 0}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 md:py-10 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 lg:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Collection Rate
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1868,7 +1954,7 @@ export default function AdminGarbageFees() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {stats.collectionRate || 0}%
                   </div>
                 </CardContent>
@@ -1966,7 +2052,7 @@ export default function AdminGarbageFees() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 garbage-action-buttons">
               <Button 
                 type="primary" 
                 onClick={() => setAddPaymentOpen(true)}
@@ -2004,38 +2090,44 @@ export default function AdminGarbageFees() {
               )}
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <Table
-              rowKey="_id"
-              loading={loading || refreshing}
-              dataSource={filteredHouseholds}
-              columns={columns}
-              rowSelection={{
-                selectedRowKeys,
-                onChange: (selectedKeys) => {
-                  setSelectedRowKeys(selectedKeys);
-                  if (selectedKeys.length === 0) {
-                    setSelectAllClicked(false);
-                  }
-                },
-                selections: [
-                  Table.SELECTION_ALL,
-                  Table.SELECTION_INVERT,
-                  Table.SELECTION_NONE,
-                ],
-              }}
-              pagination={{
-                pageSize: 10,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} of ${total} Garbage fee payments | Selected: ${selectedRowKeys.length}`,
-                pageSizeOptions: ['10', '20', '50', '100'],
-                defaultPageSize: 10,
-                size: 'default'
-              }}
-              scroll={{ x: 800 }}
-            />
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <div className="min-w-full inline-block align-middle">
+              <div className="overflow-hidden">
+                <Table
+                  size="middle"
+                  rowKey="_id"
+                  loading={loading || refreshing}
+                  dataSource={filteredHouseholds}
+                  columns={columns}
+                  rowSelection={{
+                    selectedRowKeys,
+                    onChange: (selectedKeys) => {
+                      setSelectedRowKeys(selectedKeys);
+                      if (selectedKeys.length === 0) {
+                        setSelectAllClicked(false);
+                      }
+                    },
+                    selections: [
+                      Table.SELECTION_ALL,
+                      Table.SELECTION_INVERT,
+                      Table.SELECTION_NONE,
+                    ],
+                  }}
+                  pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                    showTotal: (total, range) => 
+                      `${range[0]}-${range[1]} of ${total} Garbage fee payments | Selected: ${selectedRowKeys.length}`,
+                    pageSizeOptions: ['10', '20', '50', '100'],
+                    defaultPageSize: 10,
+                    size: 'default'
+                  }}
+                  scroll={{ x: 800 }}
+                  className="garbage-fees-table"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2044,6 +2136,7 @@ export default function AdminGarbageFees() {
           title="Add Garbage Fee Payment"
           open={addPaymentOpen}
           destroyOnClose
+          className="garbage-modal-responsive"
           onCancel={() => {
             setAddPaymentOpen(false);
             setShowMemberSelection(false);
@@ -2156,11 +2249,14 @@ export default function AdminGarbageFees() {
             </Button>
           ]}
           okText={showMemberSelection ? "Proceed to Payment" : "Select Member"}
-          width={isMobileAddPayment ? '95%' : 900}
-          style={isMobileAddPayment ? { top: 12 } : {}}
-          bodyStyle={{ padding: isMobileAddPayment ? 12 : 24, maxHeight: isMobileAddPayment ? '75vh' : 'auto', overflowY: 'auto' }}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 900}
+          bodyStyle={{ 
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
-          <Form form={addPaymentForm} layout="vertical" size="large">
+          <Form form={addPaymentForm} layout="vertical" size={window.innerWidth < 640 ? 'middle' : 'large'} className="responsive-garbage-form">
             {!showMemberSelection ? (
               <div className="space-y-4">
                 {/* Search Type Selection */}
@@ -2316,6 +2412,7 @@ export default function AdminGarbageFees() {
             </div>
           }
           open={payOpen}
+          className="garbage-modal-responsive"
           onCancel={() => { 
             setPayOpen(false); 
             setPayHousehold(null); 
@@ -2363,11 +2460,16 @@ export default function AdminGarbageFees() {
               Record Garbage Payment
             </Button>
           ]}
-          width={1300}
-          centered
-          style={{ top: 20 }}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : window.innerWidth < 1024 ? '95%' : 1300}
+          centered={window.innerWidth >= 768}
+          style={{ top: window.innerWidth < 768 ? 12 : 20 }}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
-          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }}>
+          <Form form={payForm} layout="vertical" initialValues={{ method: "Cash" }} size={window.innerWidth < 640 ? 'small' : 'middle'} className="responsive-garbage-form">
             <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Garbage Collection Fee" size="small" />
             </Form.Item>
@@ -2645,6 +2747,7 @@ export default function AdminGarbageFees() {
             </div>
           }
           open={streetlightPayOpen}
+          className="garbage-modal-responsive"
           onCancel={() => { 
             setStreetlightPayOpen(false);
             setStreetlightSelectedMonths([]);
@@ -2682,11 +2785,16 @@ export default function AdminGarbageFees() {
               Record Payment for Both
             </Button>
           ]}
-          width={1300}
-          centered
-          style={{ top: 20 }}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : window.innerWidth < 1024 ? '95%' : 1300}
+          centered={window.innerWidth >= 768}
+          style={{ top: window.innerWidth < 768 ? 12 : 20 }}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
-          <Form form={streetlightForm} layout="vertical" initialValues={{ method: "Cash" }}>
+          <Form form={streetlightForm} layout="vertical" initialValues={{ method: "Cash" }} size={window.innerWidth < 640 ? 'small' : 'middle'} className="responsive-garbage-form">
             <Form.Item label="Fee Type" className="mb-2">
               <Input disabled value="Streetlight Maintenance Fee" size="small" />
             </Form.Item>
@@ -2948,9 +3056,15 @@ export default function AdminGarbageFees() {
         <Modal
           title="Household Details"
           open={viewOpen}
+          className="garbage-modal-responsive"
           onCancel={() => setViewOpen(false)}
           footer={null}
-          width={700}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 700}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
           {viewHousehold && (
             <Descriptions bordered column={1} size="middle">
@@ -3018,13 +3132,19 @@ export default function AdminGarbageFees() {
         <Modal
           title={`Payment History${historyHousehold ? ` — ${historyHousehold.householdId}` : ""}`}
           open={historyOpen}
+          className="garbage-modal-responsive"
           onCancel={() => {
             setHistoryOpen(false);
             setHistoryHousehold(null);
             setHistoryData([]);
           }}
           footer={null}
-          width={800}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 800}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
           {historyHousehold && (
             <div>
@@ -3092,6 +3212,7 @@ export default function AdminGarbageFees() {
         <Modal
           title="Export Garbage Fees to Excel"
           open={exportOpen}
+          className="garbage-modal-responsive"
           onCancel={() => {
             setExportOpen(false);
             exportForm.resetFields();
@@ -3115,7 +3236,12 @@ export default function AdminGarbageFees() {
               Export to Excel
             </Button>
           ]}
-          width={500}
+          width={window.innerWidth < 640 ? '95%' : window.innerWidth < 768 ? '90%' : 500}
+          bodyStyle={{
+            padding: window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '75vh' : 'auto',
+            overflowY: 'auto'
+          }}
         >
           <Form
             form={exportForm}
@@ -3130,6 +3256,8 @@ export default function AdminGarbageFees() {
               paymentStatus: 'all',
               purokFilter: 'all'
             }}
+            size={window.innerWidth < 640 ? 'small' : 'middle'}
+            className="responsive-garbage-form"
           >
             <Form.Item
               name="exportType"
