@@ -826,17 +826,15 @@ exports.getGarbageStatistics = async (req, res) => {
 
     console.log('Total households found:', totalHouseholds);
 
-    // Calculate expected totals using historical fees
+    // Calculate expected totals using current settings (optimized)
+    const regularFee = await Settings.getEffectiveFee('garbage_regular_annual', currentMonth);
+    const businessFee = await Settings.getEffectiveFee('garbage_business_annual', currentMonth);
+    
     let expectedMonthly = 0;
-    let expectedYearly = 0;
-    for (const hh of households) {
-      const currentMonthFee = await calculateGarbageFee(hh, currentMonth);
-      expectedMonthly += currentMonthFee;
-      for (let m = 1; m <= 12; m++) {
-        const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
-        expectedYearly += await calculateGarbageFee(hh, monthStr);
-      }
-    }
+    households.forEach(hh => {
+      expectedMonthly += hh.hasBusiness ? businessFee : regularFee;
+    });
+    const expectedYearly = expectedMonthly * 12;
 
     console.log('Expected monthly total:', expectedMonthly);
     console.log('Expected yearly total:', expectedYearly);
@@ -878,9 +876,8 @@ exports.getGarbageStatistics = async (req, res) => {
     res.json({
       totalHouseholds,
       feeStructure: {
-        // Provide base current month rates (derived from average household current month fees for transparency)
-        noBusiness: await Settings.getEffectiveFee('garbage_regular_annual', currentMonth),
-        withBusiness: await Settings.getEffectiveFee('garbage_business_annual', currentMonth),
+        noBusiness: regularFee,
+        withBusiness: businessFee,
         expectedMonthly,
         expectedYearly
       },
@@ -919,19 +916,14 @@ exports.getStreetlightStatistics = async (req, res) => {
 
     console.log('Total households found:', totalHouseholds);
 
-    // Calculate expected totals using historical streetlight fee changes
-    let expectedMonthly = 0;
-    let expectedYearly = 0;
-    const currentMonthRate = await calculateStreetlightFee(currentMonth);
-    expectedMonthly = totalHouseholds * currentMonthRate;
-    for (let m = 1; m <= 12; m++) {
-      const monthStr = `${currentYear}-${String(m).padStart(2, '0')}`;
-      const rate = await calculateStreetlightFee(monthStr);
-      expectedYearly += totalHouseholds * rate;
-    }
+    // Calculate expected totals using current streetlight fee (optimized)
+    const currentMonthRate = await Settings.getEffectiveFee('streetlightMonthlyFee', currentMonth);
+    const expectedMonthly = totalHouseholds * currentMonthRate;
+    const expectedYearly = expectedMonthly * 12;
 
     console.log('Expected monthly total:', expectedMonthly);
     console.log('Expected yearly total:', expectedYearly);
+    console.log('Current month rate:', currentMonthRate);
 
     // Get all streetlight payments for current year
     const streetlightPayments = await UtilityPayment.find({
@@ -958,7 +950,7 @@ exports.getStreetlightStatistics = async (req, res) => {
 
     console.log('Final streetlight statistics:', {
       totalHouseholds,
-      monthlyRate,
+      monthlyRate: currentMonthRate,
       expectedMonthly,
       expectedYearly,
       yearlyCollected,

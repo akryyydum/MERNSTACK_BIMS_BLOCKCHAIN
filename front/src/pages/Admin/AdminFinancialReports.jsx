@@ -39,6 +39,7 @@ const formatTransactionType = (type) => {
 export default function AdminFinancialReports() {
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState({});
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [search, setSearch] = useState("");
   const [feeTypeFilter, setFeeTypeFilter] = useState(null);
@@ -59,6 +60,8 @@ export default function AdminFinancialReports() {
   // Watchers for dynamic form behavior
   const selectedCreateType = Form.useWatch('type', createForm);
   const selectedEditType = Form.useWatch('type', editForm);
+  const selectedCreateCategory = Form.useWatch('category', createForm);
+  const selectedEditCategory = Form.useWatch('category', editForm);
   const selectedCreateDocType = Form.useWatch('documentType', createForm);
   const selectedEditDocType = Form.useWatch('documentType', editForm);
   const selectedCreateHasBusiness = Form.useWatch('hasBusiness', createForm);
@@ -202,6 +205,7 @@ export default function AdminFinancialReports() {
       console.log('Dashboard data:', res.data);
       console.log('Revenue by type:', res.data.revenueByType);
       setDashboardData(res.data);
+      setDashboardRefreshKey(prev => prev + 1); // Force re-render of statistics cards
     } catch (error) {
       console.error('Error fetching dashboard:', error);
       message.error('Failed to load financial dashboard');
@@ -323,16 +327,27 @@ export default function AdminFinancialReports() {
         return;
       }
       
-      await axios.post(`${API_BASE}/api/admin/financial/transactions`, values, {
+      // If type is 'other', use the customType value
+      const payload = { ...values };
+      if (values.type === 'other' && values.customType) {
+        payload.description = `${values.customType}: ${values.description || ''}`.trim();
+      }
+      
+      console.log('Creating transaction with values:', payload);
+      await axios.post(`${API_BASE}/api/admin/financial/transactions`, payload, {
         headers: authHeaders()
       });
       
+      console.log('Transaction created successfully, refreshing dashboard...');
       message.success('Transaction created successfully!');
       setCreateOpen(false);
       createForm.resetFields();
-      fetchDashboard();
-      fetchTransactions();
+      await fetchDashboard();
+      await fetchTransactions();
+      console.log('Dashboard and transactions refreshed');
     } catch (error) {
+      console.error('Error creating transaction:', error);
+      console.error('Error response:', error.response?.data);
       message.error(error?.response?.data?.message || 'Failed to create transaction');
     }
     setCreating(false);
@@ -455,6 +470,8 @@ export default function AdminFinancialReports() {
   const garbageFeeRevenue = Number(revenueByType.garbage_fee || 0);
   const streetlightFeeRevenue = Number(revenueByType.streetlight_fee || 0);
   const totalRevenue = Number(statistics.totalRevenue ?? 0);
+  const totalExpenses = Number(statistics.totalExpenses ?? 0);
+  const balance = Number(statistics.balance ?? 0);
 
   const handleEditTransaction = async () => {
     try {
@@ -904,21 +921,54 @@ export default function AdminFinancialReports() {
           </nav>
 
           {/* Statistics Section */}
-          <div className="px-4 pb-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+          <div className="px-4 pb-1" key={dashboardRefreshKey}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-green-200">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-sm font-bold text-green-800">
                     Total Revenue
                   </CardTitle>
-                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                  <div className="flex items-center gap-1 text-green-600 text-xs font-semibold">
                     <TrendingUp className="h-4 w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-3xl font-bold text-green-700">
                     ₱{totalRevenue.toLocaleString()}
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-red-200">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-sm font-bold text-red-800">
+                    Total Expenses
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-red-600 text-xs font-semibold">
+                    <TrendingUp className="h-4 w-4 rotate-180" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-red-700">
+                    ₱{totalExpenses.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2`}>
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className={`text-sm font-bold ${balance >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
+                    Net Balance
+                  </CardTitle>
+                  <div className={`flex items-center gap-1 ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-xs font-semibold`}>
+                    <DollarSign className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                    ₱{balance.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Revenue - Expenses</div>
                 </CardContent>
               </Card>
 
@@ -1316,8 +1366,6 @@ export default function AdminFinancialReports() {
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}> 
                   <Select placeholder="Select transaction type">
                     <Select.Option value="document_request">Document Request Fee</Select.Option>
-                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
@@ -1331,20 +1379,6 @@ export default function AdminFinancialReports() {
                 rules={[{ required: true, message: 'Please specify the transaction type' }]}
               >
                 <Input placeholder="Enter custom transaction type" />
-              </Form.Item>
-            )}
-
-            {selectedCreateType === 'document_request' && (
-              <Form.Item 
-                name="documentType" 
-                label="Document Type" 
-                rules={[{ required: true, message: 'Please select a document type' }]}
-              >
-                <Select placeholder="Select document type">
-                  <Select.Option value="Certificate of Indigency">Certificate of Indigency</Select.Option>
-                  <Select.Option value="Barangay Clearance">Barangay Clearance</Select.Option>
-                  <Select.Option value="Business Clearance">Business Clearance</Select.Option>
-                </Select>
               </Form.Item>
             )}
 
@@ -1466,6 +1500,11 @@ export default function AdminFinancialReports() {
           {viewTransaction && (
             <Descriptions bordered column={1}>
               <Descriptions.Item label="Transaction ID">{viewTransaction.transactionId}</Descriptions.Item>
+              <Descriptions.Item label="Category">
+                <Tag color={viewTransaction.category === 'revenue' ? 'green' : 'red'}>
+                  {viewTransaction.category === 'revenue' ? 'Revenue' : 'Expense'}
+                </Tag>
+              </Descriptions.Item>
               <Descriptions.Item label="Type">
                 <Tag color="blue">{formatTransactionType(viewTransaction.type)}</Tag>
               </Descriptions.Item>
@@ -1519,8 +1558,6 @@ export default function AdminFinancialReports() {
                 <Form.Item name="type" label="Transaction Type" rules={[{ required: true, message: 'Please select a transaction type' }]}>
                   <Select placeholder="Select transaction type">
                     <Select.Option value="document_request">Document Request</Select.Option>
-                    <Select.Option value="garbage_fee">Garbage Fee</Select.Option>
-                    <Select.Option value="streetlight_fee">Streetlight Fee</Select.Option>
                     <Select.Option value="other">Other</Select.Option>
                   </Select>
                 </Form.Item>
@@ -1534,20 +1571,6 @@ export default function AdminFinancialReports() {
                 rules={[{ required: true, message: 'Please specify the transaction type' }]}
               >
                 <Input placeholder="Enter custom transaction type" />
-              </Form.Item>
-            )}
-
-            {selectedEditType === 'document_request' && (
-              <Form.Item 
-                name="documentType" 
-                label="Document Type" 
-                rules={[{ required: true, message: 'Please select a document type' }]}
-              >
-                <Select placeholder="Select document type">
-                  <Select.Option value="Certificate of Indigency">Certificate of Indigency</Select.Option>
-                  <Select.Option value="Barangay Clearance">Barangay Clearance</Select.Option>
-                  <Select.Option value="Business Clearance">Business Clearance</Select.Option>
-                </Select>
               </Form.Item>
             )}
 
