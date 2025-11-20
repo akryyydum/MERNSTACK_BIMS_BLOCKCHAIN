@@ -8,6 +8,19 @@ import axios from "axios";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 
+// Custom CSS for compact table rows
+const compactTableStyles = `
+  .compact-row td {
+    padding: 4px 8px !important;
+    line-height: 1.2 !important;
+  }
+  .compact-row .ant-btn-sm {
+    padding: 0px 7px !important;
+    height: 22px !important;
+    font-size: 12px !important;
+  }
+`;
+
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 
@@ -902,6 +915,7 @@ export default function AdminFinancialReports() {
 
   return (
     <AdminLayout>
+      <style>{compactTableStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         {/* Navbar */}
         <div>
@@ -1111,8 +1125,12 @@ export default function AdminFinancialReports() {
                       },
                     }}
                     rowKey={(tx) => tx.__rowKey ?? tx._id ?? getTransactionKey(tx)}
-                    size="medium"
+                    size="small"
                     className="ml-8"
+                    style={{ 
+                      fontSize: '12px',
+                    }}
+                    rowClassName={() => 'compact-row'}
                   />
                 ),
                 rowExpandable: (record) => record.transactions && record.transactions.length > 0,
