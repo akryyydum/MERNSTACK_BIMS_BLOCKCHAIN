@@ -332,7 +332,7 @@ const Login = () => {
       >
         <div className="flex flex-col items-center gap-4">
           <img
-            src="/src/assets/logo.png"
+            src="../assets/logo.png"
             alt="Barangay Logo"
             className="h-28 w-28 animate-spin"
             style={{ animationDuration: "3s" }}
@@ -354,7 +354,7 @@ const Login = () => {
       {/* Left Side - Full Image */}
       <div className="hidden md:block relative w-3/5 h-screen">
         <img
-          src="/src/assets/bg.jpg"
+          src="../assets/bg.jpg"
           alt="Barangay"
           className="object-cover w-full h-full"
         />
@@ -367,7 +367,7 @@ const Login = () => {
         <div className="w-full max-w-md m-8">
           <div className="flex justify-center mb-6">
             <img
-              src="/src/assets/logo.png"
+              src="../assets/logo.png"
               alt="Logo"
               className="h-30 w-30"
             />
