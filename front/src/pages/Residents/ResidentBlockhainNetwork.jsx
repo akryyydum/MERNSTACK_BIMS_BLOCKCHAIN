@@ -225,7 +225,11 @@ export default function ResidentBlockchainNetwork() {
 
 	const filteredTxns = useMemo(() => {
 		const term = search.toLowerCase();
-		return transactions.filter(t => !term || [t.description, t.paymentMethod, t.amount].filter(Boolean).join(' ').toLowerCase().includes(term));
+		return transactions.filter(t => !term || [t.residentName, t.description, t.paymentMethod, t.amount]
+			.filter(Boolean)
+			.join(' ')
+			.toLowerCase()
+			.includes(term));
 	}, [search, transactions]);
 
 	const requestsColumns = [
@@ -240,6 +244,7 @@ export default function ResidentBlockchainNetwork() {
 	const txnColumns = [
 		{ title: 'Tx ID', dataIndex: 'txId', width: 180, ellipsis: true },
 		{ title: 'Request', dataIndex: 'requestId', width: 180, ellipsis: true },
+		{ title: 'Resident', dataIndex: 'residentName', ellipsis: true, render: v => v || '—' },
 		{ title: 'Amount', dataIndex: 'amount', render: a => `₱${Number(a||0).toFixed(2)}` },
 		{ title: 'Method', dataIndex: 'paymentMethod' },
 		{ title: 'Description', dataIndex: 'description', ellipsis: true },
@@ -278,82 +283,83 @@ export default function ResidentBlockchainNetwork() {
 	const verifiedPaidStreet = streetlightRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
 
 		return (
-			<div className="min-h-screen bg-slate-50">
-				<ResidentNavbar />
-				<main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+				<div className="min-h-screen bg-slate-50">
+					<ResidentNavbar />
+					{/* Main content wrapper with improved max width & responsive spacing */}
+					<main className="mx-auto w-full max-w-screen-xl space-y-8 px-3 sm:px-4 md:px-6 lg:px-8 py-5">
 					{/* Page header */}
-					<Card className="w-full">
+						<Card className="w-full">
 						<CardHeader>
-							<CardTitle className="text-2xl font-semibold text-slate-900">Blockchain Activity</CardTitle>
-							<CardDescription>View your on-chain document requests, fee payments, and transactions</CardDescription>
+								<CardTitle className="text-xl sm:text-2xl font-semibold text-slate-900">Blockchain Activity</CardTitle>
+								<CardDescription className="text-xs sm:text-sm">View your on-chain document requests, fee payments, and transactions</CardDescription>
 						</CardHeader>
 					</Card>
 
-					{/* Summary cards grid */}
-					<Card className="w-full">
+						{/* Summary cards grid */}
+						<Card className="w-full">
 						<CardHeader>
-							<CardTitle className="text-lg font-semibold text-slate-900">Overview</CardTitle>
-							<CardDescription>On-chain records and barangay utility fee status</CardDescription>
+								<CardTitle className="text-base sm:text-lg font-semibold text-slate-900">Overview</CardTitle>
+								<CardDescription className="text-xs sm:text-sm">On-chain records and barangay utility fee status</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<div className="flex flex-col lg:grid lg:grid-cols-4 gap-4">
+								<div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
 								{/* Requests count */}
-								<Card className="w-full border border-blue-200 bg-blue-50">
+									<Card className="w-full border border-blue-200 bg-blue-50 shadow-sm">
 									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
 										<div className="flex items-center justify-between">
 											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-blue-700">On-chain Requests</p>
-												<p className="text-lg md:text-xl font-bold text-blue-900 mt-0.5 md:mt-1">{requests.length}</p>
+													<p className="text-[11px] xs:text-xs md:text-sm font-medium text-blue-700">On-chain Requests</p>
+													<p className="text-base sm:text-lg md:text-xl font-bold text-blue-900 mt-0.5 md:mt-1">{requests.length}</p>
 												<p className="text-[10px] md:text-xs text-blue-600 mt-0.5 md:mt-1">Total stored</p>
 											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-												<FileTextOutlined className="text-blue-600 text-sm md:text-lg" />
+												<div className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+													<FileTextOutlined className="text-blue-600 text-xs sm:text-sm md:text-lg" />
 											</div>
 										</div>
 									</CardContent>
 								</Card>
 								{/* Transactions count */}
-								<Card className="w-full border border-green-200 bg-green-50">
+									<Card className="w-full border border-green-200 bg-green-50 shadow-sm">
 									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
 										<div className="flex items-center justify-between">
 											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-green-700">Transactions</p>
-												<p className="text-lg md:text-xl font-bold text-green-900 mt-0.5 md:mt-1">{transactions.length}</p>
+													<p className="text-[11px] xs:text-xs md:text-sm font-medium text-green-700">Transactions</p>
+													<p className="text-base sm:text-lg md:text-xl font-bold text-green-900 mt-0.5 md:mt-1">{transactions.length}</p>
 												<p className="text-[10px] md:text-xs text-green-600 mt-0.5 md:mt-1">Financial records</p>
 											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-												<DollarOutlined className="text-green-600 text-sm md:text-lg" />
+												<div className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+													<DollarOutlined className="text-green-600 text-xs sm:text-sm md:text-lg" />
 											</div>
 										</div>
 									</CardContent>
 								</Card>
 								{/* Garbage fee */}
-								<Card className="w-full border border-amber-200 bg-amber-50">
+									<Card className="w-full border border-amber-200 bg-amber-50 shadow-sm">
 									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
 										<div className="flex items-center justify-between">
 											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-amber-700">Garbage Paid Months</p>
-												<p className="text-lg md:text-xl font-bold text-amber-900 mt-0.5 md:mt-1">{totalPaidGarbage}</p>
+													<p className="text-[11px] xs:text-xs md:text-sm font-medium text-amber-700">Garbage Paid Months</p>
+													<p className="text-base sm:text-lg md:text-xl font-bold text-amber-900 mt-0.5 md:mt-1">{totalPaidGarbage}</p>
 												<p className="text-[10px] md:text-xs text-amber-600 mt-0.5 md:mt-1">Verified on-chain: {verifiedPaidGarbage}/{totalPaidGarbage}</p>
 											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-												<CloudSyncOutlined className="text-amber-600 text-sm md:text-lg" />
+												<div className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+													<CloudSyncOutlined className="text-amber-600 text-xs sm:text-sm md:text-lg" />
 											</div>
 										</div>
 										<div className="text-[10px] md:text-xs text-amber-700">Months Recorded: {totalGarbage}</div>
 									</CardContent>
 								</Card>
 								{/* Streetlight fee */}
-								<Card className="w-full border border-purple-200 bg-purple-50">
+									<Card className="w-full border border-purple-200 bg-purple-50 shadow-sm">
 									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
 										<div className="flex items-center justify-between">
 											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-purple-700">Streetlight Paid Months</p>
-												<p className="text-lg md:text-xl font-bold text-purple-900 mt-0.5 md:mt-1">{totalPaidStreet}</p>
+													<p className="text-[11px] xs:text-xs md:text-sm font-medium text-purple-700">Streetlight Paid Months</p>
+													<p className="text-base sm:text-lg md:text-xl font-bold text-purple-900 mt-0.5 md:mt-1">{totalPaidStreet}</p>
 												<p className="text-[10px] md:text-xs text-purple-600 mt-0.5 md:mt-1">Verified on-chain: {verifiedPaidStreet}/{totalPaidStreet}</p>
 											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-												<ThunderboltOutlined className="text-purple-600 text-sm md:text-lg" />
+												<div className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+													<ThunderboltOutlined className="text-purple-600 text-xs sm:text-sm md:text-lg" />
 											</div>
 										</div>
 										<div className="text-[10px] md:text-xs text-purple-700">Months Recorded: {totalStreet}</div>
@@ -364,12 +370,12 @@ export default function ResidentBlockchainNetwork() {
 					</Card>
 
 					{/* Chain & Utility Status */}
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
 						{/* Chain status */}
 						<Card className="w-full">
 							<CardHeader>
-								<CardTitle className="text-lg font-semibold text-slate-900">Chain Status</CardTitle>
-								<CardDescription>Hyperledger Fabric network snapshot</CardDescription>
+								<CardTitle className="text-base sm:text-lg font-semibold text-slate-900">Chain Status</CardTitle>
+								<CardDescription className="text-xs sm:text-sm">Hyperledger Fabric network snapshot</CardDescription>
 							</CardHeader>
 							<CardContent className="py-4">
 								{loadingStatus && (
@@ -390,8 +396,8 @@ export default function ResidentBlockchainNetwork() {
 						{/* Garbage fee summary */}
 							<Card className="w-full">
 								<CardHeader>
-									<CardTitle className="text-lg font-semibold text-slate-900">Garbage Fee Summary</CardTitle>
-									<CardDescription>Monthly payment tracking</CardDescription>
+									<CardTitle className="text-base sm:text-lg font-semibold text-slate-900">Garbage Fee Summary</CardTitle>
+									<CardDescription className="text-xs sm:text-sm">Monthly payment tracking</CardDescription>
 								</CardHeader>
 								<CardContent className="py-4">
 									{loadingUtilities && <div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading...</div>}
@@ -408,8 +414,8 @@ export default function ResidentBlockchainNetwork() {
 						{/* Streetlight fee summary */}
 							<Card className="w-full">
 								<CardHeader>
-									<CardTitle className="text-lg font-semibold text-slate-900">Streetlight Fee Summary</CardTitle>
-									<CardDescription>Monthly payment tracking</CardDescription>
+									<CardTitle className="text-base sm:text-lg font-semibold text-slate-900">Streetlight Fee Summary</CardTitle>
+									<CardDescription className="text-xs sm:text-sm">Monthly payment tracking</CardDescription>
 								</CardHeader>
 								<CardContent className="py-4">
 									{loadingUtilities && <div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading...</div>}
@@ -428,28 +434,31 @@ export default function ResidentBlockchainNetwork() {
 					<Card className="w-full">
 						<CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 							<div>
-								<CardTitle className="text-lg font-semibold text-slate-900">On-chain Records</CardTitle>
-								<CardDescription>Document requests and financial transactions</CardDescription>
+								<CardTitle className="text-base sm:text-lg font-semibold text-slate-900">On-chain Records</CardTitle>
+								<CardDescription className="text-xs sm:text-sm">Document requests and financial transactions</CardDescription>
 							</div>
 							<div className="w-full sm:w-72">
-								<Input allowClear prefix={<SearchOutlined />} placeholder="Search requests & transactions" value={search} onChange={e => setSearch(e.target.value)} />
+								<Input allowClear size="small" className="h-9" prefix={<SearchOutlined />} placeholder="Search requests & transactions" value={search} onChange={e => setSearch(e.target.value)} />
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-10">
 							{/* Requests table */}
 							<div className="space-y-4">
 								<div className="flex items-center justify-between">
-									<h3 className="text-sm font-semibold text-slate-800">Document Requests ({filteredRequests.length})</h3>
+									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Document Requests ({filteredRequests.length})</h3>
 									{loadingRequests && <Spin size="small" />}
 								</div>
 								{errorRequests && <Alert type="error" message={errorRequests} style={{ marginBottom: 8 }} />}
-								<Table
-									size="small"
-									dataSource={filteredRequests}
-									columns={requestsColumns}
-									rowKey={r => r.requestId}
-									pagination={{ pageSize: 8 }}
-								/>
+								<div className="overflow-x-auto -mx-2 md:mx-0">
+									<Table
+										size="small"
+										dataSource={filteredRequests}
+										columns={requestsColumns}
+										rowKey={r => r.requestId}
+										pagination={{ pageSize: 8, size: 'small' }}
+										scroll={{ x: 600 }}
+									/>
+								</div>
 								{!loadingRequests && !errorRequests && filteredRequests.length === 0 && (
 									<div className="flex items-center gap-2 text-xs text-slate-500"><ExclamationCircleOutlined /> No on-chain requests found.</div>
 								)}
@@ -457,17 +466,20 @@ export default function ResidentBlockchainNetwork() {
 							{/* Transactions table */}
 							<div className="space-y-4">
 								<div className="flex items-center justify-between">
-									<h3 className="text-sm font-semibold text-slate-800">Financial Transactions ({filteredTxns.length})</h3>
+									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Financial Transactions ({filteredTxns.length})</h3>
 									{loadingTxns && <Spin size="small" />}
 								</div>
 								{errorTxns && <Alert type="error" message={errorTxns} style={{ marginBottom: 8 }} />}
-								<Table
-									size="small"
-									dataSource={filteredTxns}
-									columns={txnColumns}
-									rowKey={t => t.txId}
-									pagination={{ pageSize: 8 }}
-								/>
+								<div className="overflow-x-auto -mx-2 md:mx-0">
+									<Table
+										size="small"
+										dataSource={filteredTxns}
+										columns={txnColumns}
+										rowKey={t => t.txId}
+										pagination={{ pageSize: 8, size: 'small' }}
+										scroll={{ x: 700 }}
+									/>
+								</div>
 								{!loadingTxns && !errorTxns && filteredTxns.length === 0 && (
 									<div className="flex items-center gap-2 text-xs text-slate-500"><ExclamationCircleOutlined /> No on-chain transactions found.</div>
 								)}

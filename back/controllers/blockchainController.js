@@ -146,6 +146,18 @@ exports.getResidentFinancialTransactions = async (req, res) => {
     }).lean();
 
     const queryIds = new Set([resident._id.toString()]);
+    // Include special resident(s) named "Barangay Official" regardless of household
+    try {
+      const barangayOfficials = await Resident.find({
+        $or: [
+          { firstName: /barangay/i, lastName: /official/i },
+          { middleName: /barangay official/i }, // coverage if stored differently
+        ]
+      }).select('_id firstName middleName lastName suffix');
+      barangayOfficials.forEach(o => queryIds.add(o._id.toString()));
+    } catch (officialErr) {
+      console.warn('Failed to lookup Barangay Official resident(s):', officialErr.message || officialErr);
+    }
     // Also consider the authenticated user id; some txns may have used userId instead of residentId
     if (req.user?.id) queryIds.add(req.user.id.toString());
     if (household?.headOfHousehold) {
@@ -155,7 +167,7 @@ exports.getResidentFinancialTransactions = async (req, res) => {
 
     const { gateway, contract } = await getContract();
 
-    // Fetch transactions for each relevant resident id and merge
+    // Fetch transactions for each relevant resident id (including Barangay Official) and merge
     const results = [];
     for (const id of Array.from(queryIds)) {
       try {
@@ -188,6 +200,12 @@ exports.getResidentFinancialTransactions = async (req, res) => {
       const allowedReqIdSet = new Set(allowedRequests.map(r => r._id.toString()));
       const related = Array.isArray(allTxns) ? allTxns.filter(t => t?.requestId && allowedReqIdSet.has(t.requestId.toString())) : [];
       results.push(...related);
+      // Also include any transaction whose description or residentName explicitly mentions "Barangay Official"
+      const officialKeyword = /barangay\s+official/i;
+      const officialTxns = Array.isArray(allTxns) ? allTxns.filter(t => {
+        return officialKeyword.test(String(t?.description || '')) || officialKeyword.test(String(t?.residentName || ''));
+      }) : [];
+      results.push(...officialTxns);
     } catch (fallbackErr) {
       console.warn('Fallback all-transactions filter failed:', fallbackErr.message || fallbackErr);
     }
