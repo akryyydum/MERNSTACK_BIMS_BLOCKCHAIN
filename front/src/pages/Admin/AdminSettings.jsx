@@ -122,11 +122,11 @@ export default function AdminSettings() {
 
   return (
     <AdminLayout title="Admin">
-      <div className="space-y-4 px-2 md:px-1 bg-gray-50 rounded-2xl outline outline-offset-1 outline-slate-300">
+      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
             <div>
-              <span className="text-2xl md:text-4xl font-bold text-gray-800">
+              <span className="text-xl md:text-2xl lg:text-4xl font-bold text-gray-800">
                 Settings
               </span>
             </div>
@@ -135,43 +135,43 @@ export default function AdminSettings() {
         </div>
 
         {/* Main Content */}
-        <div className="px-5 pb-8">
-          <div className="w-full space-y-6">
+        <div className="px-3 md:px-5 pb-4 md:pb-8">
+          <div className="w-full space-y-4 md:space-y-6">
             
             {/* Row 1: Account Information and Change Password */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               {/* Account Information Card */}
               <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
-                    <UserOutlined />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-sm md:text-base font-semibold text-black flex items-center gap-2">
+                    <UserOutlined className="text-base md:text-lg" />
                     <span>Account Information</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <CardContent className="p-4 md:p-6 pt-0">
+                  <div className="space-y-3 md:space-y-4">
+                    <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-100">
                       <div>
-                        <p className="font-medium text-gray-900">Full Name</p>
-                        <p className="text-sm text-gray-500 mt-1">{userProfile.fullName || "Administrator"}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Full Name</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1">{userProfile.fullName || "Administrator"}</p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-100">
                       <div>
-                        <p className="font-medium text-gray-900">Username</p>
-                        <p className="text-sm text-gray-500 mt-1">{username}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Username</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1">{username}</p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-100">
                       <div>
-                        <p className="font-medium text-gray-900">Role</p>
-                        <p className="text-sm text-gray-500 mt-1 capitalize">{userProfile.role || "Admin"}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Role</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1 capitalize">{userProfile.role || "Admin"}</p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-3">
+                    <div className="flex justify-between items-center py-2 md:py-3">
                       <div>
-                        <p className="font-medium text-gray-900">Email</p>
-                        <p className="text-sm text-gray-500 mt-1">{userProfile.contact?.email || "Not set"}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Email</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1 break-all">{userProfile.contact?.email || "Not set"}</p>
                       </div>
                     </div>
                   </div>
@@ -180,22 +180,22 @@ export default function AdminSettings() {
 
               {/* Change Password Card */}
               <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
-                    <LockOutlined />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-sm md:text-base font-semibold text-black flex items-center gap-2">
+                    <LockOutlined className="text-base md:text-lg" />
                     <span>Change Password</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 md:p-6 pt-0">
                   {successMessage && (
                     <Alert
-                      message="Password Updated Successfully!"
-                      description="Your new password is now active. You can use it the next time you log in."
+                      message={<span className="text-sm md:text-base">Password Updated Successfully!</span>}
+                      description={<span className="text-xs md:text-sm">Your new password is now active. You can use it the next time you log in.</span>}
                       type="success"
                       showIcon
                       closable
                       onClose={() => setSuccessMessage(false)}
-                      className="mb-4"
+                      className="mb-3 md:mb-4"
                     />
                   )}
                   <Form
@@ -203,9 +203,10 @@ export default function AdminSettings() {
                     layout="vertical"
                     onFinish={handleChangePassword}
                     autoComplete="off"
+                    className="settings-form"
                   >
                     <Form.Item
-                      label="Current Password"
+                      label={<span className="text-xs md:text-sm">Current Password</span>}
                       name="currentPassword"
                       rules={[
                         {
@@ -218,11 +219,12 @@ export default function AdminSettings() {
                         prefix={<LockOutlined className="text-gray-400" />}
                         placeholder="Enter current password"
                         size="large"
+                        className="text-sm"
                       />
                     </Form.Item>
 
                     <Form.Item
-                      label="New Password"
+                      label={<span className="text-xs md:text-sm">New Password</span>}
                       name="newPassword"
                       rules={[
                         {
@@ -239,11 +241,12 @@ export default function AdminSettings() {
                         prefix={<LockOutlined className="text-gray-400" />}
                         placeholder="Enter new password"
                         size="large"
+                        className="text-sm"
                       />
                     </Form.Item>
 
                     <Form.Item
-                      label="Confirm New Password"
+                      label={<span className="text-xs md:text-sm">Confirm New Password</span>}
                       name="confirmPassword"
                       dependencies={["newPassword"]}
                       rules={[
@@ -267,6 +270,7 @@ export default function AdminSettings() {
                         prefix={<LockOutlined className="text-gray-400" />}
                         placeholder="Confirm new password"
                         size="large"
+                        className="text-sm"
                       />
                     </Form.Item>
 
@@ -276,7 +280,7 @@ export default function AdminSettings() {
                         htmlType="submit"
                         loading={loading}
                         size="large"
-                        className="w-full md:w-auto"
+                        className="w-full md:w-auto text-sm"
                       >
                         Change Password
                       </Button>
