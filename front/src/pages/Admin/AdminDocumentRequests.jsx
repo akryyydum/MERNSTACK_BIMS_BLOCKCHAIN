@@ -59,6 +59,8 @@ export default function AdminDocumentRequests() {
   const [exportOpen, setExportOpen] = useState(false);
     // Officials (for captain name on templates)
     const [captainName, setCaptainName] = useState(null);
+    const [kagawadNames, setKagawadNames] = useState([]); // up to 7
+    const [skChairmanName, setSkChairmanName] = useState(null);
 
   const [exportForm] = Form.useForm();
   const exportRangeType = Form.useWatch("rangeType", exportForm) || "month";
@@ -94,7 +96,7 @@ export default function AdminDocumentRequests() {
     fetchRequests();
     fetchResidents();
     fetchHouseholds();
-    fetchCaptain();
+    fetchOfficialsRoster();
     // Fetch settings (admin endpoint)
     (async () => {
       try {
@@ -197,8 +199,33 @@ export default function AdminDocumentRequests() {
     }
   };
 
-  // Fetch Barangay Captain full name from officials list
-  const fetchCaptain = async () => {
+  // Helper: format official display name like in AdminOfficialManagement
+  function formatOfficialDisplayName(official, residentsList) {
+    if (!official) return '';
+    let resident = null;
+    if (official.residentId) {
+      resident = (residentsList || []).find(r => String(r._id) === String(official.residentId));
+    }
+    if (!resident && official.fullName) {
+      const target = official.fullName.toLowerCase().replace(/\s+/g, ' ').trim();
+      resident = (residentsList || []).find(r => {
+        const fullName = r.fullName || `${r.firstName || ''} ${r.middleName || ''} ${r.lastName || ''}`;
+        const norm = fullName.toLowerCase().replace(/\s+/g, ' ').trim();
+        return norm === target;
+      }) || null;
+    }
+    if (resident) {
+      const first = resident.firstName || '';
+      const middle = resident.middleName ? (resident.middleName.trim()[0].toUpperCase() + '.') : '';
+      const last = resident.lastName || '';
+      const suffix = resident.suffix ? resident.suffix.trim() : '';
+      return [first, middle, last, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    }
+    return official.fullName || '';
+  }
+
+  // Fetch officials roster needed for printing (Captain, Kagawads, SK Chairman)
+  const fetchOfficialsRoster = async () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
@@ -206,18 +233,54 @@ export default function AdminDocumentRequests() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const officials = Array.isArray(res.data) ? res.data : [];
-      // Prefer active captain; fallback to any with that position
+      // Captain
       const isCaptain = (o) => String(o?.position || '').toLowerCase() === 'barangay captain';
       const activeCaptain = officials.find(o => isCaptain(o) && o.isActive);
       const anyCaptain = activeCaptain || officials.find(isCaptain);
       if (anyCaptain) {
-        setCaptainName(anyCaptain.fullName || anyCaptain.name || null);
+        const display = formatOfficialDisplayName(anyCaptain, residents);
+        setCaptainName(display || anyCaptain.fullName || anyCaptain.name || null);
+      } else {
+        setCaptainName(null);
       }
+
+      // SK Chairman
+      const isSkChair = (o) => String(o?.position || '').toLowerCase() === 'sk chairman';
+      const activeSk = officials.find(o => isSkChair(o) && o.isActive);
+      const anySk = activeSk || officials.find(isSkChair);
+      if (anySk) {
+        const display = formatOfficialDisplayName(anySk, residents);
+        setSkChairmanName(display || anySk.fullName || anySk.name || null);
+      } else {
+        setSkChairmanName(null);
+      }
+
+      // Barangay Kagawad (up to 7)
+      const kagawads = officials
+        .filter(o => String(o?.position || '').toLowerCase() === 'barangay kagawad')
+        .sort((a, b) => {
+          const na = (formatOfficialDisplayName(a, residents) || a.fullName || '').toLowerCase();
+          const nb = (formatOfficialDisplayName(b, residents) || b.fullName || '').toLowerCase();
+          return na.localeCompare(nb);
+        });
+      // Prefer active ones first, but keep stable order among actives
+      const actives = kagawads.filter(k => k.isActive);
+      const inactives = kagawads.filter(k => !k.isActive);
+      const ordered = [...actives, ...inactives].slice(0, 7);
+      const names = ordered.map(k => formatOfficialDisplayName(k, residents) || k.fullName || '').filter(Boolean);
+      setKagawadNames(names);
     } catch (err) {
       // Non-fatal: printing will still work, tokens will be blank
-      console.warn('Failed to fetch officials for captain name:', err?.message || err);
+      console.warn('Failed to fetch officials roster for printing:', err?.message || err);
     }
   };
+
+  // Recompute roster once residents list is available to ensure proper formatting
+  useEffect(() => {
+    if ((residents || []).length) {
+      fetchOfficialsRoster();
+    }
+  }, [residents]);
 
   const totalRequests = requests.length;
   const pendingRequests = requests.filter(r => r.status === "pending").length;
@@ -836,17 +899,36 @@ const handlePrint = async (record) => {
   }
 
   const raw = buildTemplateData(record.documentType, record);
-  // Ensure captain fetched; if not yet available, try once synchronously
-  if (!captainName) {
-    try { await fetchCaptain(); } catch (_) { /* ignore */ }
+  // Ensure roster fetched; if not yet available, try once synchronously
+  if (!captainName || !skChairmanName || (kagawadNames || []).length === 0) {
+    try { await fetchOfficialsRoster(); } catch (_) { /* ignore */ }
   }
   const captainFullName = captainName || '';
+  const skFullName = skChairmanName || '';
+  const kagawads = Array.isArray(kagawadNames) ? kagawadNames.slice(0, 7) : [];
+  const paddedKagawads = [...kagawads, '', '', '', '', '', '', ''].slice(0, 7);
   // Inject captain name variants to match possible template tokens
   raw.captainName = captainFullName;
   raw.barangayCaptain = captainFullName;
   raw.BARANGAY_CAPTAIN = captainFullName;
   raw.CAPTAIN_NAME = captainFullName;
   raw.captain = captainFullName;
+  // Inject SK Chairman variants
+  raw.skChairmanName = skFullName;
+  raw.skChairman = skFullName;
+  raw.SK_CHAIRMAN = skFullName;
+  raw.SK_CHAIRMAN_NAME = skFullName;
+  // Inject Kagawad names (individual and list)
+  for (let i = 0; i < 7; i++) {
+    const idx = i + 1;
+    const name = paddedKagawads[i] || '';
+    raw[`kagawad${idx}`] = name;
+    raw[`barangayKagawad${idx}`] = name;
+    raw[`KAGAWAD_${idx}`] = name;
+    raw[`BARANGAY_KAGAWAD_${idx}`] = name;
+  }
+  raw.kagawadList = kagawads.join('\n');
+  raw.KAGAWAD_LIST = kagawads.join('\n');
   const data = toUpperDeep(raw); // pronoun keys are preserved by PRONOUN_KEYS
 
   // Keep mixed-case ordinal/issued line if you use them
