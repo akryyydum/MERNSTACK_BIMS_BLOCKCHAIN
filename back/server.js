@@ -113,7 +113,7 @@ const PORT = process.env.PORT || 4000;
 // Start only after DB connects
 connectDB()
   .then(() => {
-    app.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
+    app.listen(PORT, "0.0.0.0", () => console.log(`[Server] Running on port ${PORT}`));
   })
   .catch(err => {
     console.error('[Server] Failed to start due to DB error:', err.message);
