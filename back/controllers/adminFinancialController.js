@@ -118,11 +118,18 @@ const getDashboard = async (req, res) => {
     console.log('Dashboard - Document revenue:', documentRevenue);
     console.log('Dashboard - Total revenue calculated:', totalRevenue);
 
-    const totalExpenses = allTransactions
+    // Calculate total expenses from all transaction sources
+    const regularExpenses = nonUtilityTransactions
       .filter(t => t.category === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
+    
+    const totalExpenses = regularExpenses;
+    
+    console.log('Dashboard - Total expenses:', totalExpenses);
 
     const balance = totalRevenue - totalExpenses;
+    
+    console.log('Dashboard - Balance (Revenue - Expenses):', balance);
 
     // Transaction counts by type
     const documentFees = allTransactions.filter(t => t.type === 'document_request').length;
@@ -145,18 +152,19 @@ const getDashboard = async (req, res) => {
       }
     });
 
-    // Revenue by type for pie chart using correct totals
-    const documentTransactionRevenue = nonUtilityTransactions.filter(t => t.type === 'document_request').reduce((sum, t) => sum + t.amount, 0);
+    // Revenue by type for pie chart - expenses are already subtracted from totalRevenue via balance calculation
+    const documentTransactionRevenue = nonUtilityTransactions.filter(t => t.type === 'document_request' && t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0);
     const totalDocumentRevenue = documentRevenue + documentTransactionRevenue;
+    
+    const permitRevenue = nonUtilityTransactions.filter(t => t.type === 'permit_fee' && t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0);
+    const otherRevenue = nonUtilityTransactions.filter(t => !['document_request', 'permit_fee', 'garbage_fee', 'streetlight_fee'].includes(t.type) && t.category === 'revenue').reduce((sum, t) => sum + t.amount, 0);
     
     const revenueByType = {
       garbage_fee: garbageRevenue,
       streetlight_fee: streetlightRevenue,
       document_request: totalDocumentRevenue,
-      permit_fee: nonUtilityTransactions.filter(t => t.type === 'permit_fee').reduce((sum, t) => sum + t.amount, 0),
-      other: nonUtilityTransactions
-        .filter(t => !['document_request', 'permit_fee'].includes(t.type) && t.category === 'revenue')
-        .reduce((sum, t) => sum + t.amount, 0)
+      permit_fee: permitRevenue,
+      other: otherRevenue
     };
 
     res.json({
@@ -451,6 +459,10 @@ const getTransactions = async (req, res) => {
 // Create new transaction
 const createTransaction = async (req, res) => {
   try {
+    console.log('=== CREATE TRANSACTION CALLED ===');
+    console.log('Request body:', req.body);
+    console.log('User ID:', req.user?.id);
+    
     const {
       type,
       category,
@@ -462,6 +474,22 @@ const createTransaction = async (req, res) => {
       hasBusiness,
       documentType
     } = req.body; // officialId removed
+
+    console.log('Extracted fields:', { type, category, description, amount, residentId, householdId, paymentMethod });
+
+    // Validate required fields
+    if (!type) {
+      return res.status(400).json({ message: 'Transaction type is required' });
+    }
+    if (!category) {
+      return res.status(400).json({ message: 'Category is required' });
+    }
+    if (!description) {
+      return res.status(400).json({ message: 'Description is required' });
+    }
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Valid amount is required' });
+    }
 
     // Fetch and store names
     let residentName = null;
@@ -563,21 +591,37 @@ const createTransaction = async (req, res) => {
 
     // officialId removed: no longer recorded
 
+    // Get user ID (could be id, _id, or userId depending on JWT payload)
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
+    
+    if (!userId) {
+      console.error('User ID not found in req.user:', req.user);
+      return res.status(401).json({ message: 'User authentication failed - no user ID' });
+    }
+
+    console.log('Creating transaction with userId:', userId);
+
     // Handle regular financial transactions (document_request, other)
-    const transaction = new FinancialTransaction({
+    const transactionData = {
       type,
       category,
       description,
-      amount,
-      residentId,
-      residentName,
-      householdId: actualHouseholdId,
-      paymentMethod,
-      createdBy: req.user.id,
+      amount: Number(amount),
+      residentId: residentId || undefined,
+      residentName: residentName || 'Barangay Official',
+      householdId: actualHouseholdId || undefined,
+      paymentMethod: paymentMethod || 'Cash',
+      createdBy: userId,
       status: 'completed'
-    });
+    };
 
+    console.log('Transaction data to save:', transactionData);
+
+    const transaction = new FinancialTransaction(transactionData);
+
+    console.log('Transaction object created, attempting to save...');
     await transaction.save();
+    console.log('Transaction saved successfully:', transaction._id);
 
     // Attempt to submit to Fabric (non-fatal)
     try {
@@ -593,7 +637,14 @@ const createTransaction = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating transaction:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    console.error('User ID:', req.user?.id);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message,
+      details: error.stack
+    });
   }
 };
 

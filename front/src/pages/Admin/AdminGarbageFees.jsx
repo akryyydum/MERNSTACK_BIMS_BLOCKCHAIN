@@ -1153,32 +1153,77 @@ export default function AdminGarbageFees() {
   
   // Fetch statistics
   const fetchStatistics = async () => {
+    console.log('=== fetchStatistics called ===');
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/garbage-statistics`, { headers: authHeaders() });
-      const apiStats = res.data;
+      // Fetch fresh payment data
+      console.log('Fetching garbage payments...');
+      const paymentRes = await axios.get(`${API_BASE}/api/admin/garbage-payments`, { headers: authHeaders() });
+      const freshGarbagePayments = paymentRes.data || [];
+      console.log('Garbage payments fetched:', freshGarbagePayments.length);
       
-      console.log('API Statistics Response:', apiStats);
+      // Calculate statistics from fresh data (like streetlight does)
+      const currentYear = dayjs().year();
+      const currentMonth = dayjs().format('YYYY-MM');
+      const totalHouseholds = households.length;
       
-      setStats({
-        totalHouseholds: Number(apiStats.totalHouseholds || 0),
+      console.log('Calculating stats for:', { currentYear, currentMonth, totalHouseholds });
+      
+      // Calculate expected totals
+      let expectedMonthly = 0;
+      households.forEach(household => {
+        const fee = getGarbageMonthlyFee(household.hasBusiness);
+        expectedMonthly += fee;
+      });
+      const expectedYearly = expectedMonthly * 12;
+      
+      // Calculate collections from payments
+      let yearlyCollected = 0;
+      let monthlyCollected = 0;
+      
+      freshGarbagePayments.forEach(payment => {
+        if (payment.household && payment.amountPaid > 0) {
+          const paymentYear = dayjs(payment.month + '-01').year();
+          if (paymentYear === currentYear) {
+            yearlyCollected += Number(payment.amountPaid || 0);
+          }
+          if (payment.month === currentMonth) {
+            monthlyCollected += Number(payment.amountPaid || 0);
+          }
+        }
+      });
+      
+      const yearlyOutstanding = expectedYearly - yearlyCollected;
+      const monthlyOutstanding = expectedMonthly - monthlyCollected;
+      const collectionRate = expectedYearly > 0 ? (yearlyCollected / expectedYearly) * 100 : 0;
+      
+      const newStats = {
+        totalHouseholds,
         feeStructure: {
-          noBusiness: apiStats.feeStructure?.noBusiness || 35,
-          withBusiness: apiStats.feeStructure?.withBusiness || 50,
-          expectedMonthly: Number(apiStats.feeStructure?.expectedMonthly || 0),
-          expectedYearly: Number(apiStats.feeStructure?.expectedYearly || 0)
+          noBusiness: getGarbageMonthlyFee(false),
+          withBusiness: getGarbageMonthlyFee(true),
+          expectedMonthly,
+          expectedYearly
         },
         totalCollected: {
-          yearly: Number(apiStats.totalCollected?.yearly || 0),
-          monthly: Number(apiStats.totalCollected?.monthly || 0)
+          yearly: yearlyCollected,
+          monthly: monthlyCollected
         },
         balance: {
-          yearly: Number(apiStats.balance?.yearly || 0),
-          monthly: Number(apiStats.balance?.monthly || 0)
+          yearly: yearlyOutstanding,
+          monthly: monthlyOutstanding
         },
-        collectionRate: Number(apiStats.collectionRate || 0)
-      });
+        collectionRate: parseFloat(collectionRate.toFixed(1))
+      };
+      
+      console.log('Setting new stats:', newStats);
+      setStats(newStats);
+      
+      // Update the payments state with fresh data
+      setGarbagePayments(freshGarbagePayments);
+      console.log('Stats updated successfully');
     } catch (err) {
       console.error("Error fetching statistics:", err);
+      console.error("Error details:", err.response?.data);
       // Fallback to calculated stats from household data
       const totalHouseholds = households.length || 5;
       const currentYear = dayjs().year();
@@ -1267,8 +1312,14 @@ export default function AdminGarbageFees() {
   };
   
   useEffect(() => {
-    fetchStatistics();
-  }, [households]);
+    console.log('useEffect for fetchStatistics triggered:', { 
+      householdsLength: households.length, 
+      settingsExists: !!settings 
+    });
+    if (households.length > 0 || settings) {
+      fetchStatistics();
+    }
+  }, [households, settings]);
 
   // Excel Export Functions
   const exportToExcel = async (values) => {

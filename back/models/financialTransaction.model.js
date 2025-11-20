@@ -64,15 +64,35 @@ const financialTransactionSchema = new mongoose.Schema({
 financialTransactionSchema.pre('save', async function(next) {
   if (this.isNew && !this.transactionId) {
     try {
-      const count = await this.constructor.countDocuments({});
       const prefix = this.type === 'document_request' ? 'DOC' : 
                      this.type === 'garbage_fee' ? 'GRB' : 
                      this.type === 'electric_fee' ? 'ELC' : 
                      this.type === 'streetlight_fee' ? 'STL' :
                      this.type === 'permit_fee' ? 'PRM' : 'TXN';
-      this.transactionId = `${prefix}-${new Date().getFullYear()}-${String(count + 1).padStart(6, '0')}`;
+      
+      const currentYear = new Date().getFullYear();
+      
+      // Find the highest transaction number for this year and type
+      const lastTransaction = await this.constructor
+        .findOne({ transactionId: new RegExp(`^${prefix}-${currentYear}-`) })
+        .sort({ transactionId: -1 })
+        .select('transactionId')
+        .lean();
+      
+      let nextNumber = 1;
+      if (lastTransaction && lastTransaction.transactionId) {
+        // Extract the number from the last transaction ID
+        const match = lastTransaction.transactionId.match(/-(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
+      }
+      
+      this.transactionId = `${prefix}-${currentYear}-${String(nextNumber).padStart(6, '0')}`;
+      console.log('Generated transaction ID:', this.transactionId);
     } catch (error) {
-      // Fallback ID generation if count fails
+      console.error('Error generating transaction ID:', error);
+      // Fallback ID generation using timestamp to ensure uniqueness
       this.transactionId = `TXN-${new Date().getFullYear()}-${Date.now()}`;
     }
   }
