@@ -15,7 +15,6 @@
     "@emotion/hash": "^0.9.1",
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.0",
-    "@emotion/unitless": "^0.10.0",
     "@emotion/utils": "^1.2.0",
     "@fontsource/poppins": "^5.2.6",
     "@mui/icons-material": "^7.3.1",
