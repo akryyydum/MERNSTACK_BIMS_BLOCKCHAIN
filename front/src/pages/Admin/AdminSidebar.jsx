@@ -117,7 +117,7 @@ export default function AdminSidebar({
       {/* Mobile toggle button */}
       <button
         aria-label="Open menu"
-        className="md:hidden fixed top-3 left-3 z-40 inline-flex items-center justify-center rounded-md p-2 bg-slate-900 text-white"
+        className="md:hidden fixed top-3 left-3 z-40 inline-flex items-center justify-center rounded-md p-2 bg-white text-white"
         onClick={() => setMobileOpen(true)}
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

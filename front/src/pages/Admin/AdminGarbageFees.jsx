@@ -39,6 +39,16 @@ export default function AdminGarbageFees() {
   const [showMemberSelection, setShowMemberSelection] = useState(false);
   const [searchType, setSearchType] = useState('household'); // 'household' or 'member'
   
+  // Responsive breakpoint for Add Payment modal (mobile < 640px)
+  const [isMobileAddPayment, setIsMobileAddPayment] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 640 : false));
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileAddPayment(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   // State for payment history modal
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyHousehold, setHistoryHousehold] = useState(null);
@@ -2033,6 +2043,7 @@ export default function AdminGarbageFees() {
         <Modal
           title="Add Garbage Fee Payment"
           open={addPaymentOpen}
+          destroyOnClose
           onCancel={() => {
             setAddPaymentOpen(false);
             setShowMemberSelection(false);
@@ -2145,19 +2156,22 @@ export default function AdminGarbageFees() {
             </Button>
           ]}
           okText={showMemberSelection ? "Proceed to Payment" : "Select Member"}
-          width={900}
+          width={isMobileAddPayment ? '95%' : 900}
+          style={isMobileAddPayment ? { top: 12 } : {}}
+          bodyStyle={{ padding: isMobileAddPayment ? 12 : 24, maxHeight: isMobileAddPayment ? '75vh' : 'auto', overflowY: 'auto' }}
         >
           <Form form={addPaymentForm} layout="vertical" size="large">
             {!showMemberSelection ? (
               <div className="space-y-4">
                 {/* Search Type Selection */}
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
                   <div className="text-base font-medium mb-4">How would you like to search?</div>
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
                       type={searchType === 'household' ? 'primary' : 'default'}
                       icon={<HomeOutlined />}
                       size="large"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setSearchType('household');
                         addPaymentForm.resetFields();
@@ -2169,6 +2183,7 @@ export default function AdminGarbageFees() {
                       type={searchType === 'member' ? 'primary' : 'default'}
                       icon={<UserOutlined />}
                       size="large"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setSearchType('member');
                         addPaymentForm.resetFields();
