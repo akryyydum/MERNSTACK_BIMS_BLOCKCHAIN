@@ -411,8 +411,6 @@ const Login = () => {
               rules={[
                 { required: true, message: "Please input your password!" },
               ]}
-              validateStatus={loginError ? "error" : ""}
-              help={loginError ? loginError : ""}
             >
               <Input.Password size="large" placeholder="Enter your password" />
             </Form.Item>
@@ -433,6 +431,12 @@ const Login = () => {
               </button>
             </div>
            <div className="flex flex-col gap-2">
+                        {/* Show login error below the form if present and not a field validation error */}
+                        {loginError && (
+                          <div style={{ color: 'red', marginBottom: 12, marginTop: -8, fontSize: 14 }}>
+                            {loginError}
+                          </div>
+                        )}
             <button
               type="submit"
               className="cursor-pointer group relative bg-black hover:bg-black text-white font-semibold text-sm px-6 py-3 rounded-full transition-all duration-200 ease-in-out shadow hover:shadow-lg w-full h-12"
