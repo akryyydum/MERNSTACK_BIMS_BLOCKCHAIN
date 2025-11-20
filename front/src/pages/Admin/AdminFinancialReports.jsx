@@ -911,13 +911,7 @@ export default function AdminFinancialReports() {
                 Financial Reports
               </span>
             </div>
-            <div className="flex items-center outline-1 outline-offset-1 outline-slate-300 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
+            
           </nav>
 
           {/* Statistics Section */}

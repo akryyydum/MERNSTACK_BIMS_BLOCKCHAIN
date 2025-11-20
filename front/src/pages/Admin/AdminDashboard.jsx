@@ -573,13 +573,7 @@ export default function AdminDashboard() {
         {/* Header */}
         <nav className="px-5 h-20 flex items-center justify-between p-15">
           <span className="text-2xl md:text-4xl font-bold text-gray-800">Admin Dashboard</span>
-          <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-            <UserOutlined className="text-2xl text-blue-600" />
-            <div className="flex flex-col items-start">
-              <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-              <span className="text-xs text-gray-500">{username}</span>
-            </div>
-          </div>
+          
         </nav>
 
         {/* Content Container */}

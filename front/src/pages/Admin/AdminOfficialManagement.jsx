@@ -490,15 +490,7 @@ export default function AdminOfficialManagement() {
                 Officials Management
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">
-                  Administrator
-                </span>
-                <span className="text-xs text-gray-500">admin</span>
-              </div>
-            </div>
+           
           </nav>
 
           <div className="px-4 pb-4">
