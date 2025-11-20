@@ -19,7 +19,26 @@ import { UserOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 
-const API_URL = "/api/admin/officials";
+// Use environment variable for backend API base (configure VITE_API_BASE_URL in .env and Vercel dashboard)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ""; // e.g. https://your-backend.example.com
+const OFFICIALS_ENDPOINT = `${API_BASE}/api/admin/officials`;
+const RESIDENTS_ENDPOINT = `${API_BASE}/api/admin/residents`;
+
+// Safe JSON parser to surface HTML/other unexpected content clearly
+async function safeParseJson(res) {
+  const contentType = res.headers.get("content-type") || "";
+  const text = await res.text();
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Expected JSON but received '${contentType || "unknown"}'.\nStatus: ${res.status} ${res.statusText}.\nBody preview: ${text.slice(0,200)}`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid JSON: ${e.message}. Preview: ${text.slice(0,200)}`);
+  }
+}
 
 // Position hierarchy for sorting (lower number = higher rank)
 const POSITION_HIERARCHY = {
@@ -114,13 +133,9 @@ export default function AdminOfficialManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(API_URL, { headers: { Authorization: `Bearer ${token}` } });
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch officials: ${res.status} ${res.statusText}`);
-      }
-      
-      const data = await res.json();
+      const res = await fetch(OFFICIALS_ENDPOINT, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await safeParseJson(res);
+      if (!res.ok) throw new Error(data.message || `Failed to fetch officials: ${res.status} ${res.statusText}`);
       console.log("Officials response:", data);
       
       // Handle both array and object responses
@@ -153,15 +168,9 @@ export default function AdminOfficialManagement() {
   const fetchResidents = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/admin/residents", { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch residents: ${res.status} ${res.statusText}`);
-      }
-      
-      const data = await res.json();
+      const res = await fetch(RESIDENTS_ENDPOINT, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await safeParseJson(res);
+      if (!res.ok) throw new Error(data.message || `Failed to fetch residents: ${res.status} ${res.statusText}`);
       console.log("Residents response (officials page):", data);
       
       // Handle both array and object responses
@@ -390,17 +399,13 @@ export default function AdminOfficialManagement() {
         mobile: (values.mobile || '').trim()
       };
       
-      const res = await fetch(API_URL, {
+      const res = await fetch(OFFICIALS_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(submitData)
       });
-      
-      const responseData = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(responseData.message || `Server error: ${res.status} ${res.statusText}`);
-      }
+      const responseData = await safeParseJson(res);
+      if (!res.ok) throw new Error(responseData.message || `Server error: ${res.status} ${res.statusText}`);
       
       message.success("Official added!");
       setAddOpen(false); 
@@ -443,12 +448,13 @@ export default function AdminOfficialManagement() {
       if (values.email !== undefined) payload.email = (values.email || '').trim();
       if (values.mobile !== undefined) payload.mobile = (values.mobile || '').trim();
 
-      const res = await fetch(`${API_URL}/${selectedOfficial._id}`, {
+      const res = await fetch(`${OFFICIALS_ENDPOINT}/${selectedOfficial._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error((await res.json()).message || "Failed to update official");
+      const responseData = await safeParseJson(res);
+      if (!res.ok) throw new Error(responseData.message || "Failed to update official");
       message.success("Official updated!");
       setEditOpen(false); 
       await fetchOfficials();
@@ -460,8 +466,10 @@ export default function AdminOfficialManagement() {
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Failed to delete official");
+      const res = await fetch(`${OFFICIALS_ENDPOINT}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      let responseData = {};
+      try { responseData = await safeParseJson(res); } catch (_) { /* ignore parse error for DELETE */ }
+      if (!res.ok) throw new Error(responseData.message || "Failed to delete official");
       message.success("Official deleted!"); 
       
       // adjust page if last item removed
