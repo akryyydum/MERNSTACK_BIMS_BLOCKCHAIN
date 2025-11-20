@@ -1056,6 +1056,33 @@ export default function AdminResidentManagement() {
           min-height: 18px;
         }
       `}</style>
+      <style>{`
+        /* Unverified Submission Modal Responsive Enhancements */
+        .responsive-modal .ant-modal {
+          width: 95vw !important;
+          max-width: 760px;
+        }
+        .responsive-modal .ant-modal-body {
+          max-height: 70vh;
+          overflow-y: auto;
+          padding: 16px;
+        }
+        .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-label,
+        .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-content {
+          word-break: break-word;
+          font-size: 12px;
+        }
+        @media (min-width: 640px) {
+          .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-label,
+          .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-content { font-size: 13px; }
+        }
+        @media (min-width: 768px) {
+          .responsive-modal .ant-modal-body { padding: 20px; }
+        }
+        @media (min-width: 1024px) {
+          .responsive-modal .ant-modal { max-width: 820px; }
+        }
+      `}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -2366,13 +2393,14 @@ export default function AdminResidentManagement() {
           open={unverifiedViewOpen}
           onCancel={() => { setUnverifiedViewOpen(false); setUnverifiedSelected(null); }}
           footer={null}
-          width={700}
-          style={{ maxWidth: '95vw' }}
           className="responsive-modal"
+          centered
+          width={900}
+          style={{ maxWidth: '95vw' }}
         >
           {unverifiedSelected && (
             <div className="space-y-4">
-              <Descriptions bordered column={{ xs:1, sm:1 }} size="small" className="responsive-descriptions">
+              <Descriptions bordered column={{ xs:1, sm:1, md:2 }} size="small" className="responsive-descriptions">
                 <Descriptions.Item label="Full Name">{[unverifiedSelected.firstName, unverifiedSelected.middleName, unverifiedSelected.lastName, unverifiedSelected.suffix].filter(Boolean).join(' ')}</Descriptions.Item>
                 <Descriptions.Item label="Sex">{unverifiedSelected.sex}</Descriptions.Item>
                 <Descriptions.Item label="Birth Date">{unverifiedSelected.dateOfBirth ? new Date(unverifiedSelected.dateOfBirth).toLocaleDateString() : ''}</Descriptions.Item>
