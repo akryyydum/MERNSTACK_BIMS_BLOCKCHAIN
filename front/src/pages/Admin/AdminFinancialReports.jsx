@@ -916,99 +916,99 @@ export default function AdminFinancialReports() {
 
           {/* Statistics Section */}
           <div className="px-4 pb-1" key={dashboardRefreshKey}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-green-200">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-green-200">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-green-800">
+                  <CardTitle className="text-xs md:text-sm font-bold text-green-800">
                     Total Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-green-600 text-xs font-semibold">
-                    <TrendingUp className="h-4 w-4" />
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-700">
+                  <div className="text-xl md:text-3xl font-bold text-green-700">
                     ₱{totalRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-red-200">
+              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-red-200">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-red-800">
+                  <CardTitle className="text-xs md:text-sm font-bold text-red-800">
                     Total Expenses
                   </CardTitle>
                   <div className="flex items-center gap-1 text-red-600 text-xs font-semibold">
-                    <TrendingUp className="h-4 w-4 rotate-180" />
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4 rotate-180" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-red-700">
+                  <div className="text-xl md:text-3xl font-bold text-red-700">
                     ₱{totalExpenses.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2`}>
+              <Card className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2`}>
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className={`text-sm font-bold ${balance >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
+                  <CardTitle className={`text-xs md:text-sm font-bold ${balance >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
                     Net Balance
                   </CardTitle>
                   <div className={`flex items-center gap-1 ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-xs font-semibold`}>
-                    <DollarSign className="h-4 w-4" />
+                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-3xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                  <div className={`text-xl md:text-3xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
                     ₱{balance.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">Revenue - Expenses</div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Document Request Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <FileTextOutlined className="h-4 w-4" />
+                    <FileTextOutlined className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     ₱{documentRequestRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Garbage Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <TrendingUp className="h-4 w-4" />
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     ₱{garbageFeeRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Streetlight Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <DollarSign className="h-4 w-4" />
+                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     ₱{streetlightFeeRevenue.toLocaleString()}
                   </div>
                 </CardContent>
@@ -1040,9 +1040,9 @@ export default function AdminFinancialReports() {
         {/* Transactions Table Section */}
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
-          <div className="mb-4 flex flex-row justify-between items-center gap-2">
-            <div className="flex gap-2 flex-grow">
-              <div className="flex-shrink-0" style={{ width: '350px' }}>
+          <div className="mb-4 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-2">
+            <div className="flex flex-col md:flex-row gap-2 flex-grow">
+              <div className="flex-grow md:flex-shrink-0 md:w-auto" style={{ maxWidth: '350px' }}>
                 <Input.Search
                   allowClear
                   placeholder="Search for Resident"
@@ -1057,7 +1057,7 @@ export default function AdminFinancialReports() {
                 allowClear
                 value={feeTypeFilter}
                 onChange={setFeeTypeFilter}
-                style={{ width: 200 }}
+                className="w-full md:w-[200px]"
                 options={[
                   { label: 'Document Request Fee', value: 'document_request' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
@@ -1066,16 +1066,18 @@ export default function AdminFinancialReports() {
                 ]}
               />
             </div>
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex flex-col md:flex-row gap-2 md:flex-shrink-0">
               <Button 
                 type="primary"
                 onClick={() => { fetchResidents(); fetchHouseholds(); setCreateOpen(true); }}
+                className="financial-action-btn"
               >
                 + Add Transaction
               </Button>
               <Button 
                 loading={exporting}
                 onClick={() => setExportOpen(true)}
+                className="financial-action-btn"
               >
                 Export to Excel
               </Button>
@@ -1147,10 +1149,13 @@ export default function AdminFinancialReports() {
           confirmLoading={exporting}
           okButtonProps={{ disabled: !exportHasData }}
           width={600}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Form 
             form={exportForm} 
             layout="vertical"
+            className="financial-responsive-form"
             initialValues={{ 
               exportTypes: ['all'],
               year: dayjs().year(),
@@ -1337,6 +1342,8 @@ export default function AdminFinancialReports() {
           onOk={handleCreateTransaction}
           confirmLoading={creating}
           width={700}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
             message="Add Financial Transaction"
@@ -1346,7 +1353,7 @@ export default function AdminFinancialReports() {
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
-          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash', category: 'revenue' }}>
+          <Form form={createForm} layout="vertical" className="financial-responsive-form" initialValues={{ paymentMethod: 'Cash', category: 'revenue' }}>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
@@ -1490,6 +1497,8 @@ export default function AdminFinancialReports() {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           {viewTransaction && (
             <Descriptions bordered column={1}>
@@ -1529,6 +1538,8 @@ export default function AdminFinancialReports() {
           onOk={handleEditTransaction}
           confirmLoading={creating}
           width={700}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
             message="Edit Financial Transaction"
@@ -1538,7 +1549,7 @@ export default function AdminFinancialReports() {
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
-          <Form form={editForm} layout="vertical">
+          <Form form={editForm} layout="vertical" className="financial-responsive-form">
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>

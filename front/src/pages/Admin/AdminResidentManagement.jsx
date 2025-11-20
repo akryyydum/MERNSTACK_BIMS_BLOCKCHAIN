@@ -863,6 +863,92 @@ export default function AdminResidentManagement() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{`
+        /* Responsive modal styling */
+        @media (max-width: 768px) {
+          .responsive-modal .ant-modal {
+            max-width: 95vw !important;
+            margin: 10px auto !important;
+          }
+          .responsive-modal .ant-modal-content {
+            padding: 8px !important;
+          }
+          .responsive-modal .ant-modal-header {
+            padding: 12px 16px !important;
+          }
+          .responsive-modal .ant-modal-body {
+            padding: 12px 16px !important;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+          }
+          .responsive-modal .ant-modal-footer {
+            padding: 10px 16px !important;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .responsive-modal .ant-modal-footer .ant-btn {
+            margin: 0 !important;
+            flex: 1 1 auto;
+            min-width: 80px !important;
+          }
+          /* Form row responsiveness */
+          .form-row {
+            flex-direction: column !important;
+          }
+          .form-row .ant-form-item {
+            width: 100% !important;
+          }
+          /* Steps responsive */
+          .ant-steps-horizontal.ant-steps-label-horizontal {
+            flex-direction: column !important;
+          }
+          .ant-steps-item {
+            margin-bottom: 8px !important;
+          }
+          /* Descriptions responsive */
+          .responsive-descriptions .ant-descriptions-item-label {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+          }
+          .responsive-descriptions .ant-descriptions-item-content {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+            word-break: break-word;
+          }
+          /* Alert responsive */
+          .ant-alert {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+          }
+          .ant-alert-message {
+            font-size: 13px !important;
+          }
+          .ant-alert-description {
+            font-size: 11px !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .form-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 0;
+          }
+          .form-row .ant-form-item {
+            flex: 1;
+          }
+        }
+        /* Compact form styles */
+        .compact-form .ant-form-item {
+          margin-bottom: 8px;
+        }
+        .compact-form .ant-form-item-label {
+          padding-bottom: 4px;
+        }
+        .compact-form .ant-form-item-explain {
+          min-height: 18px;
+        }
+      `}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -871,13 +957,14 @@ export default function AdminResidentManagement() {
                 Residents Management
               </span>
             </div>
-            
           </nav>
+          {/* Statistics Section - Copied from User Management, adapted for residents */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            {/* Row 1: Total, Male, Female, Verified Residents */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Residents
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -886,14 +973,14 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {totalResidents}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Male Residents
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -902,14 +989,14 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {maleResidents}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Female Residents
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -918,73 +1005,88 @@ export default function AdminResidentManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {femaleResidents}
                   </div>
                 </CardContent>
               </Card>
-            </div>
-
-            {/* Second Row: Purok Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
-              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
+                    Verified Residents
+                  </CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {Array.isArray(residents) ? residents.filter(r => r.residentStatus === 'verified').length : 0}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl md:text-3xl font-bold text-black">
+                    {Array.isArray(residents) ? residents.filter(r => r.residentStatus === 'verified').length : 0}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            {/* Row 2: Purok Statistics - 5 cols on desktop, 2 cols on mobile/tablet */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mt-3 md:mt-4">
+              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 1</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok1Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok1Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok1Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 2</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 2</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok2Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok2Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok2Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 3</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 3</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok3Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok3Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok3Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 4</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 4</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok4Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok4Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok4Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 lg:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 5</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 5</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok5Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok5Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok5Count}</div>
                 </CardContent>
               </Card>
             </div>
@@ -1144,64 +1246,72 @@ export default function AdminResidentManagement() {
               </DropdownMenu>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="primary"
-                onClick={() => {
-                  setAddStep(0);
-                  // Apply the defaults each time Add is opened
-                  addForm.setFieldsValue({
-                    address: { ...(addForm.getFieldValue("address") || {}), ...ADDRESS_DEFAULTS },
-                    citizenship: "Filipino",
-                  });
-                  setEmailTaken(false);
-                  setMobileTaken(false);
-                  setAddOpen(true);
-                }}
-              >
-                + Add Resident
-              </Button>
-              <Button
-                onClick={() => {
-                  exportForm.setFieldsValue({ purokFilter: "all" });
-                  setExportOpen(true);
-                }}
-              >
-                Export Excel
-              </Button>
-              <Button
-                onClick={() => {
-                  setImportOpen(true);
-                }}
-              >
-                Import Residents
-              </Button>
-
-
-              {!selectAllClicked && (
-                <Button onClick={handleSelectAll} type="default">
-                  Select All ({filteredResidents.length})
+            <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full md:w-auto">
+              {/* First Row - Primary Actions (Mobile: Full Width) */}
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    setAddStep(0);
+                    // Apply the defaults each time Add is opened
+                    addForm.setFieldsValue({
+                      address: { ...(addForm.getFieldValue("address") || {}), ...ADDRESS_DEFAULTS },
+                      citizenship: "Filipino",
+                    });
+                    setEmailTaken(false);
+                    setMobileTaken(false);
+                    setAddOpen(true);
+                  }}
+                  className="flex-1 md:flex-initial"
+                >
+                  + Add Resident
                 </Button>
-              )}
+                <Button
+                  onClick={() => {
+                    exportForm.setFieldsValue({ purokFilter: "all" });
+                    setExportOpen(true);
+                  }}
+                  className="flex-1 md:flex-initial"
+                >
+                  Export Excel
+                </Button>
+              </div>
 
-              {selectedRowKeys.length > 0 && (
-                <>
-                  <Button onClick={handleClearSelection}>
-                    Undo Selection
+              {/* Second Row - Secondary Actions (Mobile: Full Width) */}
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                <Button
+                  onClick={() => {
+                    setImportOpen(true);
+                  }}
+                  className="flex-1 md:flex-initial"
+                >
+                  Import Residents
+                </Button>
+
+                {!selectAllClicked && selectedRowKeys.length === 0 && (
+                  <Button onClick={handleSelectAll} type="default" className="flex-1 md:flex-initial">
+                    Select All ({filteredResidents.length})
                   </Button>
-                  <Popconfirm
-                    title={`Delete ${selectedRowKeys.length} resident(s)?`}
-                    description="This action cannot be undone."
-                    okButtonProps={{ danger: true }}
-                    onConfirm={handleBulkDelete}
-                  >
-                    <Button danger>
-                      Delete Selected ({selectedRowKeys.length})
-                    </Button>
-                  </Popconfirm>
-                </>
-              )}
+                )}
 
+                {(selectAllClicked || selectedRowKeys.length > 0) && (
+                  <>
+                    <Button onClick={handleClearSelection} className="flex-1 md:flex-initial">
+                      Undo Selection
+                    </Button>
+                    <Popconfirm
+                      title={`Delete ${selectedRowKeys.length} resident(s)?`}
+                      description="This action cannot be undone."
+                      okButtonProps={{ danger: true }}
+                      onConfirm={handleBulkDelete}
+                    >
+                      <Button danger className="flex-1 md:flex-initial">
+                        Delete Selected ({selectedRowKeys.length})
+                      </Button>
+                    </Popconfirm>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -1275,6 +1385,8 @@ export default function AdminResidentManagement() {
           okText="Export"
           okButtonProps={{ disabled: !exportHasData }}
           width={400}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
         >
           <Form form={exportForm} layout="vertical" initialValues={{ purokFilter: "all" }}>
             <Form.Item 
@@ -1604,6 +1716,8 @@ export default function AdminResidentManagement() {
           confirmLoading={importing}
           okText="Import"
           width={500}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
         >
           <Form form={importForm} layout="vertical">
             <Form.Item
@@ -1668,7 +1782,9 @@ export default function AdminResidentManagement() {
           open={addOpen}
           onCancel={() => { setAddOpen(false); setAddStep(0); }}
           width={900}
-          bodyStyle={{ padding: '24px 48px' }}
+          bodyStyle={{ padding: '16px 20px' }}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
           footer={[
             <Button key="cancel" onClick={() => { setAddOpen(false); setAddStep(0); }}>
               Cancel
@@ -1718,25 +1834,6 @@ export default function AdminResidentManagement() {
             className="mb-2"
           />
           <Form form={addForm} layout="vertical" className="compact-form">
-            <style jsx="true">{`
-              .compact-form .ant-form-item {
-                margin-bottom: 8px;
-              }
-              .compact-form .ant-form-item-label {
-                padding-bottom: 4px;
-              }
-              .compact-form .ant-form-item-explain {
-                min-height: 18px;
-              }
-              .form-row {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 0;
-              }
-              .form-row .ant-form-item {
-                flex: 1;
-              }
-            `}</style>
             
             {/* Step 1 - Personal */}
             <div style={{ display: addStep === 0 ? "block" : "none" }}>
@@ -1971,7 +2068,9 @@ export default function AdminResidentManagement() {
           open={editOpen}
           onCancel={() => { setEditOpen(false); setEditStep(0); }}
           width={900}
-          bodyStyle={{ padding: '24px 48px' }}
+          bodyStyle={{ padding: '16px 20px' }}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
           footer={[
             <Button key="cancel" onClick={() => { setEditOpen(false); setEditStep(0); }}>
               Cancel
@@ -2021,25 +2120,6 @@ export default function AdminResidentManagement() {
             className="mb-2"
           />
           <Form form={editForm} layout="vertical" className="compact-form">
-            <style jsx="true">{`
-              .compact-form .ant-form-item {
-                margin-bottom: 8px;
-              }
-              .compact-form .ant-form-item-label {
-                padding-bottom: 4px;
-              }
-              .compact-form .ant-form-item-explain {
-                min-height: 18px;
-              }
-              .form-row {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 0;
-              }
-              .form-row .ant-form-item {
-                flex: 1;
-              }
-            `}</style>
             
             {/* Step 1 - Personal */}
             <div style={{ display: editStep === 0 ? "block" : "none" }}>
@@ -2278,9 +2358,16 @@ export default function AdminResidentManagement() {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
         >
           {viewResident && (
-            <Descriptions bordered column={1} size="middle">
+            <Descriptions 
+              bordered 
+              column={{ xs: 1, sm: 1, md: 1, lg: 1, xl: 1, xxl: 1 }} 
+              size="small"
+              className="responsive-descriptions"
+            >
               <Descriptions.Item label="Full Name">
                 {[viewResident.firstName, viewResident.middleName, viewResident.lastName, viewResident.suffix].filter(Boolean).join(" ")}
               </Descriptions.Item>

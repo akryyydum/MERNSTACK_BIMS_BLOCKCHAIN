@@ -10,7 +10,7 @@ const { Option } = Select;
 
 // Add responsive styles for modals
 const modalStyles = `
-  @media (max-width: 480px) {
+  @media (max-width: 768px) {
     .user-modal-responsive .ant-modal-header {
       padding: 12px 16px;
     }
@@ -18,12 +18,15 @@ const modalStyles = `
       font-size: 16px;
     }
     .user-modal-responsive .ant-modal-footer {
-      padding: 10px 12px;
+      padding: 10px 16px !important;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
-    .user-modal-responsive .ant-btn {
-      font-size: 13px;
-      padding: 4px 12px;
-      height: auto;
+    .user-modal-responsive .ant-modal-footer .ant-btn {
+      margin: 0 !important;
+      flex: 1 1 auto;
+      min-width: 80px !important;
     }
     .responsive-form .ant-form-item-label > label {
       font-size: 13px;
@@ -35,27 +38,27 @@ const modalStyles = `
     .ant-alert-icon {
       font-size: 16px;
     }
+    .create-user-btn {
+      width: 100% !important;
+      min-width: 0 !important;
+      margin-top: 4px;
+    }
   }
   
-  @media (min-width: 481px) and (max-width: 768px) {
-    .user-modal-responsive .ant-modal-header {
-      padding: 14px 18px;
+  @media (max-width: 640px) {
+    .user-modal-responsive .ant-modal {
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px !important;
+      top: 16px !important;
     }
-    .user-modal-responsive .ant-modal-title {
-      font-size: 18px;
+    
+    .user-modal-responsive .ant-modal-body {
+      max-height: calc(100vh - 160px);
     }
-    .user-modal-responsive .ant-modal-footer {
-      padding: 12px 16px;
-    }
-    .user-modal-responsive .ant-btn {
-      font-size: 14px;
-    }
-    .responsive-form .ant-form-item-label > label {
-      font-size: 14px;
-    }
-    .responsive-form .ant-form-item-explain,
-    .responsive-form .ant-form-item-extra {
-      font-size: 12px;
+    .create-user-btn {
+      width: 100% !important;
+      min-width: 0 !important;
+      margin-top: 4px;
     }
   }
 `;
@@ -774,7 +777,7 @@ export default function AdminUserManagement() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="primary" onClick={openCreate}> + Create User</Button>
+            <Button type="primary" onClick={openCreate} className="create-user-btn"> + Create User</Button>
           </div>
         </div>
 

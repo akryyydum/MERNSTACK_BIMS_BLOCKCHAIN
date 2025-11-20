@@ -404,8 +404,10 @@ export default function AdminDocumentRequests() {
                 danger
                 icon={<DeleteOutlined />}
                 loading={deletingId === record.__rowKey}
+                className="whitespace-nowrap"
               >
-                Delete All
+                <span className="hidden sm:inline">Delete All</span>
+                <span className="sm:hidden">Delete</span>
               </Button>
             </Popconfirm>
           )}
@@ -468,10 +470,10 @@ export default function AdminDocumentRequests() {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
-        <div className="flex gap-2">
-          <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="small" onClick={() => { openView(r); }} className="whitespace-nowrap">View Details</Button>
           {r.status !== 'declined' && r.status !== 'pending' && (
-            <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
+            <Button size="small" onClick={() => handlePrint(r)} className="whitespace-nowrap">Print</Button>
           )}
           {r.status === "pending" && (
             <>
@@ -483,7 +485,7 @@ export default function AdminDocumentRequests() {
                 } else {
                   handleAction(r._id, 'accept');
                 }
-              }}>Accept</Button>
+              }} className="whitespace-nowrap">Accept</Button>
               <Popconfirm
                 title="Reject this request?"
                 description="This action cannot be undone."
@@ -492,12 +494,12 @@ export default function AdminDocumentRequests() {
                 cancelText="Cancel"
                 onConfirm={() => handleAction(r._id, 'decline')}
               >
-                <Button size="small" danger>Decline</Button>
+                <Button size="small" danger className="whitespace-nowrap">Decline</Button>
               </Popconfirm>
             </>
           )}
           {r.status === "accepted" && (
-            <Button size="small" type="default" onClick={() => handleAction(r._id, 'complete')}>Mark as Completed</Button>
+            <Button size="small" type="default" onClick={() => handleAction(r._id, 'complete')} className="whitespace-nowrap">Mark as Completed</Button>
           )}
           <Popconfirm
             title="Delete this request?"
@@ -506,7 +508,7 @@ export default function AdminDocumentRequests() {
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(r._id)}
           >
-            <Button size="small" danger>Delete</Button>
+            <Button size="small" danger className="whitespace-nowrap">Delete</Button>
           </Popconfirm>
         </div>
       ),
@@ -1119,10 +1121,18 @@ const handleExport = async () => {
           </nav>
           {/* Statistics Section */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg released-card">
+                      {/* Responsive style for Released card to span 2 columns on mobile */}
+                      <style>{`
+                        @media (max-width: 767px) {
+                          .released-card {
+                            grid-column: span 2 / span 2 !important;
+                          }
+                        }
+                      `}</style>
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Requests
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1131,14 +1141,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {totalRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Pending
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1147,14 +1157,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {pendingRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Approved
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1163,14 +1173,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {approvedRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Rejected
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1179,14 +1189,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {rejectedRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Released
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1195,7 +1205,7 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {releasedRequests}
                   </div>
                 </CardContent>
@@ -1285,9 +1295,9 @@ const handleExport = async () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="primary" onClick={() => setCreateOpen(true)}>
-                + Create Request Document
+            <div className="flex flex-row gap-2 w-full sm:w-auto">
+              <Button type="primary" onClick={() => setCreateOpen(true)} className="flex-1 min-w-0 whitespace-nowrap">
+                + Create Request
               </Button>
               <Button
                 onClick={() => {
@@ -1295,6 +1305,7 @@ const handleExport = async () => {
                   // initialize default export values
                   exportForm.setFieldsValue({ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() });
                 }}
+                className="flex-1 min-w-0 whitespace-nowrap"
               >
                 Export as Excel
               </Button>
@@ -1308,29 +1319,32 @@ const handleExport = async () => {
               columns={columns}
               expandable={{
                 expandedRowRender: (record) => (
-                  <Table
-                    columns={expandedColumns}
-                    dataSource={record.requests}
-                    pagination={{
-                      defaultPageSize: 5,
-                      showTotal: (total) => `Total ${total} requests`,
-                      showSizeChanger: false,
-                      showQuickJumper: false,
-                      showLessItems: true,
-                      itemRender: (page, type, originalElement) => {
-                        if (type === 'prev') {
-                          return originalElement;
-                        }
-                        if (type === 'next') {
-                          return originalElement;
-                        }
-                        return null;
-                      },
-                    }}
-                    rowKey="_id"
-                    size="medium"
-                    className="ml-8"
-                  />
+                  <div className="overflow-x-auto">
+                    <Table
+                      columns={expandedColumns}
+                      dataSource={record.requests}
+                      pagination={{
+                        defaultPageSize: 5,
+                        showTotal: (total) => `Total ${total} requests`,
+                        showSizeChanger: false,
+                        showQuickJumper: false,
+                        showLessItems: true,
+                        itemRender: (page, type, originalElement) => {
+                          if (type === 'prev') {
+                            return originalElement;
+                          }
+                          if (type === 'next') {
+                            return originalElement;
+                          }
+                          return null;
+                        },
+                      }}
+                      rowKey="_id"
+                      size="medium"
+                      className="ml-0 sm:ml-8"
+                      scroll={{ x: 'max-content' }}
+                    />
+                  </div>
                 ),
                 rowExpandable: (record) => record.requests && record.requests.length > 0,
               }}
@@ -1342,9 +1356,10 @@ const handleExport = async () => {
                 showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Requests: ${filteredRequests.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
+                responsive: true,
               }}
               onChange={handleTableChange}
-              scroll={{ x: 800 }}
+              scroll={{ x: 'max-content' }}
             />
           </div>
         </div>
@@ -1355,6 +1370,8 @@ const handleExport = async () => {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         >
           {viewRequest && (
             <Descriptions bordered column={1} size="middle">
@@ -1418,6 +1435,9 @@ const handleExport = async () => {
           title="Create Document Request"
           open={createOpen}
           onCancel={() => { setCreateOpen(false); setShowUnpaidModal(false); setUnpaidMonths({ garbage: [], streetlight: [] }); setBlockCreate(false); createForm.resetFields(); }}
+          width={600}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
           onOk={async () => {
             try {
               setCreating(true);
@@ -1457,7 +1477,6 @@ const handleExport = async () => {
           confirmLoading={creating}
           okText="Create"
           okButtonProps={{ disabled: blockCreate || paymentsCheckLoading }}
-          width={600}
         >
           <Alert
             message="Create Document Request"
@@ -1515,8 +1534,8 @@ const handleExport = async () => {
             )}
             
             {selectedRequestFor && (
-              <div className="mb-3 -mt-2 flex items-center gap-2">
-                <Button size="small" onClick={() => setShowUnpaidModal(true)} disabled={paymentsCheckLoading}>
+              <div className="mb-3 -mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <Button size="small" onClick={() => setShowUnpaidModal(true)} disabled={paymentsCheckLoading} className="whitespace-nowrap">
                   View Unpaid Months
                 </Button>
                 {paymentsCheckLoading ? (
@@ -1593,6 +1612,8 @@ const handleExport = async () => {
           onCancel={() => setShowUnpaidModal(false)}
           footer={null}
           width={520}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         >
           {!selectedRequestFor ? (
             <div className="text-sm text-gray-500">Select a resident to view payment status.</div>
@@ -1638,6 +1659,9 @@ const handleExport = async () => {
           title="Accept Request: Business Clearance"
           open={acceptOpen}
           onCancel={() => setAcceptOpen(false)}
+          width={420}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
           onOk={async () => {
             try {
               const { amount } = await acceptForm.validateFields();
@@ -1658,7 +1682,6 @@ const handleExport = async () => {
           }}
           confirmLoading={accepting}
           okText="Accept"
-          width={420}
         >
           {acceptRecord && (
             <Form form={acceptForm} layout="vertical" initialValues={{ amount: acceptRecord.feeAmount }}>
@@ -1684,6 +1707,8 @@ const handleExport = async () => {
           okText="Export"
           okButtonProps={{ disabled: !exportHasData }}
           width={420}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         >
           <Form 
             form={exportForm} 
