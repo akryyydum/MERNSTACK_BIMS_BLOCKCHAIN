@@ -16,6 +16,7 @@ app.use((req, res, next) => {
 // CORS with explicit allowed origins
 const allowedOrigins = [
   "https://mernstack-bims-blockchain-3.vercel.app",
+  "https://www.latorrenorth.com",
   "http://localhost:5173",
   "http://localhost:3000",
 ];
