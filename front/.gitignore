@@ -13,11 +13,12 @@ dist
 dist-ssr
 *.local
 .env
+.env.production
+.env.development
 
 # Vite
 .vite
 
-# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea

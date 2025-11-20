@@ -13,22 +13,32 @@ app.use((req, res, next) => {
   next();
 });
 
-// Development-friendly CORS (allow explicit origins + any localhost port)
-const explicitOrigins = [
-  process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
-  'http://localhost:3000'
-].filter(Boolean);
-const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+// CORS with explicit allowed origins
+const allowedOrigins = [
+  "https://mernstack-bims-blockchain-3.vercel.app",
+  "https://www.latorrenorth.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+// Allow Vercel preview deployments like https://mernstack-bims-blockchain-<suffix>.vercel.app
+const vercelPreviewRegex = /^https:\/\/mernstack-bims-blockchain-[a-z0-9-]+\.vercel\.app$/i;
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true); // same-origin / curl / postman
-    if (explicitOrigins.includes(origin) || localhostRegex.test(origin)) return callback(null, true);
-    console.warn('[CORS] Blocked origin:', origin);
-    return callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
+      return callback(null, true);
+    } else {
+      console.log("❌ CORS BLOCKED:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    }
   },
   credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization']
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 
@@ -113,7 +123,7 @@ const PORT = process.env.PORT || 4000;
 // Start only after DB connects
 connectDB()
   .then(() => {
-    app.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
+    app.listen(PORT, "0.0.0.0", () => console.log(`[Server] Running on port ${PORT}`));
   })
   .catch(err => {
     console.error('[Server] Failed to start due to DB error:', err.message);
