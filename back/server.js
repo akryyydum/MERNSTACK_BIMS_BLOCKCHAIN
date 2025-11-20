@@ -60,6 +60,9 @@ const adminOfficialManagementRoutes = require("./routes/adminOfficialManagementR
 app.use("/api/admin/officials", adminOfficialManagementRoutes);
 const adminResidentRoutes = require("./routes/adminResidentRoutes");
 app.use("/api/admin/residents", adminResidentRoutes);
+// Unverified resident submissions
+const adminUnverifiedResidentRoutes = require('./routes/adminUnverifiedResidentRoutes');
+app.use('/api/admin/unverified-residents', adminUnverifiedResidentRoutes);
 const adminDocumentRequestRoutes = require('./routes/adminDocumentRequest');
 app.use('/api/admin/document-requests', adminDocumentRequestRoutes);
 const adminComplaintRoutes = require("./routes/adminComplaintRoutes");
