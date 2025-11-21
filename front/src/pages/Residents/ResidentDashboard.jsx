@@ -380,13 +380,13 @@ export default function ResidentDashboard() {
       <ResidentNavbar />
       
       <main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
-        <Card className="w-full">
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg sm:text-xl font-semibold text-slate-900">
+            <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
               Resident Dashboard
             </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              Welcome back, {username}! Track your document requests and barangay services
+            <CardDescription className="text-xs sm:text-sm text-slate-600">
+              Welcome back, <span className="font-semibold text-slate-700">{username}</span>! Track your document requests and barangay services
             </CardDescription>
           </CardHeader>
         </Card>
@@ -518,31 +518,33 @@ export default function ResidentDashboard() {
         )}
 
         {/* User Profile Summary */}
-        <Card className="w-full border border-blue-200 bg-blue-50">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col md:flex-row justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-blue-200 flex items-center justify-center">
-                  <UserOutlined style={{ fontSize: '16px' }} className="text-blue-600 sm:text-lg" />
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-br from-white via-slate-50/50 to-slate-100/30">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl flex items-center justify-center shadow-lg border-2 border-slate-300">
+                  <UserOutlined className="text-white text-2xl sm:text-3xl" />
                 </div>
                 <div>
-                  <h2 className="text-sm sm:text-base font-semibold text-blue-900">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800 mb-1">
                     {resident?.firstName}
                     {resident?.middleName ? ` ${resident.middleName}` : ''}
                     {resident?.lastName ? ` ${resident.lastName}` : ''}
                     {resident?.suffix ? <span className="ml-1">{resident.suffix}</span> : null}
                   </h2>
-                  <p className="text-xs sm:text-sm text-blue-700">
-                    Resident ID: {resident?._id?.substring(0, 8) || "Not available"}
+                  <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                    ID: {resident?._id?.substring(0, 8) || "Not available"}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center">
-                <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white rounded-md border border-slate-200">
-                  <CalendarOutlined className="text-blue-600 text-xs" />
+              <div className="flex items-center w-full md:w-auto">
+                <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-slate-200 shadow-sm w-full md:w-auto">
+                  <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200">
+                    <CalendarOutlined className="text-slate-600 text-lg" />
+                  </div>
                   <div>
-                    <p className="text-[10px] text-slate-500">Since</p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-800">
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Member Since</p>
+                    <p className="text-sm sm:text-base font-semibold text-slate-800">
                       {formatDate(resident?.createdAt)}
                     </p>
                   </div>
@@ -579,74 +581,75 @@ export default function ResidentDashboard() {
         )}
         
         {/* Dashboard Statistics - Combined Document Requests, Complaints & Barangay Fee Summary */}
-        <Card className="w-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm sm:text-base font-semibold text-slate-900">Dashboard Overview</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Manage your document requests, complaints, and track barangay fee payments</CardDescription>
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Dashboard Overview</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Track your requests, complaints, and barangay fees</CardDescription>
           </CardHeader>
-          <CardContent className="pt-3">
-            {/* Use flexbox with order for mobile, grid for desktop with 4 columns for the 4 main cards */}
-            <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
-              
+          <CardContent className="pt-5">
+            {/* Responsive grid: 2 columns on mobile (2x2), 4 columns on large screens */}
+            <div
+              className="grid grid-cols-2 grid-rows-2 gap-2 sm:grid-cols-2 sm:grid-rows-2 lg:grid-cols-4 lg:grid-rows-1 sm:gap-4"
+            >
               {/* All Requests Card */}
-              <Card className="w-full border border-blue-200 bg-blue-50">
-                <CardContent className="space-y-1 px-2 py-2 sm:px-2.5 sm:py-3">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-blue-100 flex items-center justify-center mb-1">
-                      <FileTextOutlined className="text-blue-600 text-[10px] sm:text-xs" />
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                      <FileTextOutlined className="text-slate-600 text-lg sm:text-xl" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[9px] sm:text-[10px] font-medium text-blue-700 mb-0.5">All Requests</p>
-                      <p className="text-sm sm:text-base font-bold text-blue-900">{totalRequests}</p>
-                      <p className="text-[8px] sm:text-[9px] text-blue-600 mt-0.5 leading-tight">Requests made</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Documents</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{totalRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Total requests</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Total Complaints Card */}
-              <Card className="w-full border border-orange-200 bg-orange-50">
-                <CardContent className="space-y-1 px-2 py-2 sm:px-2.5 sm:py-3">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-orange-100 flex items-center justify-center mb-1">
-                      <ExclamationCircleOutlined className="text-orange-600 text-[10px] sm:text-xs" />
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-200">
+                      <ExclamationCircleOutlined className="text-amber-600 text-lg sm:text-xl" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[9px] sm:text-[10px] font-medium text-orange-700 mb-0.5">All Complaints</p>
-                      <p className="text-sm sm:text-base font-bold text-orange-900">{totalComplaints}</p>
-                      <p className="text-[8px] sm:text-[9px] text-orange-600 mt-0.5 leading-tight">Reports submitted</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Complaints</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{totalComplaints}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Reports filed</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Monthly Balance Due Card */}
-              <Card className="w-full border border-amber-200 bg-amber-50">
-                <CardContent className="space-y-1 px-2 py-2 sm:px-2.5 sm:py-3">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-amber-100 flex items-center justify-center mb-1">
-                      <DollarOutlined className="text-amber-600 text-[10px] sm:text-xs" />
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 border border-orange-200">
+                      <DollarOutlined className="text-orange-600 text-lg sm:text-xl" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[9px] sm:text-[10px] font-medium text-amber-700 mb-0.5">Monthly Due</p>
-                      <p className="text-sm sm:text-base font-bold text-amber-900">₱{totalMonthlyDue.toFixed(2)}</p>
-                      <p className="text-[8px] sm:text-[9px] text-amber-600 mt-0.5 leading-tight">Current month</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Monthly</p>
+                      <p className="text-lg sm:text-2xl font-bold text-slate-800">₱{totalMonthlyDue.toFixed(2)}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Balance due</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Yearly Balance Due Card */}
-              <Card className="w-full border border-red-200 bg-red-50">
-                <CardContent className="space-y-1 px-2 py-2 sm:px-2.5 sm:py-3">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-red-100 flex items-center justify-center mb-1">
-                      <CalendarOutlined className="text-red-600 text-[10px] sm:text-xs" />
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0 border border-rose-200">
+                      <CalendarOutlined className="text-rose-600 text-lg sm:text-xl" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-[9px] sm:text-[10px] font-medium text-red-700 mb-0.5">Yearly Due</p>
-                      <p className="text-sm sm:text-base font-bold text-red-900">₱{totalYearlyDue.toFixed(2)}</p>
-                      <p className="text-[8px] sm:text-[9px] text-red-600 mt-0.5 leading-tight">{new Date().getFullYear()} total</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Yearly</p>
+                      <p className="text-lg sm:text-2xl font-bold text-slate-800">₱{totalYearlyDue.toFixed(2)}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">{new Date().getFullYear()} total</p>
                     </div>
                   </div>
                 </CardContent>
@@ -656,28 +659,28 @@ export default function ResidentDashboard() {
         </Card>
         
         {/* Recent Activity Section */}
-        <Card className="w-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm sm:text-base font-semibold text-slate-900">Recent Activity</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Your latest document requests, complaints, and reports</CardDescription>
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Recent Activity</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Your latest document requests, complaints, and reports</CardDescription>
           </CardHeader>
-          <CardContent className="pt-3">
+          <CardContent className="pt-5">
             {loading ? (
-              <div className="text-center py-6">
+              <div className="text-center py-8">
                 <div className="flex justify-center items-center">
-                  <Spin size="small" tip="Loading activity..." />
+                  <Spin size="large" tip="Loading activity..." />
                 </div>
               </div>
             ) : requests.length === 0 && complaints.length === 0 ? (
-              <div className="text-center py-8 sm:py-10">
+              <div className="text-center py-10 sm:py-12">
                 <div className="flex flex-col items-center">
-                  <FileTextOutlined style={{ fontSize: '24px' }} className="text-slate-400 mb-1.5" />
-                  <p className="text-slate-500 font-medium text-sm">No recent activity found</p>
-                  <p className="text-slate-400 text-xs mt-0.5">Start by requesting a document or submitting a complaint/report</p>
+                  <FileTextOutlined style={{ fontSize: '48px' }} className="text-slate-400 mb-3" />
+                  <p className="text-slate-500 font-medium text-base sm:text-lg">No recent activity found</p>
+                  <p className="text-slate-400 text-sm sm:text-base mt-1">Start by requesting a document or submitting a complaint/report</p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
+              <div className="grid grid-cols-2 grid-rows-3 gap-2 sm:grid-cols-2 sm:grid-rows-3 lg:grid-cols-3 lg:grid-rows-2 sm:gap-4 md:gap-5">
                 {/* Combine and sort requests and complaints by date, show latest 6 items */}
                 {[
                   ...requests.map(item => ({ ...item, activityType: 'request' })),
@@ -690,102 +693,105 @@ export default function ResidentDashboard() {
                   const isComplaint = item.activityType === 'complaint';
                   
                   return (
-                    <Card key={`${item.activityType}-${item._id}`} className="w-full border border-slate-200 bg-white shadow-none hover:shadow-md transition-shadow">
-                      <CardContent className="p-2 sm:p-2.5">
-                        <div className="flex items-center mb-1.5">
-                          <div className={`h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center mr-1.5 ${
-                            isRequest ? 'bg-blue-100' : 
-                            item.type === 'complaint' ? 'bg-orange-100' : 'bg-purple-100'
+                    <Card key={`${item.activityType}-${item._id}`} className="border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200">
+                      <CardContent className="p-2 sm:p-4">
+                        <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
+                          <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+                            isRequest ? 'bg-slate-50 border-slate-200' : 
+                            item.type === 'complaint' ? 'bg-amber-50 border-amber-200' : 'bg-purple-50 border-purple-200'
                           }`}>
                             {isRequest ? (
-                              <FileTextOutlined className="text-blue-600 text-[10px] sm:text-xs" />
+                              <FileTextOutlined className="text-slate-600 text-base sm:text-lg" />
                             ) : item.type === 'complaint' ? (
-                              <ExclamationCircleOutlined className="text-orange-600 text-[10px] sm:text-xs" />
+                              <ExclamationCircleOutlined className="text-amber-600 text-base sm:text-lg" />
                             ) : (
-                              <FlagOutlined className="text-purple-600 text-[10px] sm:text-xs" />
+                              <FlagOutlined className="text-purple-600 text-base sm:text-lg" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 truncate text-[10px] sm:text-xs">
-                              {isRequest ? item.documentType : item.title}
-                            </p>
-                            <p className="text-[8px] sm:text-[9px] text-slate-500">
+                            <div className="flex items-start justify-between gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                              <p className="font-semibold text-slate-800 text-xs sm:text-sm line-clamp-1">
+                                {isRequest ? item.documentType : item.title}
+                              </p>
+                              {/* Status badges */}
+                              {(item.status === "pending") && (
+                                <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap">
+                                  Pending
+                                </span>
+                              )}
+                              {(item.status === "accepted" || item.status === "investigating") && (
+                                <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 whitespace-nowrap">
+                                  {item.status === "accepted" ? "Approved" : "Investigating"}
+                                </span>
+                              )}
+                              {(item.status === "declined") && (
+                                <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-md bg-rose-100 text-rose-700 border border-rose-200 whitespace-nowrap">
+                                  Rejected
+                                </span>
+                              )}
+                              {(item.status === "completed" || item.status === "resolved") && (
+                                <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                  {item.status === "completed" ? "Released" : "Resolved"}
+                                </span>
+                              )}
+                              {(item.status === "closed") && (
+                                <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-md bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                                  Closed
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
                               {isRequest ? 'Document Request' : 
                                item.type === 'complaint' ? 'Complaint' : 'Report'}
                             </p>
                           </div>
-                          <div className="ml-1">
-                            {/* Status badges */}
-                            {(item.status === "pending") && (
-                              <span className="px-1 py-0.5 text-[8px] sm:text-[9px] font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                                PENDING
-                              </span>
-                            )}
-                            {(item.status === "accepted" || item.status === "investigating") && (
-                              <span className="px-1 py-0.5 text-[8px] sm:text-[9px] font-medium rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                                {item.status === "accepted" ? "APPROVED" : "INVESTIGATING"}
-                              </span>
-                            )}
-                            {(item.status === "declined") && (
-                              <span className="px-1 py-0.5 text-[8px] sm:text-[9px] font-medium rounded-full bg-rose-100 text-rose-800 border border-rose-200">
-                                REJECTED
-                              </span>
-                            )}
-                            {(item.status === "completed" || item.status === "resolved") && (
-                              <span className="px-1 py-0.5 text-[8px] sm:text-[9px] font-medium rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                {item.status === "completed" ? "RELEASED" : "RESOLVED"}
-                              </span>
-                            )}
-                            {(item.status === "closed") && (
-                              <span className="px-1 py-0.5 text-[8px] sm:text-[9px] font-medium rounded-full bg-gray-100 text-gray-800 border border-gray-200">
-                                CLOSED
-                              </span>
-                            )}
-                          </div>
                         </div>
-                        <div className="space-y-0.5">
+                        <div className="space-y-1 sm:space-y-2 bg-slate-50 rounded-lg p-2 sm:p-3 border border-slate-100">
                           {isRequest ? (
-                            <p className="text-[8px] sm:text-[9px] text-slate-600">
-                              <strong>Purpose:</strong> {item.purpose && item.purpose.length > 30 
-                                ? `${item.purpose.substring(0, 30)}...` 
-                                : item.purpose || 'Not specified'}
-                            </p>
+                            <div>
+                              <p className="text-[10px] sm:text-xs font-medium text-slate-500 mb-0.5 sm:mb-1">Purpose</p>
+                              <p className="text-[10px] sm:text-xs text-slate-700 leading-relaxed">
+                                {item.purpose && item.purpose.length > 80 
+                                  ? `${item.purpose.substring(0, 80)}...` 
+                                  : item.purpose || 'Not specified'}
+                              </p>
+                            </div>
                           ) : (
                             <>
-                              <p className="text-[8px] sm:text-[9px] text-slate-600">
-                                <strong>Category:</strong> {item.category}
-                              </p>
-                              <p className="text-[8px] sm:text-[9px] text-slate-600">
-                                <strong>Location:</strong> {item.location}
-                              </p>
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <p className="text-[10px] sm:text-xs font-medium text-slate-500">Category</p>
+                                  <p className="text-[10px] sm:text-xs text-slate-700">{item.category}</p>
+                                </div>
+                                <div className="flex-1 text-right">
+                                  <p className="text-[10px] sm:text-xs font-medium text-slate-500">Location</p>
+                                  <p className="text-[10px] sm:text-xs text-slate-700">{item.location}</p>
+                                </div>
+                              </div>
                               {item.description && (
-                                <p className="text-[8px] sm:text-[9px] text-slate-600">
-                                  <strong>Details:</strong> {item.description.length > 40 
-                                    ? `${item.description.substring(0, 40)}...` 
-                                    : item.description}
-                                </p>
+                                <div>
+                                  <p className="text-[10px] sm:text-xs font-medium text-slate-500 mb-0.5 sm:mb-1">Details</p>
+                                  <p className="text-[10px] sm:text-xs text-slate-700 leading-relaxed">
+                                    {item.description.length > 80 
+                                      ? `${item.description.substring(0, 80)}...` 
+                                      : item.description}
+                                  </p>
+                                </div>
                               )}
                             </>
                           )}
-                          <p className="text-[8px] sm:text-[9px] text-slate-500">
-                            {isRequest ? 'Requested' : 'Submitted'} on {formatDate(item.createdAt || item.requestedAt)}
-                          </p>
-                          {isRequest && item.status === "completed" && item.completedAt && (
-                            <p className="text-[8px] sm:text-[9px] text-emerald-600 font-medium">
-                              Released on {formatDate(item.completedAt)}
-                            </p>
-                          )}
                         </div>
-                        <div className="mt-1.5 flex justify-between items-center">
-                          <span className="text-[8px] sm:text-[9px] text-slate-500">Status:</span>
-                          <span className={`text-[8px] sm:text-[9px] font-medium ${
-                            (item.status === "accepted" || item.status === "resolved") ? "text-emerald-600" : 
-                            (item.status === "declined") ? "text-rose-600" : 
-                            (item.status === "investigating") ? "text-blue-600" :
-                            "text-slate-800"
-                          }`}>
-                            {item.status.toUpperCase()}
-                          </span>
+                        <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] sm:text-xs">
+                          <div className="flex items-center gap-1 text-slate-500">
+                            <CalendarOutlined className="text-slate-400" />
+                            <span>{isRequest ? 'Requested' : 'Submitted'} {formatDate(item.createdAt || item.requestedAt)}</span>
+                          </div>
+                          {isRequest && item.status === "completed" && item.completedAt && (
+                            <div className="flex items-center gap-1 text-emerald-600 font-medium">
+                              <CheckCircleOutlined />
+                              <span>Released {formatDate(item.completedAt)}</span>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

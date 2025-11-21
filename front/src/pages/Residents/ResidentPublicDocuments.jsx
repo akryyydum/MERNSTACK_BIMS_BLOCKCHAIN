@@ -309,31 +309,39 @@ export default function ResidentPublicDocuments() {
   return (
     <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-2xl font-semibold text-slate-900">Public Documents</CardTitle>
-              <CardDescription>
-                View and download official barangay public documents
-              </CardDescription>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Input.Search
-                placeholder="Search documents"
-                allowClear
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onSearch={v => setSearch(v.trim())}
-                className="max-w-xs"
-              />
+      <main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex-1">
+                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+                  Public Documents
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">
+                  View and download official barangay public documents
+                </CardDescription>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Input.Search
+                  placeholder="Search documents"
+                  allowClear
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  onSearch={v => setSearch(v.trim())}
+                  className="w-full sm:w-64"
+                />
+              </div>
             </div>
           </CardHeader>
         </Card>
 
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <Card className="w-full lg:col-span-5">
-            <CardContent className="space-y-6 pt-6">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <Card className="w-full lg:col-span-5 border border-slate-200 shadow-md bg-white">
+            <CardHeader>
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Document List</CardTitle>
+              <CardDescription className="text-xs sm:text-sm text-slate-600">Click on any document to preview</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 sm:space-y-6 pt-5">
               <Table
                 rowKey="_id"
                 loading={loading}
@@ -343,28 +351,28 @@ export default function ResidentPublicDocuments() {
                 onRow={(record) => ({
                   onClick: () => openPreview(record),
                 })}
-                rowClassName={() => "cursor-pointer"}
+                rowClassName={() => "cursor-pointer hover:bg-slate-50 transition-colors"}
                 scroll={{ x: 700 }}
               />
             </CardContent>
           </Card>
           {/* Desktop / large screen side preview */}
-          <Card className="w-full lg:col-span-7 hidden md:block">
-            <CardHeader>
+          <Card className="w-full lg:col-span-7 hidden md:block border border-slate-200 shadow-md bg-white">
+            <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <CardTitle className="text-xl truncate">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-base sm:text-lg font-semibold text-slate-800 truncate">
                     {previewDoc ? previewDoc.title : "Select a document to preview"}
                   </CardTitle>
                   {previewDoc && (
-                    <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-                      <Tag>{previewDoc.category || "General"}</Tag>
+                    <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm text-slate-600 flex-wrap">
+                      <Tag size="small">{previewDoc.category || "General"}</Tag>
                       {previewDoc.status && (
-                        <Tag color={STATUS_COLORS[previewDoc.status] || 'default'} className="uppercase">
+                        <Tag size="small" color={STATUS_COLORS[previewDoc.status] || 'default'} className="uppercase">
                           {previewDoc.status === 'not_registered' ? 'UNREGISTERED' : previewDoc.status.toUpperCase()}
                         </Tag>
                       )}
-                      <span>
+                      <span className="text-xs">
                         Uploaded {dayjs(previewDoc.createdAt).format("YYYY-MM-DD")}
                       </span>
                     </div>
@@ -385,7 +393,7 @@ export default function ResidentPublicDocuments() {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               <div className="h-[65vh] md:h-[70vh] flex flex-col min-h-0">
                 {renderPreviewContent()}
               </div>
@@ -409,33 +417,35 @@ export default function ResidentPublicDocuments() {
         }}
         footer={null}
         width="95%"
-        centered
-        title={previewDoc ? previewDoc.title : 'Document Preview'}
+        style={{ maxWidth: '800px', top: 20 }}
+        title={<span className="text-base sm:text-lg font-semibold">{previewDoc ? previewDoc.title : 'Document Preview'}</span>}
         destroyOnClose
-        bodyStyle={{ maxHeight: '75vh', overflowY: 'auto' }}
+        className="mobile-modal"
       >
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {previewDoc && (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-              <Tag>{previewDoc.category || 'General'}</Tag>
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-600 bg-slate-50 p-2 sm:p-3 rounded-lg border border-slate-100">
+              <Tag size="small">{previewDoc.category || 'General'}</Tag>
               {previewDoc.status && (
-                <Tag color={STATUS_COLORS[previewDoc.status] || 'default'} className="uppercase">
+                <Tag size="small" color={STATUS_COLORS[previewDoc.status] || 'default'} className="uppercase">
                   {previewDoc.status === 'not_registered' ? 'UNREGISTERED' : previewDoc.status.toUpperCase()}
                 </Tag>
               )}
-              <span>Uploaded {dayjs(previewDoc.createdAt).format('YYYY-MM-DD')}</span>
+              <span className="text-xs">Uploaded {dayjs(previewDoc.createdAt).format('YYYY-MM-DD')}</span>
               <Button
                 size="small"
                 type="primary"
                 onClick={() => download(previewDoc)}
-                className="shadow-sm bg-blue-600 hover:bg-blue-700"
+                className="shadow-sm bg-blue-600 hover:bg-blue-700 ml-auto"
                 icon={<DownloadOutlined />}
               >
                 Download
               </Button>
             </div>
           )}
-          {renderPreviewContent()}
+          <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+            {renderPreviewContent()}
+          </div>
         </div>
       </Modal>
     </div>
