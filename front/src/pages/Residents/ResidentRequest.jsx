@@ -385,14 +385,15 @@ export default function ResidentRequest() {
                 </CardDescription>
               </div>
               <Button 
-                type="primary" 
+                type="primary"
+                size="large"
+                icon={<FileTextOutlined />}
                 onClick={handleNewRequest}
-                className={`shadow-sm flex items-center gap-2 ${
+                className={`bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-2 w-full sm:w-auto ${
                   (!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus))
                     ? "bg-gray-400 hover:bg-gray-500" 
                     : "bg-blue-600 hover:bg-blue-700"
                 }`}
-                icon={<FileTextOutlined />}
                 disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
                 loading={checkingPayment}
               >
