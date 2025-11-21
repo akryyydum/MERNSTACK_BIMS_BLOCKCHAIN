@@ -445,7 +445,7 @@ export default function ResidentBlockchainNetwork() {
 							{/* Requests table */}
 							<div className="space-y-4">
 								<div className="flex items-center justify-between">
-									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Document Requests ({filteredRequests.length})</h3>
+									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Document Requests, Garbage and Streetlight Transactions ({filteredRequests.length})</h3>
 									{loadingRequests && <Spin size="small" />}
 								</div>
 								{errorRequests && <Alert type="error" message={errorRequests} style={{ marginBottom: 8 }} />}
