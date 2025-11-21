@@ -123,6 +123,19 @@ export default function AdminResidentManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Responsive mobile state (tables: no pagination + internal scroll)
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 640; // Tailwind sm breakpoint
+  });
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Import state
   const [importOpen, setImportOpen] = useState(false);
   const [importForm] = Form.useForm();
@@ -1305,7 +1318,7 @@ export default function AdminResidentManagement() {
                           { key: 'clear-all', text: 'Clear All', onSelect: () => { handleClearSelection(); } },
                         ],
                       }}
-                      pagination={{
+                      pagination={isMobile ? false : {
                         current: currentPage,
                         pageSize: pageSize,
                         total: filteredResidents.length,
@@ -1315,7 +1328,7 @@ export default function AdminResidentManagement() {
                         pageSizeOptions: ['10', '20', '50', '100'],
                       }}
                       onChange={handleTableChange}
-                      scroll={{ x: 1400 }}
+                      scroll={isMobile ? { x: 1400, y: 420 } : { x: 1400 }}
                     />
                   </div>
                 </div>
@@ -1347,7 +1360,8 @@ export default function AdminResidentManagement() {
                       loading={loadingUnverified}
                       dataSource={filteredUnverified}
                       columns={unverifiedColumns}
-                      pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10','20','50'] }}
+                      pagination={isMobile ? false : { pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10','20','50'] }}
+                      scroll={isMobile ? { x: true, y: 420 } : undefined}
                     />
                   </div>
                 </div>
