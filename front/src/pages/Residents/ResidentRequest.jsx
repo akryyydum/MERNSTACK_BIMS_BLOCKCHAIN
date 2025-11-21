@@ -374,126 +374,170 @@ export default function ResidentRequest() {
     <>
       <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <main className="mx-auto w-full max-w-9xl space-y-3 px-2 py-3 sm:space-y-8 sm:px-4 sm:py-6 lg:px-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6">
-            <div>
-              <CardTitle className="text-base font-semibold text-slate-900 sm:text-2xl">My Document Requests</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
-                Submit and track your official barangay documents
-              </CardDescription>
+      <main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">My Document Requests</CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">
+                  Submit and track your official barangay documents
+                </CardDescription>
+              </div>
+              <Button 
+                type="primary"
+                size="large"
+                icon={<FileTextOutlined />}
+                onClick={handleNewRequest}
+                className={`bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-2 w-full sm:w-auto ${
+                  (!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus))
+                    ? "bg-gray-400 hover:bg-gray-500" 
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+                disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
+                loading={checkingPayment}
+              >
+                New Request
+              </Button>
             </div>
-            <Button 
-              type="primary" 
-              size="small"
-              onClick={handleNewRequest}
-              className={`shadow-sm flex items-center gap-1 text-xs h-7 px-2 sm:h-8 sm:px-4 sm:text-sm lg:size-large ${
-                (!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus))
-                  ? "bg-gray-400 hover:bg-gray-500" 
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-              icon={<FileTextOutlined className="text-xs sm:text-sm" />}
-              disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
-              loading={checkingPayment}
-            >
-              <span className="hidden xs:inline sm:inline">New Request</span>
-              <span className="inline xs:hidden sm:hidden">New</span>
-            </Button>
           </CardHeader>
         </Card>
 
         {/* Household Status Alert */}
         {!isInHousehold && (
-          <div className="rounded border border-amber-200 bg-amber-50 px-2 py-2 mb-3 sm:rounded-lg sm:px-4 sm:py-3 sm:mb-5">
-            <div className="flex items-start gap-2 sm:gap-0">
-              <div className="flex-shrink-0">
-                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 sm:h-10 sm:w-10 sm:mr-3">
-                  <WarningOutlined className="text-amber-500 text-sm align-middle sm:text-2xl" />
-                </span>
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-amber-800 sm:text-base">
-                  Household Registration Required
-                </h3>
-                <div className="mt-1 text-xs text-amber-700 sm:mt-2 sm:text-sm">
-                  <p>
-                    You must be registered as part of a household before you can request documents.<br className="hidden sm:inline" />
-                    <span className="inline sm:hidden"> </span>Please visit the barangay office to register your household or to be added to an existing household.
+          <Card className="w-full border border-amber-200 bg-amber-50 shadow-md">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                    <WarningOutlined className="text-amber-600 text-sm sm:text-base" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm sm:text-base font-semibold text-amber-900 mb-1.5">
+                    Household Registration Required
+                  </h3>
+                  <p className="text-amber-800 text-xs sm:text-sm">
+                    You must be registered as part of a household before you can request documents. Please visit the barangay office to register your household or to be added to an existing household.
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Payment Status Alert */}
         {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
-          <div className="rounded border px-2 py-2 text-xs text-rose-700 mb-3 sm:rounded-lg sm:border sm:px-4 sm:py-3 sm:text-sm sm:mb-5">
-            <PaymentStatusAlert 
-              paymentStatus={paymentStatus}
-              onPaymentClick={handleGoToPayments}
-            />
-          </div>
+          <Card className="w-full border border-rose-200 bg-rose-50 shadow-md">
+            <CardContent className="p-3 sm:p-4">
+              <PaymentStatusAlert 
+                paymentStatus={paymentStatus}
+                onPaymentClick={handleGoToPayments}
+              />
+            </CardContent>
+          </Card>
         )}
 
 
-        <Card className="w-full">
-          <CardContent className="space-y-3 p-3 sm:space-y-6 sm:p-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Request Statistics</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Overview of your document requests</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5">
             {/* Request Statistics Cards */}
-            <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-              <div className="flex gap-2 min-w-max sm:grid sm:grid-cols-2 md:grid-cols-4 sm:gap-4 sm:min-w-0">
-                <Card className="w-32 flex-shrink-0 border border-blue-200 bg-blue-50 shadow-sm sm:w-full sm:shadow">
-                  <CardContent className="space-y-1 px-2 py-2 sm:space-y-2 sm:px-4 sm:py-5 lg:px-6">
-                    <p className="text-[10px] font-medium text-blue-700 leading-tight sm:text-sm">All Requests</p>
-                    <p className="text-lg font-bold text-blue-900 sm:text-2xl">{totalRequests}</p>
-                  </CardContent>
-                </Card>
-                <Card className="w-32 flex-shrink-0 border border-amber-200 bg-amber-50 shadow-sm sm:w-full sm:shadow">
-                  <CardContent className="space-y-1 px-2 py-2 sm:space-y-2 sm:px-4 sm:py-5 lg:px-6">
-                    <p className="text-[10px] font-medium text-amber-700 leading-tight sm:text-sm">Pending</p>
-                    <p className="text-lg font-bold text-amber-900 sm:text-2xl">{pendingRequests}</p>
-                  </CardContent>
-                </Card>
-                <Card className="w-32 flex-shrink-0 border border-emerald-200 bg-emerald-50 shadow-sm sm:w-full sm:shadow">
-                  <CardContent className="space-y-1 px-2 py-2 sm:space-y-2 sm:px-4 sm:py-5 lg:px-6">
-                    <p className="text-[10px] font-medium text-emerald-700 leading-tight sm:text-sm">Approved</p>
-                    <p className="text-lg font-bold text-emerald-900 sm:text-2xl">{approvedRequests}</p>
-                  </CardContent>
-                </Card>
-                <Card className="w-32 flex-shrink-0 border border-rose-200 bg-rose-50 shadow-sm sm:w-full sm:shadow">
-                  <CardContent className="space-y-1 px-2 py-2 sm:space-y-2 sm:px-4 sm:py-5 lg:px-6">
-                    <p className="text-[10px] font-medium text-rose-700 leading-tight sm:text-sm">Rejected</p>
-                    <p className="text-lg font-bold text-rose-900 sm:text-2xl">{rejectedRequests}</p>
-                  </CardContent>
-                </Card>
-              </div>
+            <div className="grid grid-cols-2 grid-rows-2 gap-2 sm:grid-cols-2 sm:grid-rows-2 lg:grid-cols-4 lg:grid-rows-1 sm:gap-4">
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                      <FileTextOutlined className="text-slate-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">All Requests</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{totalRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Total documents</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-amber-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-200">
+                      <ClockCircleOutlined className="text-amber-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Pending</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{pendingRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">In progress</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-emerald-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                      <CheckCircleOutlined className="text-emerald-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Approved</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{approvedRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Accepted</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-rose-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0 border border-rose-200">
+                      <CloseCircleOutlined className="text-rose-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Rejected</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{rejectedRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Declined</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
+          </CardContent>
+        </Card>
           
-          {/* Filter Tabs */}
-          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+        {/* Document Requests Table */}
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Document Requests</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Track and manage your document requests</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5">
+            {/* Filter Tabs */}
             <Tabs 
               defaultActiveKey="all"
-              className="mb-3 sm:mb-6 [&_.ant-tabs-nav]:mb-0 [&_.ant-tabs-tab]:px-2 [&_.ant-tabs-tab]:py-1 [&_.ant-tabs-tab]:text-[11px] [&_.ant-tabs-tab]:min-w-0 sm:[&_.ant-tabs-tab]:px-4 sm:[&_.ant-tabs-tab]:py-2 sm:[&_.ant-tabs-tab]:text-sm"
+              className="mb-4"
               type="card"
               items={[
                 {
                   key: 'all',
-                  label: <span className="whitespace-nowrap">All Requests</span>,
+                  label: 'All Requests',
                   children: null,
                 },
                 {
                   key: 'pending',
-                  label: <span className="whitespace-nowrap">Pending</span>,
+                  label: 'Pending',
                   children: null,
                 },
                 {
                   key: 'approved',
-                  label: <span className="whitespace-nowrap">Approved</span>,
+                  label: 'Approved',
                   children: null,
                 },
                 {
                   key: 'rejected',
-                  label: <span className="whitespace-nowrap">Rejected</span>,
+                  label: 'Rejected',
                   children: null,
                 },
               ]}
@@ -509,124 +553,123 @@ export default function ResidentRequest() {
                 }
               }}
             />
-          </div>
           
-          <div className="border rounded overflow-x-auto shadow-sm sm:rounded-lg">
+          <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
             <table className="min-w-full bg-white table-auto">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Document</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight hidden md:table-cell sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Document For</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight hidden sm:table-cell sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Purpose</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight hidden md:table-cell sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Date</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight hidden sm:table-cell sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Status</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight hidden md:table-cell sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Blockchain</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight hidden lg:table-cell sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Amount</th>
-                  <th className="py-1.5 px-2 text-left text-[9px] font-medium text-gray-500 uppercase tracking-tight sm:py-3 sm:px-6 sm:text-xs sm:tracking-wider">Actions</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Document</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">Document For</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden sm:table-cell">Purpose</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">Date</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">Blockchain</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden lg:table-cell">Amount</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-4 sm:py-8">
+                    <td colSpan="8" className="text-center py-8">
                       <div className="flex justify-center items-center">
-                        <Spin tip="Loading requests..." size="small" className="sm:size-default" />
+                        <Spin tip="Loading requests..." />
                       </div>
                     </td>
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-6 sm:py-12">
+                    <td colSpan="8" className="text-center py-10 sm:py-12">
                       <div className="flex flex-col items-center">
-                        <FileTextOutlined style={{ fontSize: '20px' }} className="text-gray-400 mb-1 sm:text-[32px] sm:mb-2" />
-                        <p className="text-gray-500 font-medium text-xs sm:text-base">No document requests found</p>
-                        <p className="text-gray-400 text-[10px] mt-0.5 sm:text-sm sm:mt-1">Click "New Request" to create a document request</p>
+                        <FileTextOutlined style={{ fontSize: '48px' }} className="text-slate-400 mb-3" />
+                        <p className="text-slate-500 font-medium text-base sm:text-lg">No document requests found</p>
+                        <p className="text-slate-400 text-sm sm:text-base mt-1">Click "New Request" to create a document request</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   paginatedRequests.map((request) => (
-                    <tr key={request._id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="py-2 px-2 sm:py-4 sm:px-6">
-                        <div className="flex items-center gap-1.5 sm:gap-0">
-                          <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center sm:h-8 sm:w-8 sm:mr-3">
-                            <FileTextOutlined className="text-blue-600 text-[10px] sm:text-sm" />
+                    <tr key={request._id} className="hover:bg-slate-50 transition-colors duration-150">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                            <FileTextOutlined className="text-slate-600 text-base" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-800 text-[10px] leading-tight sm:text-sm">{request.documentType}</p>
-                            <p className="text-[8px] text-gray-500 sm:text-xs">ID: {request._id.substring(0, 8)}...</p>
+                            <p className="font-medium text-slate-800 text-sm">{request.documentType}</p>
+                            <p className="text-xs text-slate-500">ID: {request._id.substring(0, 8)}...</p>
                           </div>
                         </div>
                       </td>
-                      <td className="py-2 px-2 text-[10px] text-gray-700 hidden md:table-cell sm:py-4 sm:px-6 sm:text-sm">
+                      <td className="py-4 px-4 text-sm text-slate-700 hidden md:table-cell">
                         <div className="flex items-center">
                           {(() => {
                             const person = request.requestFor || request.residentId;
                             return person ? (
                               <div>
-                                <p className="font-medium text-gray-800 text-[10px] leading-tight sm:text-sm">
+                                <p className="font-medium text-slate-800 text-sm">
                                   {[person.firstName, person.lastName].filter(Boolean).join(" ")}
                                 </p>
-                                <p className="text-[8px] text-gray-500 sm:text-xs">
+                                <p className="text-xs text-slate-500">
                                   {person._id === resident?._id ? "(You)" : "(Family Member)"}
                                 </p>
                               </div>
                             ) : (
-                              <span className="text-gray-500">-</span>
+                              <span className="text-slate-500">-</span>
                             );
                           })()}
                         </div>
                       </td>
-                      <td className="py-2 px-2 text-[10px] text-gray-700 hidden sm:table-cell sm:py-4 sm:px-6 sm:text-sm">
+                      <td className="py-4 px-4 text-sm text-slate-700 hidden sm:table-cell">
                         <div className="max-w-xs truncate">{request.purpose}</div>
                       </td>
-                      <td className="py-2 px-2 hidden md:table-cell sm:py-4 sm:px-6">
+                      <td className="py-4 px-4 hidden md:table-cell">
                         <div>
-                          <p className="text-[10px] font-medium text-gray-700 sm:text-sm">{new Date(request.requestedAt).toLocaleDateString()}</p>
-                          <p className="text-[8px] text-gray-500 sm:text-xs">{new Date(request.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                          <p className="text-sm font-medium text-slate-700">{new Date(request.requestedAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-500">{new Date(request.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                         </div>
                       </td>
-                      <td className="py-2 px-2 hidden sm:table-cell sm:py-4 sm:px-6">
+                      <td className="py-4 px-4 hidden sm:table-cell">
                         {request.status === "pending" && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-amber-100 text-amber-800 sm:px-2 sm:py-1 sm:text-xs">
-                            PENDING
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">
+                            Pending
                           </span>
                         )}
                         {request.status === "accepted" && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-green-100 text-green-800 sm:px-2 sm:py-1 sm:text-xs">
-                            APPROVED
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            Approved
                           </span>
                         )}
                         {(request.status === "declined" || request.status === "rejected") && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-red-100 text-red-800 sm:px-2 sm:py-1 sm:text-xs">
-                            REJECTED
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-rose-100 text-rose-700 border border-rose-200">
+                            Rejected
                           </span>
                         )}
                         {request.status === "completed" && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-blue-100 text-blue-800 sm:px-2 sm:py-1 sm:text-xs">
-                            RELEASED
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">
+                            Released
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-2 hidden md:table-cell sm:py-4 sm:px-6">
+                      <td className="py-4 px-4 hidden md:table-cell">
                         {(() => {
                           const s = request.blockchainStatus || 'not_registered';
-                          const upper = s === 'not_registered' ? 'UNREGISTERED' : s.toUpperCase();
+                          const upper = s === 'not_registered' ? 'Unregistered' : s.charAt(0).toUpperCase() + s.slice(1);
                           const colorMap = {
-                            verified: 'bg-green-100 text-green-800',
-                            edited: 'bg-orange-100 text-orange-800',
-                            deleted: 'bg-red-100 text-red-800',
-                            error: 'bg-rose-100 text-rose-700',
-                            not_registered: 'bg-gray-100 text-gray-600'
+                            verified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                            edited: 'bg-orange-100 text-orange-700 border-orange-200',
+                            deleted: 'bg-rose-100 text-rose-700 border-rose-200',
+                            error: 'bg-rose-100 text-rose-700 border-rose-200',
+                            not_registered: 'bg-slate-100 text-slate-600 border-slate-200'
                           };
                           return (
-                            <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full sm:px-2 sm:py-1 sm:text-xs ${colorMap[s] || 'bg-gray-100 text-gray-600'}`}>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-md border ${colorMap[s] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                               {upper}
                             </span>
                           );
                         })()}
                       </td>
-                      <td className="py-2 px-2 hidden lg:table-cell sm:py-4 sm:px-6">
+                      <td className="py-4 px-4 hidden lg:table-cell">
                         {(() => {
                           // Calculate total amount based on document type and quantity
                           const quantity = request.quantity || 1;
@@ -642,36 +685,35 @@ export default function ResidentRequest() {
                               baseAmount = request.feeAmount || request.amount || 0;
                               const totalAmount = baseAmount * quantity;
                               return (
-                                <span className="text-[10px] font-medium text-green-600 sm:text-sm">
+                                <span className="text-sm font-medium text-emerald-600">
                                   ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               );
                             } else {
-                              return <span className="text-[10px] text-gray-400 sm:text-sm">TBD</span>;
+                              return <span className="text-sm text-slate-400">TBD</span>;
                             }
                           }
                           
                           const totalAmount = baseAmount * quantity;
                           
                           if (baseAmount === 0) {
-                            return <span className="text-[10px] text-gray-600 sm:text-sm">Free</span>;
+                            return <span className="text-sm text-slate-600">Free</span>;
                           } else {
                             return (
-                              <span className="text-[10px] text-gray-600 sm:text-sm">
+                              <span className="text-sm text-slate-600">
                                 ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             );
                           }
                         })()}
                       </td>
-                      <td className="py-2 px-2 sm:py-4 sm:px-6">
+                      <td className="py-4 px-4">
                         <Button
-                          type="default"
-                          size="small"
+                          type="primary"
                           onClick={() => openView(request)}
-                          className="border border-blue-600 text-blue-600 hover:bg-blue-50 h-6 text-[10px] px-2 sm:h-auto sm:text-sm sm:px-3"
+                          className="bg-blue-600 hover:bg-blue-700"
                         >
-                          Track
+                          View Details
                         </Button>
                       </td>
                     </tr>
@@ -683,18 +725,16 @@ export default function ResidentRequest() {
           
           {/* Pagination */}
           {filteredRequests.length > 0 && (
-            <div className="mt-2 flex items-center justify-end sm:mt-4">
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-slate-600">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredRequests.length)} of {filteredRequests.length} requests
+              </p>
               <Pagination
                 current={currentPage}
                 pageSize={pageSize}
                 total={filteredRequests.length}
                 showSizeChanger={false}
                 showQuickJumper={false}
-                size="small"
-                className="[&_.ant-pagination-item]:min-w-[24px] [&_.ant-pagination-item]:h-6 [&_.ant-pagination-item]:text-[10px] [&_.ant-pagination-item]:leading-6 [&_.ant-pagination-prev]:min-w-[24px] [&_.ant-pagination-prev]:h-6 [&_.ant-pagination-next]:min-w-[24px] [&_.ant-pagination-next]:h-6 sm:size-default sm:[&_.ant-pagination-item]:min-w-[32px] sm:[&_.ant-pagination-item]:h-8 sm:[&_.ant-pagination-item]:text-sm sm:[&_.ant-pagination-prev]:min-w-[32px] sm:[&_.ant-pagination-prev]:h-8 sm:[&_.ant-pagination-next]:min-w-[32px] sm:[&_.ant-pagination-next]:h-8"
-                showTotal={(total, range) => 
-                  <span className="text-[10px] sm:text-sm">{range[0]}-{range[1]} of {total} requests</span>
-                }
                 onChange={(page) => {
                   setCurrentPage(page);
                 }}
@@ -712,80 +752,78 @@ export default function ResidentRequest() {
       open={viewOpen}
       onCancel={() => setViewOpen(false)}
       footer={null}
-      width={"100%"}
-      style={{ maxWidth: "900px" }}
-      className="document-tracking-modal [&_.ant-modal-content]:p-0"
-      bodyStyle={{ padding: 0 }}
+      width={900}
+      className="document-tracking-modal"
     >
         {viewRequest && (
           <div>
             {/* Header Section */}
-            <div className="bg-gray-50 p-2 border-b sm:p-4">
-              <div className="flex justify-between items-start gap-2">
+            <div className="bg-slate-50 p-4 border-b border-slate-200">
+              <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-xs font-semibold text-gray-800 truncate sm:text-lg">{viewRequest.documentType}</h3>
-                  <p className="text-gray-500 text-[9px] mt-0.5 truncate sm:text-xs">Request ID: {viewRequest._id}</p>
+                  <h3 className="text-lg font-bold text-slate-800">{viewRequest.documentType}</h3>
+                  <p className="text-slate-600 text-sm mt-1">Request ID: {viewRequest._id}</p>
                 </div>
                 
                 {/* Status Badge */}
                 <div className="flex-shrink-0">
                   {viewRequest.status === "pending" && (
-                    <div className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[9px] font-medium whitespace-nowrap sm:px-3 sm:py-1 sm:text-xs">
-                      PENDING
-                    </div>
+                    <span className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium border border-amber-200">
+                      Pending
+                    </span>
                   )}
                   {viewRequest.status === "accepted" && (
-                    <div className="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[9px] font-medium whitespace-nowrap sm:px-3 sm:py-1 sm:text-xs">
-                      APPROVED
-                    </div>
+                    <span className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-sm font-medium border border-emerald-200">
+                      Approved
+                    </span>
                   )}
                   {(viewRequest.status === "declined" || viewRequest.status === "rejected") && (
-                    <div className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-[9px] font-medium whitespace-nowrap sm:px-3 sm:py-1 sm:text-xs">
-                      REJECTED
-                    </div>
+                    <span className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 text-sm font-medium border border-rose-200">
+                      Rejected
+                    </span>
                   )}
                   {viewRequest.status === "completed" && (
-                    <div className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[9px] font-medium whitespace-nowrap sm:px-3 sm:py-1 sm:text-xs">
-                      RELEASED
-                    </div>
+                    <span className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
+                      Released
+                    </span>
                   )}
                 </div>
               </div>
             </div>
             
             {/* Document Details */}
-            <div className="p-2 sm:p-4">
-              <h4 className="text-[10px] font-medium text-gray-800 mb-1 sm:text-sm sm:mb-1.5">Request Details</h4>
+            <div className="p-5">
+              <h4 className="text-base font-semibold text-slate-800 mb-4">Request Details</h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 mb-2 sm:gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 <div>
-                  <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">PURPOSE</p>
-                  <p className="mt-0.5 text-[10px] leading-tight sm:text-sm">{viewRequest.purpose}</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">PURPOSE</p>
+                  <p className="mt-1 text-sm text-slate-800">{viewRequest.purpose}</p>
                 </div>
                 
                 <div>
-                  <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">DOCUMENT TYPE</p>
-                  <p className="mt-0.5 text-[10px] sm:text-sm">{viewRequest.documentType}</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">DOCUMENT TYPE</p>
+                  <p className="mt-1 text-sm text-slate-800">{viewRequest.documentType}</p>
                 </div>
                 
                 <div>
-                  <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">QUANTITY</p>
-                  <p className="mt-0.5 text-[10px] sm:text-sm">{viewRequest.quantity || 1}</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">QUANTITY</p>
+                  <p className="mt-1 text-sm text-slate-800">{viewRequest.quantity || 1}</p>
                 </div>
                 
                 <div>
-                  <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">REQUESTED DATE</p>
-                  <p className="mt-0.5 text-[10px] sm:text-sm">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">REQUESTED DATE</p>
+                  <p className="mt-1 text-sm text-slate-800">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 <div>
-                  <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">LAST UPDATED</p>
-                  <p className="mt-0.5 text-[10px] sm:text-sm">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">LAST UPDATED</p>
+                  <p className="mt-1 text-sm text-slate-800">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 {/* Total Amount */}
                 <div>
-                  <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">TOTAL AMOUNT</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">TOTAL AMOUNT</p>
                   {(() => {
                     const quantity = viewRequest.quantity || 1;
                     let baseAmount = 0;
@@ -799,7 +837,7 @@ export default function ResidentRequest() {
                       if ((viewRequest.status === "accepted" || viewRequest.status === "completed") && (viewRequest.feeAmount || viewRequest.amount)) {
                         baseAmount = viewRequest.feeAmount || viewRequest.amount || 0;
                       } else if (viewRequest.status === "pending") {
-                        return <p className="mt-0.5 text-[10px] text-amber-600 italic sm:mt-1 sm:text-sm">Amount to be determined by admin</p>;
+                        return <p className="mt-1 text-sm text-amber-600 italic">Amount to be determined by admin</p>;
                       } else {
                         // For rejected status or if no amount set
                         baseAmount = 0;
@@ -809,10 +847,10 @@ export default function ResidentRequest() {
                     const totalAmount = baseAmount * quantity;
                     
                     if (baseAmount === 0) {
-                      return <p className="mt-0.5 text-sm font-semibold text-gray-600 sm:mt-1 sm:text-lg">Free</p>;
+                      return <p className="mt-1 text-lg font-semibold text-slate-600">Free</p>;
                     } else {
                       return (
-                        <p className="mt-0.5 text-sm font-semibold text-green-600 sm:mt-1 sm:text-lg">
+                        <p className="mt-1 text-lg font-semibold text-emerald-600">
                           ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       );
@@ -822,42 +860,42 @@ export default function ResidentRequest() {
                 
                 {viewRequest.documentType === "Business Clearance" && (
                   <div>
-                    <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">BUSINESS NAME</p>
-                    <p className="mt-0.5 text-[10px] sm:mt-1 sm:text-sm">{viewRequest.businessName || "-"}</p>
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">BUSINESS NAME</p>
+                    <p className="mt-1 text-sm text-slate-800">{viewRequest.businessName || "-"}</p>
                   </div>
                 )}
               </div>
               
               {/* Status Timeline */}
-              <div className="mb-2">
-                <h4 className="text-[10px] font-medium text-gray-800 mb-1 sm:text-sm sm:mb-1.5">Request Timeline</h4>
+              <div className="mb-5">
+                <h4 className="text-base font-semibold text-slate-800 mb-4">Request Timeline</h4>
                 
                 <div className="relative">
                   {/* Timeline Line */}
-                  <div className="absolute left-2 top-0 h-full w-px bg-gray-200 sm:left-3 sm:w-0.5"></div>
+                  <div className="absolute left-3 top-0 h-full w-0.5 bg-slate-200"></div>
                   
                   {/* Timeline Steps */}
-                  <div className="space-y-1.5 relative sm:space-y-2">
+                  <div className="space-y-4 relative">
                     {/* Requested Step (Always shown) */}
-                    <div className="flex items-start gap-1.5 sm:gap-0">
-                      <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center z-10 sm:h-7 sm:w-7">
-                        <CheckCircleOutlined className="text-white text-[9px] sm:text-xs" />
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                        <CheckCircleOutlined className="text-white text-sm" />
                       </div>
-                      <div className="sm:ml-3">
-                        <p className="text-[9px] font-medium text-gray-800 leading-tight sm:text-xs">Requested</p>
-                        <p className="text-[8px] text-gray-500 sm:text-xs">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-800">Requested</p>
+                        <p className="text-xs text-slate-600 mt-1">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                       </div>
                     </div>
                     
                     {/* Processing Step (Always shown but styled differently based on status) */}
-                    <div className="flex items-start gap-1.5 sm:gap-0">
-                      <div className={`flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center z-10 sm:h-7 sm:w-7
+                    <div className="flex items-start gap-3">
+                      <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10
                         ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
-                        <ClockCircleOutlined className="text-white text-[9px] sm:text-xs" />
+                        <ClockCircleOutlined className="text-white text-sm" />
                       </div>
-                      <div className="sm:ml-3">
-                        <p className="text-[9px] font-medium text-gray-800 leading-tight sm:text-xs">Processing</p>
-                        <p className="text-[8px] text-gray-500 leading-tight sm:text-xs">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-800">Processing</p>
+                        <p className="text-xs text-slate-600 mt-1">
                           {viewRequest.status === "pending" 
                             ? "Your request is being processed" 
                             : "Your request has been processed"}
@@ -867,20 +905,20 @@ export default function ResidentRequest() {
                     
                     {/* Approved/Rejected Step (Shown when not pending) */}
                     {viewRequest.status !== "pending" && (
-                      <div className="flex items-start gap-1.5 sm:gap-0">
-                        <div className={`flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center z-10 sm:h-7 sm:w-7
-                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-green-500" : "bg-red-500"}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10
+                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-emerald-500" : "bg-rose-500"}`}>
                           {viewRequest.status === "accepted" || viewRequest.status === "completed" ? (
-                            <CheckCircleOutlined className="text-white text-[9px] sm:text-xs" />
+                            <CheckCircleOutlined className="text-white text-sm" />
                           ) : (
-                            <CloseCircleOutlined className="text-white text-[9px] sm:text-xs" />
+                            <CloseCircleOutlined className="text-white text-sm" />
                           )}
                         </div>
-                        <div className="sm:ml-3">
-                          <p className="text-[9px] font-medium text-gray-800 leading-tight sm:text-xs">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">
                             {viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}
                           </p>
-                          <p className="text-[8px] text-gray-500 sm:text-xs">
+                          <p className="text-xs text-slate-600 mt-1">
                             {viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}
                           </p>
                         </div>
@@ -889,13 +927,13 @@ export default function ResidentRequest() {
                     
                     {/* Released Step (Shown only for released docs) */}
                     {viewRequest.status === "completed" && (
-                      <div className="flex items-start gap-1.5 sm:gap-0">
-                        <div className="flex-shrink-0 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center z-10 sm:h-7 sm:w-7">
-                          <CheckCircleOutlined className="text-white text-[9px] sm:text-xs" />
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                          <CheckCircleOutlined className="text-white text-sm" />
                         </div>
-                        <div className="sm:ml-3">
-                          <p className="text-[9px] font-medium text-gray-800 leading-tight sm:text-xs">Released</p>
-                          <p className="text-[8px] text-gray-500 leading-tight sm:text-xs">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">Released</p>
+                          <p className="text-xs text-slate-600 mt-1">
                             {viewRequest.completedAt || viewRequest.releasedAt 
                               ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() 
                               : "Your document has been released"}
@@ -909,24 +947,24 @@ export default function ResidentRequest() {
               
               {/* Blockchain Information (if available) */}
               {viewRequest.blockchain?.hash && (
-                <div className="border-t border-gray-200 pt-2">
-                  <h4 className="text-[10px] font-medium text-gray-800 mb-1 sm:text-sm sm:mb-1.5">Blockchain Verification</h4>
-                  <div className="bg-gray-50 p-1.5 rounded space-y-1 sm:rounded-lg">
+                <div className="border-t border-slate-200 pt-5">
+                  <h4 className="text-base font-semibold text-slate-800 mb-4">Blockchain Verification</h4>
+                  <div className="bg-slate-50 p-4 rounded-lg space-y-4 border border-slate-200">
                     <div>
-                      <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">HASH</p>
-                      <p className="mt-0.5 font-mono text-[9px] break-all sm:text-xs">{viewRequest.blockchain.hash || "-"}</p>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">HASH</p>
+                      <p className="mt-1 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.hash || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">TRANSACTION ID</p>
-                      <p className="mt-0.5 font-mono text-[9px] break-all sm:text-xs">{viewRequest.blockchain.lastTxId || "-"}</p>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">TRANSACTION ID</p>
+                      <p className="mt-1 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.lastTxId || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">ISSUED BY</p>
-                      <p className="mt-0.5 text-[10px] sm:text-sm">{viewRequest.blockchain.issuedBy || "-"}</p>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">ISSUED BY</p>
+                      <p className="mt-1 text-sm text-slate-800">{viewRequest.blockchain.issuedBy || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-[8px] font-medium text-gray-500 uppercase sm:text-xs">ISSUED DATE</p>
-                      <p className="mt-0.5 text-[10px] sm:text-sm">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">ISSUED DATE</p>
+                      <p className="mt-1 text-sm text-slate-800">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
                     </div>
                   </div>
                 </div>
@@ -934,11 +972,10 @@ export default function ResidentRequest() {
             </div>
             
             {/* Footer with close button */}
-            <div className="bg-gray-50 p-2 flex justify-end border-t sm:p-3">
+            <div className="bg-slate-50 p-4 flex justify-end border-t border-slate-200">
               <Button 
                 onClick={() => setViewOpen(false)}
-                size="small"
-                className="h-6 text-[10px] px-2 sm:h-8 sm:text-sm sm:px-4"
+                className="bg-slate-600 hover:bg-slate-700 text-white"
               >
                 Close
               </Button>
@@ -953,23 +990,19 @@ export default function ResidentRequest() {
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         footer={null}
-        width={"90%"}
-        style={{ maxWidth: "750px" }}
-        bodyStyle={{ padding: 0 }}
-        className="[&_.ant-modal-content]:p-0 [&_.ant-modal-close]:top-2 [&_.ant-modal-close]:right-2 [&_.ant-modal-close-x]:w-8 [&_.ant-modal-close-x]:h-8 [&_.ant-modal-close-x]:leading-8 [&_.ant-modal-close-x]:text-base sm:[&_.ant-modal-close]:top-4 sm:[&_.ant-modal-close]:right-4 sm:[&_.ant-modal-close-x]:w-12 sm:[&_.ant-modal-close-x]:h-12 sm:[&_.ant-modal-close-x]:leading-[3rem] sm:[&_.ant-modal-close-x]:text-xl"
+        width={750}
       >
-        <div className="bg-gray-50 p-2 border-b sm:p-4">
-          <h3 className="text-xs font-semibold text-gray-800 sm:text-base">Request New Document</h3>
-          <p className="text-gray-500 text-[9px] mt-0.5 sm:text-xs">
+        <div className="bg-slate-50 p-4 border-b border-slate-200 -mt-5 -mx-6">
+          <h3 className="text-lg font-bold text-slate-800">Request New Document</h3>
+          <p className="text-slate-600 text-sm mt-1">
             Fill out the form below to request an official document
           </p>
         </div>
         
-        <div className="p-2 sm:p-4">
+        <div className="py-5">
           <Form 
             form={createForm} 
-            layout="vertical" 
-            className="space-y-1.5 sm:space-y-2 [&_.ant-form-item]:mb-2 sm:[&_.ant-form-item]:mb-4 [&_.ant-form-item-label]:pb-0.5 sm:[&_.ant-form-item-label]:pb-1"
+            layout="vertical"
             initialValues={{
               residentId: resident?._id,
               requestFor: resident?._id,
@@ -1054,14 +1087,12 @@ export default function ResidentRequest() {
             {/* Resident Dropdown */}
             <Form.Item 
               name="residentId" 
-              label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Resident</span>}
+              label={<span className="text-slate-700 font-medium text-sm">Resident</span>}
               rules={[{ required: true, message: 'Please select a resident' }]}
-              help={<span className="text-[8px] sm:text-xs">Select resident</span>}
             >
               <Select
                 placeholder={resident ? `${resident.firstName} ${resident.lastName} (You)` : "Loading resident..."}
-                size="small"
-                className="w-full [&_.ant-select-selector]:h-7 [&_.ant-select-selector]:text-[10px] sm:[&_.ant-select-selector]:h-8 sm:[&_.ant-select-selector]:text-sm lg:size-default"
+                className="w-full"
                 disabled={!resident}
               >
                 {resident && (
@@ -1075,14 +1106,12 @@ export default function ResidentRequest() {
             {/* Request For Dropdown */}
             <Form.Item 
               name="requestFor" 
-              label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Request For</span>}
+              label={<span className="text-slate-700 font-medium text-sm">Request For</span>}
               rules={[{ required: true, message: 'Please select who this request is for' }]}
-              help={<span className="text-[8px] sm:text-xs">Select household member</span>}
             >
               <Select
                 placeholder="Select household member"
-                size="small"
-                className="w-full [&_.ant-select-selector]:h-7 [&_.ant-select-selector]:text-[10px] sm:[&_.ant-select-selector]:h-8 sm:[&_.ant-select-selector]:text-sm lg:size-default"
+                className="w-full"
                 loading={!resident}
               >
                 {resident && (
@@ -1101,14 +1130,12 @@ export default function ResidentRequest() {
             {/* Document Type - Updated options */}
             <Form.Item 
               name="documentType" 
-              label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Document Type</span>}
+              label={<span className="text-slate-700 font-medium text-sm">Document Type</span>}
               rules={[{ required: true, message: 'Please select a document type' }]}
-              help={<span className="text-[8px] sm:text-xs">Choose document type</span>}
             >
               <Select
                 placeholder="Select document type"
-                size="small"
-                className="w-full [&_.ant-select-selector]:h-7 [&_.ant-select-selector]:text-[10px] sm:[&_.ant-select-selector]:h-8 sm:[&_.ant-select-selector]:text-sm lg:size-default"
+                className="w-full"
                 onChange={(value) => {
                   // Update the amount field based on document type and current quantity
                   const currentQuantity = createForm.getFieldValue("quantity") || 1;
@@ -1127,45 +1154,41 @@ export default function ResidentRequest() {
             {/* Amount Field - Read only */}
             <Form.Item 
               name="amount" 
-              label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Amount</span>}
+              label={<span className="text-slate-700 font-medium text-sm">Amount</span>}
               rules={[{ required: true, message: 'Amount is required' }]}
-              help={<span className="text-[8px] sm:text-xs">Amount is automatically calculated based on document type and quantity</span>}
+              extra="Amount is automatically calculated based on document type and quantity"
             >
               <InputNumber 
                 min={0} 
-                className="w-full [&_.ant-input-number-input]:h-7 [&_.ant-input-number-input]:text-[10px] sm:[&_.ant-input-number-input]:h-8 sm:[&_.ant-input-number-input]:text-sm" 
+                className="w-full" 
                 disabled
                 formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
                 placeholder="Amount will be calculated automatically"
-                size="small"
               />
             </Form.Item>
 
             {selectedDocType === "Business Clearance" && (
               <Form.Item
                 name="businessName"
-                label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Business Name</span>}
+                label={<span className="text-slate-700 font-medium text-sm">Business Name</span>}
                 rules={[{ required: true, message: 'Please enter your business name' }]}
-                help={<span className="text-[8px] sm:text-xs">Enter your business name</span>}
               >
                 <Input 
                   placeholder="Enter registered business name" 
-                  size="small"
-                  className="[&_input]:h-7 [&_input]:text-[10px] sm:[&_input]:h-8 sm:[&_input]:text-sm"
+                  className="w-full"
                 />
               </Form.Item>
             )}
             <Form.Item 
               name="quantity" 
-              label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Quantity</span>} 
+              label={<span className="text-slate-700 font-medium text-sm">Quantity</span>} 
               initialValue={1}
               rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity' }]}
-              help={<span className="text-[8px] sm:text-xs">Enter quantity</span>}
             >
               <InputNumber
                 min={1}
-                className="w-full [&_.ant-input-number-input]:h-7 [&_.ant-input-number-input]:text-[10px] sm:[&_.ant-input-number-input]:h-8 sm:[&_.ant-input-number-input]:text-sm"
+                className="w-full"
                 parser={value => (value ? value.replace(/[^\d]/g, '') : '')}
                 onKeyPress={e => {
                   if (!/\d/.test(e.key)) {
@@ -1180,36 +1203,33 @@ export default function ResidentRequest() {
                   const totalAmount = baseAmount * currentQuantity;
                   createForm.setFieldValue("amount", totalAmount);
                 }}
-                size="small"
               />
             </Form.Item>
             
             <Form.Item 
               name="purpose" 
-              label={<span className="text-gray-700 font-medium text-[10px] sm:text-sm">Purpose</span>}
+              label={<span className="text-slate-700 font-medium text-sm">Purpose</span>}
               rules={[{ required: true, message: 'Please specify the purpose for your request' }]}
-              help={<span className="text-[8px] sm:text-xs">Clearly state why you need this document</span>}
+              extra="Clearly state why you need this document"
             >
               <Input.TextArea 
-                rows={3}
+                rows={4}
                 placeholder="Example: For employment requirements, school enrollment, business registration, etc."
-                className="w-full [&_textarea]:text-[10px] sm:[&_textarea]:text-sm sm:rows-4"
-                size="small"
+                className="w-full"
               />
             </Form.Item>
             
-            <div className="bg-blue-50 p-1.5 rounded border border-blue-100 mb-2 sm:p-2 sm:rounded-lg">
-              <h4 className="text-blue-800 font-medium text-[9px] mb-0.5 sm:text-xs">Important Information</h4>
-              <p className="text-blue-700 text-[8px] leading-tight sm:text-xs">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-5">
+              <h4 className="text-blue-800 font-medium text-sm mb-2">Important Information</h4>
+              <p className="text-blue-700 text-sm leading-relaxed">
                 Your document request will be reviewed by barangay officials. Processing time may vary depending on the type of document and current volume of requests.
               </p>
             </div>
             
-            <div className="flex justify-end gap-2 sm:gap-3">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 -mb-5 -mx-6 px-6 pb-5 bg-slate-50">
               <Button 
                 onClick={() => setCreateOpen(false)}
-                size="small"
-                className="h-6 text-[10px] px-2 sm:h-8 sm:text-sm sm:px-4"
+                className="bg-slate-600 hover:bg-slate-700 text-white"
               >
                 Cancel
               </Button>
@@ -1217,8 +1237,7 @@ export default function ResidentRequest() {
                 type="primary" 
                 htmlType="submit"
                 loading={creating}
-                size="small"
-                className="bg-blue-600 hover:bg-blue-700 h-6 text-[10px] px-2 sm:h-8 sm:text-sm sm:px-4"
+                className="bg-blue-600 hover:bg-blue-700"
                 disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
               >
                 Submit Request
