@@ -18,7 +18,9 @@ const allowedOrigins = [
   "https://mernstack-bims-blockchain-3.vercel.app",
   "https://www.latorrenorth.com",
   "http://localhost:5173",
+  "http://127.0.0.1:5173",
   "http://localhost:3000",
+  "http://localhost:4000",
 ];
 
 // Allow Vercel preview deployments like https://mernstack-bims-blockchain-<suffix>.vercel.app
@@ -28,8 +30,12 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
+    // Treat 127.0.0.1 the same as localhost for dev convenience
+    const normalizedOrigin = origin.replace('127.0.0.1', 'localhost');
 
-    if (allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
+    if (allowedOrigins.includes(origin) ||
+        allowedOrigins.includes(normalizedOrigin) ||
+        vercelPreviewRegex.test(origin)) {
       return callback(null, true);
     } else {
       console.log("❌ CORS BLOCKED:", origin);

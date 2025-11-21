@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Table, Spin, Alert, Tag, Input } from 'antd';
+import { Table, Spin, Alert, Tag, Input, Button } from 'antd';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { FileTextOutlined, DollarOutlined, ThunderboltOutlined, CloudSyncOutlined, SearchOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import ResidentNavbar from './ResidentNavbar';
@@ -172,19 +174,30 @@ export default function ResidentBlockchainNetwork() {
 		loadStatus();
 	}, []);
 
-	// Requests from blockchain (resident scoped only)
+	// Requests from blockchain: fetch all, then scope to resident + exclude synthetic utility *_payment entries (match admin page logic)
 	useEffect(() => {
+		if (!residentProfile?._id) return; // wait until profile is loaded to filter correctly
 		const loadRequests = async () => {
 			setLoadingRequests(true); setErrorRequests(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/blockchain/requests/me`, { headers: authHeaders() });
+				// Admin view uses /api/blockchain/requests; mirror that for consistent counts
+				const res = await fetch(`${API_BASE}/api/blockchain/requests`, { headers: authHeaders() });
 				if (!res.ok) throw new Error(`Requests failed (${res.status})`);
-				const mine = await res.json();
-				setRequests(Array.isArray(mine) ? mine : []);
+				const all = await res.json();
+				const myId = residentProfile._id.toString();
+				const filtered = (Array.isArray(all) ? all : []).filter(r => {
+					const type = (r.documentType || '').toString().toLowerCase().trim();
+					// Exclude any utility/fee related entries regardless of household status
+					if (!type) return false;
+					const excludedKeywords = ['garbage', 'street', 'streetlight', 'utility', 'fee', '_payment', 'payment'];
+					if (excludedKeywords.some(k => type.includes(k))) return false;
+					return (r.residentId || '').toString() === myId; // scope to this resident only
+				});
+				setRequests(filtered);
 			} catch (e) { setErrorRequests(e.message); } finally { setLoadingRequests(false); }
 		};
 		loadRequests();
-	}, []);
+	}, [residentProfile?._id]);
 	// Financial transactions from blockchain (resident + household head scoped via backend)
 	useEffect(() => {
 		const loadTxns = async () => {
@@ -244,7 +257,7 @@ export default function ResidentBlockchainNetwork() {
 	const txnColumns = [
 		{ title: 'Tx ID', dataIndex: 'txId', width: 180, ellipsis: true },
 		{ title: 'Request', dataIndex: 'requestId', width: 180, ellipsis: true },
-		{ title: 'Resident', dataIndex: 'residentName', ellipsis: true, render: v => v || '—' },
+		{ title: 'Resident', dataIndex: 'residentName', render: v => <span className="whitespace-normal break-words max-w-[140px] sm:max-w-none">{v || '—'}</span> },
 		{ title: 'Amount', dataIndex: 'amount', render: a => `₱${Number(a||0).toFixed(2)}` },
 		{ title: 'Method', dataIndex: 'paymentMethod' },
 		{ title: 'Description', dataIndex: 'description', ellipsis: true },
@@ -281,6 +294,51 @@ export default function ResidentBlockchainNetwork() {
 	}, [transactions]);
 	const verifiedPaidGarbage = garbageRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
 	const verifiedPaidStreet = streetlightRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
+
+	// ==== PDF Export Helpers ====
+	const exportRequestsPDF = () => {
+		try {
+			const doc = new jsPDF();
+			doc.setFontSize(14);
+			doc.text('Document Requests', 14, 15);
+			const headers = ['ID','Type','Purpose','Status','Requested At','Updated At'];
+			const rows = (filteredRequests || []).map(r => [
+				r.requestId || '-',
+				r.documentType || '-',
+				r.purpose || '-',
+				r.status || '-',
+				r.requestedAt ? new Date(r.requestedAt).toLocaleString() : '-',
+				r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-',
+			]);
+			doc.autoTable({ head: [headers], body: rows, startY: 20, styles: { fontSize: 8 } });
+			doc.save('document_requests.pdf');
+		} catch (e) {
+			console.error('PDF export (requests) failed', e);
+		}
+	};
+
+	const exportTransactionsPDF = () => {
+		try {
+			const doc = new jsPDF();
+			doc.setFontSize(14);
+			doc.text('Financial Transactions', 14, 15);
+			const headers = ['Tx ID','Request','Resident','Amount','Method','Description','Created','Updated'];
+			const rows = (filteredTxns || []).map(t => [
+				t.txId || '-',
+				t.requestId || '-',
+				t.residentName || '-',
+				`₱${Number(t.amount||0).toFixed(2)}`,
+				t.paymentMethod || '-',
+				t.description || '-',
+				t.createdAt ? new Date(t.createdAt).toLocaleString() : '-',
+				t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '-',
+			]);
+			doc.autoTable({ head: [headers], body: rows, startY: 20, styles: { fontSize: 8 } });
+			doc.save('financial_transactions.pdf');
+		} catch (e) {
+			console.error('PDF export (transactions) failed', e);
+		}
+	};
 
 		return (
 				<div className="min-h-screen bg-slate-50">
@@ -444,9 +502,12 @@ export default function ResidentBlockchainNetwork() {
 						<CardContent className="space-y-10">
 							{/* Requests table */}
 							<div className="space-y-4">
-								<div className="flex items-center justify-between">
-									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Document Requests, Garbage and Streetlight Transactions ({filteredRequests.length})</h3>
-									{loadingRequests && <Spin size="small" />}
+								<div className="flex items-center justify-between gap-2 flex-wrap">
+									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Document Requests ({filteredRequests.length})</h3>
+									<div className="flex items-center gap-2">
+										<Button size="small" type="primary" onClick={exportRequestsPDF} disabled={loadingRequests || filteredRequests.length === 0}>Export PDF</Button>
+										{loadingRequests && <Spin size="small" />}
+									</div>
 								</div>
 								{errorRequests && <Alert type="error" message={errorRequests} style={{ marginBottom: 8 }} />}
 								<div className="overflow-x-auto -mx-2 md:mx-0">
@@ -465,9 +526,12 @@ export default function ResidentBlockchainNetwork() {
 							</div>
 							{/* Transactions table */}
 							<div className="space-y-4">
-								<div className="flex items-center justify-between">
+								<div className="flex items-center justify-between gap-2 flex-wrap">
 									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Financial Transactions ({filteredTxns.length})</h3>
-									{loadingTxns && <Spin size="small" />}
+									<div className="flex items-center gap-2">
+										<Button size="small" type="primary" onClick={exportTransactionsPDF} disabled={loadingTxns || filteredTxns.length === 0}>Export PDF</Button>
+										{loadingTxns && <Spin size="small" />}
+									</div>
 								</div>
 								{errorTxns && <Alert type="error" message={errorTxns} style={{ marginBottom: 8 }} />}
 								<div className="overflow-x-auto -mx-2 md:mx-0">
