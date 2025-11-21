@@ -77,33 +77,7 @@ const responsiveStyles = `
       padding: 8px !important;
     }
     
-    .household-table .ant-table {
-      font-size: 12px !important;
-    }
-    
-    .household-table .ant-table-thead > tr > th {
-      font-size: 11px !important;
-      padding: 8px 4px !important;
-      white-space: nowrap;
-    }
-    
-    .household-table .ant-table-tbody > tr > td {
-      font-size: 11px !important;
-      padding: 8px 4px !important;
-    }
-    
-    .household-table .ant-table-pagination {
-      padding: 8px 4px !important;
-    }
-    
-    .household-table .ant-pagination-item,
-    .household-table .ant-pagination-prev,
-    .household-table .ant-pagination-next {
-      min-width: 28px !important;
-      height: 28px !important;
-      line-height: 26px !important;
-      font-size: 12px !important;
-    }
+    /* Removed custom mobile table font sizing to mirror AdminBlockchainNetwork default responsiveness */
   }
   
   @media (max-width: 640px) {
@@ -1011,8 +985,8 @@ export default function HouseholdManagement() {
               </div>
             </div>
           </div>
-          <div className="overflow-x-auto -mx-4 md:mx-0">
-            <div className="min-w-full inline-block align-middle">
+          <div className="overflow-x-auto">
+            <div>
               <Table
                 rowKey="_id"
                 loading={loading}

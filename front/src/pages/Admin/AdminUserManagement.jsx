@@ -781,29 +781,31 @@ export default function AdminUserManagement() {
           </div>
         </div>
 
-        <div className="overflow-x-auto -mx-4 md:mx-0">
-          <div className="min-w-full inline-block align-middle">
-            <div className="overflow-hidden">
-              <Table
-                rowKey="_id"
-                loading={loading}
-                dataSource={filteredUsers}
-                columns={columns}
-                pagination={{
-                  current: currentPage,
-                  pageSize: pageSize,
-                  total: filteredUsers.length,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
-                  pageSizeOptions: ['10', '20', '50', '100'],
-                }}
-                onChange={handleTableChangeWithStatus}
-                scroll={{ x: 800 }}
-                className="responsive-table"
-              />
+        {/* Responsive table wrapper aligned with AdminBlockchainNetwork.jsx */}
+        <div className="overflow-x-auto">
+          <Table
+            rowKey="_id"
+            loading={loading}
+            dataSource={filteredUsers}
+            columns={columns}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              total: filteredUsers.length,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+              pageSizeOptions: ['10', '20', '50', '100'],
+            }}
+            onChange={handleTableChangeWithStatus}
+            scroll={{ x: 800 }}
+            className="responsive-table"
+          />
+          {!loading && filteredUsers.length === 0 && (
+            <div className="pt-4 text-sm text-gray-500">
+              No users found.
             </div>
-          </div>
+          )}
         </div>
   </div>
         <Modal
