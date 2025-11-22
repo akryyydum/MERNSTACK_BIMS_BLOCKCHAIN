@@ -321,7 +321,7 @@ export default function ResidentBlockchainNetwork() {
 		try {
 			const doc = new jsPDF();
 			doc.setFontSize(14);
-			doc.text('Financial Transactions', 14, 15);
+			doc.text('Financial Transactions in Blockchain', 14, 15);
 			const headers = ['Tx ID','Request','Resident','Amount','Method','Description','Created','Updated'];
 			const rows = (filteredTxns || []).map(t => {
 				const amount = Number(t.amount || 0);
