@@ -323,16 +323,20 @@ export default function ResidentBlockchainNetwork() {
 			doc.setFontSize(14);
 			doc.text('Financial Transactions', 14, 15);
 			const headers = ['Tx ID','Request','Resident','Amount','Method','Description','Created','Updated'];
-			const rows = (filteredTxns || []).map(t => [
-				t.txId || '-',
-				t.requestId || '-',
-				t.residentName || '-',
-				`₱${Number(t.amount||0).toFixed(2)}`,
-				t.paymentMethod || '-',
-				t.description || '-',
-				t.createdAt ? new Date(t.createdAt).toLocaleString() : '-',
-				t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '-',
-			]);
+			const rows = (filteredTxns || []).map(t => {
+				const amount = Number(t.amount || 0);
+				const formattedAmount = `P ${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+				return [
+					t.txId || '-',
+					t.requestId || '-',
+					t.residentName || '-',
+					formattedAmount,
+					t.paymentMethod || '-',
+					t.description || '-',
+					t.createdAt ? new Date(t.createdAt).toLocaleString() : '-',
+					t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '-',
+				];
+			});
 			doc.autoTable({ head: [headers], body: rows, startY: 20, styles: { fontSize: 8 } });
 			doc.save('financial_transactions.pdf');
 		} catch (e) {
