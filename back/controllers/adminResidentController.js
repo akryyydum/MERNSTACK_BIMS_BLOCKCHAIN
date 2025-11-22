@@ -3,6 +3,7 @@ const User = require("../models/user.model");
 const Resident = require("../models/resident.model");
 const XLSX = require("xlsx");
 const multer = require("multer");
+const { createNotification } = require('./residentNotificationController');
 
 const ADDRESS_DEFAULTS = {
   barangay: "La Torre North",
@@ -275,6 +276,20 @@ exports.update = async (req, res) => {
       }
     }
     
+    // Create notification for resident about account update
+    try {
+      await createNotification({
+        residentId: resident._id,
+        type: 'account',
+        title: 'Account Updated',
+        message: 'Your account information has been updated by an administrator.',
+        link: '/resident/profile',
+        priority: 'medium'
+      });
+    } catch (notifErr) {
+      console.warn('Failed to create notification:', notifErr.message);
+    }
+    
     res.json({ message: "Resident updated", resident });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -418,6 +433,29 @@ exports.verify = async (req, res) => {
       { new: true }
     );
     if (!resident) return res.status(404).json({ message: "Resident not found" });
+    
+    // Create notification for resident about status change
+    try {
+      const statusMessages = {
+        verified: 'Your account has been verified. You now have full access to the system.',
+        rejected: 'Your account verification was rejected. Please contact the administrator.',
+        pending: 'Your account is pending verification.'
+      };
+      
+      if (statusMessages[status]) {
+        await createNotification({
+          residentId: resident._id,
+          type: 'account',
+          title: `Account ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+          message: statusMessages[status],
+          link: '/resident/profile',
+          priority: status === 'verified' ? 'high' : 'medium'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to create notification:', notifErr.message);
+    }
+    
     res.json({ message: "Resident status updated", resident });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -3,6 +3,7 @@ const Resident = require('../models/resident.model');
 const mongoose = require('mongoose');
 const { getContract } = require('../utils/fabricClient');
 const Settings = require('../models/settings.model');
+const { createNotification } = require('./residentNotificationController');
 
 
 // List all document requests for admin
@@ -141,6 +142,24 @@ exports.approve = async (req, res) => {
       }
     });
 
+    // Create notification for resident
+    try {
+      const residentId = request.requestedBy?._id || request.requestedBy;
+      if (residentId) {
+        await createNotification({
+          residentId: residentId,
+          type: 'document_request',
+          title: 'Document Request Accepted',
+          message: `Your ${request.documentType} request has been accepted and is being processed.`,
+          link: '/resident/requests',
+          relatedId: request._id,
+          priority: 'medium'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to create notification:', notifErr.message);
+    }
+
     res.json(request);
   } catch (error) {
     console.error("Error approving document request:", error);
@@ -200,6 +219,24 @@ exports.deny = async (req, res) => {
         console.warn('Fabric gateway error (deny mirror):', fabricErr.message);
       }
     });
+
+    // Create notification for resident
+    try {
+      const residentId = request.requestedBy?._id || request.requestedBy;
+      if (residentId) {
+        await createNotification({
+          residentId: residentId,
+          type: 'document_request',
+          title: 'Document Request Declined',
+          message: `Your ${request.documentType} request has been declined.`,
+          link: '/resident/requests',
+          relatedId: request._id,
+          priority: 'high'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to create notification:', notifErr.message);
+    }
 
     res.json(request);
   } catch (error) {
@@ -442,6 +479,24 @@ exports.completeRequest = async (req, res) => {
         console.warn('Fabric gateway error (complete mirror):', fabricErr.message);
       }
     });
+
+    // Create notification for resident
+    try {
+      const residentId = request.requestedBy?._id || request.requestedBy;
+      if (residentId) {
+        await createNotification({
+          residentId: residentId,
+          type: 'document_request',
+          title: 'Document Request Completed',
+          message: `Your ${request.documentType} is ready for pickup.`,
+          link: '/resident/requests',
+          relatedId: request._id,
+          priority: 'high'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to create notification:', notifErr.message);
+    }
 
     res.json(request);
   } catch (error) {
