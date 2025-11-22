@@ -180,27 +180,34 @@ const ResidentNavbar = () => {
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
       }}
     >
-      {/* LEFT */}
-      <div className="flex items-center min-w-[200px]">
-        {isMobile ? (
+      {/* LEFT (menu button on mobile, branding on desktop) */}
+      <div className="flex items-center min-w-[60px] lg:min-w-[200px]">
+        {isMobile && (
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="mr-3 flex items-center rounded-md border border-gray-300 px-3 py-2 hover:bg-gray-100"
+            aria-label="Open navigation menu"
           >
             <MenuUnfoldOutlined />
           </button>
-        ) : (
+        )}
+        {!isMobile && (
           <div className="flex items-center gap-3">
-            <img src={logo} className="w-12 h-12 object-contain" />
+            <img src={logo} className="w-12 h-12 object-contain" alt="Barangay Logo" />
             <div className="flex flex-col leading-tight">
               <span className="text-lg font-semibold text-black">La Torre North</span>
-              <span className="text-[8px] text-gray-600">
-                Barangay Management Information System
-              </span>
+              <span className="text-[8px] text-gray-600">Barangay Management Information System</span>
             </div>
           </div>
         )}
       </div>
+
+      {/* CENTER (logo centered on mobile) */}
+      {isMobile && (
+        <div className="flex flex-1 justify-center lg:hidden">
+          <img src={logo} className="w-12 h-12 object-contain" alt="Barangay Logo" />
+        </div>
+      )}
 
       {/* CENTER MENU */}
       <div className="hidden lg:flex flex-1 justify-center min-w-0 overflow-hidden">
