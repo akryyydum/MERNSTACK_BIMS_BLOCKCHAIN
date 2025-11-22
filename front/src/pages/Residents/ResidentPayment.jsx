@@ -455,7 +455,7 @@ export default function ResidentPayment() {
             <CardDescription className="text-xs sm:text-sm text-slate-600">Overview of your current balances and recent payments</CardDescription>
           </CardHeader>
           <CardContent className="pt-5">
-            <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4 md:grid-cols-3 md:grid-rows-1">
               <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-amber-50 to-white">
                 <CardContent className="p-2 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-3">
@@ -484,7 +484,7 @@ export default function ResidentPayment() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-emerald-50 to-white">
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-emerald-50 to-white col-span-2 md:col-span-1">
                 <CardContent className="p-2 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 border border-emerald-200">
