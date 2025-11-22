@@ -3,7 +3,8 @@ import axios from "axios";
 import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions, Switch, Modal } from "antd";
 import logo from "../assets/logo.png";
 import bg from "../assets/bg.jpg";
-
+// Optional: any additional single imports if you already have them
+// import bg2 from "../assets/bg2.jpg";
 // Sectoral Information options
 const SECTORAL_OPTIONS = [
   { value: "Solo Parent", label: "Solo Parent" },
@@ -44,6 +45,29 @@ const Login = () => {
   const [notFoundEntering, setNotFoundEntering] = useState(false);
   const [notFoundLeaving, setNotFoundLeaving] = useState(false);
   const notFoundTimerRef = useRef(null);
+  // Slideshow state
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Gather slideshow images automatically from ../assets/slideshow/*
+  // Create the folder front/src/assets/slideshow and drop images there.
+  const SLIDESHOW_IMAGES = React.useMemo(() => {
+    // Vite's import.meta.glob returns an object of modules
+    const modules = import.meta.glob("../assets/slideshow/*.{jpg,jpeg,png,webp}", { eager: true });
+    const imgs = Object.values(modules)
+      .map(m => m?.default)
+      .filter(Boolean);
+    // Fallback to the single bg if no extra images present
+    return imgs.length ? imgs : [bg];
+  }, []);
+
+  // Rotate slides every 7 seconds with fade transition
+  useEffect(() => {
+    if (SLIDESHOW_IMAGES.length <= 1) return; // no rotation needed
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % SLIDESHOW_IMAGES.length);
+    }, 7000); // 7s per slide
+    return () => clearInterval(interval);
+  }, [SLIDESHOW_IMAGES.length]);
   // OTP resend cooldown state (persisted via localStorage)
   const [otpCooldownUntil, setOtpCooldownUntil] = useState(0);
   const [otpCooldownRemaining, setOtpCooldownRemaining] = useState(0);
@@ -354,25 +378,70 @@ const Login = () => {
       }`}
     >
       {/* Left Side - Full Image */}
-      <div className="hidden md:block relative w-3/5 h-screen">
-        <img
-          src={bg}
-          alt="Barangay"
-          className="object-cover w-full h-full"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
-        
+      <div className="hidden md:block relative w-full md:w-3/5 lg:w-3/5 h-screen overflow-hidden">
+        {/* Slideshow images layered with fade */}
+        {SLIDESHOW_IMAGES.map((src, idx) => (
+          <img
+            key={idx}
+            src={src}
+            alt="Barangay"
+            className={`object-cover w-full h-full absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentSlide ? 'opacity-100' : 'opacity-0'}`}
+            style={{
+              transitionTimingFunction: 'ease-in-out'
+            }}
+            draggable={false}
+          />
+        ))}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-blue/70 to-black/60 pointer-events-none" />
+        {/* Top-left info */}
+        <div className="absolute flex flex-row gap-3 md:gap-4 items-center ml-4 md:ml-6 lg:ml-10 mt-4 md:mt-6 lg:mt-10 pointer-events-none drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">
+          <img
+            src={logo}
+            alt="Barangay Logo"
+            className="h-12 w-12 md:h-16 md:w-16 lg:h-20 lg:w-20"
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-lg md:text-xl lg:text-[30px] font-semibold text-gray-50">La Torre North, Bayombong, N.V.</span>
+            <span className="text-[10px] md:text-[11px] lg:text-[12px] text-gray-100">Barangay Management Information System</span>
+          </div>
+        </div>
+        {/* Center tagline */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 md:px-8 lg:px-12 pointer-events-none">
+          <div className="flex flex-col">
+            <div className="flex flex-col leading-[0.9] mb-4 md:mb-6 lg:mb-8 drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">
+              <span className="text-4xl md:text-6xl lg:text-[90px] font-semibold text-gray-50">Hello,</span>
+              <span className="text-5xl md:text-7xl lg:text-[120px] font-bold text-blue-400">Welcome!</span>
+            </div>
+            <span className="text-sm md:text-base lg:text-[20px] font-semibold text-gray-50 drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">
+              Where barangay services meet
+              <span className="font-bold text-blue-400 drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]"> Transparency</span>
+            </span>
+            <span className="text-sm md:text-base lg:text-[20px] font-semibold text-gray-50 drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">for a more empowered community.</span>
+          </div>
+        </div>
       </div>
-
       {/* Right Side - Login Form */}
-      <div className="flex w-full md:w-2/5 items-center justify-center relative z-10">
-        <div className="w-full max-w-md m-8">
-          <div className="flex justify-center mb-6">
-            <img
+      <div className="flex w-full md:w-2/5 lg:w-2/5 items-center justify-center relative z-10">
+        
+        <div className="w-full max-w-md m-8 mt-8">
+          {/* Mobile header - only visible on small screens */}
+          <div className="md:hidden flex flex-row gap-3 items-center mb-6">
+            
+            <div className="flex flex-col leading-tight items-center justify-center text-center w-full">
+              <img
               src={logo}
-              alt="Logo"
-              className="h-30 w-30"
+              alt="Barangay Logo"
+              className="h-15 w-15"
             />
+              <span className="text-lg font-semibold text-gray-800">La Torre North</span>
+              <span className="text-[10px] text-gray-600">Barangay Management Information System</span>
+            </div>
+          </div>
+          
+          {/* Desktop: Show "Login" title instead of logo */}
+          <div className="hidden md:flex justify-left mb-6">
+            <h1 className="text-4xl font-bold text-gray-800">Login</h1>
           </div>
           
           {/* Pending Verification Alert */}
@@ -485,6 +554,36 @@ const Login = () => {
 </div>
 
           </Form>
+          
+          {/* Contact Us Section */}
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <div className="text-center mb-3">
+              <span className="text-sm font-semibold text-gray-700">Contact Us</span>
+            </div>
+            <div className="flex justify-center items-center gap-4">
+              <a 
+                href="https://www.facebook.com/latorrenorth" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+                <span>Facebook</span>
+              </a>
+              <a 
+                href="mailto:latorrenorth@bayombong.gov.ph"
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span>Email</span>
+              </a>
+            </div>
+          </div>
+          
           <div className="absolute bottom-4 right-4 items-center w-auto">
             <span className="text-xs text-gray-500">
               Powered by Blockchain Technology
