@@ -481,18 +481,18 @@ export default function AdminDashboard() {
     if (cardLoading) {
       return (
         <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-gray-600 text-sm">
+          <CardContent className="p-3 md:p-6">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
+              <div className="flex items-center gap-1 md:gap-2 text-gray-600 text-xs md:text-sm">
                 {icon}
-                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 md:h-4 w-20 md:w-32" />
               </div>
             </div>
-            <div className="space-y-3">
-              <Skeleton className="h-10 w-40" />
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-8 w-full" />
+            <div className="space-y-2 md:space-y-3">
+              <Skeleton className="h-6 md:h-10 w-24 md:w-40" />
+              <Skeleton className="h-2 md:h-3 w-16 md:w-24" />
+              <Skeleton className="h-3 md:h-4 w-12 md:w-16" />
+              <Skeleton className="h-4 md:h-8 w-full" />
             </div>
           </CardContent>
         </Card>
