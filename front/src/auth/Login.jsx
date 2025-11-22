@@ -38,13 +38,21 @@ const Login = () => {
   const [otpPhase, setOtpPhase] = useState(1); // 1=request,2=verify
   const [otpLoading, setOtpLoading] = useState(false);
   const [identifier, setIdentifier] = useState("");
-  const [otpCode, setOtpCode] = useState("");
+  const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
+  const otpInputRefs = useRef([]);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [notFoundVisible, setNotFoundVisible] = useState(false);
   const [notFoundEntering, setNotFoundEntering] = useState(false);
   const [notFoundLeaving, setNotFoundLeaving] = useState(false);
   const notFoundTimerRef = useRef(null);
+  const [identifierError, setIdentifierError] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(""); // Add state for terms error
   // Slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -68,10 +76,120 @@ const Login = () => {
     }, 7000); // 7s per slide
     return () => clearInterval(interval);
   }, [SLIDESHOW_IMAGES.length]);
+
+  // Validation helper functions
+  const validateIdentifier = (value) => {
+    if (!value || !value.trim()) {
+      return "Please enter your username or full name";
+    }
+    if (value.trim().length < 3) {
+      return "Identifier must be at least 3 characters";
+    }
+    return "";
+  };
+
+  const validateOtpCode = (value) => {
+    // Handle array of digits
+    const otpString = Array.isArray(value) ? value.join("") : value;
+    if (!otpString || !otpString.trim()) {
+      return "Please enter the OTP code";
+    }
+    if (otpString.trim().length !== 6) {
+      return "OTP must be exactly 6 digits";
+    }
+    if (!/^\d{6}$/.test(otpString.trim())) {
+      return "OTP must contain only numbers";
+    }
+    return "";
+  };
+
+  // Handler for OTP input changes
+  const handleOtpChange = (index, value) => {
+    // Only allow single digit
+    if (value.length > 1) {
+      value = value.slice(-1);
+    }
+    
+    // Only allow numbers
+    if (value !== "" && !/^\d$/.test(value)) {
+      return;
+    }
+
+    const newOtp = [...otpCode];
+    newOtp[index] = value;
+    setOtpCode(newOtp);
+    setOtpError("");
+
+    // Auto-focus next input
+    if (value !== "" && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handler for OTP input keydown
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === "Backspace" && otpCode[index] === "" && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      e.preventDefault();
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handler for OTP input paste
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim();
+    
+    if (/^\d{6}$/.test(pastedData)) {
+      const newOtp = pastedData.split("");
+      setOtpCode(newOtp);
+      setOtpError("");
+      // Focus last input
+      otpInputRefs.current[5]?.focus();
+    }
+  };
+
+  const validateNewPassword = (password, confirmPassword) => {
+    if (!password) {
+      return "Please enter a new password";
+    }
+    if (password.length < 6) {
+      return "Password must be at least 6 characters";
+    }
+    if (confirmPassword && password !== confirmPassword) {
+      return "Passwords do not match";
+    }
+    return "";
+  };
   // OTP resend cooldown state (persisted via localStorage)
   const [otpCooldownUntil, setOtpCooldownUntil] = useState(0);
   const [otpCooldownRemaining, setOtpCooldownRemaining] = useState(0);
   const otpCooldownIntervalRef = useRef(null);
+
+  // Helper to reset forgot password form
+  const resetForgotPasswordForm = () => {
+    setOtpPhase(1);
+    setIdentifier("");
+    setOtpCode(["", "", "", "", "", ""]);
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setIdentifierError("");
+    setOtpError("");
+    setPasswordError("");
+    setShowPasswordFields(false);
+    setNotFoundVisible(false);
+    setNotFoundEntering(false);
+    setNotFoundLeaving(false);
+    if (notFoundTimerRef.current) {
+      clearTimeout(notFoundTimerRef.current.enterTimer);
+      clearTimeout(notFoundTimerRef.current.fadeTimer);
+      clearTimeout(notFoundTimerRef.current.unmountTimer);
+    }
+  };
 
   const stepFieldNames = {
     1: [
@@ -150,12 +268,17 @@ const Login = () => {
 
   const handleNext = async () => {
     try {
+      setTermsError(""); // clear previous error
       const fields = stepFieldNames[step] || [];
       if (fields.length) {
         await regForm.validateFields(fields); // validate current step only
       }
-      
+      // Check Terms and Conditions before submitting registration
       if (step === 4) {
+        if (!termsAccepted) {
+          setTermsError('You must agree to the Terms and Conditions fist before submitting.');
+          return;
+        }
         const values = regForm.getFieldsValue(true);
         await handleRegister(values);
       } else {
@@ -190,6 +313,7 @@ const Login = () => {
     setStep(1);
     setRegLoading(false);
     setRegEmail("");
+    setTermsAccepted(false);
     regForm.resetFields();
   };
 
@@ -198,6 +322,7 @@ const Login = () => {
     setShowRegister(true);
     setStep(1);
     setRegEmail("");
+    setTermsAccepted(false);
     regForm.resetFields();
   };
 
@@ -487,12 +612,8 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => {
+                  resetForgotPasswordForm();
                   setForgotVisible(true);
-                  setOtpPhase(1);
-                  setIdentifier("");
-                  setOtpCode("");
-                  setNewPassword("");
-                  setConfirmNewPassword("");
                 }}
                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
               >
@@ -960,11 +1081,36 @@ const Login = () => {
                     <Descriptions.Item label="Sectoral Information" span={2}>{regForm.getFieldValue('sectoralInformation') || 'None'}</Descriptions.Item>
                     <Descriptions.Item label="Employment Status" span={2}>{regForm.getFieldValue('employmentStatus') || 'Not specified'}</Descriptions.Item>
                     <Descriptions.Item label="Registered Voter" span={2}>{regForm.getFieldValue('registeredVoter') ? 'Yes' : 'No'}</Descriptions.Item>
-                    {/* ...existing code... */}
                     <Descriptions.Item label="Mobile" span={2}>{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>
                     <Descriptions.Item label="Email" span={2}>{regForm.getFieldValue(['contact', 'email'])}</Descriptions.Item>
                     <Descriptions.Item label="Username" span={2}>{regForm.getFieldValue('username')}</Descriptions.Item>
                   </Descriptions>
+                  
+                  {/* Terms and Conditions */}
+                  <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id="termsCheckbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-1 w-4 h-4 cursor-pointer"
+                      />
+                      <label htmlFor="termsCheckbox" className="text-sm text-gray-700 cursor-pointer">
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setTermsVisible(true)}
+                          className="text-blue-600 hover:text-blue-700 hover:underline font-semibold"
+                        >
+                          Terms and Conditions
+                        </button>
+                      </label>
+                    </div>
+                    {termsError && (
+                      <div className="text-red-600 text-xs mt-2 ml-1 font-semibold">{termsError}</div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -1054,24 +1200,28 @@ const Login = () => {
       {/* Forgot Password Modal */}
       <Modal
         open={forgotVisible}
-        title={otpPhase === 1 ? 'Forgot Password' : 'Reset Password'}
+        title={
+          <div className="flex items-center gap-2">
+            <span>{otpPhase === 1 ? 'Forgot Password' : 'Reset Password'}</span>
+            {otpPhase === 2 && (
+              <span className="text-xs text-gray-500 font-normal">
+                (Step 2 of 2)
+              </span>
+            )}
+          </div>
+        }
         footer={null}
         onCancel={() => {
           setForgotVisible(false);
-          setNotFoundVisible(false);
-          setNotFoundEntering(false);
-          setNotFoundLeaving(false);
-          if (notFoundTimerRef.current) {
-            clearTimeout(notFoundTimerRef.current.enterTimer);
-            clearTimeout(notFoundTimerRef.current.fadeTimer);
-            clearTimeout(notFoundTimerRef.current.unmountTimer);
-          }
+          resetForgotPasswordForm();
           if (otpCooldownIntervalRef.current) {
             clearInterval(otpCooldownIntervalRef.current);
             otpCooldownIntervalRef.current = null;
           }
         }}
         destroyOnClose
+        maskClosable={!otpLoading}
+        keyboard={!otpLoading}
       >
         {/* Sliding not-found card */}
         {notFoundVisible && (
@@ -1094,16 +1244,31 @@ const Login = () => {
           <Form
             layout="vertical"
             onFinish={async () => {
-              if (!identifier.trim()) {
-                return message.error('Please enter your username or full name');
+              // Clear previous errors
+              setIdentifierError("");
+              
+              // Validate identifier
+              const idError = validateIdentifier(identifier);
+              if (idError) {
+                setIdentifierError(idError);
+                return;
               }
+              
               setOtpLoading(true);
               try {
-                await axios.post(`${API_BASE}/api/auth/request-password-otp`, { identifier: identifier.trim() });
-                message.success('OTP sent. Check your email.');
+                await axios.post(`${API_BASE}/api/auth/request-password-otp`, { 
+                  identifier: identifier.trim() 
+                });
+                
+                message.success({
+                  content: 'OTP sent successfully! Please check your email.',
+                  duration: 5
+                });
+                
                 // Start 60s cooldown and persist across refreshes
                 const until = Date.now() + 60 * 1000;
                 localStorage.setItem('passwordOtpCooldownUntil', String(until));
+                
                 // start/update countdown
                 const startCooldown = (target) => {
                   setOtpCooldownUntil(target);
@@ -1124,11 +1289,14 @@ const Login = () => {
                   otpCooldownIntervalRef.current = setInterval(tick, 1000);
                 };
                 startCooldown(until);
+                
+                // Move to phase 2
                 setOtpPhase(2);
               } catch (err) {
                 const status = err.response?.status;
                 const msg = err.response?.data?.message || 'Failed to request OTP';
-                if (status === 404 || /not yet registered/i.test(msg)) {
+                
+                if (status === 404 || /not yet registered|not found|does not exist/i.test(msg)) {
                   setNotFoundVisible(true);
                   setNotFoundEntering(true);
                   setNotFoundLeaving(false);
@@ -1139,11 +1307,17 @@ const Login = () => {
                   }
                   // trigger enter transition on next tick
                   const enterTimer = setTimeout(() => setNotFoundEntering(false), 20);
-                  const fadeTimer = setTimeout(() => setNotFoundLeaving(true), 2000);
-                  const unmountTimer = setTimeout(() => setNotFoundVisible(false), 2500);
+                  const fadeTimer = setTimeout(() => setNotFoundLeaving(true), 3000);
+                  const unmountTimer = setTimeout(() => {
+                    setNotFoundVisible(false);
+                    setNotFoundEntering(false);
+                    setNotFoundLeaving(false);
+                  }, 3500);
                   notFoundTimerRef.current = { enterTimer, fadeTimer, unmountTimer };
+                } else if (status === 400 && /no email/i.test(msg)) {
+                  setIdentifierError("This account has no registered email. Please contact your administrator.");
                 } else {
-                  message.error(msg);
+                  setIdentifierError(msg);
                 }
               } finally {
                 setOtpLoading(false);
@@ -1154,100 +1328,316 @@ const Login = () => {
               type="info"
               showIcon
               className="mb-4"
-              message="Enter your username or exact full name"
-              description="If your account has a registered email, we'll send a 6-digit OTP. If no email is on file, you must contact your admin."
+              message="Password Recovery"
+              description={
+                <div className="text-sm">
+                  <p className="mb-2">Enter your username or exact full name to receive a password reset OTP.</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>OTP will be sent to your registered email</li>
+                    <li>OTP is valid for 15 minutes</li>
+                    <li>If no email is registered, contact your administrator</li>
+                  </ul>
+                </div>
+              }
             />
-            <Form.Item label="Username or Full Name" required>
+            <Form.Item 
+              label="Username or Full Name" 
+              required
+              validateStatus={identifierError ? "error" : ""}
+              help={identifierError}
+            >
               <Input
                 value={identifier}
-                onChange={e => setIdentifier(e.target.value)}
+                onChange={e => {
+                  setIdentifier(e.target.value);
+                  setIdentifierError("");
+                }}
+                onBlur={() => {
+                  const error = validateIdentifier(identifier);
+                  if (error) setIdentifierError(error);
+                }}
                 placeholder="e.g. juan.cruz or JUAN DELA CRUZ"
+                disabled={otpLoading}
+                size="large"
+                maxLength={100}
               />
             </Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={otpLoading}
-              disabled={otpLoading || otpCooldownRemaining > 0}
-              block
-            >
-              {otpCooldownRemaining > 0 ? `Resend in ${otpCooldownRemaining}s` : 'Send OTP'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="default"
+                onClick={() => setForgotVisible(false)}
+                disabled={otpLoading}
+                block
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={otpLoading}
+                disabled={otpLoading || otpCooldownRemaining > 0}
+                block
+              >
+                {otpCooldownRemaining > 0 
+                  ? `Resend in ${otpCooldownRemaining}s` 
+                  : 'Send OTP'}
+              </Button>
+            </div>
           </Form>
         )}
         {otpPhase === 2 && (
           <Form
             layout="vertical"
             onFinish={async () => {
+              // Clear previous errors
+              setOtpError("");
+              setPasswordError("");
+              
+              // Validate OTP
+              const otpErr = validateOtpCode(otpCode);
+              if (otpErr) {
+                setOtpError(otpErr);
+                return;
+              }
+              
+              // Validate new password
+              const pwdErr = validateNewPassword(newPassword, confirmNewPassword);
+              if (pwdErr) {
+                setPasswordError(pwdErr);
+                return;
+              }
+              
+              // Validate confirm password match
               if (newPassword !== confirmNewPassword) {
-                return message.error('Passwords do not match');
+                setPasswordError('Passwords do not match');
+                return;
               }
-              if (newPassword.length < 6) {
-                return message.error('Password must be at least 6 characters');
-              }
+              
               setOtpLoading(true);
               try {
                 await axios.post(`${API_BASE}/api/auth/verify-password-otp`, {
                   identifier: identifier.trim(),
-                  otp: otpCode.trim(),
+                  otp: otpCode.join(""),
                   newPassword: newPassword
                 });
-                message.success('Password changed. You can now log in.');
+                
+                message.success({
+                  content: 'Password changed successfully! You can now log in with your new password.',
+                  duration: 5
+                });
+                
                 setForgotVisible(false);
+                resetForgotPasswordForm();
+                
+                // Clear cooldown
+                localStorage.removeItem('passwordOtpCooldownUntil');
+                if (otpCooldownIntervalRef.current) {
+                  clearInterval(otpCooldownIntervalRef.current);
+                  otpCooldownIntervalRef.current = null;
+                }
               } catch (err) {
+                const status = err.response?.status;
                 const msg = err.response?.data?.message || 'Failed to reset password';
-                message.error(msg);
+                
+                if (status === 400 && /invalid.*otp|otp.*expired|otp.*incorrect/i.test(msg)) {
+                  setOtpError(msg);
+                } else if (status === 400 && /password/i.test(msg)) {
+                  setPasswordError(msg);
+                } else {
+                  message.error(msg);
+                }
               } finally {
                 setOtpLoading(false);
               }
             }}
           >
             <Alert
-              type="info"
+              type="success"
               showIcon
               className="mb-4"
-              message={`OTP sent to your email for ${identifier}`}
-              description="Enter the OTP and your new password. OTP expires in 15 minutes."
+              message={`OTP sent to your registered email`}
+              description={
+                <div className="text-sm">
+                  <p className="mb-2">For account: <strong>{identifier}</strong></p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    <li>Check your email for the 6-digit OTP code</li>
+                    <li>OTP expires in 15 minutes</li>
+                    <li>Enter the code and set your new password</li>
+                  </ul>
+                </div>
+              }
             />
-            <Form.Item label="OTP Code" required>
-              <Input
-                value={otpCode}
-                onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                maxLength={6}
-                placeholder="6-digit code"
-              />
+            <Form.Item 
+              label={<span className="text-sm font-semibold">Enter OTP Code</span>}
+              required
+              validateStatus={otpError ? "error" : ""}
+              help={otpError}
+              className="mb-4"
+            >
+              <div className="flex justify-center gap-2 sm:gap-3">
+                {otpCode.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => (otpInputRefs.current[index] = el)}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    onPaste={index === 0 ? handleOtpPaste : undefined}
+                    disabled={otpLoading}
+                    className={`
+                      w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14
+                      text-center text-lg sm:text-xl md:text-2xl font-bold
+                      border-2 rounded-lg
+                      transition-all duration-200
+                      ${otpError 
+                        ? 'border-red-500 bg-red-50' 
+                        : digit 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-300 bg-white'
+                      }
+                      ${otpLoading ? 'cursor-not-allowed opacity-50' : 'hover:border-blue-400'}
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    `}
+                    style={{
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'textfield'
+                    }}
+                  />
+                ))}
+              </div>
             </Form.Item>
-            <Form.Item label="New Password" required>
-              <Input.Password
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="At least 6 characters"
-              />
-            </Form.Item>
-            <Form.Item label="Confirm New Password" required>
-              <Input.Password
-                value={confirmNewPassword}
-                onChange={e => setConfirmNewPassword(e.target.value)}
-                placeholder="Repeat password"
-              />
-            </Form.Item>
-            <div className="flex justify-between gap-2">
+
+            {!showPasswordFields && (
               <Button
-                onClick={() => setOtpPhase(1)}
+                type="primary"
+                size="large"
+                block
+                disabled={otpCode.join("").length !== 6 || otpLoading}
+                onClick={() => {
+                  const error = validateOtpCode(otpCode);
+                  if (error) {
+                    setOtpError(error);
+                  } else {
+                    setShowPasswordFields(true);
+                    setOtpError("");
+                  }
+                }}
+                className="mb-4"
+              >
+                Confirm OTP
+              </Button>
+            )}
+
+            {showPasswordFields && (
+              <>
+                <Form.Item 
+                  label="New Password" 
+                  required
+                  validateStatus={passwordError && !passwordError.includes('match') ? "error" : ""}
+                  help={passwordError && !passwordError.includes('match') ? passwordError : ""}
+                >
+                  <Input.Password
+                    value={newPassword}
+                    onChange={e => {
+                      setNewPassword(e.target.value);
+                      setPasswordError("");
+                    }}
+                    onBlur={() => {
+                      const error = validateNewPassword(newPassword, confirmNewPassword);
+                      if (error) setPasswordError(error);
+                    }}
+                    placeholder="At least 6 characters"
+                    disabled={otpLoading}
+                    size="large"
+                    autoComplete="new-password"
+                  />
+                </Form.Item>
+                <Form.Item 
+                  label="Confirm New Password" 
+                  required
+                  validateStatus={passwordError && passwordError.includes('match') ? "error" : ""}
+                  help={passwordError && passwordError.includes('match') ? passwordError : ""}
+                >
+                  <Input.Password
+                    value={confirmNewPassword}
+                    onChange={e => {
+                      setConfirmNewPassword(e.target.value);
+                      setPasswordError("");
+                    }}
+                    onBlur={() => {
+                      if (newPassword && confirmNewPassword) {
+                        const error = validateNewPassword(newPassword, confirmNewPassword);
+                        if (error) setPasswordError(error);
+                      }
+                    }}
+                    placeholder="Repeat your new password"
+                    disabled={otpLoading}
+                    size="large"
+                    autoComplete="new-password"
+                  />
+                </Form.Item>
+              </>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-2">
+              <Button
+                onClick={() => {
+                  setOtpPhase(1);
+                  setOtpError("");
+                  setPasswordError("");
+                  setOtpCode(["", "", "", "", "", ""]);
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                  setShowPasswordFields(false);
+                }}
                 disabled={otpLoading}
+                block
+                size="large"
+                className="sm:w-1/2"
               >
                 Back
               </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={otpLoading}
-              >
-                Change Password
-              </Button>
+              {showPasswordFields && (
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={otpLoading}
+                  disabled={otpLoading}
+                  block
+                  size="large"
+                  className="sm:w-1/2"
+                >
+                  Reset Password
+                </Button>
+              )}
             </div>
           </Form>
         )}
+      </Modal>
+
+      {/* Terms and Conditions Modal */}
+      <Modal
+        open={termsVisible}
+        title="Terms and Conditions"
+        onCancel={() => setTermsVisible(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setTermsVisible(false)}>
+            Close
+          </Button>
+        ]}
+        width={900}
+        style={{ top: 20 }}
+      >
+        <div className="w-full h-[75vh]">
+          <iframe
+            src="/BMIS_Terms_and_Conditions.pdf"
+            className="w-full h-full border-0"
+            title="Terms and Conditions"
+          />
+        </div>
       </Modal>
 
 
