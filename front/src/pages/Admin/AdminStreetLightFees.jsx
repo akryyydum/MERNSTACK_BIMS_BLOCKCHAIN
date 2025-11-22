@@ -58,25 +58,25 @@ const responsiveStyles = `
       font-size: 11px;
     }
     .streetlight-fees-table .ant-table {
-      font-size: 12px;
+      font-size: 14px;
     }
     .streetlight-fees-table .ant-table-thead > tr > th {
-      padding: 8px 6px;
-      font-size: 11px;
+      padding: 12px 8px;
+      font-size: 14px;
     }
     .streetlight-fees-table .ant-table-tbody > tr > td {
-      padding: 8px 6px;
-      font-size: 12px;
+      padding: 12px 8px;
+      font-size: 14px;
     }
     .streetlight-fees-table .ant-btn-sm {
-      font-size: 11px;
-      padding: 2px 6px;
-      height: 26px;
+      font-size: 13px;
+      padding: 4px 8px;
+      height: 28px;
     }
     .streetlight-fees-table .ant-tag {
-      font-size: 11px;
-      padding: 0 6px;
-      margin: 1px;
+      font-size: 13px;
+      padding: 2px 8px;
+      margin: 2px;
     }
   }
   
@@ -1948,15 +1948,12 @@ export default function AdminStreetLightFees() {
             </div>
           </div>
 
-          <div className="overflow-x-auto -mx-4 md:mx-0">
-            <div className="min-w-full inline-block align-middle">
-              <div className="overflow-hidden">
-                <Table
-                  size="middle"
-                  columns={columns}
-                  dataSource={filteredHouseholds}
-                  rowKey="_id"
-                  loading={loading || refreshing}
+          <div className="overflow-x-auto">
+            <Table
+              columns={columns}
+              dataSource={filteredHouseholds}
+              rowKey="_id"
+              loading={loading || refreshing}
                   rowSelection={{
                     selectedRowKeys,
                     onChange: (selectedKeys) => {
@@ -1981,11 +1978,9 @@ export default function AdminStreetLightFees() {
                       defaultPageSize: 10,
                       size: 'default'
                     }}
-                    scroll={{ x: 800 }}
-                    className="streetlight-fees-table"
-                />
-              </div>
-            </div>
+                    scroll={{ x: 1400 }}
+              className="streetlight-fees-table"
+            />
           </div>
         </div>
 
