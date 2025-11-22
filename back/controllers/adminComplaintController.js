@@ -1,5 +1,6 @@
 const Complaint = require('../models/complaint.model');
 const Resident = require('../models/resident.model');
+const { createNotification } = require('./residentNotificationController');
 
 exports.list = async (req, res) => {
   try {
@@ -36,6 +37,29 @@ exports.updateStatus = async (req, res) => {
     const updated = await Complaint.findById(req.params.id)
       .populate('residentId')
       .populate('resolvedBy', 'username');
+    
+    // Create notification for resident
+    try {
+      const statusMessages = {
+        investigating: 'Your complaint is being investigated.',
+        resolved: 'Your complaint has been resolved.',
+        closed: 'Your complaint has been closed.'
+      };
+      
+      if (statusMessages[status]) {
+        await createNotification({
+          residentId: complaint.residentId,
+          type: 'complaint',
+          title: `Complaint ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+          message: statusMessages[status],
+          link: '/resident/reports-complaints',
+          relatedId: complaint._id,
+          priority: status === 'resolved' ? 'high' : 'medium'
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to create notification:', notifErr.message);
+    }
     
     res.json(updated);
   } catch (error) {

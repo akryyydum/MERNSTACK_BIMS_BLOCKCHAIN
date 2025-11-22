@@ -68,6 +68,7 @@ exports.createComplaint = async (req, res) => {
       .populate('residentId')
       .populate('resolvedBy', 'username');
     res.status(201).json(populated);
+    
   } catch (error) {
     console.error('Error creating complaint:', error);
     if (error.name === 'ValidationError') {
