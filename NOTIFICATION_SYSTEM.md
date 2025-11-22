@@ -1,13 +1,30 @@
 # Notification System Documentation
 
 ## Overview
-The notification system allows residents to receive real-time updates about their:
+The notification system allows residents to receive **real-time** updates about their:
 - Document requests (accepted, declined, completed)
 - Payments (upcoming, overdue, received)
 - Reports and complaints (status updates)
 - Account changes (verification status, profile updates)
 
+The system uses **Socket.IO** for real-time push notifications, eliminating the need for constant polling and ensuring instant delivery of notifications.
+
+## Architecture
+
+### Real-Time Communication
+- **Socket.IO Server**: Runs alongside Express server on the backend
+- **Socket.IO Client**: Connects from the frontend and listens for real-time events
+- **Authentication**: Socket connections are authenticated using JWT tokens
+- **Room-based Broadcasting**: Each resident joins a specific room for targeted notifications
+
 ## Backend Components
+
+### Socket.IO Configuration
+- **`config/socket.js`**: Socket.IO server initialization and event handlers
+  - `initializeSocket(server)`: Initializes Socket.IO with CORS settings
+  - `emitNotificationToResident(residentId, notification)`: Sends real-time notification
+  - `emitNotificationUpdate(residentId, notificationId, updates)`: Broadcasts updates
+  - `emitNotificationDelete(residentId, notificationId)`: Notifies of deletions
 
 ### Models
 - **`notification.model.js`**: Defines the notification schema with fields for type, title, message, priority, read status, etc.
@@ -39,6 +56,13 @@ The notification system allows residents to receive real-time updates about thei
 
 ## Frontend Components
 
+### Socket.IO Integration
+- **`hooks/useSocket.js`**: Custom React hook for Socket.IO client
+  - Manages socket connection lifecycle
+  - Handles authentication with JWT token
+  - Listens for notification events
+  - Auto-reconnects on disconnection
+
 ### ResidentNavbar.jsx
 - Displays notification bell icon with badge showing unread count
 - Popover shows list of notifications with:
@@ -49,12 +73,14 @@ The notification system allows residents to receive real-time updates about thei
   - Clickable notifications that navigate to relevant pages
 
 ### Features
-- Real-time notification fetching (every 60 seconds)
+- **Real-time push notifications** via Socket.IO
 - Unread count badge
 - Click to navigate to related content
 - Mark individual or all notifications as read
 - Delete individual notifications
 - Responsive design (works on mobile and desktop)
+- **Auto-reconnection** on network issues
+- Fallback polling every 5 minutes (in case of socket issues)
 
 ## Notification Types
 
@@ -137,12 +163,27 @@ await createNotification({
 
 ## Testing
 
+### Installation
+First, install the required dependencies:
+
+```bash
+# Backend
+cd back
+npm install socket.io
+
+# Frontend  
+cd front
+npm install socket.io-client
+```
+
 ### Manual Testing
-1. Start the backend server
+1. Start the backend server (Socket.IO will initialize automatically)
 2. Log in as a resident
-3. Look for the bell icon in the navbar
-4. Trigger actions that create notifications (e.g., have admin accept a document request)
-5. Check if notifications appear
+3. Open browser console to see Socket.IO connection logs
+4. Look for the bell icon in the navbar
+5. Trigger actions that create notifications (e.g., have admin accept a document request)
+6. Notifications should appear **instantly** without page refresh
+7. Check console for messages like "📨 New notification received"
 
 ### Automated Testing
 Run the test script:
@@ -167,11 +208,73 @@ Notifications are automatically created when:
 ## Future Enhancements
 - Email notifications
 - SMS notifications (via Twilio/similar)
-- Push notifications for mobile apps
+- Push notifications for mobile apps (using FCM/APNs)
 - Notification preferences/settings
 - Notification categories/filters
 - Sound alerts for new notifications
 - Desktop notifications using Web Notifications API
+- Notification history/archive
+- Batch notification sending for admins
+
+## Socket.IO Events
+
+### Client → Server
+- `connection`: Authenticate and join rooms
+- `disconnect`: Clean up user connection
+- `refresh:notifications`: Request notification refresh
+
+### Server → Client
+- `notification:new`: New notification created
+  ```javascript
+  {
+    notification: { _id, type, title, message, ... },
+    unreadCount: 1
+  }
+  ```
+- `notification:update`: Notification updated
+  ```javascript
+  {
+    notificationId: "...",
+    updates: { isRead: true }
+  }
+  ```
+- `notification:delete`: Notification deleted
+  ```javascript
+  {
+    notificationId: "..."
+  }
+  ```
+- `notifications:refresh`: Request full refresh
+
+## Socket.IO Connection Flow
+
+1. **Frontend**: User logs in and token is stored
+2. **Frontend**: Socket connects with JWT token in auth
+3. **Backend**: Token is verified, user ID extracted
+4. **Backend**: Socket joins `user:{userId}` and `resident:{residentId}` rooms
+5. **Backend**: When notification is created, it's emitted to the resident's room
+6. **Frontend**: Socket receives event and updates UI instantly
+7. **Frontend**: On disconnect, socket auto-reconnects with exponential backoff
+
+## Troubleshooting
+
+### Socket not connecting
+- Check if JWT token exists in localStorage
+- Verify CORS settings include your frontend URL
+- Check browser console for connection errors
+- Ensure backend server is running with Socket.IO initialized
+
+### Notifications not appearing in real-time
+- Check browser console for socket connection status
+- Verify socket is emitting events (check backend logs)
+- Ensure resident is in correct room (check `socket.residentId`)
+- Check network tab for WebSocket/polling connections
+
+### High server load
+- Socket.IO uses WebSocket by default (efficient)
+- Falls back to polling only if WebSocket unavailable
+- Connections are kept alive with minimal overhead
+- Consider horizontal scaling with Redis adapter for multiple servers
 
 ## API Usage Examples
 

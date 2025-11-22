@@ -3,6 +3,7 @@ const Resident = require('../models/resident.model');
 const DocumentRequest = require('../models/document.model');
 const Complaint = require('../models/complaint.model');
 const Household = require('../models/household.model');
+const { emitNotificationToResident } = require('../config/socket');
 
 // Get all notifications for a resident
 exports.getNotifications = async (req, res) => {
@@ -172,6 +173,15 @@ exports.createNotification = async (data) => {
   try {
     const notification = new Notification(data);
     await notification.save();
+    
+    // Emit real-time notification via Socket.IO
+    try {
+      emitNotificationToResident(data.residentId, notification);
+    } catch (socketErr) {
+      console.warn('Failed to emit socket notification:', socketErr.message);
+      // Non-blocking: notification is still saved in DB
+    }
+    
     return notification;
   } catch (error) {
     console.error('Error creating notification:', error);

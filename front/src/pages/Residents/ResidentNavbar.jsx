@@ -18,6 +18,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate, NavLink, useLocation } from "react-router-dom";
 import axios from "axios";
+import { useSocket } from "../../hooks/useSocket";
 
 const { Header } = Layout;
 
@@ -93,11 +94,40 @@ const ResidentNavbar = () => {
   useEffect(() => {
     fetchNotifications();
     
-    // Refresh notifications every 60 seconds
-    const interval = setInterval(fetchNotifications, 60000);
+    // Refresh notifications every 5 minutes as fallback
+    const interval = setInterval(fetchNotifications, 300000);
     
     return () => clearInterval(interval);
   }, []);
+
+  // Socket.IO for real-time notifications
+  useSocket(
+    // onNewNotification
+    (notification) => {
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      
+      // Optional: Show a toast notification
+      console.log('New notification:', notification.title);
+    },
+    // onNotificationUpdate
+    (notificationId, updates) => {
+      setNotifications(prev => 
+        prev.map(n => n._id === notificationId ? { ...n, ...updates } : n)
+      );
+      if (updates.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    },
+    // onNotificationDelete
+    (notificationId) => {
+      const deletedNotif = notifications.find(n => n._id === notificationId);
+      setNotifications(prev => prev.filter(n => n._id !== notificationId));
+      if (deletedNotif && !deletedNotif.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    }
+  );
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {

@@ -2,10 +2,12 @@ const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const cors = require('cors');
+const http = require('http');
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 
 // Basic request logger for debugging network issues
 app.use((req, res, next) => {
@@ -134,7 +136,13 @@ const PORT = process.env.PORT || 4000;
 // Start only after DB connects
 connectDB()
   .then(() => {
-    app.listen(PORT, "0.0.0.0", () => console.log(`[Server] Running on port ${PORT}`));
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`[Server] Running on port ${PORT}`);
+      
+      // Initialize Socket.IO after server starts
+      const { initializeSocket } = require('./config/socket');
+      initializeSocket(server);
+    });
   })
   .catch(err => {
     console.error('[Server] Failed to start due to DB error:', err.message);
