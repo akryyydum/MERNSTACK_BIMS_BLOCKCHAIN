@@ -680,7 +680,7 @@ export default function ResidentDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 grid-rows-3 gap-2 sm:grid-cols-2 sm:grid-rows-3 lg:grid-cols-3 lg:grid-rows-2 sm:gap-4 md:gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-rows-3 lg:grid-cols-3 lg:grid-rows-2 gap-2 sm:gap-4 md:gap-5">
                 {/* Combine and sort requests and complaints by date, show latest 6 items */}
                 {[
                   ...requests.map(item => ({ ...item, activityType: 'request' })),

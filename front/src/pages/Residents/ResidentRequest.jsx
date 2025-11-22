@@ -758,72 +758,61 @@ export default function ResidentRequest() {
         {viewRequest && (
           <div>
             {/* Header Section */}
-            <div className="bg-slate-50 p-4 border-b border-slate-200">
-              <div className="flex justify-between items-start gap-3">
+            <div className="bg-slate-50 p-2 border-b border-slate-200">
+              <div className="flex justify-between items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-slate-800">{viewRequest.documentType}</h3>
-                  <p className="text-slate-600 text-sm mt-1">Request ID: {viewRequest._id}</p>
+                  <h3 className="text-base font-bold text-slate-800 leading-tight">{viewRequest.documentType}</h3>
+                  <p className="text-slate-600 text-xs mt-0.5">Request ID: {viewRequest._id}</p>
                 </div>
-                
                 {/* Status Badge */}
                 <div className="flex-shrink-0">
                   {viewRequest.status === "pending" && (
-                    <span className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium border border-amber-200">
-                      Pending
-                    </span>
+                    <span className="px-2 py-1 rounded bg-amber-100 text-amber-700 text-xs font-medium border border-amber-200">Pending</span>
                   )}
                   {viewRequest.status === "accepted" && (
-                    <span className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-sm font-medium border border-emerald-200">
-                      Approved
-                    </span>
+                    <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200">Approved</span>
                   )}
                   {(viewRequest.status === "declined" || viewRequest.status === "rejected") && (
-                    <span className="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 text-sm font-medium border border-rose-200">
-                      Rejected
-                    </span>
+                    <span className="px-2 py-1 rounded bg-rose-100 text-rose-700 text-xs font-medium border border-rose-200">Rejected</span>
                   )}
                   {viewRequest.status === "completed" && (
-                    <span className="px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
-                      Released
-                    </span>
+                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-medium border border-blue-200">Released</span>
                   )}
                 </div>
               </div>
             </div>
-            
             {/* Document Details */}
-            <div className="p-5">
-              <h4 className="text-base font-semibold text-slate-800 mb-4">Request Details</h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div className="p-3">
+              <h4 className="text-sm font-semibold text-slate-800 mb-2">Request Details</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">PURPOSE</p>
-                  <p className="mt-1 text-sm text-slate-800">{viewRequest.purpose}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">PURPOSE</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.purpose}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">DOCUMENT TYPE</p>
-                  <p className="mt-1 text-sm text-slate-800">{viewRequest.documentType}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">DOCUMENT TYPE</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.documentType}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">QUANTITY</p>
-                  <p className="mt-1 text-sm text-slate-800">{viewRequest.quantity || 1}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">QUANTITY</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.quantity || 1}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">REQUESTED DATE</p>
-                  <p className="mt-1 text-sm text-slate-800">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">REQUESTED DATE</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">LAST UPDATED</p>
-                  <p className="mt-1 text-sm text-slate-800">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">LAST UPDATED</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 {/* Total Amount */}
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">TOTAL AMOUNT</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">TOTAL AMOUNT</p>
                   {(() => {
                     const quantity = viewRequest.quantity || 1;
                     let baseAmount = 0;
@@ -847,10 +836,10 @@ export default function ResidentRequest() {
                     const totalAmount = baseAmount * quantity;
                     
                     if (baseAmount === 0) {
-                      return <p className="mt-1 text-lg font-semibold text-slate-600">Free</p>;
+                      return <p className="mt-0.5 text-base font-semibold text-slate-600">Free</p>;
                     } else {
                       return (
-                        <p className="mt-1 text-lg font-semibold text-emerald-600">
+                        <p className="mt-0.5 text-base font-semibold text-emerald-600">
                           ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       );
@@ -860,42 +849,39 @@ export default function ResidentRequest() {
                 
                 {viewRequest.documentType === "Business Clearance" && (
                   <div>
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">BUSINESS NAME</p>
-                    <p className="mt-1 text-sm text-slate-800">{viewRequest.businessName || "-"}</p>
+                    <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">BUSINESS NAME</p>
+                    <p className="mt-0.5 text-xs text-slate-800">{viewRequest.businessName || "-"}</p>
                   </div>
                 )}
               </div>
               
               {/* Status Timeline */}
-              <div className="mb-5">
-                <h4 className="text-base font-semibold text-slate-800 mb-4">Request Timeline</h4>
-                
+              <div className="mb-2">
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">Request Timeline</h4>
                 <div className="relative">
                   {/* Timeline Line */}
-                  <div className="absolute left-3 top-0 h-full w-0.5 bg-slate-200"></div>
-                  
+                  <div className="absolute left-2 top-0 h-full w-0.5 bg-slate-200"></div>
                   {/* Timeline Steps */}
-                  <div className="space-y-4 relative">
+                  <div className="space-y-2 relative">
                     {/* Requested Step (Always shown) */}
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
-                        <CheckCircleOutlined className="text-white text-sm" />
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                        <CheckCircleOutlined className="text-white text-xs" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-800">Requested</p>
-                        <p className="text-xs text-slate-600 mt-1">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                        <p className="text-xs font-medium text-slate-800">Requested</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                       </div>
                     </div>
                     
                     {/* Processing Step (Always shown but styled differently based on status) */}
-                    <div className="flex items-start gap-3">
-                      <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10
-                        ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
-                        <ClockCircleOutlined className="text-white text-sm" />
+                    <div className="flex items-start gap-2">
+                      <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center z-10 ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
+                        <ClockCircleOutlined className="text-white text-xs" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-800">Processing</p>
-                        <p className="text-xs text-slate-600 mt-1">
+                        <p className="text-xs font-medium text-slate-800">Processing</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
                           {viewRequest.status === "pending" 
                             ? "Your request is being processed" 
                             : "Your request has been processed"}
@@ -905,39 +891,30 @@ export default function ResidentRequest() {
                     
                     {/* Approved/Rejected Step (Shown when not pending) */}
                     {viewRequest.status !== "pending" && (
-                      <div className="flex items-start gap-3">
-                        <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center z-10
-                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-emerald-500" : "bg-rose-500"}`}>
+                      <div className="flex items-start gap-2">
+                        <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center z-10 ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-emerald-500" : "bg-rose-500"}`}>
                           {viewRequest.status === "accepted" || viewRequest.status === "completed" ? (
-                            <CheckCircleOutlined className="text-white text-sm" />
+                            <CheckCircleOutlined className="text-white text-xs" />
                           ) : (
-                            <CloseCircleOutlined className="text-white text-sm" />
+                            <CloseCircleOutlined className="text-white text-xs" />
                           )}
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800">
-                            {viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}
-                          </p>
-                          <p className="text-xs text-slate-600 mt-1">
-                            {viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}
-                          </p>
+                          <p className="text-xs font-medium text-slate-800">{viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                         </div>
                       </div>
                     )}
                     
                     {/* Released Step (Shown only for released docs) */}
                     {viewRequest.status === "completed" && (
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
-                          <CheckCircleOutlined className="text-white text-sm" />
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                          <CheckCircleOutlined className="text-white text-xs" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800">Released</p>
-                          <p className="text-xs text-slate-600 mt-1">
-                            {viewRequest.completedAt || viewRequest.releasedAt 
-                              ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() 
-                              : "Your document has been released"}
-                          </p>
+                          <p className="text-xs font-medium text-slate-800">Released</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.completedAt || viewRequest.releasedAt ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() : "Your document has been released"}</p>
                         </div>
                       </div>
                     )}
@@ -947,24 +924,24 @@ export default function ResidentRequest() {
               
               {/* Blockchain Information (if available) */}
               {viewRequest.blockchain?.hash && (
-                <div className="border-t border-slate-200 pt-5">
-                  <h4 className="text-base font-semibold text-slate-800 mb-4">Blockchain Verification</h4>
-                  <div className="bg-slate-50 p-4 rounded-lg space-y-4 border border-slate-200">
+                <div className="border-t border-slate-200 pt-3">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-2">Blockchain Verification</h4>
+                  <div className="bg-slate-50 p-2 rounded-lg space-y-2 border border-slate-200">
                     <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">HASH</p>
-                      <p className="mt-1 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.hash || "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">HASH</p>
+                      <p className="mt-0.5 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.hash || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">TRANSACTION ID</p>
-                      <p className="mt-1 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.lastTxId || "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">TRANSACTION ID</p>
+                      <p className="mt-0.5 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.lastTxId || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">ISSUED BY</p>
-                      <p className="mt-1 text-sm text-slate-800">{viewRequest.blockchain.issuedBy || "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">ISSUED BY</p>
+                      <p className="mt-0.5 text-xs text-slate-800">{viewRequest.blockchain.issuedBy || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">ISSUED DATE</p>
-                      <p className="mt-1 text-sm text-slate-800">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">ISSUED DATE</p>
+                      <p className="mt-0.5 text-xs text-slate-800">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
                     </div>
                   </div>
                 </div>
@@ -972,10 +949,10 @@ export default function ResidentRequest() {
             </div>
             
             {/* Footer with close button */}
-            <div className="bg-slate-50 p-4 flex justify-end border-t border-slate-200">
+            <div className="bg-slate-50 p-2 flex justify-end border-t border-slate-200">
               <Button 
                 onClick={() => setViewOpen(false)}
-                className="bg-slate-600 hover:bg-slate-700 text-white"
+                className="bg-slate-600 hover:bg-slate-700 text-white text-xs px-3 py-1"
               >
                 Close
               </Button>
@@ -984,268 +961,266 @@ export default function ResidentRequest() {
         )}
       </Modal>
 
-      {/* Create Request Modal */}
-      <Modal
-        title={null}
-        open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        footer={null}
-        width={750}
-      >
-        <div className="bg-slate-50 p-4 border-b border-slate-200 -mt-5 -mx-6">
-          <h3 className="text-lg font-bold text-slate-800">Request New Document</h3>
-          <p className="text-slate-600 text-sm mt-1">
-            Fill out the form below to request an official document
-          </p>
-        </div>
-        
-        <div className="py-5">
-          <Form 
-            form={createForm} 
-            layout="vertical"
-            initialValues={{
-              residentId: resident?._id,
-              requestFor: resident?._id,
-              quantity: 1,
-              amount: 0
+      {/* Create Request Modal - Two Step */}
+      {(() => {
+        const [createStep, setCreateStep] = React.useState(0); // 0 = instructions, 1 = form
+        // Patch: useEffect to reset step on open/close
+        React.useEffect(() => { if (!createOpen) setCreateStep(0); }, [createOpen]);
+        return (
+          <Modal
+            title={<span className="text-lg font-bold text-slate-800">Request New Document</span>}
+            open={createOpen}
+            onCancel={() => {
+              if (createStep === 1) setCreateStep(0);
+              else setCreateOpen(false);
             }}
-            onValuesChange={(changed, values) => {
-              // Handle business name field visibility
-              if ("documentType" in changed && changed.documentType !== "Business Clearance") {
-                createForm.setFieldsValue({ businessName: undefined });
-              }
-              
-              // Handle amount updates based on document type or quantity
-              if ("documentType" in changed || "quantity" in changed) {
-                const currentDocType = changed.documentType || values.documentType;
-                const currentQuantity = changed.quantity || values.quantity || 1;
-                const baseAmount = documentPricing[currentDocType] || 0;
-                const totalAmount = baseAmount * currentQuantity;
-                createForm.setFieldsValue({ amount: totalAmount });
-              }
-            }}
-            onFinish={async (values) => {
-              try {
-                setCreating(true);
-                const token = localStorage.getItem("token");
-                if (!token) {
-                  message.error("You are not logged in. Please log in first.");
-                  setCreating(false);
-                  return;
-                }
-                
-                // Prepare the payload with new fields
-                const payload = {
-                  documentType: values.documentType,
-                  quantity: values.quantity,
-                  purpose: values.purpose,
-                  amount: values.amount,
-                  residentId: values.residentId,
-                  requestFor: values.requestFor,
-                  ...(values.businessName && { businessName: values.businessName })
-                };
-                
-                await axios.post(
-                  `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-                  payload,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
-                message.success("Document request submitted successfully!");
-                setCreateOpen(false);
-                createForm.resetFields();
-                fetchRequests();
-                // Refresh payment status after successful request
-                checkPaymentStatus();
-              } catch (err) {
-                console.error("Error creating request:", err);
-                if (err.response?.status === 401) {
-                  message.error("Authentication error. Please log in again.");
-                } else if (err.response?.status === 403 && err.response?.data?.reason === "NOT_IN_HOUSEHOLD") {
-                  // Handle household validation error
-                  message.error(err.response.data.message || "You must be part of a household to request documents");
-                  setCreateOpen(false);
-                  setIsInHousehold(false);
-                } else if (err.response?.status === 403) {
-                  message.error("Authentication error. Please log in again.");
-                } else if (err.response?.status === 400 && err.response?.data?.paymentStatus) {
-                  // Handle payment validation error
-                  message.error(err.response.data.message || "Outstanding payments must be settled first");
-                  setCreateOpen(false);
-                  // Update payment status to show current state
-                  setPaymentStatus({
-                    canRequestDocuments: false,
-                    paymentStatus: err.response.data.paymentStatus,
-                    message: err.response.data.details
-                  });
-                } else {
-                  message.error(err?.response?.data?.message || "Failed to create document request");
-                }
-              }
-              setCreating(false);
-            }}
+            footer={null}
+            width={750}
           >
-            {/* Resident Dropdown */}
-            <Form.Item 
-              name="residentId" 
-              label={<span className="text-slate-700 font-medium text-sm">Resident</span>}
-              rules={[{ required: true, message: 'Please select a resident' }]}
-            >
-              <Select
-                placeholder={resident ? `${resident.firstName} ${resident.lastName} (You)` : "Loading resident..."}
-                className="w-full"
-                disabled={!resident}
-              >
-                {resident && (
-                  <Select.Option value={resident._id}>
-                    {resident.firstName} {resident.lastName} (You)
-                  </Select.Option>
-                )}
-              </Select>
-            </Form.Item>
-
-            {/* Request For Dropdown */}
-            <Form.Item 
-              name="requestFor" 
-              label={<span className="text-slate-700 font-medium text-sm">Request For</span>}
-              rules={[{ required: true, message: 'Please select who this request is for' }]}
-            >
-              <Select
-                placeholder="Select household member"
-                className="w-full"
-                loading={!resident}
-              >
-                {resident && (
-                  <Select.Option value={resident._id}>
-                    {resident.firstName} {resident.lastName} (You)
-                  </Select.Option>
-                )}
-                {householdMembers.map((member) => (
-                  <Select.Option key={member._id} value={member._id}>
-                    {member.firstName} {member.lastName}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            {/* Document Type - Updated options */}
-            <Form.Item 
-              name="documentType" 
-              label={<span className="text-slate-700 font-medium text-sm">Document Type</span>}
-              rules={[{ required: true, message: 'Please select a document type' }]}
-            >
-              <Select
-                placeholder="Select document type"
-                className="w-full"
-                onChange={(value) => {
-                  // Update the amount field based on document type and current quantity
-                  const currentQuantity = createForm.getFieldValue("quantity") || 1;
-                  const baseAmount = documentPricing[value] || 0;
-                  const totalAmount = baseAmount * currentQuantity;
-                  createForm.setFieldValue("amount", totalAmount);
-                }}
-                options={[
-                  { value: "Indigency", label: "Certificate of Indigency" },
-                  { value: "Barangay Clearance", label: "Barangay Clearance" },
-                  { value: "Business Clearance", label: "Business Clearance" },
-                ]}
-              />
-            </Form.Item>
-
-            {/* Amount Field - Read only */}
-            <Form.Item 
-              name="amount" 
-              label={<span className="text-slate-700 font-medium text-sm">Amount</span>}
-              rules={[{ required: true, message: 'Amount is required' }]}
-              extra="Amount is automatically calculated based on document type and quantity"
-            >
-              <InputNumber 
-                min={0} 
-                className="w-full" 
-                disabled
-                formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
-                placeholder="Amount will be calculated automatically"
-              />
-            </Form.Item>
-
-            {selectedDocType === "Business Clearance" && (
-              <Form.Item
-                name="businessName"
-                label={<span className="text-slate-700 font-medium text-sm">Business Name</span>}
-                rules={[{ required: true, message: 'Please enter your business name' }]}
-              >
-                <Input 
-                  placeholder="Enter registered business name" 
-                  className="w-full"
-                />
-              </Form.Item>
+            {createStep === 0 ? (
+              <div className="p-5">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-5">
+                  <h4 className="text-blue-800 font-medium text-base mb-2">Important Information</h4>
+                  <p className="text-blue-700 text-sm leading-relaxed">
+                    Your document request will be reviewed by barangay officials. Processing time may vary depending on the type of document and current volume of requests.
+                  </p>
+                  <ul className="text-blue-700 text-sm mt-3 list-disc pl-5">
+                    <li>Ensure all information is accurate and complete.</li>
+                    <li>Payment (if required) must be settled before release.</li>
+                  </ul>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button onClick={() => setCreateOpen(false)} className="bg-slate-600 hover:bg-slate-700 text-white">Cancel</Button>
+                  <Button type="primary" className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreateStep(1)}>Next</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-5">
+                <Form 
+                  form={createForm} 
+                  layout="vertical"
+                  initialValues={{
+                    residentId: resident?._id,
+                    requestFor: resident?._id,
+                    quantity: 1,
+                    amount: 0
+                  }}
+                  onValuesChange={(changed, values) => {
+                    if ("documentType" in changed && changed.documentType !== "Business Clearance") {
+                      createForm.setFieldsValue({ businessName: undefined });
+                    }
+                    if ("documentType" in changed || "quantity" in changed) {
+                      const currentDocType = changed.documentType || values.documentType;
+                      const currentQuantity = changed.quantity || values.quantity || 1;
+                      const baseAmount = documentPricing[currentDocType] || 0;
+                      const totalAmount = baseAmount * currentQuantity;
+                      createForm.setFieldsValue({ amount: totalAmount });
+                    }
+                  }}
+                  onFinish={async (values) => {
+                    try {
+                      setCreating(true);
+                      const token = localStorage.getItem("token");
+                      if (!token) {
+                        message.error("You are not logged in. Please log in first.");
+                        setCreating(false);
+                        return;
+                      }
+                      const payload = {
+                        documentType: values.documentType,
+                        quantity: values.quantity,
+                        purpose: values.purpose,
+                        amount: values.amount,
+                        residentId: values.residentId,
+                        requestFor: values.requestFor,
+                        ...(values.businessName && { businessName: values.businessName })
+                      };
+                      await axios.post(
+                        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
+                        payload,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      message.success("Document request submitted successfully!");
+                      setCreateOpen(false);
+                      createForm.resetFields();
+                      fetchRequests();
+                      checkPaymentStatus();
+                    } catch (err) {
+                      console.error("Error creating request:", err);
+                      if (err.response?.status === 401) {
+                        message.error("Authentication error. Please log in again.");
+                      } else if (err.response?.status === 403 && err.response?.data?.reason === "NOT_IN_HOUSEHOLD") {
+                        message.error(err.response.data.message || "You must be part of a household to request documents");
+                        setCreateOpen(false);
+                        setIsInHousehold(false);
+                      } else if (err.response?.status === 403) {
+                        message.error("Authentication error. Please log in again.");
+                      } else if (err.response?.status === 400 && err.response?.data?.paymentStatus) {
+                        message.error(err.response.data.message || "Outstanding payments must be settled first");
+                        setCreateOpen(false);
+                        setPaymentStatus({
+                          canRequestDocuments: false,
+                          paymentStatus: err.response.data.paymentStatus,
+                          message: err.response.data.details
+                        });
+                      } else {
+                        message.error(err?.response?.data?.message || "Failed to create document request");
+                      }
+                    }
+                    setCreating(false);
+                  }}
+                >
+                  {/* Resident Dropdown */}
+                  <Form.Item 
+                    name="residentId" 
+                    label={<span className="text-slate-700 font-medium text-sm">Resident</span>}
+                    rules={[{ required: true, message: 'Please select a resident' }]}
+                  >
+                    <Select
+                      placeholder={resident ? `${resident.firstName} ${resident.lastName} (You)` : "Loading resident..."}
+                      className="w-full"
+                      disabled={!resident}
+                    >
+                      {resident && (
+                        <Select.Option value={resident._id}>
+                          {resident.firstName} {resident.lastName} (You)
+                        </Select.Option>
+                      )}
+                    </Select>
+                  </Form.Item>
+                  {/* Request For Dropdown */}
+                  <Form.Item 
+                    name="requestFor" 
+                    label={<span className="text-slate-700 font-medium text-sm">Request For</span>}
+                    rules={[{ required: true, message: 'Please select who this request is for' }]}
+                  >
+                    <Select
+                      placeholder="Select household member"
+                      className="w-full"
+                      loading={!resident}
+                    >
+                      {resident && (
+                        <Select.Option value={resident._id}>
+                          {resident.firstName} {resident.lastName} (You)
+                        </Select.Option>
+                      )}
+                      {householdMembers.map((member) => (
+                        <Select.Option key={member._id} value={member._id}>
+                          {member.firstName} {member.lastName}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  {/* Document Type - Updated options */}
+                  <Form.Item 
+                    name="documentType" 
+                    label={<span className="text-slate-700 font-medium text-sm">Document Type</span>}
+                    rules={[{ required: true, message: 'Please select a document type' }]}
+                  >
+                    <Select
+                      placeholder="Select document type"
+                      className="w-full"
+                      onChange={(value) => {
+                        const currentQuantity = createForm.getFieldValue("quantity") || 1;
+                        const baseAmount = documentPricing[value] || 0;
+                        const totalAmount = baseAmount * currentQuantity;
+                        createForm.setFieldValue("amount", totalAmount);
+                      }}
+                      options={[
+                        { value: "Indigency", label: "Certificate of Indigency" },
+                        { value: "Barangay Clearance", label: "Barangay Clearance" },
+                        { value: "Business Clearance", label: "Business Clearance" },
+                      ]}
+                    />
+                  </Form.Item>
+                  {/* Amount & Quantity in one row */}
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Form.Item 
+                        name="amount" 
+                        label={<span className="text-slate-700 font-medium text-sm">Amount</span>}
+                        rules={[{ required: true, message: 'Amount is required' }]}
+                        extra="Amount is auto-calculated based on type and quantity."
+                      >
+                        <InputNumber 
+                          min={0} 
+                          className="w-full" 
+                          disabled
+                          formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
+                          placeholder="Amount will be calculated automatically"
+                        />
+                      </Form.Item>
+                    </div>
+                    <div className="w-40">
+                      <Form.Item 
+                        name="quantity" 
+                        label={<span className="text-slate-700 font-medium text-sm">Quantity</span>} 
+                        initialValue={1}
+                        rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity' }]}
+                      >
+                        <InputNumber
+                          min={1}
+                          className="w-full"
+                          parser={value => (value ? value.replace(/[^\d]/g, '') : '')}
+                          onKeyPress={e => {
+                            if (!/\d/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(value) => {
+                            const currentDocType = createForm.getFieldValue("documentType");
+                            const currentQuantity = value || 1;
+                            const baseAmount = documentPricing[currentDocType] || 0;
+                            const totalAmount = baseAmount * currentQuantity;
+                            createForm.setFieldValue("amount", totalAmount);
+                          }}
+                        />
+                      </Form.Item>
+                    </div>
+                  </div>
+                  {selectedDocType === "Business Clearance" && (
+                    <Form.Item
+                      name="businessName"
+                      label={<span className="text-slate-700 font-medium text-sm">Business Name</span>}
+                      rules={[{ required: true, message: 'Please enter your business name' }]}
+                    >
+                      <Input 
+                        placeholder="Enter registered business name" 
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  )}
+                  <Form.Item 
+                    name="purpose" 
+                    label={<span className="text-slate-700 font-medium text-sm">Purpose</span>}
+                    rules={[{ required: true, message: 'Please specify the purpose for your request' }]}
+                    extra="Clearly state why you need this document"
+                  >
+                    <Input.TextArea 
+                      rows={4}
+                      placeholder="Example: For employment requirements, school enrollment, business registration, etc."
+                      className="w-full"
+                    />
+                  </Form.Item>
+                  <div className="flex justify-between gap-3 pt-4 border-t border-slate-200 -mb-5 -mx-6 px-6 pb-5 bg-slate-50">
+                    <Button onClick={() => setCreateStep(0)} className="bg-slate-600 hover:bg-slate-700 text-white">Previous</Button>
+                    <Button 
+                      type="primary" 
+                      htmlType="submit"
+                      loading={creating}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
+                    >
+                      Submit Request
+                    </Button>
+                  </div>
+                </Form>
+              </div>
             )}
-            <Form.Item 
-              name="quantity" 
-              label={<span className="text-slate-700 font-medium text-sm">Quantity</span>} 
-              initialValue={1}
-              rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity' }]}
-            >
-              <InputNumber
-                min={1}
-                className="w-full"
-                parser={value => (value ? value.replace(/[^\d]/g, '') : '')}
-                onKeyPress={e => {
-                  if (!/\d/.test(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={(value) => {
-                  // Update the amount field based on quantity and current document type
-                  const currentDocType = createForm.getFieldValue("documentType");
-                  const currentQuantity = value || 1;
-                  const baseAmount = documentPricing[currentDocType] || 0;
-                  const totalAmount = baseAmount * currentQuantity;
-                  createForm.setFieldValue("amount", totalAmount);
-                }}
-              />
-            </Form.Item>
-            
-            <Form.Item 
-              name="purpose" 
-              label={<span className="text-slate-700 font-medium text-sm">Purpose</span>}
-              rules={[{ required: true, message: 'Please specify the purpose for your request' }]}
-              extra="Clearly state why you need this document"
-            >
-              <Input.TextArea 
-                rows={4}
-                placeholder="Example: For employment requirements, school enrollment, business registration, etc."
-                className="w-full"
-              />
-            </Form.Item>
-            
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-5">
-              <h4 className="text-blue-800 font-medium text-sm mb-2">Important Information</h4>
-              <p className="text-blue-700 text-sm leading-relaxed">
-                Your document request will be reviewed by barangay officials. Processing time may vary depending on the type of document and current volume of requests.
-              </p>
-            </div>
-            
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 -mb-5 -mx-6 px-6 pb-5 bg-slate-50">
-              <Button 
-                onClick={() => setCreateOpen(false)}
-                className="bg-slate-600 hover:bg-slate-700 text-white"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="primary" 
-                htmlType="submit"
-                loading={creating}
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
-              >
-                Submit Request
-              </Button>
-            </div>
-          </Form>
-        </div>
-      </Modal>
+          </Modal>
+        );
+      })()}
     </>
   );
 }

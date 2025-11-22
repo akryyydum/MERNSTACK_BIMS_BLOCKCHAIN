@@ -717,6 +717,14 @@ export default function AdminResidentManagement() {
   const purok5Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 5").length : 0;
 
   // Define all columns with visibility keys
+  // Detect if mobile (width <= 768px)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const allColumns = [
     {
       title: "Full Name",
@@ -822,7 +830,7 @@ export default function AdminResidentManagement() {
       key: "actions",
       columnKey: "actions",
       width: 200,
-      fixed: 'right',
+      fixed: isMobile ? false : 'right',
       render: (_, r) => (
         <div className="flex gap-2">
           <Button size="small" onClick={() => openView(r)}>View</Button>
