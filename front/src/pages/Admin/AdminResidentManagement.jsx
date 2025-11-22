@@ -1115,7 +1115,6 @@ export default function AdminResidentManagement() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-xl md:text-3xl font-bold text-black">{totalResidents}</div>
-                  <div className="mt-1 text-xs text-gray-600">Male: {maleResidents} | Female: {femaleResidents}</div>
                 </CardContent>
               </Card>
               {/* Male Residents */}
