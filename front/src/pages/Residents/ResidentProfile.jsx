@@ -486,8 +486,8 @@ const ResidentProfile = () => {
                     type="primary"
                     icon={<EditOutlined />}
                     onClick={handleEdit}
-                    size={isMobile ? 'small' : 'large'}
-                    className={isMobile ? 'text-base px-4 h-10 min-w-[120px] w-full' : 'text-base px-6 h-10 min-w-[120px]'}
+                    size="large"
+                    className="text-base px-4 h-10 min-w-[120px] w-full sm:w-auto sm:px-6"
                   >
                     Edit Profile
                   </Button>
@@ -496,9 +496,9 @@ const ResidentProfile = () => {
                     <Button
                       icon={<CloseOutlined />}
                       onClick={handleCancel}
-                      size={isMobile ? 'small' : 'large'}
+                      size="large"
                       disabled={saving}
-                      className={isMobile ? 'text-base px-4 h-10 min-w-[120px] w-full' : 'text-base px-6 h-10 min-w-[120px]'}
+                      className="text-base px-4 h-10 min-w-[120px] w-full sm:w-auto sm:px-6"
                     >
                       Cancel
                     </Button>
@@ -506,9 +506,9 @@ const ResidentProfile = () => {
                       type="primary"
                       icon={<SaveOutlined />}
                       onClick={handleSave}
-                      size={isMobile ? 'small' : 'large'}
+                      size="large"
                       loading={saving}
-                      className={isMobile ? 'text-base px-4 h-10 min-w-[120px] w-full' : 'text-base px-6 h-10 min-w-[120px]'}
+                      className="text-base px-4 h-10 min-w-[120px] w-full sm:w-auto sm:px-6"
                     >
                       Save Changes
                     </Button>
