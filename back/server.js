@@ -40,7 +40,7 @@ app.use(cors({
         vercelPreviewRegex.test(origin)) {
       return callback(null, true);
     } else {
-      console.log("❌ CORS BLOCKED:", origin);
+      console.log("CORS BLOCKED:", origin);
       return callback(new Error("Not allowed by CORS"));
     }
   },

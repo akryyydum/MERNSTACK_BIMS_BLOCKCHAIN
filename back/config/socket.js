@@ -44,7 +44,7 @@ const initializeSocket = (server) => {
   });
 
   io.on('connection', async (socket) => {
-    console.log(`✅ User connected: ${socket.userId} (${socket.id})`);
+    console.log(`User connected: ${socket.userId} (${socket.id})`);
     
     // Store the connection
     connectedUsers.set(socket.userId, socket.id);
@@ -67,7 +67,7 @@ const initializeSocket = (server) => {
 
     // Handle disconnection
     socket.on('disconnect', () => {
-      console.log(`❌ User disconnected: ${socket.userId} (${socket.id})`);
+      console.log(`User disconnected: ${socket.userId} (${socket.id})`);
       connectedUsers.delete(socket.userId);
     });
 
@@ -77,7 +77,7 @@ const initializeSocket = (server) => {
     });
   });
 
-  console.log('✅ Socket.IO initialized');
+  console.log('Socket.IO initialized');
   return io;
 };
 
@@ -95,7 +95,7 @@ const emitNotificationToResident = (residentId, notification) => {
       unreadCount: 1 // This will be updated by the client
     });
     
-    console.log(`📨 Notification sent to resident ${residentId}`);
+    console.log(`Notification sent to resident ${residentId}`);
   } catch (error) {
     console.error('Error emitting notification:', error);
   }
