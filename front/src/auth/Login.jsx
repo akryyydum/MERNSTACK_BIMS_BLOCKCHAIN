@@ -288,7 +288,7 @@ const Login = () => {
       // Check Terms and Conditions before submitting registration
       if (step === 4) {
         if (!termsAccepted) {
-          setTermsError('You must agree to the Terms and Conditions fist before submitting.');
+          setTermsError('You must agree to the Terms and Conditions first before submitting.');
           return;
         }
         const values = regForm.getFieldsValue(true);
