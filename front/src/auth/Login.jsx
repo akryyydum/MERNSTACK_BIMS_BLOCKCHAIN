@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions, Switch, Modal } from "antd";
+import { motion, AnimatePresence } from "motion/react";
 import logo from "../assets/logo.png";
 import bg from "../assets/bg.jpg";
 // Optional: any additional single imports if you already have them
@@ -55,6 +56,9 @@ const Login = () => {
   const [termsError, setTermsError] = useState(""); // Add state for terms error
   // Slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
+  // Rotating text state
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const rotatingTexts = ["Welcome!", "Mabuhay!"];
 
   // Gather slideshow images automatically from ../assets/slideshow/*
   // Create the folder front/src/assets/slideshow and drop images there.
@@ -76,6 +80,14 @@ const Login = () => {
     }, 7000); // 7s per slide
     return () => clearInterval(interval);
   }, [SLIDESHOW_IMAGES.length]);
+
+  // Rotate text every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTextIndex((prev) => (prev + 1) % rotatingTexts.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [rotatingTexts.length]);
 
   // Validation helper functions
   const validateIdentifier = (value) => {
@@ -536,7 +548,31 @@ const Login = () => {
           <div className="flex flex-col">
             <div className="flex flex-col leading-[0.9] mb-4 md:mb-6 lg:mb-8 drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">
               <span className="text-4xl md:text-6xl lg:text-[90px] font-semibold text-gray-50">Hello,</span>
-              <span className="text-5xl md:text-7xl lg:text-[120px] font-bold text-blue-400">Welcome!</span>
+              <div className="relative h-[60px] md:h-[90px] lg:h-[140px] flex">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={currentTextIndex}
+                    className="block text-5xl md:text-7xl lg:text-[120px] font-bold text-blue-400"
+                  >
+                    {rotatingTexts[currentTextIndex].split('').map((char, index) => (
+                      <motion.span
+                        key={index}
+                        initial={{ y: 50, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -50, opacity: 0 }}
+                        transition={{ 
+                          duration: 0.5, 
+                          ease: "easeInOut",
+                          delay: index * 0.05
+                        }}
+                        className="inline-block"
+                      >
+                        {char}
+                      </motion.span>
+                    ))}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
             </div>
             <span className="text-sm md:text-base lg:text-[20px] font-semibold text-gray-50 drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">
               Where barangay services meet
