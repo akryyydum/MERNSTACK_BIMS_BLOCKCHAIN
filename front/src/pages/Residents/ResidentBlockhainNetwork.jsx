@@ -5,6 +5,7 @@ import 'jspdf-autotable';
 import { FileTextOutlined, DollarOutlined, ThunderboltOutlined, CloudSyncOutlined, SearchOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import ResidentNavbar from './ResidentNavbar';
+import apiClient from '@/utils/apiClient';
 
 // Resident blockchain network dashboard
 // Shows:
@@ -14,10 +15,6 @@ import ResidentNavbar from './ResidentNavbar';
 // 4. Basic chain status (block height, peers)
 
 const API_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
-
-const authHeaders = () => ({
-	Authorization: `Bearer ${localStorage.getItem('token')}`,
-});
 
 const statusColor = (status) => {
 	switch ((status || '').toLowerCase()) {
@@ -150,9 +147,8 @@ export default function ResidentBlockchainNetwork() {
 	useEffect(() => {
 		const loadProfile = async () => {
 			try {
-				const res = await fetch(`${API_BASE}/api/resident/profile`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Profile load failed (${res.status})`);
-				const data = await res.json();
+				const res = await apiClient.get('/api/resident/profile');
+				const data = res.data;
 				setResidentProfile(data);
 			} catch (e) {
 				console.error('Profile error', e);
@@ -166,9 +162,8 @@ export default function ResidentBlockchainNetwork() {
 		const loadStatus = async () => {
 			setLoadingStatus(true); setErrorStatus(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/blockchain/status`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Status failed (${res.status})`);
-				setChainStatus(await res.json());
+				const res = await apiClient.get('/api/blockchain/status');
+				setChainStatus(res.data);
 			} catch (e) { setErrorStatus(e.message); } finally { setLoadingStatus(false); }
 		};
 		loadStatus();
@@ -181,9 +176,8 @@ export default function ResidentBlockchainNetwork() {
 			setLoadingRequests(true); setErrorRequests(null);
 			try {
 				// Admin view uses /api/blockchain/requests; mirror that for consistent counts
-				const res = await fetch(`${API_BASE}/api/blockchain/requests`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Requests failed (${res.status})`);
-				const all = await res.json();
+				const res = await apiClient.get('/api/blockchain/requests');
+				const all = res.data;
 				const myId = residentProfile._id.toString();
 				const filtered = (Array.isArray(all) ? all : []).filter(r => {
 					const type = (r.documentType || '').toString().toLowerCase().trim();
@@ -203,9 +197,8 @@ export default function ResidentBlockchainNetwork() {
 		const loadTxns = async () => {
 			setLoadingTxns(true); setErrorTxns(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/blockchain/financial-transactions/me`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Transactions failed (${res.status})`);
-				const mine = await res.json();
+				const res = await apiClient.get('/api/blockchain/financial-transactions/me');
+				const mine = res.data;
 				setTransactions(Array.isArray(mine) ? mine : []);
 			} catch (e) { setErrorTxns(e.message); } finally { setLoadingTxns(false); }
 		};
@@ -218,9 +211,8 @@ export default function ResidentBlockchainNetwork() {
 		const loadUtilities = async () => {
 			setLoadingUtilities(true); setErrorUtilities(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/resident/payments`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Utilities failed (${res.status})`);
-				const data = await res.json();
+				const res = await apiClient.get('/api/resident/payments');
+				const data = res.data;
 				const flat = normalizeUtilityResponse(data);
 				const records = flat.map(buildPaymentRecord);
 				// Keep raw for debugging and derived for display

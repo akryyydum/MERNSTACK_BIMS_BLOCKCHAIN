@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined, DeleteOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
@@ -100,10 +100,7 @@ export default function AdminDocumentRequests() {
     // Fetch settings (admin endpoint)
     (async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/settings`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await apiClient.get('/api/admin/settings');
         setSettings(res.data || null);
       } catch (_) {}
     })();
@@ -159,11 +156,7 @@ export default function AdminDocumentRequests() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/document-requests');
       setRequests(sortByNewest(res.data)); // sort here
     } catch (error) {
       console.error("Error fetching document requests:", error);
@@ -174,11 +167,7 @@ export default function AdminDocumentRequests() {
 
   const fetchResidents = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/residents`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/residents');
       setResidents(res.data);
     } catch {
       message.error("Failed to load residents");
@@ -188,11 +177,7 @@ export default function AdminDocumentRequests() {
   // Fetch households for resident->household mapping
   const fetchHouseholds = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/households`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/households');
       setHouseholds(res.data || []);
     } catch (err) {
       console.error("Failed to load households", err);
@@ -227,11 +212,7 @@ export default function AdminDocumentRequests() {
   // Fetch officials roster needed for printing (Captain, Kagawads, SK Chairman)
   const fetchOfficialsRoster = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/officials`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/officials');
       const officials = Array.isArray(res.data) ? res.data : [];
       // Captain
       const isCaptain = (o) => String(o?.position || '').toLowerCase() === 'barangay captain';
@@ -290,11 +271,7 @@ export default function AdminDocumentRequests() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await apiClient.delete(`/api/admin/document-requests/${id}`);
       setRequests(prev => prev.filter(r => r._id !== id));
       message.success("Request deleted.");
     } catch (err) {
@@ -305,7 +282,6 @@ export default function AdminDocumentRequests() {
   const handleDeleteAllRequests = async (record) => {
     try {
       setDeletingId(record.__rowKey);
-      const token = localStorage.getItem("token");
       
       let successCount = 0;
       let failCount = 0;
@@ -313,10 +289,7 @@ export default function AdminDocumentRequests() {
       // Delete each request individually
       for (const request of record.requests) {
         try {
-          await axios.delete(
-            `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${request._id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          await apiClient.delete(`/api/admin/document-requests/${request._id}`);
           successCount++;
         } catch (error) {
           console.error('Error deleting request:', request, error);
@@ -652,8 +625,6 @@ export default function AdminDocumentRequests() {
     }
     try {
       setPaymentsCheckLoading(true);
-      const token = localStorage.getItem("token");
-      const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
       const now = dayjs();
       const year = now.year();
       const currentMonthIdx = now.month() + 1; // 1..12
@@ -661,15 +632,13 @@ export default function AdminDocumentRequests() {
 
       // For each month, fetch both statuses
       const garbagePromises = months.map(m =>
-        axios.get(`${API}/api/admin/households/${householdId}/garbage`, {
-          headers: { Authorization: `Bearer ${token}` },
+        apiClient.get(`/api/admin/households/${householdId}/garbage`, {
           params: { month: m },
         }).then(res => ({ month: m, status: res.data?.status || "unpaid" }))
           .catch(() => ({ month: m, status: "unpaid" }))
       );
       const streetPromises = months.map(m =>
-        axios.get(`${API}/api/admin/households/${householdId}/streetlight`, {
-          headers: { Authorization: `Bearer ${token}` },
+        apiClient.get(`/api/admin/households/${householdId}/streetlight`, {
           params: { month: m },
         }).then(res => ({ month: m, status: res.data?.status || "unpaid" }))
           .catch(() => ({ month: m, status: "unpaid" }))
@@ -956,11 +925,9 @@ const handlePrint = async (record) => {
 
 const handleAction = async (id, action) => {
   try {
-    const token = localStorage.getItem("token");
-    await axios.patch(
-      `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${id}/${action}`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
+    await apiClient.patch(
+      `/api/admin/document-requests/${id}/${action}`,
+      {}
     );
     setRequests(prev =>
       sortByNewest(
@@ -1458,11 +1425,9 @@ const handleExport = async () => {
               
               console.log("Sending admin create request with payload:", payload);
               
-              const token = localStorage.getItem("token");
-              await axios.post(
-                `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
-                payload,
-                { headers: { Authorization: `Bearer ${token}` } }
+              await apiClient.post(
+                '/api/admin/document-requests',
+                payload
               );
               message.success("Document request created!");
               setCreateOpen(false);
@@ -1666,11 +1631,9 @@ const handleExport = async () => {
             try {
               const { amount } = await acceptForm.validateFields();
               setAccepting(true);
-              const token = localStorage.getItem("token");
-              await axios.patch(
-                `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${acceptRecord._id}/accept`,
-                { amount: Number(amount) },
-                { headers: { Authorization: `Bearer ${token}` } }
+              await apiClient.patch(
+                `/api/admin/document-requests/${acceptRecord._id}/accept`,
+                { amount: Number(amount) }
               );
               message.success('Request accepted and recorded');
               setAcceptOpen(false);

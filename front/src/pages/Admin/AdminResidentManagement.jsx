@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 import {
@@ -163,21 +163,6 @@ export default function AdminResidentManagement() {
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   useEffect(() => {
-    // Check authentication before fetching
-    const token = localStorage.getItem("token");
-    const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    
-    console.log("Auth check:", {
-      token: token ? "Present" : "Missing",
-      userProfile,
-      role: userProfile.role
-    });
-    
-    if (!token) {
-      message.error("No authentication token found. Please login again.");
-      return;
-    }
-    
     fetchResidents();
     fetchUnverified();
   }, []);
@@ -190,14 +175,7 @@ export default function AdminResidentManagement() {
   const fetchResidents = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      console.log("API_BASE:", API_BASE);
-      console.log("Token:", token ? "Present" : "Missing");
-      
-      const res = await axios.get(
-        `${API_BASE}/api/admin/residents`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/residents');
       
       console.log("Residents response:", res.data);
       
@@ -223,8 +201,7 @@ export default function AdminResidentManagement() {
   const fetchUnverified = async () => {
     setLoadingUnverified(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/api/admin/unverified-residents`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await apiClient.get('/api/admin/unverified-residents');
       // Controller returns { data: [...] }
       const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
       setUnverified(data);
@@ -239,8 +216,7 @@ export default function AdminResidentManagement() {
   const approveUnverified = async (id) => {
     setApproving(true);
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE}/api/admin/unverified-residents/${id}/approve`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      await apiClient.post(`/api/admin/unverified-residents/${id}/approve`, {});
       message.success('Submission approved; resident record created');
       setUnverified(prev => prev.filter(u => u._id !== id));
       setUnverifiedViewOpen(false);
@@ -257,8 +233,7 @@ export default function AdminResidentManagement() {
   const rejectUnverified = async (id) => {
     setRejecting(true);
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE}/api/admin/unverified-residents/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await apiClient.delete(`/api/admin/unverified-residents/${id}`);
       message.success('Submission rejected and removed');
       setUnverified(prev => prev.filter(u => u._id !== id));
       setUnverifiedViewOpen(false);
@@ -322,10 +297,9 @@ export default function AdminResidentManagement() {
       setEmailTaken(false);
       setMobileTaken(false);
       
-      await axios.post(
-        `${API_BASE}/api/admin/residents`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.post(
+        '/api/admin/residents',
+        payload
       );
       message.success("Resident added!");
       setAddOpen(false);
@@ -427,10 +401,9 @@ export default function AdminResidentManagement() {
       setEmailTaken(false);
       setMobileTaken(false);
       
-      await axios.patch(
-        `${API_BASE}/api/admin/residents/${selectedResident._id}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.patch(
+        `/api/admin/residents/${selectedResident._id}`,
+        payload
       );
       message.success("Resident updated!");
       setEditOpen(false);
@@ -444,10 +417,8 @@ export default function AdminResidentManagement() {
   // Delete Resident
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/admin/residents/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/admin/residents/${id}`
       );
       message.success("Resident deleted!");
       fetchResidents();
@@ -464,15 +435,10 @@ export default function AdminResidentManagement() {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      
       // Delete residents one by one
       await Promise.all(
         selectedRowKeys.map(id =>
-          axios.delete(
-            `${API_BASE}/api/admin/residents/${id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
+          apiClient.delete(`/api/admin/residents/${id}`)
         )
       );
       
@@ -548,10 +514,8 @@ export default function AdminResidentManagement() {
         purok: values.purok,
       });
 
-      const token = localStorage.getItem("token");
-      const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
+      const res = await apiClient.post('/api/admin/residents/import', formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });

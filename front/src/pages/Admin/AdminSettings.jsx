@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Form, Input, Button, message, Divider, Alert, InputNumber, Spin, Popconfirm } from "antd";
 import { LockOutlined, UserOutlined, InfoCircleOutlined, SafetyOutlined, BellOutlined } from "@ant-design/icons";
+import apiClient from "@/utils/apiClient";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -13,35 +14,13 @@ export default function AdminSettings() {
   const [updatingFees, setUpdatingFees] = useState(false);
   const [settings, setSettings] = useState(null);
 
-  const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
-  const token = localStorage.getItem("token");
-
   const handleChangePassword = async (values) => {
     setLoading(true);
     try {
-      console.log("API_BASE:", API_BASE);
-      console.log("Full URL:", `${API_BASE}/api/auth/change-password`);
-      console.log("Token:", token ? "Present" : "Missing");
-      
-      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          currentPassword: values.currentPassword,
-          newPassword: values.newPassword,
-        }),
+      const res = await apiClient.post('/api/auth/change-password', {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
       });
-
-      console.log("Response status:", res.status);
-      const data = await res.json();
-      console.log("Response data:", data);
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to change password");
-      }
 
       message.success({
         content: "Password updated successfully! Your new password is now active.",
@@ -64,12 +43,8 @@ export default function AdminSettings() {
   const fetchSettings = async () => {
     setSettingsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to load settings');
-      setSettings(data);
+      const res = await apiClient.get('/api/admin/settings');
+      setSettings(res.data);
       feesForm.setFieldsValue({
         garbageFeeRegularAnnual: data.garbageFeeRegularAnnual,
         garbageFeeBusinessAnnual: data.garbageFeeBusinessAnnual,
@@ -100,14 +75,8 @@ export default function AdminSettings() {
           barangayClearance: Number(values.barangayClearanceFee)
         }
       };
-      const res = await fetch(`${API_BASE}/api/admin/settings`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update fees');
-      setSettings(data);
+      const res = await apiClient.patch('/api/admin/settings', payload);
+      setSettings(res.data);
       message.success('Fees updated successfully');
     } catch (e) {
       message.error(e.message);

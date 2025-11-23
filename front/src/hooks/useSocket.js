@@ -21,42 +21,32 @@ export const useSocket = (onNewNotification, onNotificationUpdate, onNotificatio
     const socket = socketRef.current;
 
     // Connection event handlers
-    socket.on('connect', () => {
-      console.log('✅ Socket connected:', socket.id);
-    });
+    socket.on('connect', () => {});
 
-    socket.on('disconnect', (reason) => {
-      console.log('❌ Socket disconnected:', reason);
-    });
+    socket.on('disconnect', (reason) => {});
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error.message);
-    });
+    socket.on('connect_error', (error) => {});
 
     // Notification event handlers
     socket.on('notification:new', (data) => {
-      console.log('📨 New notification received:', data);
       if (onNewNotification) {
         onNewNotification(data.notification);
       }
     });
 
     socket.on('notification:update', (data) => {
-      console.log('🔄 Notification updated:', data);
       if (onNotificationUpdate) {
         onNotificationUpdate(data.notificationId, data.updates);
       }
     });
 
     socket.on('notification:delete', (data) => {
-      console.log('🗑️ Notification deleted:', data);
       if (onNotificationDelete) {
         onNotificationDelete(data.notificationId);
       }
     });
 
     socket.on('notifications:refresh', () => {
-      console.log('🔄 Refresh notifications requested');
       // This can trigger a full refresh if needed
     });
 
@@ -71,7 +61,6 @@ export const useSocket = (onNewNotification, onNotificationUpdate, onNotificatio
         socket.off('notification:delete');
         socket.off('notifications:refresh');
         socket.disconnect();
-        console.log('🔌 Socket disconnected and cleaned up');
       }
     };
   }, [onNewNotification, onNotificationUpdate, onNotificationDelete]);

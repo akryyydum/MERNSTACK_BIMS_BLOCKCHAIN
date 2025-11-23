@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import { Tabs, Table, Pagination } from "antd";
 import {
   AlertTriangle,
@@ -182,11 +182,7 @@ export default function ResidentPayment() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const response = await axios.get(`${API_BASE}/api/resident/payments`, {
-        headers,
-      });
+      const response = await apiClient.get('/api/resident/payments');
 
       // Store the payment summary for annual calculations
       setPaymentSummary(response.data);

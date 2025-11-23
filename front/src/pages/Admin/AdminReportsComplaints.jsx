@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import dayjs from "dayjs";
 import {
   DropdownMenu,
@@ -81,11 +81,7 @@ export default function AdminReportsComplaints() {
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_BASE}/api/admin/complaints`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/complaints');
       setComplaints(res.data);
       // Reset to first page when data is refreshed
       setCurrentPage(1);
@@ -97,11 +93,7 @@ export default function AdminReportsComplaints() {
 
   const fetchResidents = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_BASE}/api/admin/residents`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/residents');
       setResidents(res.data);
     } catch (err) {
       console.error("Failed to load residents:", err);
@@ -115,11 +107,9 @@ export default function AdminReportsComplaints() {
       if (values.category === "Other") {
         values = { ...values, category: customCategory || "Other" };
       }
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `${API_BASE}/api/admin/complaints`,
-        values,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.post(
+        '/api/admin/complaints',
+        values
       );
       message.success("Complaint created successfully!");
       setCreateOpen(false);
@@ -135,11 +125,9 @@ export default function AdminReportsComplaints() {
 
   const handleStatusUpdate = async (id, status, response = "") => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API_BASE}/api/admin/complaints/${id}/status`,
-        { status, response },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.patch(
+        `/api/admin/complaints/${id}/status`,
+        { status, response }
       );
       message.success("Status updated successfully!");
       fetchComplaints();
@@ -150,10 +138,8 @@ export default function AdminReportsComplaints() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/admin/complaints/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/admin/complaints/${id}`
       );
       message.success("Complaint deleted successfully!");
       fetchComplaints();

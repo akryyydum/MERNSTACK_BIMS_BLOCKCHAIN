@@ -12,7 +12,7 @@ import {
   DownloadOutlined,
   WarningOutlined
 } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import { useNavigate } from "react-router-dom";
 
 import ResidentNavbar from './ResidentNavbar';
@@ -62,17 +62,8 @@ export default function ResidentRequest() {
   // Fetch resident profile information
   const fetchResidentProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.log("No token found for resident profile fetch");
-        return;
-      }
-
       console.log("Fetching resident profile...");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/profile');
       
       console.log("Resident profile API response:", res.data);
       
@@ -115,18 +106,8 @@ export default function ResidentRequest() {
   // Fetch household information and members
   const fetchHouseholdInfo = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.log("No token found for household fetch");
-        setIsInHousehold(false);
-        return;
-      }
-
       console.log("Fetching household info...");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/household`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/household');
       
       console.log("Household API response:", res.data);
       
@@ -174,16 +155,7 @@ export default function ResidentRequest() {
   const checkPaymentStatus = async () => {
     setCheckingPayment(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in. Please log in first.");
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests/payment-status`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/document-requests/payment-status');
       setPaymentStatus(res.data);
     } catch (error) {
       console.error("Error checking payment status:", error);
@@ -213,12 +185,7 @@ export default function ResidentRequest() {
   // Fetch resident payment records to show paid/unpaid months for current year
   const fetchPaymentsSummary = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/payments`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/payments');
       setPaymentsSummary(res.data);
 
       const currentYear = new Date().getFullYear();
@@ -246,17 +213,7 @@ export default function ResidentRequest() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in. Please log in first.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/document-requests');
       const baseRequests = Array.isArray(res.data) ? res.data : [];
       setRequests(baseRequests);
       // Fetch blockchain statuses after setting base requests
@@ -282,12 +239,7 @@ export default function ResidentRequest() {
   // Fetch blockchain request statuses for this resident and merge
   const fetchBlockchainStatuses = async (current = requests) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const chainRes = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/blockchain/requests/me`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const chainRes = await apiClient.get('/api/blockchain/requests/me');
       const chainData = Array.isArray(chainRes.data) ? chainRes.data : [];
       const map = new Map(
         chainData.map(r => [r.requestId, r])
@@ -1020,12 +972,6 @@ export default function ResidentRequest() {
                   onFinish={async (values) => {
                     try {
                       setCreating(true);
-                      const token = localStorage.getItem("token");
-                      if (!token) {
-                        message.error("You are not logged in. Please log in first.");
-                        setCreating(false);
-                        return;
-                      }
                       const payload = {
                         documentType: values.documentType,
                         quantity: values.quantity,
@@ -1035,10 +981,9 @@ export default function ResidentRequest() {
                         requestFor: values.requestFor,
                         ...(values.businessName && { businessName: values.businessName })
                       };
-                      await axios.post(
-                        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-                        payload,
-                        { headers: { Authorization: `Bearer ${token}` } }
+                      await apiClient.post(
+                        '/api/document-requests',
+                        payload
                       );
                       message.success("Document request submitted successfully!");
                       setCreateOpen(false);

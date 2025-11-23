@@ -90,8 +90,7 @@ export default function ResidentPublicDocuments() {
       const res = await apiClient.get(
         `/api/resident/public-documents/${record._id}/preview`,
         {
-          responseType: "blob",
-          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob"
         }
       );
       const blob = res.data;

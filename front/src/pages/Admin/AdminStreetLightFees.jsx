@@ -237,11 +237,8 @@ export default function AdminStreetLightFees() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/admin/settings`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        const data = await res.json();
-        if (res.ok) setSettings(data);
+        const res = await apiClient.get('/api/admin/settings');
+        setSettings(res.data);
       } catch (_) {}
     };
     fetchSettings();

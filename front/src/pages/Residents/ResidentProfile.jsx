@@ -29,7 +29,7 @@ import {
 } from '@ant-design/icons';
 import ResidentNavbar from './ResidentNavbar';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import axios from 'axios';
+import apiClient from '@/utils/apiClient';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -59,11 +59,8 @@ const ResidentProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/resident/profile');
       setProfile(response.data);
       setEditedProfile(response.data);
     } catch (error) {
@@ -76,10 +73,7 @@ const ResidentProfile = () => {
 
   const fetchAllResidents = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/residents?limit=10000`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/admin/residents?limit=10000');
       setAllResidents(response.data.items || []);
     } catch (error) {
       console.error('Error fetching residents:', error);
@@ -88,10 +82,7 @@ const ResidentProfile = () => {
 
   const fetchAllUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/users?limit=10000`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/admin/users?limit=10000');
       setAllUsers(response.data.items || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -195,7 +186,6 @@ const ResidentProfile = () => {
 
     try {
       setSaving(true);
-      const token = localStorage.getItem('token');
       
       // Prepare payload with only updatable fields
       const payload = {
@@ -228,12 +218,9 @@ const ResidentProfile = () => {
         }
       };
       
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      const response = await apiClient.put(
+        '/api/resident/profile',
+        payload
       );
       
       const updatedResident = response.data.resident;

@@ -5,7 +5,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown, Info } from "lucide-react";
 import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined, CloseOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import * as XLSX from 'xlsx';
 import {
   DropdownMenu,
@@ -241,11 +241,8 @@ export default function AdminGarbageFees() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/admin/settings`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        const data = await res.json();
-        if (res.ok) setSettings(data);
+        const res = await apiClient.get('/api/admin/settings');
+        setSettings(res.data);
       } catch (_) {}
     };
     fetchSettings();
@@ -302,14 +299,10 @@ export default function AdminGarbageFees() {
     validateExportData();
   }, [exportOpen, households, garbagePayments, exportForm]);
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
-
   const fetchHouseholds = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/households');
       // Show most recently added household first
       const data = Array.isArray(res.data) ? res.data.slice().reverse() : [];
       setHouseholds(data);
@@ -322,7 +315,7 @@ export default function AdminGarbageFees() {
 
   const fetchGarbagePayments = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/garbage-payments`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/garbage-payments');
       setGarbagePayments(res.data || []);
     } catch (err) {
       console.error("Error fetching garbage payments:", err);
@@ -340,8 +333,7 @@ export default function AdminGarbageFees() {
       for (let month = 1; month <= 12; month++) {
         const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
         try {
-          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/garbage`, {
-            headers: authHeaders(),
+          const res = await apiClient.get(`/api/admin/households/${householdId}/garbage`, {
             params: { month: monthStr },
           });
           monthStatuses[monthStr] = {
@@ -555,8 +547,7 @@ export default function AdminGarbageFees() {
 
   const fetchFeeSummary = async (householdId, monthStr) => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/garbage`, {
-        headers: authHeaders(),
+      const res = await apiClient.get(`/api/admin/households/${householdId}/garbage`, {
         params: { month: monthStr },
       });
       setPaySummary(res.data);
@@ -670,10 +661,9 @@ export default function AdminGarbageFees() {
           paidByName: payHousehold?.payingMember ? fullName(payHousehold.payingMember) : fullName(payHousehold.headOfHousehold),
         };
         
-        return axios.post(
-          `${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`,
-          payload,
-          { headers: authHeaders() }
+        return apiClient.post(
+          `/api/admin/households/${payHousehold._id}/garbage/pay`,
+          payload
         );
       });
       
@@ -719,9 +709,7 @@ export default function AdminGarbageFees() {
     try {
       setRefreshing(true);
       
-      const res = await axios.delete(`${API_BASE}/api/admin/households/${household._id}/garbage/payments`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.delete(`/api/admin/households/${household._id}/garbage/payments`);
       
       message.success(`${res.data.deletedCount} payment records deleted for ${household.householdId}. Reset to unpaid status.`);
       
@@ -754,9 +742,8 @@ export default function AdminGarbageFees() {
 
       for (const householdId of selectedRowKeys) {
         try {
-          await axios.delete(
-            `${API_BASE}/api/admin/households/${householdId}/garbage/payments`,
-            { headers: authHeaders() }
+          await apiClient.delete(
+            `/api/admin/households/${householdId}/garbage/payments`
           );
           successCount++;
         } catch (err) {
@@ -811,8 +798,7 @@ export default function AdminGarbageFees() {
       for (let month = 1; month <= 12; month++) {
         const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
         try {
-          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/streetlight`, {
-            headers: authHeaders(),
+          const res = await apiClient.get(`/api/admin/households/${householdId}/streetlight`, {
             params: { month: monthStr },
           });
           monthStatuses[monthStr] = {
@@ -957,10 +943,9 @@ export default function AdminGarbageFees() {
         
         console.log("Garbage payment payload for month", monthKey, ":", payload);
         
-        return axios.post(
-          `${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`,
-          payload,
-          { headers: authHeaders() }
+        return apiClient.post(
+          `/api/admin/households/${payHousehold._id}/garbage/pay`,
+          payload
         );
       });
 
@@ -980,7 +965,7 @@ export default function AdminGarbageFees() {
         
         console.log("Streetlight payment payload for month", monthKey, ":", payload);
         
-        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`, payload, { headers: authHeaders() });
+        return apiClient.post(`/api/admin/households/${payHousehold._id}/streetlight/pay`, payload);
       });
 
       // Submit both payments simultaneously
@@ -1061,7 +1046,7 @@ export default function AdminGarbageFees() {
         
         console.log("Streetlight payment payload for month", monthKey, ":", payload);
         
-        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`, payload, { headers: authHeaders() });
+        return apiClient.post(`/api/admin/households/${payHousehold._id}/streetlight/pay`, payload);
       });
 
       await Promise.all(paymentPromises);
@@ -1209,8 +1194,7 @@ export default function AdminGarbageFees() {
       setHistoryOpen(true);
       
       // Fetch payment history for this household
-      const res = await axios.get(`${API_BASE}/api/admin/garbage-payments`, {
-        headers: authHeaders(),
+      const res = await apiClient.get('/api/admin/garbage-payments', {
         params: { householdId: household._id }
       });
       
@@ -1252,7 +1236,7 @@ export default function AdminGarbageFees() {
     try {
       // Fetch fresh payment data
       console.log('Fetching garbage payments...');
-      const paymentRes = await axios.get(`${API_BASE}/api/admin/garbage-payments`, { headers: authHeaders() });
+      const paymentRes = await apiClient.get('/api/admin/garbage-payments');
       const freshGarbagePayments = paymentRes.data || [];
       console.log('Garbage payments fetched:', freshGarbagePayments.length);
       
@@ -1421,7 +1405,7 @@ export default function AdminGarbageFees() {
     setExporting(true);
     try {
       // Fetch fresh payment data before exporting
-      const paymentRes = await axios.get(`${API_BASE}/api/admin/garbage-payments`, { headers: authHeaders() });
+      const paymentRes = await apiClient.get('/api/admin/garbage-payments');
       const freshGarbagePayments = paymentRes.data || [];
       
       console.log('Fresh payment data for export:', freshGarbagePayments);
