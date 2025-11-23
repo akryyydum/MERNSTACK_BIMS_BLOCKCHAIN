@@ -39,7 +39,7 @@ function sanitizeObject(obj, options = defaultOptions) {
   if (typeof obj === 'object') {
     const sanitized = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         // Skip dangerous prototype properties
         if (['__proto__', 'constructor', 'prototype'].includes(key)) {
           continue;
