@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Tabs, Alert } from "antd";
 import ResidentNavbar from "./ResidentNavbar";
+import apiClient from "../../utils/apiClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   PlusOutlined, 
@@ -50,16 +51,7 @@ export default function ResidentReportsComplaints() {
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in.");
-        setLoading(false);
-        return;
-      }
-      const res = await axios.get(
-        `${API_BASE}/api/resident/complaints`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/complaints');
       setComplaints(res.data);
     } catch (err) {
       const status = err.response?.status;
@@ -81,7 +73,6 @@ export default function ResidentReportsComplaints() {
     try {
       setCreating(true);
       const values = await createForm.validateFields();
-      const token = localStorage.getItem("token");
       
       // If Other category is selected, use the custom category text
       const submitData = {
@@ -91,10 +82,9 @@ export default function ResidentReportsComplaints() {
           : values.category
       };
       
-      await axios.post(
-        `${API_BASE}/api/resident/complaints`,
-        submitData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.post(
+        '/api/resident/complaints',
+        submitData
       );
       
       message.success("Complaint submitted successfully!");
@@ -121,7 +111,6 @@ export default function ResidentReportsComplaints() {
     try {
       setUpdating(true);
       const values = await editForm.validateFields();
-      const token = localStorage.getItem("token");
       
       // If Other category is selected, use the custom category text
       const submitData = {
@@ -131,10 +120,9 @@ export default function ResidentReportsComplaints() {
           : values.category
       };
       
-      await axios.put(
-        `${API_BASE}/api/resident/complaints/${editComplaint._id}`,
-        submitData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.put(
+        `/api/resident/complaints/${editComplaint._id}`,
+        submitData
       );
       
       message.success("Complaint updated successfully!");
@@ -158,10 +146,8 @@ export default function ResidentReportsComplaints() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/resident/complaints/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/resident/complaints/${id}`
       );
       message.success("Complaint deleted successfully!");
       fetchComplaints();

@@ -9,6 +9,7 @@ import {
   ClusterOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
+import apiClient from "../../utils/apiClient";
 import dayjs from "dayjs";
 import ResidentNavbar from "./ResidentNavbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -47,10 +48,7 @@ export default function ResidentPublicDocuments() {
   const fetchDocs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${baseURL}/api/resident/public-documents`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/resident/public-documents');
       setDocs(res.data);
     } catch {
       message.error("Failed to load documents");
@@ -89,9 +87,8 @@ export default function ResidentPublicDocuments() {
       setPreviewUrl(null);
     }
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${baseURL}/api/resident/public-documents/${record._id}/preview`,
+      const res = await apiClient.get(
+        `/api/resident/public-documents/${record._id}/preview`,
         {
           responseType: "blob",
           headers: { Authorization: `Bearer ${token}` },
@@ -119,12 +116,10 @@ export default function ResidentPublicDocuments() {
 
   const download = async record => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${baseURL}/api/resident/public-documents/${record._id}/download`,
+      const res = await apiClient.get(
+        `/api/resident/public-documents/${record._id}/download`,
         {
-          responseType: "blob",
-          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob"
         }
       );
       const url = window.URL.createObjectURL(res.data);

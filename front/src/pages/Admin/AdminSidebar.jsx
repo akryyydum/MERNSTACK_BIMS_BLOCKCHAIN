@@ -102,10 +102,24 @@ export default function AdminSidebar({
     });
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to clear HTTP-only cookies
+      const API_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem("role");
+      navigate("/login", { replace: true });
+    }
   };
 
   const base = "bg-slate-200 text-slate-900 border-r border-slate-300  ";

@@ -5,6 +5,7 @@ const cors = require('cors');
 const http = require('http');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const { metricsMiddleware } = require('./utils/metrics');
 const { sanitizeMiddleware } = require('./middleware/sanitize');
 
@@ -151,6 +152,7 @@ app.use(cors({
 
 
 app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
 
 // Apply custom sanitization AFTER json parsing so we can mutate safely.
 app.use((req, _res, next) => {

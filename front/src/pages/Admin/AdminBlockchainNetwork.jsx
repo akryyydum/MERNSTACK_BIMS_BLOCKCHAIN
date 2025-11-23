@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Table, Input, Button, Tag, message, Space, Typography, Tabs } from "antd";
 import { SearchOutlined, FileTextOutlined, ReloadOutlined, CloudSyncOutlined, FolderOpenOutlined, DollarOutlined, BlockOutlined, UserOutlined } from "@ant-design/icons";
 import axios from "axios";
+import apiClient from "../../utils/apiClient";
 import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +19,6 @@ export default function AdminBlockchainNetwork() {
   const [publicDocs, setPublicDocs] = useState([]);
   const [finance, setFinance] = useState([]); // on-chain financial transactions
 
-  const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-  const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
@@ -27,10 +26,7 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "requests") return; // only fetch for requests tab
     setLoading(true);
     try {
-      const res = await axios.get(`${baseURL}/api/blockchain/requests`, {
-        // back-end ignores filter for now; we'll filter client-side
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/blockchain/requests');
       setResults(Array.isArray(res.data) ? res.data : []);
       setLastFetchedAt(new Date());
     } catch (err) {
@@ -43,9 +39,7 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "finance") return; // only fetch for finance tab
     setLoading(true);
     try {
-      const res = await axios.get(`${baseURL}/api/blockchain/financial-transactions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/blockchain/financial-transactions');
       setFinance(Array.isArray(res.data) ? res.data : []);
       setLastFetchedAt(new Date());
     } catch (err) {
@@ -59,9 +53,7 @@ export default function AdminBlockchainNetwork() {
     setLoading(true);
     try {
       // Fetch combined data from admin endpoint (contains mongoDocs with status + blockchainDocs raw)
-      const res = await axios.get(`${baseURL}/api/admin/public-documents`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/admin/public-documents');
       const mongoDocs = res.data?.mongoDocs || [];
       const blockchainDocs = res.data?.blockchainDocs || [];
 
@@ -86,9 +78,7 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "requests") return; // only valid for requests tab
     setLoading(true);
     try {
-      await axios.post(`${baseURL}/api/blockchain/sync-from-db`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiClient.post('/api/blockchain/sync-from-db');
       message.success('Sync complete');
       await handleSearch();
     } catch (err) {

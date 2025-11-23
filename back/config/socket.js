@@ -34,7 +34,26 @@ const initializeSocket = (server) => {
   // Middleware to authenticate socket connections
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth.token;
+      // Try to get token from cookies first, then fallback to auth.token
+      let token = null;
+      
+      // Parse cookies from handshake headers
+      const cookies = socket.handshake.headers.cookie;
+      if (cookies) {
+        const cookieArray = cookies.split(';');
+        for (const cookie of cookieArray) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'accessToken') {
+            token = value;
+            break;
+          }
+        }
+      }
+      
+      // Fallback to auth.token for backward compatibility
+      if (!token) {
+        token = socket.handshake.auth.token;
+      }
       
       if (!token) {
         return next(new Error('Authentication error'));

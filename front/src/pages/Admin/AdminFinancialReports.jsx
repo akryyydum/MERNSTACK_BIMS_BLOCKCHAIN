@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp } from "lucide-react";
 import { UserOutlined, FileTextOutlined, DeleteOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from '../../utils/apiClient';
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 
@@ -200,20 +200,11 @@ export default function AdminFinancialReports() {
     validateExportData();
   }, [exportOpen, transactions]);
 
-  // Helper function for auth headers
-  const authHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
+
 
   const fetchDashboard = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/financial/dashboard`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.get('/api/admin/financial/dashboard');
       
       console.log('Dashboard data:', res.data);
       console.log('Revenue by type:', res.data.revenueByType);
@@ -230,10 +221,7 @@ export default function AdminFinancialReports() {
     try {
       console.log('Fetching transactions');
 
-      const res = await axios.get(
-        `${API_BASE}/api/admin/financial/transactions`,
-        { headers: authHeaders() }
-      );
+      const res = await apiClient.get('/api/admin/financial/transactions');
       
       console.log('Transactions fetched:', res.data.transactions?.length);
       const fetchedTransactions = (res.data.transactions || []).map((tx) => ({
@@ -258,9 +246,7 @@ export default function AdminFinancialReports() {
 
   const fetchResidents = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/residents`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.get('/api/admin/residents');
       const raw = res.data;
       const list = Array.isArray(raw) ? raw : (raw?.residents || raw?.data || []);
       if (!Array.isArray(list)) {
@@ -278,9 +264,7 @@ export default function AdminFinancialReports() {
 
   const fetchHouseholds = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/households`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.get('/api/admin/households');
       const list = Array.isArray(res.data) ? res.data : [];
       setHouseholds(list);
       console.log('Households loaded:', list.length);
@@ -347,9 +331,7 @@ export default function AdminFinancialReports() {
       }
       
       console.log('Creating transaction with values:', payload);
-      await axios.post(`${API_BASE}/api/admin/financial/transactions`, payload, {
-        headers: authHeaders()
-      });
+      await apiClient.post('/api/admin/financial/transactions', payload);
       
       console.log('Transaction created successfully, refreshing dashboard...');
       message.success('Transaction created successfully!');
@@ -491,10 +473,9 @@ export default function AdminFinancialReports() {
       setCreating(true);
       const values = await editForm.validateFields();
       
-      await axios.put(
-        `${API_BASE}/api/admin/financial/transactions/${editTransaction._id}`, 
-        values, 
-        { headers: authHeaders() }
+      await apiClient.put(
+        `/api/admin/financial/transactions/${editTransaction._id}`, 
+        values
       );
       
       message.success('Transaction updated successfully!');
@@ -572,7 +553,7 @@ export default function AdminFinancialReports() {
         console.log('Adding paymentIndex to delete URL:', paymentIndex);
       }
 
-      const response = await axios.delete(deleteUrl, { headers: authHeaders() });
+      const response = await apiClient.delete(deleteUrl);
       
       console.log('Delete response:', response.data);
       
@@ -620,10 +601,9 @@ export default function AdminFinancialReports() {
             return;
           }
 
-          const response = await axios.post(
-            `${API_BASE}/api/admin/financial/transactions/bulk-delete`,
-            { ids: uniqueKeys },
-            { headers: authHeaders() }
+          const response = await apiClient.post(
+            '/api/admin/financial/transactions/bulk-delete',
+            { ids: uniqueKeys }
           );
           
           console.log('Bulk delete response:', response.data); // Debug log
@@ -667,7 +647,6 @@ export default function AdminFinancialReports() {
   async function handleDeleteAllTransactions(groupRecord) {
     try {
       setDeletingId(groupRecord.__rowKey);
-      const token = localStorage.getItem('token');
       let successCount = 0;
       let failCount = 0;
 
@@ -675,14 +654,14 @@ export default function AdminFinancialReports() {
         try {
           // Utility synthesized payment (garbage/streetlight) entries
           if (tx.isUtilityPayment && tx.mongoId && tx.paymentIndex !== undefined) {
-            await axios.delete(`${API_BASE}/api/admin/financial/transactions/${tx.mongoId}?paymentIndex=${tx.paymentIndex}`, { headers: { Authorization: `Bearer ${token}` } });
+            await apiClient.delete(`/api/admin/financial/transactions/${tx.mongoId}?paymentIndex=${tx.paymentIndex}`);
             successCount++;
             continue;
           }
           // Real FinancialTransaction
           const isObjectId = typeof tx._id === 'string' && /^[0-9a-fA-F]{24}$/.test(tx._id);
           if (isObjectId) {
-            await axios.delete(`${API_BASE}/api/admin/financial/transactions/${tx._id}`, { headers: { Authorization: `Bearer ${token}` } });
+            await apiClient.delete(`/api/admin/financial/transactions/${tx._id}`);
             successCount++;
             continue;
           }
@@ -690,7 +669,7 @@ export default function AdminFinancialReports() {
           if (typeof tx._id === 'string' && tx._id.startsWith('document_')) {
             const docId = tx._id.replace('document_', '');
             if (/^[0-9a-fA-F]{24}$/.test(docId)) {
-              await axios.delete(`${API_BASE}/api/admin/document-requests/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
+              await apiClient.delete(`/api/admin/document-requests/${docId}`);
               successCount++;
               continue;
             }

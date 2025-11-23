@@ -8,6 +8,7 @@ const sendEmail = require('../utils/sendEmail');
 const { generateTokenPair } = require('../utils/tokenManager');
 const { logAuthEvent, ActionType } = require('../utils/auditLogger');
 const { recordAuthAttempt } = require('../utils/metrics');
+const { encryptForStorage } = require('../utils/storageEncryption');
 
 function normalize(str) {
   return String(str || '').trim();
@@ -229,17 +230,34 @@ async function login(req, res) {
     // Generate token pair (access + refresh)
     const tokens = generateTokenPair(tokenPayload);
     
+    // Set HTTP-only cookies for maximum security
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: isProduction, // HTTPS only in production
+      sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production, 'lax' for dev
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/',
+    });
+    
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+    
     // Log successful login
     await logAuthEvent(ActionType.LOGIN, user._id, 'success', req, { role: user.role });
     recordAuthAttempt('success');
     
     res.json({ 
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      token: tokens.accessToken, // For backward compatibility
       role: user.role, 
       isVerified, 
-      userData 
+      userData,
+      message: 'Login successful'
     });
   } catch (err) {
     console.error('[AUTH] Login error', err);

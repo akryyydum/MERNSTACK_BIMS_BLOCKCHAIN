@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
 import PaymentStatusAlert from './PaymentStatusAlert';
+import apiClient from "../../utils/apiClient";
 import { Button, message, Spin } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
@@ -44,16 +45,7 @@ export default function ResidentDashboard() {
   // Fetch resident profile from API
   const fetchResidentProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setResident(residentData);
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/profile');
       
       setResident(res.data);
     } catch (error) {
@@ -90,15 +82,7 @@ export default function ResidentDashboard() {
   const checkPaymentStatus = async () => {
     setCheckingPayment(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests/payment-status`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/document-requests/payment-status');
       setPaymentStatus(res.data);
     } catch (error) {
       if (error.response?.status === 401 || error.response?.status === 403) {
@@ -134,10 +118,6 @@ export default function ResidentDashboard() {
   // Fetch real payment data from the API
   const fetchRealPayments = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        return;
-      }
 
       const response = await axios.get(
         `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/payments`,
@@ -279,17 +259,7 @@ export default function ResidentDashboard() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in. Please log in first.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/document-requests');
       setRequests(res.data);
       
       // Note: Do not overwrite resident data from localStorage with document request data
@@ -308,15 +278,7 @@ export default function ResidentDashboard() {
   // Fetch complaints/reports from API
   const fetchComplaints = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/complaints`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/complaints');
       
       setComplaints(res.data);
     } catch (error) {

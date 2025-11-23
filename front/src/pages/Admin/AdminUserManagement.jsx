@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
+import apiClient from "../../utils/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
 import { UserOutlined } from "@ant-design/icons";
@@ -103,22 +104,12 @@ export default function AdminUserManagement() {
     ],
   };
 
-  const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const authHeaders = useMemo(
-    () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
-    [token]
-  );
-
   const fetchUsers = async () => {
     setLoading(true);
     try {
       // Fetch all users without pagination (like resident management)
-      const res = await fetch(`${API_BASE}/api/admin/users?limit=1000`, {
-        headers: authHeaders,
-      });
-      if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
-      const data = await res.json();
+      const res = await apiClient.get('/api/admin/users?limit=1000');
+      const data = res.data;
       setUsers(data.items || []);
       setAllUsers(data.items || []);
       setTotal(data.total || (data.items || []).length);

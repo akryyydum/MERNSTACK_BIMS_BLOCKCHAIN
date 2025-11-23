@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined, FileExcelOutlined, FilterOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from '../../utils/apiClient';
 import * as XLSX from 'xlsx';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
@@ -163,13 +163,11 @@ export default function HouseholdManagement() {
     validateExportData();
   }, [exportOpen, households, exportForm]);
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
+
 
   const fetchResidents = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/residents`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/residents');
       setResidents(res.data || []);
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to load residents");
@@ -179,7 +177,7 @@ export default function HouseholdManagement() {
   const fetchHouseholds = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/households');
       console.log("Households response:", res.data);
       // Handle both array and object responses
       let data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
@@ -218,7 +216,7 @@ export default function HouseholdManagement() {
         hasBusiness: values.hasBusiness || false,
         businessType: values.businessType || null,
       };
-      await axios.post(`${API_BASE}/api/admin/households`, payload, { headers: authHeaders() });
+      await apiClient.post('/api/admin/households', payload);
       message.success("Household added!");
       setAddOpen(false);
       addForm.resetFields();
@@ -273,7 +271,7 @@ export default function HouseholdManagement() {
         hasBusiness: values.hasBusiness || false,
         businessType: values.businessType || null,
       };
-      await axios.patch(`${API_BASE}/api/admin/households/${selectedHousehold._id}`, payload, { headers: authHeaders() });
+      await apiClient.patch(`/api/admin/households/${selectedHousehold._id}`, payload);
       message.success("Household updated!");
       setEditOpen(false);
       fetchHouseholds();
@@ -287,7 +285,7 @@ export default function HouseholdManagement() {
   // Delete Household
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API_BASE}/api/admin/households/${id}`, { headers: authHeaders() });
+      await apiClient.delete(`/api/admin/households/${id}`);
       message.success("Household deleted!");
       fetchHouseholds();
     } catch (err) {
@@ -306,7 +304,7 @@ export default function HouseholdManagement() {
       // Delete households one by one
       await Promise.all(
         selectedRowKeys.map(id =>
-          axios.delete(`${API_BASE}/api/admin/households/${id}`, { headers: authHeaders() })
+          apiClient.delete(`/api/admin/households/${id}`)
         )
       );
       

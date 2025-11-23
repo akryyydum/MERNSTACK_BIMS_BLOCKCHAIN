@@ -26,7 +26,7 @@ import {
   UserOutlined,
   EyeOutlined,
 } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from '../../utils/apiClient';
 import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -82,10 +82,7 @@ export default function AdminPublicDocuments() {
   const fetchDocs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${baseURL}/api/admin/public-documents`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/admin/public-documents');
       // Accept both legacy array and new object shape { mongoDocs, blockchainDocs }
       const list = Array.isArray(res.data) ? res.data : (res.data?.mongoDocs || []);
       setDocs(list);
@@ -152,10 +149,8 @@ export default function AdminPublicDocuments() {
       fd.append("file", fileObj);
 
       setUploading(true);
-      const token = localStorage.getItem("token");
-      await axios.post(`${baseURL}/api/admin/public-documents`, fd, {
+      await apiClient.post('/api/admin/public-documents', fd, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });
@@ -175,10 +170,7 @@ export default function AdminPublicDocuments() {
 
   const handleDelete = async id => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`${baseURL}/api/admin/public-documents/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiClient.delete(`/api/admin/public-documents/${id}`);
       setDocs(prev => prev.filter(d => d._id !== id));
       message.success("Deleted");
     } catch {
@@ -188,12 +180,10 @@ export default function AdminPublicDocuments() {
 
   const download = async record => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${baseURL}/api/admin/public-documents/${record._id}/download`,
+      const res = await apiClient.get(
+        `/api/admin/public-documents/${record._id}/download`,
         {
           responseType: "blob",
-          headers: { Authorization: `Bearer ${token}` },
         }
       );
       const url = window.URL.createObjectURL(res.data);
@@ -235,12 +225,10 @@ export default function AdminPublicDocuments() {
     setPreviewLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${baseURL}/api/admin/public-documents/${record._id}/download`,
+      const res = await apiClient.get(
+        `/api/admin/public-documents/${record._id}/download`,
         {
           responseType: "blob",
-          headers: { Authorization: `Bearer ${token}` },
         }
       );
 

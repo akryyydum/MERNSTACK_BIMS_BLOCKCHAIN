@@ -138,7 +138,8 @@ function authenticateToken(req, res, next) {
  */
 async function refreshTokenHandler(req, res, User) {
   try {
-    const { refreshToken } = req.body;
+    // Get refresh token from cookie or body
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
     
     if (!refreshToken) {
       return res.status(400).json({ message: 'Refresh token required' });
@@ -164,14 +165,32 @@ async function refreshTokenHandler(req, res, User) {
     
     const tokens = generateTokenPair(tokenPayload);
     
+    // Set new tokens in HTTP-only cookies
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/',
+    });
+    
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+    
     // Optional: Store new refresh token in DB and invalidate old one
     // user.refreshTokens = user.refreshTokens || [];
     // user.refreshTokens.push({ token: tokens.refreshToken, createdAt: new Date() });
     // await user.save();
     
     res.json({
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      message: 'Tokens refreshed successfully'
     });
   } catch (error) {
     console.error('[Token] Refresh error:', error.message);
@@ -184,22 +203,28 @@ async function refreshTokenHandler(req, res, User) {
  */
 async function logoutHandler(req, res, User) {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
     
-    if (!refreshToken) {
-      return res.status(400).json({ message: 'Refresh token required' });
+    if (refreshToken) {
+      try {
+        const decoded = verifyRefreshToken(refreshToken);
+        
+        // Optional: Remove token from user's whitelist in DB
+        // const user = await User.findById(decoded.id);
+        // if (user) {
+        //   user.refreshTokens = (user.refreshTokens || []).filter(
+        //     t => t.token !== refreshToken
+        //   );
+        //   await user.save();
+        // }
+      } catch (error) {
+        console.error('[Token] Logout token verification error:', error.message);
+      }
     }
     
-    const decoded = verifyRefreshToken(refreshToken);
-    
-    // Optional: Remove token from user's whitelist in DB
-    // const user = await User.findById(decoded.id);
-    // if (user) {
-    //   user.refreshTokens = (user.refreshTokens || []).filter(
-    //     t => t.token !== refreshToken
-    //   );
-    //   await user.save();
-    // }
+    // Clear cookies
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/' });
     
     res.json({ message: 'Logged out successfully' });
   } catch (error) {

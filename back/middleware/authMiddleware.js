@@ -1,11 +1,17 @@
 const jwt = require('jsonwebtoken');
 
 exports.auth = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.split(' ')[1];
+    // Try to get token from cookie first, then fallback to Authorization header
+    let token = req.cookies?.accessToken;
+    
+    if (!token) {
+        const authHeader = req.headers.authorization;
+        token = authHeader?.split(' ')[1];
+    }
     
     console.log("Auth middleware check:", {
-        authHeader: authHeader ? "Present" : "Missing",
+        cookieToken: req.cookies?.accessToken ? "Present" : "Missing",
+        headerToken: req.headers.authorization ? "Present" : "Missing",
         token: token ? "Present" : "Missing",
         url: req.originalUrl,
         method: req.method

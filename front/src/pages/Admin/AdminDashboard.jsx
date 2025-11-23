@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AdminLayout } from './AdminSidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import apiClient from '../../utils/apiClient';
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Table, Tag, Progress, Space, Divider, message, Button } from 'antd';
@@ -88,31 +89,25 @@ export default function AdminDashboard() {
     const abort = new AbortController();
     (async () => {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
       try {
-        const endpoints = [
-          `${API_BASE}/api/admin/residents`,
-          `${API_BASE}/api/admin/officials`,
-          `${API_BASE}/api/admin/document-requests`,
-          `${API_BASE}/api/admin/complaints`,
-          `${API_BASE}/api/admin/financial/dashboard`,
-          `${API_BASE}/api/admin/financial/transactions?limit=10`
-        ];
         // Load core dashboard data first and tolerate partial failures
-        const settled = await Promise.allSettled(
-          endpoints.map(url => fetch(url, { headers, signal: abort.signal }))
+        const settled = await Promise.allSettled([
+          apiClient.get('/api/admin/residents'),
+          apiClient.get('/api/admin/officials'),
+          apiClient.get('/api/admin/document-requests'),
+          apiClient.get('/api/admin/complaints'),
+          apiClient.get('/api/admin/financial/dashboard'),
+          apiClient.get('/api/admin/financial/transactions', { params: { limit: 10 } })
+        ]);
+        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = settled.map(
+          (r) => (r.status === 'fulfilled' ? r.value.data : null)
         );
-        const jsons = await Promise.all(
-          settled.map(async (r) => (r.status === 'fulfilled' && r.value.ok) ? r.value.json() : null)
-        );
-        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = jsons;
 
         // Fetch blockchain status separately; don't block dashboard if it fails
         let blockchain = null;
         try {
-          const r = await fetch(`${API_BASE}/api/blockchain/status`, { headers, signal: abort.signal });
-          blockchain = r.ok ? await r.json() : { ok: false, message: `Status ${r.status}` };
+          const r = await apiClient.get('/api/blockchain/status');
+          blockchain = r.data;
         } catch (err) {
           blockchain = { ok: false, message: 'Blockchain unreachable' };
         }

@@ -7,18 +7,10 @@ export const useSocket = (onNewNotification, onNotificationUpdate, onNotificatio
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      console.warn('No token found, skipping socket connection');
-      return;
-    }
-
-    // Initialize socket connection
+    // Initialize socket connection with withCredentials for cookie-based auth
+    // The backend socket middleware will read the token from cookies
     socketRef.current = io(API_URL, {
-      auth: {
-        token: token
-      },
+      withCredentials: true, // Send cookies with socket connection
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

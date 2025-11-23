@@ -5,7 +5,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown, Info } from "lucide-react";
 import { UserOutlined, DeleteOutlined, PlusOutlined, FileExcelOutlined, HomeOutlined, CloseOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from '../../utils/apiClient';
 import * as XLSX from 'xlsx';
 import {
   DropdownMenu,
@@ -299,14 +299,12 @@ export default function AdminStreetLightFees() {
     validateExportData();
   }, [exportOpen, households, streetlightPayments, exportForm]);
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
+
 
   const fetchHouseholds = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/households');
       // Show most recently added household first
       const data = Array.isArray(res.data) ? res.data.slice().reverse() : [];
       setHouseholds(data);
@@ -319,7 +317,7 @@ export default function AdminStreetLightFees() {
 
   const fetchStreetlightPayments = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/streetlight-payments');
       setStreetlightPayments(res.data || []);
     } catch (err) {
       console.error("Error fetching streetlight payments:", err);
@@ -337,8 +335,7 @@ export default function AdminStreetLightFees() {
       for (let month = 1; month <= 12; month++) {
         const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
         try {
-          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/streetlight`, {
-            headers: authHeaders(),
+          const res = await apiClient.get(`/api/admin/households/${householdId}/streetlight`, {
             params: { month: monthStr },
           });
           monthStatuses[monthStr] = {
@@ -643,10 +640,9 @@ export default function AdminStreetLightFees() {
           method: values.method || "cash",
           reference: values.reference || "",
         };
-        return axios.post(
-          `${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`,
-          payload,
-          { headers: authHeaders() }
+        return apiClient.post(
+          `/api/admin/households/${payHousehold._id}/streetlight/pay`,
+          payload
         ).catch(error => {
           // Log backend error for debugging
           console.error("Streetlight payment error:", error?.response?.data || error);
@@ -692,9 +688,7 @@ export default function AdminStreetLightFees() {
     try {
       setRefreshing(true);
       
-      const res = await axios.delete(`${API_BASE}/api/admin/households/${household._id}/streetlight/payments`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.delete(`/api/admin/households/${household._id}/streetlight/payments`);
       
       message.success(`${res.data.deletedCount} payment records deleted for ${household.householdId}. Reset to unpaid status.`);
       
@@ -727,9 +721,8 @@ export default function AdminStreetLightFees() {
 
       for (const householdId of selectedRowKeys) {
         try {
-          await axios.delete(
-            `${API_BASE}/api/admin/households/${householdId}/streetlight/payments`,
-            { headers: authHeaders() }
+          await apiClient.delete(
+            `/api/admin/households/${householdId}/streetlight/payments`
           );
           successCount++;
         } catch (err) {
@@ -784,8 +777,7 @@ export default function AdminStreetLightFees() {
       for (let month = 1; month <= 12; month++) {
         const monthStr = `${currentYear}-${String(month).padStart(2, "0")}`;
         try {
-          const res = await axios.get(`${API_BASE}/api/admin/households/${householdId}/garbage`, {
-            headers: authHeaders(),
+          const res = await apiClient.get(`/api/admin/households/${householdId}/garbage`, {
             params: { month: monthStr },
           });
           monthStatuses[monthStr] = {
@@ -931,10 +923,9 @@ export default function AdminStreetLightFees() {
         
         console.log("Streetlight payment payload for month", monthKey, ":", payload);
         
-        return axios.post(
-          `${API_BASE}/api/admin/households/${payHousehold._id}/streetlight/pay`,
-          payload,
-          { headers: authHeaders() }
+        return apiClient.post(
+          `/api/admin/households/${payHousehold._id}/streetlight/pay`,
+          payload
         );
       });
 
@@ -956,7 +947,7 @@ export default function AdminStreetLightFees() {
         
         console.log("Garbage payment payload for month", monthKey, ":", payload);
         
-        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`, payload, { headers: authHeaders() });
+        return apiClient.post(`/api/admin/households/${payHousehold._id}/garbage/pay`, payload);
       });
 
       // Submit both payments simultaneously
@@ -1038,7 +1029,7 @@ export default function AdminStreetLightFees() {
         
         console.log("Garbage payment payload for month", monthKey, ":", payload);
         
-        return axios.post(`${API_BASE}/api/admin/households/${payHousehold._id}/garbage/pay`, payload, { headers: authHeaders() });
+        return apiClient.post(`/api/admin/households/${payHousehold._id}/garbage/pay`, payload);
       });
 
       await Promise.all(paymentPromises);
@@ -1186,8 +1177,7 @@ export default function AdminStreetLightFees() {
       setHistoryOpen(true);
       
       // Fetch payment history for this household
-      const res = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, {
-        headers: authHeaders(),
+      const res = await apiClient.get('/api/admin/streetlight-payments', {
         params: { householdId: household._id }
       });
       
@@ -1225,7 +1215,7 @@ export default function AdminStreetLightFees() {
       const currentMonth = dayjs().format('YYYY-MM');
       
       // Fetch fresh streetlight payments
-      const paymentRes = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, { headers: authHeaders() });
+      const paymentRes = await apiClient.get('/api/admin/streetlight-payments');
       const payments = paymentRes.data || [];
       
       console.log('Streetlight payments for statistics:', payments);
@@ -1325,7 +1315,7 @@ export default function AdminStreetLightFees() {
     setExporting(true);
     try {
       // Fetch fresh payment data before exporting
-      const paymentRes = await axios.get(`${API_BASE}/api/admin/streetlight-payments`, { headers: authHeaders() });
+      const paymentRes = await apiClient.get('/api/admin/streetlight-payments');
       const freshStreetlightPayments = paymentRes.data || [];
       
       console.log('Fresh streetlight payment data for export:', freshStreetlightPayments);

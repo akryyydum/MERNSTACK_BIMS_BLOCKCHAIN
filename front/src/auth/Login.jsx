@@ -4,6 +4,7 @@ import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker,
 import { motion, AnimatePresence } from "motion/react";
 import logo from "../assets/logo.png";
 import bg from "../assets/bg.jpg";
+import { setItem } from "../utils/storage";
 // Optional: any additional single imports if you already have them
 // import bg2 from "../assets/bg2.jpg";
 // Sectoral Information options
@@ -230,13 +231,16 @@ const Login = () => {
       setLoginError(""); // Clear any previous login errors
       
       // Send the credential as usernameOrEmail to handle both username and email login
+      // Include withCredentials to receive cookies
       const res = await axios.post(`${API_BASE}/api/auth/login`, {
         usernameOrEmail: values.username,
         password: values.password,
+      }, {
+        withCredentials: true, // Allow server to set HTTP-only cookies
       });
       
       
-      // Resident and Official verification check - do this BEFORE storing tokens
+      // Resident and Official verification check
       if ((res.data.role === "resident" || res.data.role === "official") && res.data.isVerified === false) {
         setPendingAlert(true); // Show the alert
         const dashboardType = res.data.role === "official" ? "official dashboard" : "resident dashboard";
@@ -247,10 +251,11 @@ const Login = () => {
         return; 
       }
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("role", res.data.role);
+      // Tokens are now stored in HTTP-only cookies by the server
+      // Only store non-sensitive data in localStorage
+      setItem("role", res.data.role);
       if (res.data.userData) {
-        localStorage.setItem("userData", JSON.stringify(res.data.userData));
+        setItem("userData", res.data.userData);
       }
 
       // Role-based redirect

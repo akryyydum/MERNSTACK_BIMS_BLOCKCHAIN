@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import logo from "../../assets/logo.png";
 import { Layout, Menu, Avatar, Dropdown, Drawer, Badge, Popover, List, Button, Empty, Spin } from "antd";
+import apiClient from "../../utils/apiClient";
 import {
   DashboardOutlined,
   FileTextOutlined,
@@ -74,12 +75,7 @@ const ResidentNavbar = () => {
   const fetchNotifications = async () => {
     setLoadingNotifications(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const response = await axios.get(`${API_URL}/api/resident/notifications`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/resident/notifications');
 
       setNotifications(response.data.notifications || []);
       setUnreadCount(response.data.unreadCount || 0);
@@ -132,11 +128,8 @@ const ResidentNavbar = () => {
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API_URL}/api/resident/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.patch(
+        `/api/resident/notifications/${notificationId}/read`
       );
       
       // Update local state
@@ -152,11 +145,8 @@ const ResidentNavbar = () => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API_URL}/api/resident/notifications/read-all`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.patch(
+        `/api/resident/notifications/read-all`
       );
       
       // Update local state
@@ -170,10 +160,8 @@ const ResidentNavbar = () => {
   // Delete notification
   const deleteNotification = async (notificationId) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_URL}/api/resident/notifications/${notificationId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/resident/notifications/${notificationId}`
       );
       
       // Update local state
@@ -199,11 +187,25 @@ const ResidentNavbar = () => {
   };
 
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userData");
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to clear HTTP-only cookies
+      const API_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem("role");
+      localStorage.removeItem("userData");
+      navigate("/login", { replace: true });
+    }
   };
 
   const profileMenu = [

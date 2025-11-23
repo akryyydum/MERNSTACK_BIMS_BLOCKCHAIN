@@ -15,6 +15,7 @@ import {
   Alert,
 } from "antd";
 import { AdminLayout } from "./AdminSidebar";
+import apiClient from '../../utils/apiClient';
 import { UserOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
@@ -133,10 +134,8 @@ export default function AdminOfficialManagement() {
   const fetchOfficials = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(OFFICIALS_ENDPOINT, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await safeParseJson(res);
-      if (!res.ok) throw new Error(data.message || `Failed to fetch officials: ${res.status} ${res.statusText}`);
+      const res = await apiClient.get('/api/admin/officials');
+      const data = res.data;
       console.log("Officials response:", data);
       
       // Handle both array and object responses
@@ -168,10 +167,8 @@ export default function AdminOfficialManagement() {
 
   const fetchResidents = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(RESIDENTS_ENDPOINT, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await safeParseJson(res);
-      if (!res.ok) throw new Error(data.message || `Failed to fetch residents: ${res.status} ${res.statusText}`);
+      const res = await apiClient.get('/api/admin/residents');
+      const data = res.data;
       console.log("Residents response (officials page):", data);
       
       // Handle both array and object responses
@@ -390,8 +387,6 @@ export default function AdminOfficialManagement() {
         throw new Error("No position selected");
       }
       
-      const token = localStorage.getItem("token");
-      
       // Build payload - always include email and mobile (even as empty string) so backend knows to update/clear them
       const submitData = {
         residentId: values.residentId,
@@ -400,13 +395,8 @@ export default function AdminOfficialManagement() {
         mobile: (values.mobile || '').trim()
       };
       
-      const res = await fetch(OFFICIALS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(submitData)
-      });
-      const responseData = await safeParseJson(res);
-      if (!res.ok) throw new Error(responseData.message || `Server error: ${res.status} ${res.statusText}`);
+      const res = await apiClient.post('/api/admin/officials', submitData);
+      const responseData = res.data;
       
       message.success("Official added!");
       setAddOpen(false); 
@@ -440,7 +430,6 @@ export default function AdminOfficialManagement() {
     try {
       setEditing(true);
       const values = await editForm.validateFields();
-      const token = localStorage.getItem("token");
       // Only send fields that are provided; allow clearing by sending empty string which backend unsets
       const payload = {};
       if (values.fullName !== undefined) payload.fullName = values.fullName;
@@ -449,13 +438,8 @@ export default function AdminOfficialManagement() {
       if (values.email !== undefined) payload.email = (values.email || '').trim();
       if (values.mobile !== undefined) payload.mobile = (values.mobile || '').trim();
 
-      const res = await fetch(`${OFFICIALS_ENDPOINT}/${selectedOfficial._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-      const responseData = await safeParseJson(res);
-      if (!res.ok) throw new Error(responseData.message || "Failed to update official");
+      const res = await apiClient.patch(`/api/admin/officials/${selectedOfficial._id}`, payload);
+      const responseData = res.data;
       message.success("Official updated!");
       setEditOpen(false); 
       await fetchOfficials();
@@ -466,11 +450,7 @@ export default function AdminOfficialManagement() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${OFFICIALS_ENDPOINT}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      let responseData = {};
-      try { responseData = await safeParseJson(res); } catch (_) { /* ignore parse error for DELETE */ }
-      if (!res.ok) throw new Error(responseData.message || "Failed to delete official");
+      await apiClient.delete(`/api/admin/officials/${id}`);
       message.success("Official deleted!"); 
       
       // adjust page if last item removed
