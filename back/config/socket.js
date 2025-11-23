@@ -1,11 +1,19 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Resident = require('../models/resident.model');
+const { SocketRateLimiter, createSocketRateLimitMiddleware } = require('../middleware/socketRateLimit');
+const { updateSocketConnections, recordSocketEvent } = require('../utils/metrics');
 
 let io;
 
 // Store connected users: { userId: socketId }
 const connectedUsers = new Map();
+
+// Initialize rate limiter for sockets
+const socketRateLimiter = new SocketRateLimiter({
+  capacity: 60, // 60 events
+  refillRate: 1, // per second (60/minute)
+});
 
 const initializeSocket = (server) => {
   io = new Server(server, {
@@ -49,6 +57,9 @@ const initializeSocket = (server) => {
     // Store the connection
     connectedUsers.set(socket.userId, socket.id);
     
+    // Update metrics
+    updateSocketConnections(connectedUsers.size);
+    
     // Join user-specific room
     socket.join(`user:${socket.userId}`);
     
@@ -65,10 +76,41 @@ const initializeSocket = (server) => {
       }
     }
 
+    // Apply rate limiting to socket events
+    socket.use((packet, next) => {
+      const [event] = packet;
+      
+      // Skip internal events
+      if (event.startsWith('internal:') || event === 'disconnect' || event === 'error') {
+        return next();
+      }
+
+      const allowed = socketRateLimiter.allowEvent(socket.id);
+      
+      if (!allowed) {
+        const remaining = socketRateLimiter.getRemainingTokens(socket.id);
+        console.warn(`[Socket Rate Limit] Blocked event "${event}" from ${socket.id} (${socket.userId})`);
+        
+        socket.emit('rate_limit_exceeded', {
+          message: 'Too many events. Please slow down.',
+          remaining,
+          retryAfter: Math.ceil(1 / socketRateLimiter.config.refillRate),
+        });
+        
+        recordSocketEvent(event, 'rate_limited');
+        return; // Block the event
+      }
+
+      recordSocketEvent(event, 'success');
+      next();
+    });
+
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.userId} (${socket.id})`);
       connectedUsers.delete(socket.userId);
+      socketRateLimiter.removeBucket(socket.id);
+      updateSocketConnections(connectedUsers.size);
     });
 
     // Optional: Handle manual notification refresh request

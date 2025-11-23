@@ -1,0 +1,74 @@
+# OWASP ZAP Rules Configuration
+# 0 = IGNORE, 1 = INFO, 2 = WARN, 3 = FAIL
+
+# Ignore internal/local endpoints
+10009	WARN	# In Page Banner Information Leak
+10010	WARN	# Cookie No HttpOnly Flag
+10011	WARN	# Cookie Without Secure Flag
+10015	WARN	# Re-examine Cache-control Directives
+10017	WARN	# Cross-Domain JavaScript Source File Inclusion
+10019	WARN	# Content-Type Header Missing
+10020	WARN	# X-Frame-Options Header Not Set
+10021	WARN	# X-Content-Type-Options Header Missing
+10023	WARN	# Information Disclosure - Debug Error Messages
+10024	WARN	# Information Disclosure - Sensitive Information in URL
+10025	WARN	# Information Disclosure - Sensitive Information in HTTP Referrer Header
+10026	WARN	# HTTP Parameter Override
+10027	WARN	# Information Disclosure - Suspicious Comments
+10032	WARN	# Viewstate Scanner
+10033	WARN	# Directory Browsing
+10034	WARN	# Heartbleed OpenSSL Vulnerability
+10035	WARN	# Strict-Transport-Security Header Not Set
+10036	WARN	# HTTP Server Response Header
+10037	WARN	# Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)
+10038	WARN	# Content Security Policy (CSP) Header Not Set
+10039	WARN	# X-Backend-Server Header Information Leak
+10040	WARN	# Secure Pages Include Mixed Content
+10041	WARN	# HTTP to HTTPS Insecure Transition in Form Post
+10042	WARN	# HTTPS to HTTP Insecure Transition in Form Post
+10043	WARN	# User Controllable JavaScript Event (XSS)
+10044	WARN	# Big Redirect Detected (Potential Sensitive Information Leak)
+10045	WARN	# Source Code Disclosure - /WEB-INF folder
+10048	WARN	# Remote Code Execution - Shell Shock
+10049	WARN	# Content Cacheability
+10050	WARN	# Retrieved from Cache
+10051	WARN	# Relative Path Confusion
+10052	WARN	# X-ChromeLogger-Data (XCOLD) Header Information Leak
+10054	WARN	# Cookie Without SameSite Attribute
+10055	WARN	# CSP Scanner: Wildcard Directive
+10056	WARN	# CSP Scanner: Script-src unsafe-inline
+10057	WARN	# Username Hash Found
+10061	WARN	# X-AspNet-Version Response Header
+10062	WARN	# PII Disclosure
+10063	WARN	# Permissions Policy Header Not Set
+10096	WARN	# Timestamp Disclosure
+10097	WARN	# Hash Disclosure
+10098	WARN	# Cross-Domain Misconfiguration
+10099	WARN	# Source Code Disclosure
+10103	WARN	# Suspicious Comments
+10104	WARN	# User Agent Fuzzer
+10105	WARN	# Weak Authentication Method
+10108	WARN	# Reverse Tabnabbing
+10109	WARN	# Modern Web Application
+10110	WARN	# Dangerous JS Functions
+2	WARN	# Private IP Disclosure
+3	WARN	# Session ID in URL Rewrite
+50001	WARN	# Script Passive Scan Rules
+90001	WARN	# Insecure JSF ViewState
+90011	WARN	# Character Set Mismatch
+90022	WARN	# Application Error Disclosure
+90033	WARN	# Loosely Scoped Cookie
+
+# Fail on critical issues
+40012	FAIL	# Cross Site Scripting (Reflected)
+40014	FAIL	# Cross Site Scripting (Persistent)
+40016	FAIL	# Cross Site Scripting (Persistent) - Prime
+40017	FAIL	# Cross Site Scripting (Persistent) - Spider
+40018	FAIL	# SQL Injection
+40019	FAIL	# SQL Injection - MySQL
+40020	FAIL	# SQL Injection - Hypersonic SQL
+40021	FAIL	# SQL Injection - Oracle
+40022	FAIL	# SQL Injection - PostgreSQL
+40023	FAIL	# Possible Username Enumeration
+90019	FAIL	# Server Side Code Injection
+90020	FAIL	# Remote OS Command Injection

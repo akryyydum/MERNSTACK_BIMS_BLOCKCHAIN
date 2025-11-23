@@ -5,6 +5,8 @@ const cors = require('cors');
 const http = require('http');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { metricsMiddleware } = require('./utils/metrics');
+const { sanitizeMiddleware } = require('./middleware/sanitize');
 
 dotenv.config();
 
@@ -32,10 +34,42 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security headers
+// Enhanced security headers with CSP
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Consider removing unsafe-inline in production
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  xssFilter: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+
+// Permissions Policy (formerly Feature-Policy)
+app.use((req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'geolocation=(), microphone=(), camera=(), payment=()'
+  );
+  next();
+});
 
 // Body parsing + size limit (already set later, keep explicit early for security) handled below
 
@@ -117,6 +151,7 @@ app.use(cors({
 
 
 app.use(express.json({ limit: '1mb' }));
+
 // Apply custom sanitization AFTER json parsing so we can mutate safely.
 app.use((req, _res, next) => {
   try {
@@ -128,10 +163,22 @@ app.use((req, _res, next) => {
   }
 });
 
+// XSS sanitization middleware (runs after JSON parsing)
+app.use(sanitizeMiddleware);
+
+// Metrics collection middleware
+app.use(metricsMiddleware);
+
 app.get('/health', (req, res) => {
   const state = require('mongoose').connection.readyState; // 0=disconnected,1=connected,2=connecting,3=disconnecting
   res.json({ status: 'ok', dbState: state });
 });
+
+// Metrics endpoint (protected - only accessible internally or with auth)
+const { getMetrics } = require('./utils/metrics');
+const { auth, authorize } = require('./middleware/authMiddleware');
+app.get('/metrics', auth, authorize('admin'), getMetrics);
+
 // Root route for clarity
 app.get('/', (_req, res) => {
   res.json({ message: 'API running', health: '/health' });
@@ -179,7 +226,6 @@ app.use('/api/admin/settings', adminSettingsRoutes);
 
 // Additional admin routes for garbage management
 const adminHouseholdController = require("./controllers/adminHouseholdController");
-const { auth, authorize } = require("./middleware/authMiddleware");
 app.get("/api/admin/garbage-payments", auth, authorize("admin"), adminHouseholdController.listGarbagePayments);
 app.get("/api/admin/garbage-statistics", auth, authorize("admin"), adminHouseholdController.getGarbageStatistics);
 

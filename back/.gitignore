@@ -1,3 +1,4 @@
 .env
+.env.example
 blockchain
 node_modules

@@ -5,6 +5,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+const { generateTokenPair } = require('../utils/tokenManager');
+const { logAuthEvent, ActionType } = require('../utils/auditLogger');
+const { recordAuthAttempt } = require('../utils/metrics');
 
 function normalize(str) {
   return String(str || '').trim();
@@ -143,8 +146,14 @@ async function register(req, res) {
       status: 'pending'
     });
 
+    // Log registration
+    await logAuthEvent(ActionType.REGISTER, user._id, 'success', req, { username });
+    recordAuthAttempt('success');
+    
     res.status(201).json({ message: 'Registration submitted. Awaiting admin approval.' });
   } catch (err) {
+    await logAuthEvent(ActionType.REGISTER, null, 'failure', req, { error: err.message });
+    recordAuthAttempt('failure');
     res.status(500).json({ message: err.message });
   }
 }
@@ -178,6 +187,8 @@ async function login(req, res) {
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+      await logAuthEvent(ActionType.LOGIN, user._id, 'failure', req, { reason: 'invalid_password' });
+      recordAuthAttempt('failure');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -215,19 +226,25 @@ async function login(req, res) {
       userData.firstName = user.fullName ? user.fullName.split(' ')[0] : '';
       userData.lastName = user.fullName ? user.fullName.split(' ').slice(1).join(' ') : '';
     }
-    const token = jwt.sign(
-      tokenPayload,
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-    console.log('[AUTH] Login response:', { 
-      userId: user._id.toString(), 
+    // Generate token pair (access + refresh)
+    const tokens = generateTokenPair(tokenPayload);
+    
+    // Log successful login
+    await logAuthEvent(ActionType.LOGIN, user._id, 'success', req, { role: user.role });
+    recordAuthAttempt('success');
+    
+    res.json({ 
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      token: tokens.accessToken, // For backward compatibility
       role: user.role, 
-      isVerified 
+      isVerified, 
+      userData 
     });
-    res.json({ token, role: user.role, isVerified, userData });
   } catch (err) {
     console.error('[AUTH] Login error', err);
+    await logAuthEvent(ActionType.LOGIN, null, 'failure', req, { error: err.message });
+    recordAuthAttempt('failure');
     res.status(500).json({ message: err.message });
   }
 }
@@ -354,6 +371,8 @@ async function verifyPasswordOtp(req, res) {
     user.passwordResetOtpExpires = undefined;
     await user.save();
 
+    await logAuthEvent(ActionType.PASSWORD_RESET, user._id, 'success', req);
+    
     res.json({ message: 'Password changed successfully.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -371,6 +390,9 @@ async function resetPassword(req, res) {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.verificationToken = undefined;
     await user.save();
+    
+    await logAuthEvent(ActionType.PASSWORD_RESET, user._id, 'success', req);
+    
     res.json({ message: 'Password reset successful.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -403,6 +425,8 @@ async function changePassword(req, res) {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
 
+    await logAuthEvent(ActionType.PASSWORD_CHANGE, userId, 'success', req);
+    
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
