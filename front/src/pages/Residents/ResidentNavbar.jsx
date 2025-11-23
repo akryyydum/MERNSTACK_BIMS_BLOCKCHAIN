@@ -223,29 +223,29 @@ const ResidentNavbar = () => {
 
   // Notification content for popover
   const notificationContent = (
-    <div style={{ width: 320, maxHeight: 400, overflow: 'auto' }}>
-      <div style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontWeight: 600, fontSize: 14 }}>Notifications</span>
+    <div style={{ width: isMobile ? 220 : 380, maxWidth: isMobile ? 220 : 400, maxHeight: isMobile ? 'calc(100vh - 200px)' : 500, overflow: 'auto' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
+        <span style={{ fontWeight: 600, fontSize: 15 }}>Notifications</span>
         {unreadCount > 0 && (
           <Button type="link" size="small" onClick={markAllAsRead}>
-            Mark all as read
+            Mark all read
           </Button>
         )}
       </div>
       
       {loadingNotifications ? (
-        <div style={{ padding: 32, textAlign: 'center' }}>
-          <Spin />
+        <div style={{ padding: 48, textAlign: 'center' }}>
+          <Spin size="large" />
         </div>
       ) : notifications.length === 0 ? (
         <Empty 
           image={Empty.PRESENTED_IMAGE_SIMPLE} 
           description="No notifications"
-          style={{ padding: '32px 16px' }}
+          style={{ padding: '48px 16px' }}
         />
       ) : (
         <List
-          dataSource={notifications}
+          dataSource={notifications.slice(0, isMobile ? 10 : 20)}
           renderItem={(item) => {
             const priorityColors = {
               high: '#ff4d4f',
@@ -256,7 +256,7 @@ const ResidentNavbar = () => {
             return (
               <List.Item
                 style={{
-                  padding: '12px 16px',
+                  padding: isMobile ? '10px 12px' : '12px 16px',
                   cursor: 'pointer',
                   backgroundColor: item.isRead ? 'transparent' : '#f0f5ff',
                   borderLeft: `3px solid ${priorityColors[item.priority] || '#d9d9d9'}`,
@@ -269,7 +269,7 @@ const ResidentNavbar = () => {
                   !item.isRead && (
                     <Button
                       type="text"
-                      size="small"
+                      size={isMobile ? 'small' : 'middle'}
                       icon={<CheckOutlined />}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -280,7 +280,7 @@ const ResidentNavbar = () => {
                   ),
                   <Button
                     type="text"
-                    size="small"
+                    size={isMobile ? 'small' : 'middle'}
                     danger
                     icon={<DeleteOutlined />}
                     onClick={(e) => {
@@ -293,8 +293,8 @@ const ResidentNavbar = () => {
               >
                 <List.Item.Meta
                   title={
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: item.isRead ? 400 : 600, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontWeight: item.isRead ? 400 : 600, fontSize: isMobile ? 13 : 14, flex: 1, lineHeight: '1.4' }}>
                         {item.title}
                       </span>
                       {!item.isRead && (
@@ -304,9 +304,16 @@ const ResidentNavbar = () => {
                   }
                   description={
                     <div>
-                      <div style={{ fontSize: 12, marginBottom: 4 }}>{item.message}</div>
-                      <div style={{ fontSize: 11, color: '#8c8c8c' }}>
-                        {new Date(item.createdAt).toLocaleString()}
+                      <div style={{ fontSize: isMobile ? 12 : 13, marginBottom: 4, color: '#595959', lineHeight: '1.5' }}>
+                        {item.message}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 4 }}>
+                        {new Date(item.createdAt).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </div>
                     </div>
                   }
@@ -454,12 +461,14 @@ const ResidentNavbar = () => {
             content={notificationContent}
             trigger="click"
             placement="bottomRight"
+            overlayStyle={{ maxWidth: '95vw' }}
+            getPopupContainer={(trigger) => trigger.parentElement || document.body}
           >
-            <Badge count={unreadCount} offset={[-5, 5]}>
+            <Badge count={unreadCount} offset={[-5, 5]} size="small">
               <Button
                 type="text"
                 shape="circle"
-                icon={<BellOutlined style={{ fontSize: 18 }} />}
+                icon={<BellOutlined style={{ fontSize: 20 }} />}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               />
             </Badge>
@@ -481,12 +490,13 @@ const ResidentNavbar = () => {
           open={notificationsVisible}
           onOpenChange={setNotificationsVisible}
           placement="bottomRight"
+          overlayStyle={{ zIndex: 1050 }}
         >
           <Badge count={unreadCount} offset={[-5, 5]}>
             <Button
               type="text"
               shape="circle"
-              icon={<BellOutlined style={{ fontSize: 18 }} />}
+              icon={<BellOutlined style={{ fontSize: 20 }} />}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             />
           </Badge>
