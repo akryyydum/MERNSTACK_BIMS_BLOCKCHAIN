@@ -11,6 +11,7 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password/:token', authController.resetPassword);
 // OTP based password reset
 router.post('/request-password-otp', authController.requestPasswordOtp);
+router.post('/verify-otp-only', authController.verifyOtpOnly);
 router.post('/verify-password-otp', authController.verifyPasswordOtp);
 
 // Protected - Change Password (for authenticated users)

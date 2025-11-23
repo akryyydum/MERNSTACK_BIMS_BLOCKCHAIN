@@ -290,6 +290,37 @@ async function requestPasswordOtp(req, res) {
   }
 }
 
+// Verify OTP only (without changing password)
+async function verifyOtpOnly(req, res) {
+  try {
+    const { identifier, otp } = req.body;
+    if (!identifier || !otp) {
+      return res.status(400).json({ message: 'identifier and otp are required' });
+    }
+
+    let user = await User.findOne({ username: identifier.trim() });
+    if (!user) {
+      user = await User.findOne({ fullName: new RegExp(`^${identifier.trim()}$`, 'i') });
+    }
+    if (!user) return res.status(404).json({ message: 'Account not yet registered' });
+
+    if (!user.passwordResetOtpHash || !user.passwordResetOtpExpires) {
+      return res.status(400).json({ message: 'No active OTP request. Please request a new OTP.' });
+    }
+    if (user.passwordResetOtpExpires < new Date()) {
+      return res.status(400).json({ message: 'OTP expired. Please request a new OTP.' });
+    }
+    const hash = crypto.createHash('sha256').update(otp).digest('hex');
+    if (hash !== user.passwordResetOtpHash) {
+      return res.status(400).json({ message: 'Invalid OTP code.' });
+    }
+
+    res.json({ message: 'OTP verified successfully.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 // Verify OTP and change password
 async function verifyPasswordOtp(req, res) {
   try {
@@ -385,5 +416,6 @@ module.exports = {
   resetPassword,
   changePassword,
   requestPasswordOtp,
+  verifyOtpOnly,
   verifyPasswordOtp
 };

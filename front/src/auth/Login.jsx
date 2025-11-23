@@ -1522,7 +1522,7 @@ const Login = () => {
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
                     onPaste={index === 0 ? handleOtpPaste : undefined}
-                    disabled={otpLoading}
+                    disabled={otpLoading || showPasswordFields}
                     className={`
                       w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14
                       text-center text-lg sm:text-xl md:text-2xl font-bold
@@ -1534,7 +1534,7 @@ const Login = () => {
                         ? 'border-blue-500 bg-blue-50' 
                         : 'border-gray-300 bg-white'
                       }
-                      ${otpLoading ? 'cursor-not-allowed opacity-50' : 'hover:border-blue-400'}
+                      ${(otpLoading || showPasswordFields) ? 'cursor-not-allowed opacity-50' : 'hover:border-blue-400'}
                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                     `}
                     style={{
@@ -1552,13 +1552,37 @@ const Login = () => {
                 size="large"
                 block
                 disabled={otpCode.join("").length !== 6 || otpLoading}
-                onClick={() => {
+                loading={otpLoading}
+                onClick={async () => {
                   const error = validateOtpCode(otpCode);
                   if (error) {
                     setOtpError(error);
-                  } else {
+                    return;
+                  }
+                  
+                  // Verify OTP with backend before showing password fields
+                  setOtpLoading(true);
+                  try {
+                    await axios.post(`${API_BASE}/api/auth/verify-otp-only`, {
+                      identifier: identifier.trim(),
+                      otp: otpCode.join("")
+                    });
+                    
+                    // OTP is valid, show password fields
                     setShowPasswordFields(true);
                     setOtpError("");
+                    message.success('OTP verified! Please set your new password.');
+                  } catch (err) {
+                    const status = err.response?.status;
+                    const msg = err.response?.data?.message || 'Invalid or expired OTP';
+                    
+                    if (status === 400) {
+                      setOtpError(msg);
+                    } else {
+                      setOtpError('Failed to verify OTP. Please try again.');
+                    }
+                  } finally {
+                    setOtpLoading(false);
                   }
                 }}
                 className="mb-4"
