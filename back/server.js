@@ -3,10 +3,14 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const cors = require('cors');
 const http = require('http');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
 const app = express();
+// Trust proxy (needed for correct protocol detection behind reverse proxies / Vercel / Nginx)
+app.enable('trust proxy');
 const server = http.createServer(app);
 
 // Basic request logger for debugging network issues
@@ -14,6 +18,68 @@ app.use((req, res, next) => {
   console.log(`[REQ] ${req.method} ${req.originalUrl}`);
   next();
 });
+
+// Attach Row-Level Security helper
+const { rlsMiddleware } = require('./middleware/ownership');
+app.use(rlsMiddleware);
+
+// Enforce HTTPS (only redirect non-HTTPS when not localhost)
+app.use((req, res, next) => {
+  const proto = req.headers['x-forwarded-proto'];
+  if (proto && proto !== 'https' && process.env.NODE_ENV === 'production') {
+    return res.redirect(301, 'https://' + req.headers.host + req.originalUrl);
+  }
+  next();
+});
+
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+// Body parsing + size limit (already set later, keep explicit early for security) handled below
+
+// NOTE: Removed express-mongo-sanitize due to req.query assignment error in current Express version.
+// Custom lightweight sanitizer to strip Mongo operator characters from keys.
+function stripDangerous(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  Object.keys(obj).forEach(k => {
+    if (k.startsWith('$') || k.includes('.')) {
+      delete obj[k];
+    } else {
+      const val = obj[k];
+      if (typeof val === 'object') stripDangerous(val);
+    }
+  });
+}
+// Will run after body parsing (moved below) – placeholder here for clarity.
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many auth requests from this IP. Try again in an hour.'
+});
+
+// Slightly higher cap for financial & complaint endpoints (still conservative)
+const sensitiveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests. Slow down.'
+});
+
+// Global fallback limiter (very high cap, acts as circuit breaker)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(globalLimiter);
 
 // CORS with explicit allowed origins
 const allowedOrigins = [
@@ -51,6 +117,16 @@ app.use(cors({
 
 
 app.use(express.json({ limit: '1mb' }));
+// Apply custom sanitization AFTER json parsing so we can mutate safely.
+app.use((req, _res, next) => {
+  try {
+    if (req.body) stripDangerous(req.body);
+    if (req.query) stripDangerous(req.query);
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
 
 app.get('/health', (req, res) => {
   const state = require('mongoose').connection.readyState; // 0=disconnected,1=connected,2=connecting,3=disconnecting
@@ -61,7 +137,8 @@ app.get('/', (_req, res) => {
   res.json({ message: 'API running', health: '/health' });
 });
 
-app.use('/api/auth', require('./routes/authRoutes'));
+// Apply auth-specific limiter
+app.use('/api/auth', authLimiter, require('./routes/authRoutes'));
 const adminUserRoutes = require("./routes/adminUserRoutes");
 app.use("/api/admin/users", adminUserRoutes);
 const adminOfficialManagementRoutes = require("./routes/adminOfficialManagementRoutes");
@@ -74,9 +151,9 @@ app.use('/api/admin/unverified-residents', adminUnverifiedResidentRoutes);
 const adminDocumentRequestRoutes = require('./routes/adminDocumentRequest');
 app.use('/api/admin/document-requests', adminDocumentRequestRoutes);
 const adminComplaintRoutes = require("./routes/adminComplaintRoutes");
-app.use("/api/admin/complaints", adminComplaintRoutes);
+app.use("/api/admin/complaints", sensitiveLimiter, adminComplaintRoutes);
 const adminFinancialRoutes = require("./routes/adminFinancialRoutes");
-app.use("/api/admin/financial", adminFinancialRoutes);
+app.use("/api/admin/financial", sensitiveLimiter, adminFinancialRoutes);
 const residentDocumentRequestRoutes = require("./routes/residentDocumentRequestRoutes");
 app.use("/api/document-requests", residentDocumentRequestRoutes);
 const adminHouseholdRoutes = require("./routes/adminHouseholdRoutes");
