@@ -17,6 +17,7 @@ const socketRateLimiter = new SocketRateLimiter({
 
 const initializeSocket = (server) => {
   io = new Server(server, {
+    path: '/socket.io',
     cors: {
       origin: [
         "https://mernstack-bims-blockchain-3.vercel.app",
@@ -27,8 +28,13 @@ const initializeSocket = (server) => {
         "http://localhost:4000",
       ],
       credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    }
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    },
+    allowUpgrades: true,
+    transports: ['websocket', 'polling'],
+    pingInterval: 25000,
+    pingTimeout: 20000,
   });
 
   // Middleware to authenticate socket connections
@@ -56,6 +62,7 @@ const initializeSocket = (server) => {
       }
       
       if (!token) {
+        console.warn('[Socket Auth] Missing token in cookies/auth for', socket.handshake.headers.origin);
         return next(new Error('Authentication error'));
       }
 
@@ -71,7 +78,7 @@ const initializeSocket = (server) => {
   });
 
   io.on('connection', async (socket) => {
-    console.log(`User connected: ${socket.userId} (${socket.id})`);
+    console.log(`User connected: ${socket.userId} (${socket.id}) role=${socket.userRole}`);
     
     // Store the connection
     connectedUsers.set(socket.userId, socket.id);
@@ -125,8 +132,8 @@ const initializeSocket = (server) => {
     });
 
     // Handle disconnection
-    socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.userId} (${socket.id})`);
+    socket.on('disconnect', (reason) => {
+      console.log(`User disconnected: ${socket.userId} (${socket.id}) reason=${reason}`);
       connectedUsers.delete(socket.userId);
       socketRateLimiter.removeBucket(socket.id);
       updateSocketConnections(connectedUsers.size);

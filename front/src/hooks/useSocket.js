@@ -11,21 +11,29 @@ export const useSocket = (onNewNotification, onNotificationUpdate, onNotificatio
     // The backend socket middleware will read the token from cookies
     socketRef.current = io(API_URL, {
       withCredentials: true, // Send cookies with socket connection
+      path: '/socket.io', // explicit path for proxies/CDN clarity
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 5,
+      timeout: 8000, // initial connection timeout
     });
 
     const socket = socketRef.current;
 
     // Connection event handlers
-    socket.on('connect', () => {});
+    socket.on('connect', () => {
+      console.log('[Socket] Connected', { id: socket.id });
+    });
 
-    socket.on('disconnect', (reason) => {});
+    socket.on('disconnect', (reason) => {
+      console.warn('[Socket] Disconnected', { reason });
+    });
 
-    socket.on('connect_error', (error) => {});
+    socket.on('connect_error', (error) => {
+      console.error('[Socket] Connect error', { message: error.message, data: error.data });
+    });
 
     // Notification event handlers
     socket.on('notification:new', (data) => {
