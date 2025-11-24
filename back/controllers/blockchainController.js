@@ -2,6 +2,9 @@ const { getContract } = require("../utils/fabricClient");
 const os = require("os");
 
 exports.getBlockchainStatus = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   const started = Date.now();
   try {
     const { gateway, contract } = await getContract();
@@ -53,6 +56,9 @@ exports.getBlockchainStatus = async (req, res) => {
 };
 
 exports.getAllBlockchainRequests = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   try {
     const { gateway, contract } = await getContract();
 
@@ -76,6 +82,9 @@ exports.getAllBlockchainRequests = async (req, res) => {
 
 // Financial transactions from chaincode (FinancialTransactionContract)
 exports.getAllFinancialTransactions = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   try {
     const { gateway, contract } = await getContract();
 
@@ -234,6 +243,9 @@ exports.getResidentFinancialTransactions = async (req, res) => {
 const DocumentRequest = require("../models/document.model");
 
 exports.syncFromDB = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   try {
     const { gateway, contract } = await getContract();
 
