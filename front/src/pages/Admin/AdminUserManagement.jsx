@@ -134,75 +134,44 @@ export default function AdminUserManagement() {
 
   const handleRoleChange = async (userId, nextRole) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({ role: nextRole }),
-      });
-      if (!res.ok) throw new Error("Failed to update role");
+      await apiClient.patch(`/api/admin/users/${userId}`, { role: nextRole });
       message.success("Role updated");
       fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update role");
     }
   };
 
   const handleToggleActive = async (userId, next) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({ 
-          isActive: next
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to update active status");
+      await apiClient.patch(`/api/admin/users/${userId}`, { isActive: next });
       message.success(next ? "User activated!" : "User deactivated!");
       fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update active status");
     }
   };
 
   const handleToggleStatus = async (userId, next) => {
     try {
-      const payload = { 
-        residentStatus: next ? "verified" : "pending"
-      };
-      console.log('Sending status update:', payload);
-      
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify(payload),
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('Status update error:', errorData);
-        throw new Error(errorData.message || "Failed to update status");
-      }
-      
+      const payload = { residentStatus: next ? "verified" : "pending" };
+      await apiClient.patch(`/api/admin/users/${userId}`, payload);
       message.success(next ? "User verified!" : "User set to pending!");
       fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update status");
     }
   };
 
   const handleDelete = async (userId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      });
-      if (!res.ok) throw new Error("Failed to delete user");
+      await apiClient.delete(`/api/admin/users/${userId}`);
       message.success("User deleted");
       // adjust page if last item removed
       if (users.length === 1 && currentPage > 1) setCurrentPage(currentPage - 1);
       else fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to delete user");
     }
   };
 
@@ -219,14 +188,10 @@ export default function AdminUserManagement() {
   const fetchUnlinkedResidents = async () => {
     setLoadingUnlinked(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/residents?unlinked=true`, {
-        headers: authHeaders,
-      });
-      if (!res.ok) throw new Error("Failed to load residents without account");
-      const data = await res.json();
-      setUnlinkedResidents(data || []);
+      const res = await apiClient.get('/api/admin/residents?unlinked=true');
+      setUnlinkedResidents(res.data || []);
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to load residents without account");
     } finally {
       setLoadingUnlinked(false);
     }
@@ -274,21 +239,13 @@ export default function AdminUserManagement() {
         residentStatus: 'verified', // Automatically verified when created by admin
       };
 
-      const res = await fetch(`${API_BASE}/api/admin/users`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to create user");
-      }
+      await apiClient.post('/api/admin/users', payload);
       message.success("User created");
       setCreateOpen(false);
       fetchUsers();
     } catch (e) {
       if (e?.errorFields) return;
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to create user");
     } finally {
       setCreating(false);
     }
@@ -329,25 +286,16 @@ export default function AdminUserManagement() {
       setChangingPassword(true);
 
       // Change to new password (admin can change without current password)
-      const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}/change-password`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          newPassword: values.newPassword,
-        }),
+      await apiClient.post(`/api/admin/users/${editingUser._id}/change-password`, {
+        newPassword: values.newPassword,
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to change password");
-      }
 
       message.success("Password changed successfully");
       setChangePasswordOpen(false);
       changePasswordForm.resetFields();
     } catch (e) {
       if (e?.errorFields) return;
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to change password");
     } finally {
       setChangingPassword(false);
     }
@@ -401,33 +349,25 @@ export default function AdminUserManagement() {
       setUsernameTaken(false);
       setEmailTaken(false);
       setMobileTaken(false);
-      const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({
-          fullName: values.fullName,
-          username: values.username,
-          role: values.role,
-          isActive: values.isActive,
-          isVerified: values.isVerified,
-          residentStatus: values.residentStatus,
-          contact: {
-            email: values.contact?.email,
-            mobile: values.contact?.mobile,
-          },
-        }),
+      await apiClient.patch(`/api/admin/users/${editingUser._id}`, {
+        fullName: values.fullName,
+        username: values.username,
+        role: values.role,
+        isActive: values.isActive,
+        isVerified: values.isVerified,
+        residentStatus: values.residentStatus,
+        contact: {
+          email: values.contact?.email,
+          mobile: values.contact?.mobile,
+        },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to update user");
-      }
       message.success("User updated");
       setEditOpen(false);
       setEditingUser(null);
       fetchUsers();
     } catch (e) {
       if (e?.errorFields) return;
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update user");
     } finally {
       setSavingEdit(false);
     }

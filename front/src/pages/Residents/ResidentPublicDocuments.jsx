@@ -78,7 +78,6 @@ export default function ResidentPublicDocuments() {
   const openPreview = async (record) => {
     setPreviewDoc(record);
     setPreviewLoading(true);
-    // clear previous docx HTML if any
     if (docxContainerRef.current) {
       docxContainerRef.current.innerHTML = "";
     }
@@ -94,6 +93,12 @@ export default function ResidentPublicDocuments() {
         }
       );
       const blob = res.data;
+      // Check if the blob is actually a file, not an HTML error page
+      if (blob.type.startsWith("text/html")) {
+        message.error("Preview not available. Please login again or check your permissions.");
+        setPreviewLoading(false);
+        return;
+      }
       const blobUrl = URL.createObjectURL(blob);
       setPreviewUrl(blobUrl);
       setPreviewBlob(blob);
