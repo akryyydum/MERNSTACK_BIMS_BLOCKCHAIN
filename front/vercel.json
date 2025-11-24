@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.latorrenorth.com https://*.cloudflare.com;"
+          "value": "default-src 'self' blob:; img-src 'self' data: https: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.latorrenorth.com https://*.cloudflare.com; frame-src 'self' blob:;"
         },
         {
           "key": "X-Frame-Options",
