@@ -44,7 +44,22 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"], // Consider removing unsafe-inline in production
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        'https://api.latorrenorth.com',
+        'wss://api.latorrenorth.com',
+        'https://www.latorrenorth.com',
+        'https://mernstack-bims-blockchain-3.vercel.app',
+        'https://*.vercel.app',
+        'https://*.cloudflare.com',
+        'wss://*.cloudflare.com',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3000',
+        'http://localhost:4000',
+        'ws://localhost:5173',
+        'ws://localhost:4000'
+      ],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
