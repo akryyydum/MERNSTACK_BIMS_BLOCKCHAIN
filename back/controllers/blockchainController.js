@@ -55,6 +55,43 @@ exports.getBlockchainStatus = async (req, res) => {
   }
 };
 
+// Public (authenticated) lite status: exposes only basic non-sensitive metrics
+exports.getBlockchainStatusLite = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  const started = Date.now();
+  try {
+    const { gateway, contract } = await getContract();
+    const network = contract.network || (gateway.getNetwork && await gateway.getNetwork('mychannel'));
+    const channel = network && typeof network.getChannel === 'function' ? network.getChannel() : null;
+
+    let blockHeight = null;
+    try {
+      if (channel && typeof channel.queryInfo === 'function') {
+        const info = await channel.queryInfo();
+        const heightStr = (info.height && (info.height.toString ? info.height.toString() : info.height.low)) ?? null;
+        blockHeight = heightStr != null ? parseInt(heightStr, 10) : null;
+      }
+    } catch (innerErr) {
+      console.warn('Lite status: unable to query block height:', innerErr.message);
+    } finally {
+      await gateway.disconnect();
+    }
+    const latencyMs = Date.now() - started;
+    res.json({
+      ok: true,
+      channel: channel && typeof channel.getName === 'function' ? channel.getName() : 'mychannel',
+      blockHeight,
+      latencyMs,
+      observedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Blockchain lite status error:', error);
+    res.status(500).json({ ok: false, message: error.message || 'Failed to retrieve blockchain status' });
+  }
+};
+
 exports.getAllBlockchainRequests = async (req, res) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({ message: "Forbidden: admin access only" });

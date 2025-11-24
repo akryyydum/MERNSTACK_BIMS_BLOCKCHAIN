@@ -157,12 +157,12 @@ export default function ResidentBlockchainNetwork() {
 		loadProfile();
 	}, []);
 
-	// Blockchain status
+	// Blockchain status (lite - accessible to residents)
 	useEffect(() => {
 		const loadStatus = async () => {
 			setLoadingStatus(true); setErrorStatus(null);
 			try {
-				const res = await apiClient.get('/api/blockchain/status');
+				const res = await apiClient.get('/api/blockchain/status-lite');
 				setChainStatus(res.data);
 			} catch (e) { setErrorStatus(e.message); } finally { setLoadingStatus(false); }
 		};
@@ -175,19 +175,18 @@ export default function ResidentBlockchainNetwork() {
 		const loadRequests = async () => {
 			setLoadingRequests(true); setErrorRequests(null);
 			try {
-				// Admin view uses /api/blockchain/requests; mirror that for consistent counts
-				const res = await apiClient.get('/api/blockchain/requests');
-				const all = res.data;
-				const myId = residentProfile._id.toString();
-				const filtered = (Array.isArray(all) ? all : []).filter(r => {
+				// Use resident-scoped endpoint directly
+				const res = await apiClient.get('/api/blockchain/requests/me');
+				const mine = res.data;
+				// Filter out synthetic utility/payment entries if chaincode ever stores them similarly
+				const excludedKeywords = ['garbage', 'street', 'streetlight', 'utility', 'fee', '_payment', 'payment'];
+				const cleaned = (Array.isArray(mine) ? mine : []).filter(r => {
 					const type = (r.documentType || '').toString().toLowerCase().trim();
-					// Exclude any utility/fee related entries regardless of household status
 					if (!type) return false;
-					const excludedKeywords = ['garbage', 'street', 'streetlight', 'utility', 'fee', '_payment', 'payment'];
 					if (excludedKeywords.some(k => type.includes(k))) return false;
-					return (r.residentId || '').toString() === myId; // scope to this resident only
+					return true;
 				});
-				setRequests(filtered);
+				setRequests(cleaned);
 			} catch (e) { setErrorRequests(e.message); } finally { setLoadingRequests(false); }
 		};
 		loadRequests();
