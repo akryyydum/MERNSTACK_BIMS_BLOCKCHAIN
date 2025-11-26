@@ -901,7 +901,6 @@ export default function AdminDashboard() {
                     <Divider style={{ margin: '8px 0' }} />
                     <div className="text-xs text-gray-500 space-y-1">
                       <div>Channel: {blockchain.channel || '—'}</div>
-                      <div>Last block height: {typeof blockchain.blockHeight === 'number' ? blockchain.blockHeight : '—'}</div>
                       <div>Latency: {typeof blockchain.latencyMs === 'number' ? `${blockchain.latencyMs}ms` : '—'}</div>
                       <div>Chaincode: {blockchain.chaincode?.name || '—'}</div>
                       <div className="text-[10px]">Observed: {blockchain.observedAt ? new Date(blockchain.observedAt).toLocaleString() : '—'}</div>

@@ -413,8 +413,6 @@ export default function ResidentBlockchainNetwork() {
 											{!loadingStatus && chainStatus && (
 												<div className="space-y-2 text-sm">
 													<div className="flex justify-between"><span className="text-slate-600">Channel:</span><span className="font-medium text-slate-800">{chainStatus.channel}</span></div>
-													<div className="flex justify-between"><span className="text-slate-600">Block Height:</span><span className="font-medium text-slate-800">{chainStatus.blockHeight ?? 'N/A'}</span></div>
-													<div className="flex justify-between"><span className="text-slate-600">Peers:</span><span className="font-medium text-slate-800">{Array.isArray(chainStatus.peers) ? chainStatus.peers.map(p => p.name).join(', ') : 'N/A'}</span></div>
 													<div className="flex justify-between"><span className="text-slate-600">Latency:</span><span className="font-medium text-slate-800">{chainStatus.latencyMs} ms</span></div>
 												</div>
 											)}
