@@ -1425,7 +1425,7 @@ export default function AdminFinancialReports() {
                     placeholder={
                       selectedCreateType === 'garbage_fee' && selectedCreateHasBusiness === undefined
                         ? "Please select 'Has Business?' first"
-                        : "Select resident"
+                        : "Barangay Official"
                     }
                     disabled={selectedCreateType === 'garbage_fee' && selectedCreateHasBusiness === undefined}
                     style={{ width: '100%' }}
