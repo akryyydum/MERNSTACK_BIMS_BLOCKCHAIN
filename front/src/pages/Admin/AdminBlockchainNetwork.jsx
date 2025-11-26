@@ -10,6 +10,26 @@ import { ArrowUpRight } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
+// Normalize arbitrary amount input (may include symbols like ₱, +, ±, commas, spaces)
+function normalizeAmount(amount) {
+  if (amount == null) return 0;
+  let s = String(amount).trim();
+  // Detect explicit negative (leading '-')
+  const isNegative = /^-/.test(s) || /\(.*\)/.test(s);
+  // Strip everything except digits and decimal point
+  s = s.replace(/[^0-9.]/g, '');
+  if (!s) return 0;
+  let val = Number(s);
+  if (!Number.isFinite(val)) return 0;
+  return isNegative ? -val : val;
+}
+
+// Consistent currency formatting helper (2 decimal places) removing unexpected signs like ±
+function formatPeso(amount) {
+  const n = normalizeAmount(amount);
+  return '₱' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function AdminBlockchainNetwork() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("requests");
@@ -208,15 +228,20 @@ export default function AdminBlockchainNetwork() {
         doc.text('Financial Transactions', 14, yPosition);
         yPosition += 7;
 
-        const financeData = filteredFinance.map(t => [
-          t.txId || '-',
-          t.requestId || '-',
-          t.residentName || '-',
-          `₱${Number(t.amount || 0).toLocaleString()}`,
-          t.paymentMethod || '-',
-          (t.description || '-').substring(0, 30) + ((t.description || '').length > 30 ? '...' : ''),
-          t.createdAt ? dayjs(t.createdAt).format('YYYY-MM-DD HH:mm') : '-'
-        ]);
+        // Match ResidentBlockchainNetwork formatting: 'P ' + localized amount to 2 decimals (en-PH)
+        const financeData = filteredFinance.map(t => {
+          const amountNum = Number(t.amount || 0);
+          const formattedAmount = `P ${amountNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          return [
+            t.txId || '-',
+            t.requestId || '-',
+            t.residentName || '-',
+            formattedAmount,
+            t.paymentMethod || '-',
+            (t.description || '-').substring(0, 30) + ((t.description || '').length > 30 ? '...' : ''),
+            t.createdAt ? dayjs(t.createdAt).format('YYYY-MM-DD HH:mm') : '-'
+          ];
+        });
 
         doc.autoTable({
           startY: yPosition,
@@ -386,7 +411,7 @@ export default function AdminBlockchainNetwork() {
     { title: "Transaction ID", dataIndex: "txId", key: "txId", render: (v) => <Space><DollarOutlined />{v}</Space> },
     { title: "Request ID", dataIndex: "requestId", key: "requestId" },
     { title: "Resident", dataIndex: "residentName", key: "residentName" },
-    { title: "Amount", dataIndex: "amount", key: "amount", render: (n) => `₱${Number(n).toLocaleString()}` },
+    { title: "Amount", dataIndex: "amount", key: "amount", render: (n) => formatPeso(n) },
     { title: "Payment Method", dataIndex: "paymentMethod", key: "paymentMethod" },
     { title: "Description", dataIndex: "description", key: "description" },
     { title: "Created", dataIndex: "createdAt", key: "createdAt", render: (v) => v ? dayjs(v).format("YYYY-MM-DD HH:mm") : "-" },

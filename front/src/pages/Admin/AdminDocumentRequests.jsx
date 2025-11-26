@@ -907,6 +907,18 @@ const handlePrint = async (record) => {
   data.dayOrdinalMixed = raw.dayOrdinal;
   data.issuedLineMixed = raw.issuedLine;
 
+  // Force capitalization of pronoun tokens as requested (HE SHE HIM HER THEY THEM)
+  const PRONOUN_FORCE_UPPER = [
+    'heShe','himHer','hisHer','himselfHerself','honorific',
+    'HE_SHE','HIM_HER','HIS_HER','HIMSELF_HERSELF','HONORIFIC',
+    'He_She','Him_Her','His_Her','Himself_Herself','Honorific'
+  ];
+  PRONOUN_FORCE_UPPER.forEach(k => {
+    if (Object.prototype.hasOwnProperty.call(data, k) && data[k] != null) {
+      data[k] = String(data[k]).toUpperCase();
+    }
+  });
+
   try {
     const content = await loadFile(templatePath);
     const zip = new PizZip(content);
