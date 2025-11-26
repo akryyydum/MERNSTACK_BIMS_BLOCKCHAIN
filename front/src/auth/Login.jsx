@@ -988,38 +988,30 @@ const Login = () => {
 
                 <h3 className="text-sm font-semibold mt-4 mb-2">Contact</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  <Form.Item label="Mobile" name={["contact", "mobile"]} rules={[{ type: "string", required: false }]} className="mb-2">
-                    <Input size="middle" placeholder="e.g., 09123456789" />
+                  <Form.Item 
+                    label="Mobile" 
+                    name={["contact", "mobile"]} 
+                    rules={[
+                      { type: "string", required: false },
+                      { pattern: /^[0-9]*$/, message: 'Mobile number must contain only numbers' }
+                    ]} 
+                    className="mb-2"
+                  >
+                    <Input 
+                      size="middle" 
+                      placeholder="e.g., 09123456789"
+                      maxLength={11}
+                      onKeyPress={(e) => {
+                        if (!/[0-9]/.test(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
+                    />
                   </Form.Item>
                   <Form.Item label="Email" name={["contact", "email"]} rules={[{ type: "email", required: false }]} className="mb-2">
                     <Input size="middle" placeholder="e.g., juan.delacruz@email.com" />
                   </Form.Item>
                 </div>
-
-                <Form.Item
-                  label="Upload Valid ID"
-                  name="idFiles"
-                  valuePropName="fileList"
-                  getValueFromEvent={normFile}
-                  className="mb-2"
-                  rules={[{ required: false, message: 'Please upload a valid ID image.' }]}
-                >
-                  <Upload.Dragger
-                    multiple
-                    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
-                    beforeUpload={file => {
-                      const isImage = file.type.startsWith('image/');
-                      if (!isImage) {
-                        message.error('You can only upload image files!');
-                      }
-                      return false; // Prevent upload
-                    }}
-                  >
-                    <p className="ant-upload-drag-icon">+</p>
-                    <p className="ant-upload-text">Click or drag image files to this area to upload</p>
-                    <p className="ant-upload-hint">Only for verification; not sent to backend yet. (JPG, PNG, GIF, WEBP)</p>
-                  </Upload.Dragger>
-                </Form.Item>
               </>
             )}
 

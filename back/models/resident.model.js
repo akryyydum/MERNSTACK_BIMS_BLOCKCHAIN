@@ -8,8 +8,8 @@ const residentSchema = new mongoose.Schema({
     suffix: { type: String, required: false },
     dateOfBirth: { type: Date, required: true },
     birthPlace: { type: String, required: true },
-    sex: { type: String, enum: ['male', 'female', 'other'], required: true },
-    civilStatus: { type: String, enum: ['single', 'married', 'widowed', 'separated'], required: true },
+    sex: { type: String, enum: ['male', 'female', 'other', 'Male', 'Female', 'Other'], required: true },
+    civilStatus: { type: String, enum: ['single', 'married', 'widowed', 'separated', 'Single', 'Married', 'Widowed', 'Separated', 'Divorced'], required: true },
     religion: { type: String, required: false },
     ethnicity: { type: String, required: false },
     address: {
