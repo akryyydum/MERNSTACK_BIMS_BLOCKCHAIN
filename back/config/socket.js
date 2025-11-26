@@ -101,6 +101,11 @@ const initializeSocket = (server) => {
         console.error('Error finding resident:', error);
       }
     }
+    
+    // If it's an admin, join admin-specific room
+    if (socket.userRole === 'admin') {
+      socket.join(`admin:${socket.userId}`);
+    }
 
     // Apply rate limiting to socket events
     socket.use((packet, next) => {
@@ -202,6 +207,58 @@ const emitNotificationDelete = (residentId, notificationId) => {
   }
 };
 
+// Emit notification to a specific admin user
+const emitNotificationToAdmin = (userId, notification) => {
+  if (!io) {
+    console.warn('Socket.IO not initialized');
+    return;
+  }
+
+  try {
+    // Emit to the admin's room
+    io.to(`admin:${userId}`).emit('admin:notification:new', {
+      notification
+    });
+    
+    console.log(`Admin notification sent to user ${userId}`);
+  } catch (error) {
+    console.error('Error emitting admin notification:', error);
+  }
+};
+
+// Emit notification update to admin (e.g., marked as read)
+const emitAdminNotificationUpdate = (userId, notificationId, updates) => {
+  if (!io) {
+    console.warn('Socket.IO not initialized');
+    return;
+  }
+
+  try {
+    io.to(`admin:${userId}`).emit('admin:notification:update', {
+      notificationId,
+      updates
+    });
+  } catch (error) {
+    console.error('Error emitting admin notification update:', error);
+  }
+};
+
+// Emit notification deletion to admin
+const emitAdminNotificationDelete = (userId, notificationId) => {
+  if (!io) {
+    console.warn('Socket.IO not initialized');
+    return;
+  }
+
+  try {
+    io.to(`admin:${userId}`).emit('admin:notification:delete', {
+      notificationId
+    });
+  } catch (error) {
+    console.error('Error emitting admin notification delete:', error);
+  }
+};
+
 // Get Socket.IO instance
 const getIO = () => {
   if (!io) {
@@ -215,5 +272,8 @@ module.exports = {
   emitNotificationToResident,
   emitNotificationUpdate,
   emitNotificationDelete,
+  emitNotificationToAdmin,
+  emitAdminNotificationUpdate,
+  emitAdminNotificationDelete,
   getIO
 };

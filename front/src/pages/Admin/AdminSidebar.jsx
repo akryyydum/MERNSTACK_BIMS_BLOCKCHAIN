@@ -2,8 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined, UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined,
     SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined, ExclamationCircleOutlined,
-    DollarOutlined, DeleteOutlined, BulbOutlined, DownOutlined, RightOutlined
+    DollarOutlined, DeleteOutlined, BulbOutlined, DownOutlined, RightOutlined, BellOutlined, CheckOutlined
  } from "@ant-design/icons";
+import { Badge, Popover, List, Button, Empty, Spin } from "antd";
+import { io } from 'socket.io-client';
+import apiClient from "../../utils/apiClient";
 import AdminResidentManagement from "./AdminResidentManagement";
 
 const defaultMenu = [
@@ -37,6 +40,8 @@ const defaultMenu = [
 
 const noScrollbar = "overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 export default function AdminSidebar({
   title = "Admin",
   menuItems,
@@ -50,6 +55,67 @@ export default function AdminSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
   const [animatedSections, setAnimatedSections] = useState({});
+  
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Admin route definitions used to validate/normalize notification links
+  const adminRoutes = useMemo(() => [
+    "/admin-dashboard",
+    "/admin/user-management",
+    "/admin/residents",
+    "/admin/households",
+    "/admin/garbage-fees",
+    "/admin/streetlight-fees",
+    "/admin/document-requests",
+    "/admin/reports-complaints",
+    "/admin/financial-reports",
+    "/admin/publicdocuments",
+    "/admin/blockchain",
+    "/admin/official-management",
+    "/admin/settings",
+  ], []);
+
+  const typeRouteMap = useMemo(() => ({
+    complaint: "/admin/reports-complaints",
+    document_request: "/admin/document-requests",
+    payment: "/admin/financial-reports",
+    resident_registration: "/admin/residents",
+    system: "/admin/settings",
+  }), []);
+
+  const resolveNotificationPath = (notification) => {
+    const link = notification?.link;
+    const type = notification?.type;
+
+    if (!link) {
+      return typeRouteMap[type] || "/admin-dashboard";
+    }
+
+    // External link: open in new tab handled by caller
+    if (/^https?:\/\//i.test(link)) return link;
+
+    // Ensure leading slash
+    let path = link.startsWith('/') ? link : `/${link}`;
+
+    // If missing admin prefix but matches a known admin subpath, add it
+    if (!path.startsWith('/admin')) {
+      const trimmed = path.replace(/^\/+/, '');
+      const candidate = `/admin/${trimmed}`;
+      path = candidate;
+    }
+
+    // Validate against known admin routes (allowing for params/query)
+    const basePath = path.split('?')[0].replace(/\/$/, '');
+    const isKnown = adminRoutes.some(r => basePath === r || basePath.startsWith(`${r}/`));
+    if (!isKnown) {
+      return typeRouteMap[type] || "/admin-dashboard";
+    }
+    return path;
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
@@ -82,6 +148,90 @@ export default function AdminSidebar({
     }
   }, [items]);
 
+  // Fetch admin notifications
+  const fetchNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const response = await apiClient.get('/api/admin/notifications');
+      setNotifications(response.data.notifications || []);
+      setUnreadCount(response.data.unreadCount || 0);
+    } catch (error) {
+      console.error("Error fetching admin notifications:", error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Fetch notifications on mount and periodically
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Refresh notifications every 5 minutes as fallback
+    const interval = setInterval(fetchNotifications, 300000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Socket.IO for real-time admin notifications
+  useEffect(() => {
+    const socket = io(API_URL, {
+      withCredentials: true,
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
+      timeout: 8000,
+    });
+
+    socket.on('connect', () => {
+      console.log('[Admin Socket] Connected', socket.id);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('[Admin Socket] Disconnected', reason);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[Admin Socket] Connect error', error.message);
+    });
+
+    // Admin-specific notification events
+    socket.on('admin:notification:new', (data) => {
+      setNotifications(prev => [data.notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      console.log('New admin notification:', data.notification.title);
+    });
+
+    socket.on('admin:notification:update', (data) => {
+      setNotifications(prev => 
+        prev.map(n => n._id === data.notificationId ? { ...n, ...data.updates } : n)
+      );
+      if (data.updates.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    });
+
+    socket.on('admin:notification:delete', (data) => {
+      const deletedNotif = notifications.find(n => n._id === data.notificationId);
+      setNotifications(prev => prev.filter(n => n._id !== data.notificationId));
+      if (deletedNotif && !deletedNotif.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
+      socket.off('admin:notification:new');
+      socket.off('admin:notification:update');
+      socket.off('admin:notification:delete');
+      socket.disconnect();
+    };
+  }, [notifications]);
+
   const toggleCollapse = () => {
     const next = !collapsed;
     setCollapsed(next);
@@ -100,6 +250,81 @@ export default function AdminSidebar({
       localStorage.setItem("adminSidebarExpanded", JSON.stringify(newState));
       return newState;
     });
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      await apiClient.patch(`/api/admin/notifications/${notificationId}/read`);
+      setNotifications(notifications.map(n => 
+        n._id === notificationId ? { ...n, isRead: true } : n
+      ));
+      setUnreadCount(Math.max(0, unreadCount - 1));
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    try {
+      await apiClient.patch('/api/admin/notifications/mark-all-read');
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId) => {
+    try {
+      await apiClient.delete(`/api/admin/notifications/${notificationId}`);
+      const deletedNotif = notifications.find(n => n._id === notificationId);
+      setNotifications(notifications.filter(n => n._id !== notificationId));
+      if (deletedNotif && !deletedNotif.isRead) {
+        setUnreadCount(Math.max(0, unreadCount - 1));
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
+  };
+
+  // Clear all notifications
+  const clearAllNotifications = async () => {
+    try {
+      // Delete all notifications by calling delete for each one
+      await Promise.all(notifications.map(n => 
+        apiClient.delete(`/api/admin/notifications/${n._id}`)
+      ));
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error clearing all notifications:", error);
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification._id);
+    }
+
+    const target = resolveNotificationPath(notification);
+
+    setNotificationsVisible(false);
+    setMobileOpen(false);
+
+    // External links open in a new tab
+    if (/^https?:\/\//i.test(target)) {
+      window.open(target, '_blank', 'noopener');
+      return;
+    }
+
+    // Navigate to validated in-app route
+    setTimeout(() => {
+      navigate(target, { replace: false });
+    }, 100);
   };
 
   const handleLogout = async () => {
@@ -179,6 +404,151 @@ export default function AdminSidebar({
             )}
           </div>
           <div className="flex items-center gap-1">
+            {/* Notification Bell */}
+            {!collapsed && (
+              <Popover
+                content={
+                  <div style={{ width: 380, maxWidth: 400, maxHeight: 500, overflow: 'auto' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1, gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 15 }}>Admin Notifications</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {unreadCount > 0 && (
+                          <Button type="link" size="small" onClick={markAllAsRead}>
+                            Mark all read
+                          </Button>
+                        )}
+                        {notifications.length > 0 && (
+                          <Button type="link" size="small" danger onClick={clearAllNotifications}>
+                            Clear all
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {loadingNotifications ? (
+                      <div style={{ padding: 48, textAlign: 'center' }}>
+                        <Spin size="large" />
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <Empty 
+                        image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                        description="No notifications"
+                        style={{ padding: '48px 16px' }}
+                      />
+                    ) : (
+                      <List
+                        dataSource={notifications.slice(0, 20)}
+                        renderItem={(item) => {
+                          const priorityColors = {
+                            urgent: '#ff0000',
+                            high: '#ff4d4f',
+                            medium: '#faad14',
+                            low: '#52c41a'
+                          };
+                          
+                          const typeIcons = {
+                            complaint: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
+                            document_request: <UserOutlined style={{ color: '#1890ff' }} />,
+                            payment: <DollarOutlined style={{ color: '#52c41a' }} />,
+                            resident_registration: <UsergroupAddOutlined style={{ color: '#722ed1' }} />,
+                            system: <SettingOutlined style={{ color: '#8c8c8c' }} />
+                          };
+                          
+                          return (
+                            <List.Item
+                              style={{
+                                padding: '12px 16px',
+                                cursor: 'pointer',
+                                backgroundColor: item.isRead ? 'transparent' : '#f0f5ff',
+                                borderLeft: `3px solid ${priorityColors[item.priority] || '#d9d9d9'}`,
+                                transition: 'background-color 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fafafa'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = item.isRead ? 'transparent' : '#f0f5ff'}
+                              onClick={() => handleNotificationClick(item)}
+                              actions={[
+                                !item.isRead && (
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<CheckOutlined />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markAsRead(item._id);
+                                    }}
+                                    title="Mark as read"
+                                  />
+                                ),
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotification(item._id);
+                                  }}
+                                  title="Delete"
+                                />
+                              ].filter(Boolean)}
+                            >
+                              <List.Item.Meta
+                                avatar={typeIcons[item.type]}
+                                title={
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                    <span style={{ fontWeight: item.isRead ? 400 : 600, fontSize: 14, flex: 1, lineHeight: '1.4' }}>
+                                      {item.title}
+                                    </span>
+                                    {!item.isRead && (
+                                      <Badge status="processing" />
+                                    )}
+                                  </div>
+                                }
+                                description={
+                                  <div>
+                                    <div style={{ fontSize: 13, marginBottom: 4, color: '#595959', lineHeight: '1.5' }}>
+                                      {item.message}
+                                    </div>
+                                    {item.residentName && (
+                                      <div style={{ fontSize: 12, color: '#8c8c8c', fontStyle: 'italic' }}>
+                                        From: {item.residentName}
+                                      </div>
+                                    )}
+                                    <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 4 }}>
+                                      {new Date(item.createdAt).toLocaleString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </div>
+                                  </div>
+                                }
+                              />
+                            </List.Item>
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                }
+                trigger="click"
+                open={notificationsVisible}
+                onOpenChange={setNotificationsVisible}
+                placement="bottomRight"
+                overlayStyle={{ zIndex: 1050 }}
+              >
+                <Badge count={unreadCount} offset={[-5, 5]} size="small">
+                  <button
+                    className="p-2 rounded hover:bg-white/10 text-slate-900 hover:text-slate-700"
+                    title="Notifications"
+                  >
+                    <BellOutlined style={{ fontSize: 18 }} />
+                  </button>
+                </Badge>
+              </Popover>
+            )}
+            
             {/* Close on mobile */}
             <button
               className="md:hidden p-2 rounded hover:bg-white/10"

@@ -5,6 +5,7 @@ const FinancialTransaction = require('../models/financialTransaction.model');
 const mongoose = require('mongoose');
 const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
 const Settings = require('../models/settings.model');
+const { notifyDocumentRequestCreated } = require('./adminNotificationController');
 // Fabric client for blockchain mirroring
 const { getContract } = require('../utils/fabricClient');
 
@@ -192,6 +193,14 @@ exports.createRequest = async (req, res) => {
       .populate('requestedBy', 'firstName lastName')
       .populate('requestFor', 'firstName lastName')
       .lean();
+
+    // Notify admins about the new document request
+    try {
+      await notifyDocumentRequestCreated(doc, resident);
+    } catch (notifErr) {
+      console.warn('Failed to notify admins about document request:', notifErr.message);
+      // Non-blocking: document request is still created
+    }
 
     res.status(201).json(populated);
   } catch (error) {

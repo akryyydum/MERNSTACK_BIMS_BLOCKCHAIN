@@ -233,6 +233,8 @@ app.use("/api/resident", residentProfileRoutes);
 const residentPaymentsController = require("./controllers/residentPaymentsController");
 const residentNotificationRoutes = require("./routes/residentNotificationRoutes");
 app.use("/api/resident/notifications", residentNotificationRoutes);
+const adminNotificationRoutes = require("./routes/adminNotificationRoutes");
+app.use("/api/admin/notifications", adminNotificationRoutes);
 // Blockchain status routes
 const blockchainRoutes = require('./routes/blockchainRoutes');
 app.use('/api/blockchain', blockchainRoutes);
