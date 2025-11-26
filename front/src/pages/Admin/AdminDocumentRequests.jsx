@@ -699,6 +699,7 @@ export default function AdminDocumentRequests() {
 const TEMPLATE_MAP = {
   "Barangay Certificate": "/BARANGAY CERTIFICATE.docx",
   "Certificate of Indigency": "/INDIGENCY.docx",
+  "Indigency": "/INDIGENCY.docx",
   "Barangay Clearance": "/BARANGAY CLEARANCE.docx",
   "Residency": "/CERTIFICATE OF RESIDENCY.docx",
   "Business Clearance": "/BUSINESS CLEARANCE.docx",
