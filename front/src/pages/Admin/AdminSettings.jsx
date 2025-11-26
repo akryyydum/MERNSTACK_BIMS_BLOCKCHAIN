@@ -44,7 +44,8 @@ export default function AdminSettings() {
     setSettingsLoading(true);
     try {
       const res = await apiClient.get('/api/admin/settings');
-      setSettings(res.data);
+      const data = res.data || {};
+      setSettings(data);
       feesForm.setFieldsValue({
         garbageFeeRegularAnnual: data.garbageFeeRegularAnnual,
         garbageFeeBusinessAnnual: data.garbageFeeBusinessAnnual,
@@ -76,7 +77,16 @@ export default function AdminSettings() {
         }
       };
       const res = await apiClient.patch('/api/admin/settings', payload);
-      setSettings(res.data);
+      const updated = res.data || {};
+      setSettings(updated);
+      // Reflect updated values immediately in the form
+      feesForm.setFieldsValue({
+        garbageFeeRegularAnnual: updated.garbageFeeRegularAnnual,
+        garbageFeeBusinessAnnual: updated.garbageFeeBusinessAnnual,
+        streetlightMonthlyFee: updated.streetlightMonthlyFee,
+        indigencyFee: updated.documentFees?.indigency,
+        barangayClearanceFee: updated.documentFees?.barangayClearance
+      });
       message.success('Fees updated successfully');
     } catch (e) {
       message.error(e.message);
