@@ -76,12 +76,6 @@ async function register(req, res) {
       if (existingUserWithEmail) {
         return res.status(400).json({ message: 'Email already exists' });
       }
-
-      // Check if resident with same email already exists
-      const existingResident = await Resident.findOne({ 'contact.email': email });
-      if (existingResident) {
-        return res.status(400).json({ message: 'A resident with this email already exists' });
-      }
     }
 
     // Compute full name
@@ -103,7 +97,8 @@ async function register(req, res) {
       isVerified: false,
       isActive: true,
     });
-    // Try to match existing resident roster (assumes pre-loaded canonical residents without user linkage)
+    
+    // Try to match existing resident roster by name and birthdate
     const existingResidentRoster = await Resident.findOne({
       firstName: normalize(firstName),
       lastName: normalize(lastName),
@@ -120,6 +115,32 @@ async function register(req, res) {
       await existingResidentRoster.save();
       // User stays unverified until resident.status becomes 'verified'
       return res.status(201).json({ message: 'Registration received. Your existing resident record is now linked and pending verification.' });
+    }
+    
+    // If email provided, check if resident with same email exists (but different name/dob)
+    if (email) {
+      const existingResidentByEmail = await Resident.findOne({ 'contact.email': email });
+      if (existingResidentByEmail) {
+        // Check if details match
+        const detailsMatch = 
+          normalize(existingResidentByEmail.firstName) === normalize(firstName) &&
+          normalize(existingResidentByEmail.lastName) === normalize(lastName) &&
+          sameDay(existingResidentByEmail.dateOfBirth, dateOfBirth);
+        
+        if (detailsMatch) {
+          // Details match, link to this resident
+          if (existingResidentByEmail.user) {
+            return res.status(400).json({ message: 'Resident record already linked to an account. Contact admin.' });
+          }
+          existingResidentByEmail.user = user._id;
+          existingResidentByEmail.status = existingResidentByEmail.status || 'pending';
+          await existingResidentByEmail.save();
+          return res.status(201).json({ message: 'Registration received. Your existing resident record is now linked and pending verification.' });
+        } else {
+          // Email exists but details don't match
+          return res.status(400).json({ message: 'A resident with this email already exists with different details. Contact admin.' });
+        }
+      }
     }
 
     // Create unverified resident entry (to be approved by admin later)
