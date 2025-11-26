@@ -36,7 +36,7 @@
     "framer-motion": "^12.23.12",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
-    "lucide-react": "^0.542.0",
+    "lucide-react": "^0.555.0",
     "motion": "^12.23.24",
     "multer": "^2.0.2",
     "pizzip": "^3.2.0",
