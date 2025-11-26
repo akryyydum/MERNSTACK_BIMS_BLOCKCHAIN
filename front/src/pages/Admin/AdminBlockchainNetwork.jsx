@@ -1,12 +1,14 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Table, Input, Button, Tag, message, Space, Typography, Tabs } from "antd";
-import { SearchOutlined, FileTextOutlined, ReloadOutlined, CloudSyncOutlined, FolderOpenOutlined, DollarOutlined, BlockOutlined, UserOutlined } from "@ant-design/icons";
+import { Table, Input, Button, Tag, message, Space, Typography, Tabs, Modal, Checkbox, Form } from "antd";
+import { SearchOutlined, FileTextOutlined, ReloadOutlined, CloudSyncOutlined, FolderOpenOutlined, DollarOutlined, BlockOutlined, UserOutlined, FilePdfOutlined } from "@ant-design/icons";
 import axios from "axios";
 import apiClient from "../../utils/apiClient";
 import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 export default function AdminBlockchainNetwork() {
   const [query, setQuery] = useState("");
@@ -19,38 +21,40 @@ export default function AdminBlockchainNetwork() {
   const [publicDocs, setPublicDocs] = useState([]);
   const [finance, setFinance] = useState([]); // on-chain financial transactions
 
+  // Export modal state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportForm] = Form.useForm();
+  const [exporting, setExporting] = useState(false);
+
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   const handleSearch = async () => {
-    if (activeTab !== "requests") return; // only fetch for requests tab
-    setLoading(true);
+    if (activeTab === "requests") setLoading(true);
     try {
       const res = await apiClient.get('/api/blockchain/requests');
       setResults(Array.isArray(res.data) ? res.data : []);
       setLastFetchedAt(new Date());
     } catch (err) {
       console.error(err);
-      message.error("Search failed, please try again.");
+      if (activeTab === "requests") message.error("Search failed, please try again.");
     }
-    setLoading(false);
+    if (activeTab === "requests") setLoading(false);
   }; 
   const handleFinanceFetch = async () => {
-    if (activeTab !== "finance") return; // only fetch for finance tab
-    setLoading(true);
+    if (activeTab === "finance") setLoading(true);
     try {
       const res = await apiClient.get('/api/blockchain/financial-transactions');
       setFinance(Array.isArray(res.data) ? res.data : []);
       setLastFetchedAt(new Date());
     } catch (err) {
       console.error(err);
-      message.error("Failed to load financial transactions.");
+      if (activeTab === "finance") message.error("Failed to load financial transactions.");
     }
-    setLoading(false);
+    if (activeTab === "finance") setLoading(false);
   };
   const handlePublicDocsFetch = async () => {
-    if (activeTab !== "publicdocs") return;
-    setLoading(true);
+    if (activeTab === "publicdocs") setLoading(true);
     try {
       // Fetch combined data from admin endpoint (contains mongoDocs with status + blockchainDocs raw)
       const res = await apiClient.get('/api/admin/public-documents');
@@ -70,9 +74,9 @@ export default function AdminBlockchainNetwork() {
       setLastFetchedAt(new Date());
     } catch (err) {
       console.error(err);
-      message.error("Failed to load public documents from blockchain.");
+      if (activeTab === "publicdocs") message.error("Failed to load public documents from blockchain.");
     }
-    setLoading(false);
+    if (activeTab === "publicdocs") setLoading(false);
   };
   const handleSync = async () => {
     if (activeTab !== "requests") return; // only valid for requests tab
@@ -87,17 +91,175 @@ export default function AdminBlockchainNetwork() {
     }
     setLoading(false);
   };
-  // Load on mount and when switching back to requests tab
-  useEffect(() => {
-    if (activeTab === "requests") {
-      handleSearch();
-    } else if (activeTab === "finance") {
-      handleFinanceFetch();
-    } else if (activeTab === "publicdocs") {
-      handlePublicDocsFetch();
+
+  const handleExportPDF = async () => {
+    try {
+      setExporting(true);
+      const values = await exportForm.validateFields();
+      const { exportTabs } = values;
+
+      if (!exportTabs || exportTabs.length === 0) {
+        message.warning('Please select at least one tab to export');
+        setExporting(false);
+        return;
+      }
+
+      const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      let yPosition = 20;
+
+      // Title
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text('Blockchain Network Report', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 10;
+
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Generated on: ${dayjs().format('MMMM DD, YYYY HH:mm')}`, pageWidth / 2, yPosition, { align: 'center' });
+      doc.text(`Generated by: ${username}`, pageWidth / 2, yPosition + 5, { align: 'center' });
+      yPosition += 15;
+
+      // Export Document Requests
+      if (exportTabs.includes('requests')) {
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('Document Requests', 14, yPosition);
+        yPosition += 7;
+
+        const requestData = filteredRequests.map(r => [
+          r.requestId || '-',
+          r.documentType || '-',
+          r.requestedBy || '-',
+          (r.status || '').charAt(0).toUpperCase() + (r.status || '').slice(1),
+          r.requestedAt ? dayjs(r.requestedAt).format('YYYY-MM-DD HH:mm') : '-'
+        ]);
+
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Request ID', 'Document Type', 'Resident', 'Status', 'Requested At']],
+          body: requestData,
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' },
+          styles: { fontSize: 9 },
+          margin: { left: 14, right: 14 }
+        });
+
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        // Add new page if needed
+        if (yPosition > pageHeight - 30 && (exportTabs.includes('publicdocs') || exportTabs.includes('finance'))) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      }
+
+      // Export Public Documents
+      if (exportTabs.includes('publicdocs')) {
+        if (yPosition > 20 && yPosition < pageHeight - 60) {
+          // Add spacing if on same page
+          yPosition += 5;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('Public Documents', 14, yPosition);
+        yPosition += 7;
+
+        const publicDocData = filteredPublicDocs.map(d => [
+          d.docId || '-',
+          d.title || '-',
+          d.category || '-',
+          d.originalName || '-',
+          d.size ? `${(d.size/1024).toFixed(1)} KB` : '-',
+          d.createdAt ? dayjs(d.createdAt).format('YYYY-MM-DD') : '-',
+          (d.status || 'N/A').toUpperCase()
+        ]);
+
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Doc ID', 'Title', 'Category', 'File', 'Size', 'Uploaded', 'Status']],
+          body: publicDocData,
+          theme: 'striped',
+          headStyles: { fillColor: [147, 51, 234], fontStyle: 'bold' },
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 }
+        });
+
+        yPosition = doc.lastAutoTable.finalY + 10;
+        
+        // Add new page if needed
+        if (yPosition > pageHeight - 30 && exportTabs.includes('finance')) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      }
+
+      // Export Financial Transactions
+      if (exportTabs.includes('finance')) {
+        if (yPosition > 20 && yPosition < pageHeight - 60) {
+          // Add spacing if on same page
+          yPosition += 5;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('Financial Transactions', 14, yPosition);
+        yPosition += 7;
+
+        const financeData = filteredFinance.map(t => [
+          t.txId || '-',
+          t.requestId || '-',
+          t.residentName || '-',
+          `₱${Number(t.amount || 0).toLocaleString()}`,
+          t.paymentMethod || '-',
+          (t.description || '-').substring(0, 30) + ((t.description || '').length > 30 ? '...' : ''),
+          t.createdAt ? dayjs(t.createdAt).format('YYYY-MM-DD HH:mm') : '-'
+        ]);
+
+        doc.autoTable({
+          startY: yPosition,
+          head: [['TX ID', 'Request ID', 'Resident', 'Amount', 'Method', 'Description', 'Created']],
+          body: financeData,
+          theme: 'striped',
+          headStyles: { fillColor: [34, 197, 94], fontStyle: 'bold' },
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 }
+        });
+      }
+
+      // Save PDF
+      const filename = `Blockchain_Report_${exportTabs.join('_')}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+      doc.save(filename);
+
+      message.success('Report exported successfully!');
+      setExportOpen(false);
+      exportForm.resetFields();
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export report');
+    } finally {
+      setExporting(false);
     }
+  };
+  // Load all data on mount - no loading state to avoid blocking
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        // Load all three data sources in parallel without showing loading spinner
+        await Promise.all([
+          handleSearch(),
+          handleFinanceFetch(),
+          handlePublicDocsFetch()
+        ]);
+      } catch (err) {
+        console.error('Error loading blockchain data:', err);
+      }
+    };
+    loadAllData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, []);
 
   // Derived filtered data per tab
   const filteredRequests = useMemo(() => {
@@ -329,6 +491,16 @@ export default function AdminBlockchainNetwork() {
                 )}
               </div>
             </div>
+            <div className="w-full md:w-auto">
+              <Button 
+                type="primary" 
+                icon={<FilePdfOutlined />} 
+                onClick={() => setExportOpen(true)}
+                className="w-full md:w-auto whitespace-nowrap"
+              >
+                Export to PDF
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -409,6 +581,61 @@ export default function AdminBlockchainNetwork() {
             />
           </div>
         </div>
+
+        {/* Export Modal */}
+        <Modal
+          title="Export Blockchain Data to PDF"
+          open={exportOpen}
+          onCancel={() => {
+            setExportOpen(false);
+            exportForm.resetFields();
+          }}
+          onOk={handleExportPDF}
+          okText="Export"
+          confirmLoading={exporting}
+          width={500}
+        >
+          <Form form={exportForm} layout="vertical" initialValues={{ exportTabs: ['requests', 'publicdocs', 'finance'] }}>
+            <Form.Item
+              name="exportTabs"
+              label="Select Tables to Export"
+              rules={[{ required: true, message: 'Please select at least one table' }]}
+            >
+              <Checkbox.Group style={{ width: '100%' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Checkbox value="requests">
+                    <Space>
+                      <FileTextOutlined />
+                      Document Requests ({filteredRequests.length} records)
+                    </Space>
+                  </Checkbox>
+                  <Checkbox value="publicdocs">
+                    <Space>
+                      <FolderOpenOutlined />
+                      Public Documents ({filteredPublicDocs.length} records)
+                    </Space>
+                  </Checkbox>
+                  <Checkbox value="finance">
+                    <Space>
+                      <DollarOutlined />
+                      Financial Transactions ({filteredFinance.length} records)
+                    </Space>
+                  </Checkbox>
+                </Space>
+              </Checkbox.Group>
+            </Form.Item>
+
+            <div className="text-sm text-gray-500 mt-4">
+              <p><strong>Export Information:</strong></p>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Select one or more tables to include in the PDF report</li>
+                <li>The report will include all filtered data from selected tables</li>
+                <li>Current search filters will be applied to the export</li>
+                <li>Generated in landscape format for better readability</li>
+              </ul>
+            </div>
+          </Form>
+        </Modal>
       </div>
     </AdminLayout>
   );
