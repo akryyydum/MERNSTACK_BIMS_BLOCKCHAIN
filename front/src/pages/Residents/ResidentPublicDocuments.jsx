@@ -100,6 +100,26 @@ export default function ResidentPublicDocuments() {
         return;
       }
       const blobUrl = URL.createObjectURL(blob);
+      // On mobile devices, many browsers block inline PDF rendering.
+      // If the file is a PDF and we're on mobile, open in a new tab.
+      if (/^application\/pdf/i.test(record.mimeType || "") && isMobile) {
+        try {
+          window.open(blobUrl, "_blank", "noopener,noreferrer");
+        } catch (err) {
+          // If popup blocked, fall back to showing the modal with iframe
+          setPreviewUrl(blobUrl);
+          setPreviewBlob(blob);
+          setShowPreviewModal(true);
+        }
+        // Since we've handed off the blob URL to a new tab, revoke later
+        // but keep a small timeout to allow the tab to load.
+        setTimeout(() => {
+          try { URL.revokeObjectURL(blobUrl); } catch {}
+        }, 10000);
+        setPreviewLoading(false);
+        return;
+      }
+      // Default inline preview path (desktop or non-PDF types)
       setPreviewUrl(blobUrl);
       setPreviewBlob(blob);
     } catch {
