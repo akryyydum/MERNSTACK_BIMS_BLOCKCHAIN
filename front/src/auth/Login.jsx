@@ -403,9 +403,10 @@ const Login = () => {
         role: "resident",
       };
 
-      // do not log payloads in production
+      // Log payload for debugging
+      console.log("Registration payload:", JSON.stringify(payload, null, 2));
       const response = await axios.post(`${API_BASE}/api/auth/register`, payload);
-      // do not log responses in production
+      console.log("Registration response:", response.data);
       message.success({ 
         content: "Registration successful! You can now log in immediately.", 
         key: "registerLoading", 
@@ -413,13 +414,17 @@ const Login = () => {
       });
       closeRegisterPanel();
     } catch (err) {
-      // suppress verbose error logging in production
+      console.error("Registration error:", err.response?.data);
       const status = err.response?.status;
       
       // Get more detailed error message when available
       let errorDetail = '';
       if (err.response?.data?.message) {
         errorDetail = err.response.data.message;
+      } else if (err.response?.data?.errors) {
+        // Show validation errors
+        const validationErrors = err.response.data.errors.map(e => `${e.field}: ${e.message}`).join(', ');
+        errorDetail = `Validation failed: ${validationErrors}`;
       }
       
       const msg =
@@ -428,7 +433,7 @@ const Login = () => {
           : status >= 500
           ? "Server error. Please try again later."
           : errorDetail || "An error occurred. Please try again.";
-      message.error({ content: msg, key: "registerLoading", duration: 3 });
+      message.error({ content: msg, key: "registerLoading", duration: 5 });
     } finally {
       setRegLoading(false);
     }

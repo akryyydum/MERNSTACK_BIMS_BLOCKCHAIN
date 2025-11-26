@@ -4,7 +4,7 @@ const { z } = require('zod');
 const emailSchema = z.string().email().toLowerCase().trim();
 const phoneSchema = z.string().regex(/^[0-9+\-\s()]+$/).min(10).max(20).optional();
 const mongoIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/);
-const dateSchema = z.string().datetime().or(z.date());
+const dateSchema = z.string().datetime().or(z.date()).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/));
 
 // User schemas
 const registerSchema = z.object({
@@ -16,8 +16,8 @@ const registerSchema = z.object({
   suffix: z.string().max(10).trim().optional(),
   dateOfBirth: dateSchema,
   birthPlace: z.string().min(1).max(200).trim(),
-  sex: z.enum(['Male', 'Female']),
-  civilStatus: z.enum(['Single', 'Married', 'Widowed', 'Separated', 'Divorced']),
+  sex: z.string().transform(val => val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()).pipe(z.enum(['Male', 'Female'])),
+  civilStatus: z.string().transform(val => val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()).pipe(z.enum(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])),
   religion: z.string().max(100).trim().optional(),
   ethnicity: z.string().max(100).trim().optional(),
   address: z.object({
@@ -25,15 +25,19 @@ const registerSchema = z.object({
     barangay: z.string().min(1).max(100).trim(),
     municipality: z.string().min(1).max(100).trim(),
     province: z.string().min(1).max(100).trim(),
+    zipCode: z.string().max(20).trim().optional(),
   }),
   citizenship: z.string().min(1).max(100).trim(),
   occupation: z.string().max(200).trim().optional(),
   sectoralInformation: z.string().max(500).trim().optional(),
+  employmentStatus: z.string().max(100).trim().optional(),
   registeredVoter: z.boolean().optional(),
   contact: z.object({
     email: emailSchema.optional(),
     mobile: phoneSchema,
   }).optional(),
+  fullName: z.string().max(300).trim().optional(), // Allow fullName to pass through
+  role: z.string().optional(), // Allow role to pass through
 });
 
 const loginSchema = z.object({

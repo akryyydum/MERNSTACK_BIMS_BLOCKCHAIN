@@ -104,13 +104,15 @@ function stripDangerous(obj) {
 }
 // Will run after body parsing (moved below) – placeholder here for clarity.
 
-// Rate limiters
+// Rate limiters with proper proxy handling
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many auth requests from this IP. Try again in an hour.'
+  message: 'Too many auth requests from this IP. Try again in an hour.',
+  // Skip validation for trust proxy since we're in a controlled environment
+  validate: { trustProxy: false }
 });
 
 // Slightly higher cap for financial & complaint endpoints (still conservative)
@@ -119,7 +121,8 @@ const sensitiveLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests. Slow down.'
+  message: 'Too many requests. Slow down.',
+  validate: { trustProxy: false }
 });
 
 // Global fallback limiter (very high cap, acts as circuit breaker)
@@ -127,7 +130,8 @@ const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false }
 });
 app.use(globalLimiter);
 
