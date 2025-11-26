@@ -197,64 +197,6 @@ export default function ResidentDashboard() {
     }
   };
   
-  // Generate mock payment data based on current date
-  const generateMockPayments = () => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
-    
-    // Calculate which quarter we're in (0-based)
-    const currentQuarter = Math.floor(currentMonth / 3);
-    
-    // Create payment records for the year
-    const mockPayments = [];
-    
-    // Create 4 quarters of payment records
-    for (let quarter = 0; quarter < 4; quarter++) {
-      // Calculate due date (last day of the quarter)
-      const dueDate = new Date(currentYear, (quarter + 1) * 3, 0);
-      
-      // Determine payment status based on current date and quarter
-      let status = "pending";
-      if (quarter < currentQuarter) {
-        // Past quarters are either paid or overdue
-        status = Math.random() > 0.3 ? "paid" : "overdue";
-      } else if (quarter === currentQuarter) {
-        // Current quarter is pending
-        status = "pending";
-      } else {
-        // Future quarters are upcoming
-        status = "upcoming";
-      }
-      
-      // Add garbage fee payment record
-      mockPayments.push({
-        id: `garbage-${currentYear}-q${quarter + 1}`,
-        description: `Garbage Fee - Q${quarter + 1} ${currentYear}`,
-        amount: 50,
-        dueDate: dueDate.toISOString(),
-        paymentDate: status === "paid" ? new Date(dueDate.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString() : null,
-        status,
-        type: "Garbage Fee",
-        period: `Q${quarter + 1} ${currentYear}`
-      });
-      
-      // Add streetlight fee payment record
-      mockPayments.push({
-        id: `streetlight-${currentYear}-q${quarter + 1}`,
-        description: `Streetlight Fee - Q${quarter + 1} ${currentYear}`,
-        amount: 150,
-        dueDate: dueDate.toISOString(),
-        paymentDate: status === "paid" ? new Date(dueDate.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString() : null,
-        status,
-        type: "Streetlight Fee",
-        period: `Q${quarter + 1} ${currentYear}`
-      });
-    }
-    
-    setPayments(mockPayments);
-  };
-
   // Fetch document requests for the current resident
   const fetchRequests = async () => {
     setLoading(true);
@@ -293,7 +235,6 @@ export default function ResidentDashboard() {
   
   // Complaint statistics  
   const totalComplaints = complaints.length;
-  const pendingComplaints = complaints.filter(c => c.status === "pending").length;
   
   // Payment statistics - use actual balances from payment status API
   const { totalMonthlyDue, totalYearlyDue } = useMemo(() => {
@@ -379,7 +320,7 @@ export default function ResidentDashboard() {
                     {paymentStatus.paymentStatus?.garbageFee && (
                       <Card className={`w-full border shadow-none min-h-[80px] sm:min-h-[100px] ${
                         paymentStatus.paymentStatus.garbageFee.paid 
-                          ? 'border-emerald-200 bg-emerald-50' 
+                          ? 'border-emerald-200 bg-white' 
                           : 'border-rose-200 bg-white'
                       }`}>
                         <CardContent className="p-2 sm:p-3">
