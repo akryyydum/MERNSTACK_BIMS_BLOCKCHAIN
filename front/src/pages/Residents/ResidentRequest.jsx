@@ -12,7 +12,7 @@ import {
   DownloadOutlined,
   WarningOutlined
 } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import { useNavigate } from "react-router-dom";
 
 import ResidentNavbar from './ResidentNavbar';
@@ -62,17 +62,8 @@ export default function ResidentRequest() {
   // Fetch resident profile information
   const fetchResidentProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.log("No token found for resident profile fetch");
-        return;
-      }
-
       console.log("Fetching resident profile...");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/profile');
       
       console.log("Resident profile API response:", res.data);
       
@@ -115,18 +106,8 @@ export default function ResidentRequest() {
   // Fetch household information and members
   const fetchHouseholdInfo = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.log("No token found for household fetch");
-        setIsInHousehold(false);
-        return;
-      }
-
       console.log("Fetching household info...");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/household`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/household');
       
       console.log("Household API response:", res.data);
       
@@ -174,16 +155,7 @@ export default function ResidentRequest() {
   const checkPaymentStatus = async () => {
     setCheckingPayment(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in. Please log in first.");
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests/payment-status`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/document-requests/payment-status');
       setPaymentStatus(res.data);
     } catch (error) {
       console.error("Error checking payment status:", error);
@@ -213,12 +185,7 @@ export default function ResidentRequest() {
   // Fetch resident payment records to show paid/unpaid months for current year
   const fetchPaymentsSummary = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/payments`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/payments');
       setPaymentsSummary(res.data);
 
       const currentYear = new Date().getFullYear();
@@ -246,17 +213,7 @@ export default function ResidentRequest() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in. Please log in first.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/document-requests');
       const baseRequests = Array.isArray(res.data) ? res.data : [];
       setRequests(baseRequests);
       // Fetch blockchain statuses after setting base requests
@@ -282,12 +239,7 @@ export default function ResidentRequest() {
   // Fetch blockchain request statuses for this resident and merge
   const fetchBlockchainStatuses = async (current = requests) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const chainRes = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/blockchain/requests/me`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const chainRes = await apiClient.get('/api/blockchain/requests/me');
       const chainData = Array.isArray(chainRes.data) ? chainRes.data : [];
       const map = new Map(
         chainData.map(r => [r.requestId, r])
@@ -374,153 +326,201 @@ export default function ResidentRequest() {
     <>
       <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-2xl font-semibold text-slate-900">My Document Requests</CardTitle>
-              <CardDescription>
-                Submit and track your official barangay documents
-              </CardDescription>
+      <main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">My Document Requests</CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">
+                  Submit and track your official barangay documents
+                </CardDescription>
+              </div>
+              <Button 
+                type="primary"
+                size="large"
+                icon={<FileTextOutlined />}
+                onClick={handleNewRequest}
+                className={`bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-2 w-full sm:w-auto ${
+                  (!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus))
+                    ? "bg-gray-400 hover:bg-gray-500" 
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+                disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
+                loading={checkingPayment}
+              >
+                New Request
+              </Button>
             </div>
-            <Button 
-              type="primary" 
-              size="large" 
-              onClick={handleNewRequest}
-              className={`shadow-sm flex items-center gap-1 ${
-                (!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus))
-                  ? "bg-gray-400 hover:bg-gray-500" 
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-              icon={<FileTextOutlined />}
-              disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
-              loading={checkingPayment}
-            >
-              New Request
-            </Button>
           </CardHeader>
         </Card>
 
         {/* Household Status Alert */}
         {!isInHousehold && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-5">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-amber-100 mr-3">
-                  <WarningOutlined className="text-amber-500 text-2xl align-middle" />
-                </span>
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-amber-800">
-                  Household Registration Required
-                </h3>
-                <div className="mt-2 text-sm text-amber-700">
-                  <p>
-                    You must be registered as part of a household before you can request documents.<br />
-                    Please visit the barangay office to register your household or to be added to an existing household.
+          <Card className="w-full border border-amber-200 bg-amber-50 shadow-md">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                    <WarningOutlined className="text-amber-600 text-sm sm:text-base" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm sm:text-base font-semibold text-amber-900 mb-1.5">
+                    Household Registration Required
+                  </h3>
+                  <p className="text-amber-800 text-xs sm:text-sm">
+                    You must be registered as part of a household before you can request documents. Please visit the barangay office to register your household or to be added to an existing household.
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Payment Status Alert */}
         {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
-          <div className="rounded-lg border px-4 py-3 text-sm text-rose-700 mb-5">
-            <PaymentStatusAlert 
-              paymentStatus={paymentStatus}
-              onPaymentClick={handleGoToPayments}
-            />
-          </div>
+          <Card className="w-full border border-rose-200 bg-rose-50 shadow-md">
+            <CardContent className="p-3 sm:p-4">
+              <PaymentStatusAlert 
+                paymentStatus={paymentStatus}
+                onPaymentClick={handleGoToPayments}
+              />
+            </CardContent>
+          </Card>
         )}
 
 
-        <Card className="w-full">
-          <CardContent className="space-y-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Request Statistics</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Overview of your document requests</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5">
             {/* Request Statistics Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="w-full border border-blue-200 bg-blue-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-blue-700">All Requests</p>
-                  <p className="text-2xl font-bold text-blue-900">{totalRequests}</p>
+            <div className="grid grid-cols-2 grid-rows-2 gap-2 sm:grid-cols-2 sm:grid-rows-2 lg:grid-cols-4 lg:grid-rows-1 sm:gap-4">
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                      <FileTextOutlined className="text-slate-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">All Requests</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{totalRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Total documents</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-amber-200 bg-amber-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-amber-700">Pending</p>
-                  <p className="text-2xl font-bold text-amber-900">{pendingRequests}</p>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-amber-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-200">
+                      <ClockCircleOutlined className="text-amber-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Pending</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{pendingRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">In progress</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-emerald-200 bg-emerald-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-emerald-700">Approved</p>
-                  <p className="text-2xl font-bold text-emerald-900">{approvedRequests}</p>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-emerald-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                      <CheckCircleOutlined className="text-emerald-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Approved</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{approvedRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Accepted</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-rose-200 bg-rose-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-rose-700">Rejected</p>
-                  <p className="text-2xl font-bold text-rose-900">{rejectedRequests}</p>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-rose-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0 border border-rose-200">
+                      <CloseCircleOutlined className="text-rose-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Rejected</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{rejectedRequests}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Declined</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
+          </CardContent>
+        </Card>
           
-          {/* Filter Tabs */}
-          <Tabs 
-            defaultActiveKey="all"
-            className="mb-6"
-            type="card"
-            items={[
-              {
-                key: 'all',
-                label: 'All Requests',
-                children: null,
-              },
-              {
-                key: 'pending',
-                label: 'Pending',
-                children: null,
-              },
-              {
-                key: 'approved',
-                label: 'Approved',
-                children: null,
-              },
-              {
-                key: 'rejected',
-                label: 'Rejected',
-                children: null,
-              },
-            ]}
-            onChange={(key) => {
-              if (key === 'all') {
-                setSearch("");
-              } else if (key === 'pending') {
-                setSearch("pending");
-              } else if (key === 'approved') {
-                setSearch("approved");
-              } else if (key === 'rejected') {
-                setSearch("rejected");
-              }
-            }}
-          />
+        {/* Document Requests Table */}
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Document Requests</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Track and manage your document requests</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5">
+            {/* Filter Tabs */}
+            <Tabs 
+              defaultActiveKey="all"
+              className="mb-4"
+              type="card"
+              items={[
+                {
+                  key: 'all',
+                  label: 'All Requests',
+                  children: null,
+                },
+                {
+                  key: 'pending',
+                  label: 'Pending',
+                  children: null,
+                },
+                {
+                  key: 'approved',
+                  label: 'Approved',
+                  children: null,
+                },
+                {
+                  key: 'rejected',
+                  label: 'Rejected',
+                  children: null,
+                },
+              ]}
+              onChange={(key) => {
+                if (key === 'all') {
+                  setSearch("");
+                } else if (key === 'pending') {
+                  setSearch("pending");
+                } else if (key === 'approved') {
+                  setSearch("approved");
+                } else if (key === 'rejected') {
+                  setSearch("rejected");
+                }
+              }}
+            />
           
-          <div className="border rounded-lg overflow-x-auto shadow-sm">
+          <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
             <table className="min-w-full bg-white table-auto">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Document For</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Purpose</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Blockchain</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Amount</th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Document</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">Document For</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden sm:table-cell">Purpose</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">Date</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">Blockchain</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden lg:table-cell">Amount</th>
+                  <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200">
                 {loading ? (
                   <tr>
                     <td colSpan="8" className="text-center py-8">
@@ -531,97 +531,97 @@ export default function ResidentRequest() {
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="text-center py-12">
+                    <td colSpan="8" className="text-center py-10 sm:py-12">
                       <div className="flex flex-col items-center">
-                        <FileTextOutlined style={{ fontSize: '32px' }} className="text-gray-400 mb-2" />
-                        <p className="text-gray-500 font-medium">No document requests found</p>
-                        <p className="text-gray-400 text-sm mt-1">Click "New Request" to create a document request</p>
+                        <FileTextOutlined style={{ fontSize: '48px' }} className="text-slate-400 mb-3" />
+                        <p className="text-slate-500 font-medium text-base sm:text-lg">No document requests found</p>
+                        <p className="text-slate-400 text-sm sm:text-base mt-1">Click "New Request" to create a document request</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   paginatedRequests.map((request) => (
-                    <tr key={request._id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                            <FileTextOutlined className="text-blue-600" />
+                    <tr key={request._id} className="hover:bg-slate-50 transition-colors duration-150">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                            <FileTextOutlined className="text-slate-600 text-base" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-800">{request.documentType}</p>
-                            <p className="text-xs text-gray-500">ID: {request._id.substring(0, 8)}...</p>
+                            <p className="font-medium text-slate-800 text-sm">{request.documentType}</p>
+                            <p className="text-xs text-slate-500">ID: {request._id.substring(0, 8)}...</p>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-700 hidden md:table-cell">
+                      <td className="py-4 px-4 text-sm text-slate-700 hidden md:table-cell">
                         <div className="flex items-center">
                           {(() => {
                             const person = request.requestFor || request.residentId;
                             return person ? (
                               <div>
-                                <p className="font-medium text-gray-800">
+                                <p className="font-medium text-slate-800 text-sm">
                                   {[person.firstName, person.lastName].filter(Boolean).join(" ")}
                                 </p>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-slate-500">
                                   {person._id === resident?._id ? "(You)" : "(Family Member)"}
                                 </p>
                               </div>
                             ) : (
-                              <span className="text-gray-500">-</span>
+                              <span className="text-slate-500">-</span>
                             );
                           })()}
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-sm text-gray-700 hidden sm:table-cell">
+                      <td className="py-4 px-4 text-sm text-slate-700 hidden sm:table-cell">
                         <div className="max-w-xs truncate">{request.purpose}</div>
                       </td>
-                      <td className="py-4 px-6 hidden md:table-cell">
+                      <td className="py-4 px-4 hidden md:table-cell">
                         <div>
-                          <p className="text-sm font-medium text-gray-700">{new Date(request.requestedAt).toLocaleDateString()}</p>
-                          <p className="text-xs text-gray-500">{new Date(request.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                          <p className="text-sm font-medium text-slate-700">{new Date(request.requestedAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-500">{new Date(request.requestedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                         </div>
                       </td>
-                      <td className="py-4 px-6 hidden sm:table-cell">
+                      <td className="py-4 px-4 hidden sm:table-cell">
                         {request.status === "pending" && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
-                            PENDING
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">
+                            Pending
                           </span>
                         )}
                         {request.status === "accepted" && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                            APPROVED
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            Approved
                           </span>
                         )}
                         {(request.status === "declined" || request.status === "rejected") && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                            REJECTED
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-rose-100 text-rose-700 border border-rose-200">
+                            Rejected
                           </span>
                         )}
                         {request.status === "completed" && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                            RELEASED
+                          <span className="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">
+                            Released
                           </span>
                         )}
                       </td>
-                      <td className="py-4 px-6 hidden md:table-cell">
+                      <td className="py-4 px-4 hidden md:table-cell">
                         {(() => {
                           const s = request.blockchainStatus || 'not_registered';
-                          const upper = s === 'not_registered' ? 'UNREGISTERED' : s.toUpperCase();
+                          const upper = s === 'not_registered' ? 'Unregistered' : s.charAt(0).toUpperCase() + s.slice(1);
                           const colorMap = {
-                            verified: 'bg-green-100 text-green-800',
-                            edited: 'bg-orange-100 text-orange-800',
-                            deleted: 'bg-red-100 text-red-800',
-                            error: 'bg-rose-100 text-rose-700',
-                            not_registered: 'bg-gray-100 text-gray-600'
+                            verified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                            edited: 'bg-orange-100 text-orange-700 border-orange-200',
+                            deleted: 'bg-rose-100 text-rose-700 border-rose-200',
+                            error: 'bg-rose-100 text-rose-700 border-rose-200',
+                            not_registered: 'bg-slate-100 text-slate-600 border-slate-200'
                           };
                           return (
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${colorMap[s] || 'bg-gray-100 text-gray-600'}`}>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-md border ${colorMap[s] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                               {upper}
                             </span>
                           );
                         })()}
                       </td>
-                      <td className="py-4 px-6 hidden lg:table-cell">
+                      <td className="py-4 px-4 hidden lg:table-cell">
                         {(() => {
                           // Calculate total amount based on document type and quantity
                           const quantity = request.quantity || 1;
@@ -637,36 +637,35 @@ export default function ResidentRequest() {
                               baseAmount = request.feeAmount || request.amount || 0;
                               const totalAmount = baseAmount * quantity;
                               return (
-                                <span className="text-sm font-medium text-green-600">
+                                <span className="text-sm font-medium text-emerald-600">
                                   ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               );
                             } else {
-                              return <span className="text-sm text-gray-400">TBD</span>;
+                              return <span className="text-sm text-slate-400">TBD</span>;
                             }
                           }
                           
                           const totalAmount = baseAmount * quantity;
                           
                           if (baseAmount === 0) {
-                            return <span className="text-sm text-gray-600">Free</span>;
+                            return <span className="text-sm text-slate-600">Free</span>;
                           } else {
                             return (
-                              <span className="text-sm text-gray-600">
+                              <span className="text-sm text-slate-600">
                                 ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             );
                           }
                         })()}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4">
                         <Button
-                          type="default"
-                          size="small"
+                          type="primary"
                           onClick={() => openView(request)}
-                          className="border border-blue-600 text-blue-600 hover:bg-blue-50"
+                          className="bg-blue-600 hover:bg-blue-700"
                         >
-                          Track
+                          View Details
                         </Button>
                       </td>
                     </tr>
@@ -678,16 +677,16 @@ export default function ResidentRequest() {
           
           {/* Pagination */}
           {filteredRequests.length > 0 && (
-            <div className="mt-4 flex items-center justify-end">
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-slate-600">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredRequests.length)} of {filteredRequests.length} requests
+              </p>
               <Pagination
                 current={currentPage}
                 pageSize={pageSize}
                 total={filteredRequests.length}
                 showSizeChanger={false}
-                showQuickJumper={true}
-                showTotal={(total, range) => 
-                  `${range[0]}-${range[1]} of ${total} requests`
-                }
+                showQuickJumper={false}
                 onChange={(page) => {
                   setCurrentPage(page);
                 }}
@@ -705,80 +704,67 @@ export default function ResidentRequest() {
       open={viewOpen}
       onCancel={() => setViewOpen(false)}
       footer={null}
-      width={"100%"}
-      style={{ maxWidth: "900px" }}
+      width={900}
       className="document-tracking-modal"
-      bodyStyle={{ padding: 0 }}
     >
         {viewRequest && (
           <div>
             {/* Header Section */}
-            <div className="bg-gray-50 p-2 border-b">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{viewRequest.documentType}</h3>
-                  <p className="text-gray-500 text-xs mt-0.5">Request ID: {viewRequest._id}</p>
+            <div className="bg-slate-50 p-2 border-b border-slate-200">
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-slate-800 leading-tight">{viewRequest.documentType}</h3>
+                  <p className="text-slate-600 text-xs mt-0.5">Request ID: {viewRequest._id}</p>
                 </div>
-                
                 {/* Status Badge */}
-                <div>
+                <div className="flex-shrink-0">
                   {viewRequest.status === "pending" && (
-                    <div className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
-                      PENDING
-                    </div>
+                    <span className="px-2 py-1 rounded bg-amber-100 text-amber-700 text-xs font-medium border border-amber-200">Pending</span>
                   )}
                   {viewRequest.status === "accepted" && (
-                    <div className="px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
-                      APPROVED
-                    </div>
+                    <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200">Approved</span>
                   )}
                   {(viewRequest.status === "declined" || viewRequest.status === "rejected") && (
-                    <div className="px-3 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">
-                      REJECTED
-                    </div>
+                    <span className="px-2 py-1 rounded bg-rose-100 text-rose-700 text-xs font-medium border border-rose-200">Rejected</span>
                   )}
                   {viewRequest.status === "completed" && (
-                    <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
-                      RELEASED
-                    </div>
+                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-medium border border-blue-200">Released</span>
                   )}
                 </div>
               </div>
             </div>
-            
             {/* Document Details */}
-            <div className="p-2">
-              <h4 className="text-sm font-medium text-gray-800 mb-1.5">Request Details</h4>
-              
+            <div className="p-3">
+              <h4 className="text-sm font-semibold text-slate-800 mb-2">Request Details</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
                 <div>
-                  <p className="text-xs font-medium text-gray-500">PURPOSE</p>
-                  <p className="mt-0.5 text-sm">{viewRequest.purpose}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">PURPOSE</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.purpose}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500">DOCUMENT TYPE</p>
-                  <p className="mt-0.5 text-sm">{viewRequest.documentType}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">DOCUMENT TYPE</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.documentType}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500">QUANTITY</p>
-                  <p className="mt-0.5 text-sm">{viewRequest.quantity || 1}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">QUANTITY</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.quantity || 1}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500">REQUESTED DATE</p>
-                  <p className="mt-0.5 text-sm">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">REQUESTED DATE</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500">LAST UPDATED</p>
-                  <p className="mt-0.5 text-sm">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">LAST UPDATED</p>
+                  <p className="mt-0.5 text-xs text-slate-800">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                 </div>
                 
                 {/* Total Amount */}
                 <div>
-                  <p className="text-sm font-medium text-gray-500">TOTAL AMOUNT</p>
+                  <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">TOTAL AMOUNT</p>
                   {(() => {
                     const quantity = viewRequest.quantity || 1;
                     let baseAmount = 0;
@@ -802,10 +788,10 @@ export default function ResidentRequest() {
                     const totalAmount = baseAmount * quantity;
                     
                     if (baseAmount === 0) {
-                      return <p className="mt-1 text-lg font-semibold text-gray-600">Free</p>;
+                      return <p className="mt-0.5 text-base font-semibold text-slate-600">Free</p>;
                     } else {
                       return (
-                        <p className="mt-1 text-lg font-semibold text-green-600">
+                        <p className="mt-0.5 text-base font-semibold text-emerald-600">
                           ₱{totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       );
@@ -815,42 +801,39 @@ export default function ResidentRequest() {
                 
                 {viewRequest.documentType === "Business Clearance" && (
                   <div>
-                    <p className="text-sm font-medium text-gray-500">BUSINESS NAME</p>
-                    <p className="mt-1">{viewRequest.businessName || "-"}</p>
+                    <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">BUSINESS NAME</p>
+                    <p className="mt-0.5 text-xs text-slate-800">{viewRequest.businessName || "-"}</p>
                   </div>
                 )}
               </div>
               
               {/* Status Timeline */}
               <div className="mb-2">
-                <h4 className="text-sm font-medium text-gray-800 mb-1.5">Request Timeline</h4>
-                
+                <h4 className="text-sm font-semibold text-slate-800 mb-2">Request Timeline</h4>
                 <div className="relative">
                   {/* Timeline Line */}
-                  <div className="absolute left-3 top-0 h-full w-0.5 bg-gray-200"></div>
-                  
+                  <div className="absolute left-2 top-0 h-full w-0.5 bg-slate-200"></div>
                   {/* Timeline Steps */}
                   <div className="space-y-2 relative">
                     {/* Requested Step (Always shown) */}
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center z-10">
                         <CheckCircleOutlined className="text-white text-xs" />
                       </div>
-                      <div className="ml-3">
-                        <p className="text-xs font-medium text-gray-800">Requested</p>
-                        <p className="text-xs text-gray-500">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-slate-800">Requested</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : "-"}</p>
                       </div>
                     </div>
                     
                     {/* Processing Step (Always shown but styled differently based on status) */}
-                    <div className="flex items-start">
-                      <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10 
-                        ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
+                    <div className="flex items-start gap-2">
+                      <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center z-10 ${viewRequest.status === "pending" ? "bg-amber-500" : "bg-blue-500"}`}>
                         <ClockCircleOutlined className="text-white text-xs" />
                       </div>
-                      <div className="ml-3">
-                        <p className="text-xs font-medium text-gray-800">Processing</p>
-                        <p className="text-xs text-gray-500">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-slate-800">Processing</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
                           {viewRequest.status === "pending" 
                             ? "Your request is being processed" 
                             : "Your request has been processed"}
@@ -860,39 +843,30 @@ export default function ResidentRequest() {
                     
                     {/* Approved/Rejected Step (Shown when not pending) */}
                     {viewRequest.status !== "pending" && (
-                      <div className="flex items-start">
-                        <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10
-                          ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-green-500" : "bg-red-500"}`}>
+                      <div className="flex items-start gap-2">
+                        <div className={`flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center z-10 ${viewRequest.status === "accepted" || viewRequest.status === "completed" ? "bg-emerald-500" : "bg-rose-500"}`}>
                           {viewRequest.status === "accepted" || viewRequest.status === "completed" ? (
                             <CheckCircleOutlined className="text-white text-xs" />
                           ) : (
                             <CloseCircleOutlined className="text-white text-xs" />
                           )}
                         </div>
-                        <div className="ml-3">
-                          <p className="text-xs font-medium text-gray-800">
-                            {viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}
-                          </p>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-slate-800">{viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
                         </div>
                       </div>
                     )}
                     
                     {/* Released Step (Shown only for released docs) */}
                     {viewRequest.status === "completed" && (
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center z-10">
                           <CheckCircleOutlined className="text-white text-xs" />
                         </div>
-                        <div className="ml-3">
-                          <p className="text-xs font-medium text-gray-800">Released</p>
-                          <p className="text-xs text-gray-500">
-                            {viewRequest.completedAt || viewRequest.releasedAt 
-                              ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() 
-                              : "Your document has been released"}
-                          </p>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-slate-800">Released</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.completedAt || viewRequest.releasedAt ? new Date(viewRequest.completedAt || viewRequest.releasedAt).toLocaleString() : "Your document has been released"}</p>
                         </div>
                       </div>
                     )}
@@ -902,24 +876,24 @@ export default function ResidentRequest() {
               
               {/* Blockchain Information (if available) */}
               {viewRequest.blockchain?.hash && (
-                <div className="border-t border-gray-200 pt-2">
-                  <h4 className="text-sm font-medium text-gray-800 mb-1.5">Blockchain Verification</h4>
-                  <div className="bg-gray-50 p-1.5 rounded-lg space-y-1">
+                <div className="border-t border-slate-200 pt-3">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-2">Blockchain Verification</h4>
+                  <div className="bg-slate-50 p-2 rounded-lg space-y-2 border border-slate-200">
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">HASH</p>
-                      <p className="mt-0.5 font-mono text-xs break-all">{viewRequest.blockchain.hash || "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">HASH</p>
+                      <p className="mt-0.5 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.hash || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">TRANSACTION ID</p>
-                      <p className="mt-0.5 font-mono text-xs break-all">{viewRequest.blockchain.lastTxId || "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">TRANSACTION ID</p>
+                      <p className="mt-0.5 font-mono text-xs break-all text-slate-800">{viewRequest.blockchain.lastTxId || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">ISSUED BY</p>
-                      <p className="mt-0.5 text-sm">{viewRequest.blockchain.issuedBy || "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">ISSUED BY</p>
+                      <p className="mt-0.5 text-xs text-slate-800">{viewRequest.blockchain.issuedBy || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">ISSUED DATE</p>
-                      <p className="mt-0.5 text-sm">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
+                      <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mb-0.5">ISSUED DATE</p>
+                      <p className="mt-0.5 text-xs text-slate-800">{viewRequest.blockchain.issuedAt ? new Date(viewRequest.blockchain.issuedAt).toLocaleString() : "-"}</p>
                     </div>
                   </div>
                 </div>
@@ -927,275 +901,271 @@ export default function ResidentRequest() {
             </div>
             
             {/* Footer with close button */}
-            <div className="bg-gray-50 p-1.5 flex justify-end border-t">
-              <Button onClick={() => setViewOpen(false)}>Close</Button>
+            <div className="bg-slate-50 p-2 flex justify-end border-t border-slate-200">
+              <Button 
+                onClick={() => setViewOpen(false)}
+                className="bg-slate-600 hover:bg-slate-700 text-white text-xs px-3 py-1"
+              >
+                Close
+              </Button>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* Create Request Modal */}
-      <Modal
-        title={null}
-        open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        footer={null}
-        width={"90%"}
-        style={{ maxWidth: "750px" }}
-        bodyStyle={{ padding: 0 }}
-      >
-        <div className="bg-gray-50 p-2.5 border-b">
-          <h3 className="text-base font-semibold text-gray-800">Request New Document</h3>
-          <p className="text-gray-500 text-xs mt-0.5">
-            Fill out the form below to request an official document
-          </p>
-        </div>
-        
-        <div className="p-2.5">
-          <Form 
-            form={createForm} 
-            layout="vertical" 
-            className="space-y-2"
-            initialValues={{
-              residentId: resident?._id,
-              requestFor: resident?._id,
-              quantity: 1,
-              amount: 0
+      {/* Create Request Modal - Two Step */}
+      {(() => {
+        const [createStep, setCreateStep] = React.useState(0); // 0 = instructions, 1 = form
+        // Patch: useEffect to reset step on open/close
+        React.useEffect(() => { if (!createOpen) setCreateStep(0); }, [createOpen]);
+        return (
+          <Modal
+            title={<span className="text-lg font-bold text-slate-800">Request New Document</span>}
+            open={createOpen}
+            onCancel={() => {
+              if (createStep === 1) setCreateStep(0);
+              else setCreateOpen(false);
             }}
-            onValuesChange={(changed, values) => {
-              // Handle business name field visibility
-              if ("documentType" in changed && changed.documentType !== "Business Clearance") {
-                createForm.setFieldsValue({ businessName: undefined });
-              }
-              
-              // Handle amount updates based on document type or quantity
-              if ("documentType" in changed || "quantity" in changed) {
-                const currentDocType = changed.documentType || values.documentType;
-                const currentQuantity = changed.quantity || values.quantity || 1;
-                const baseAmount = documentPricing[currentDocType] || 0;
-                const totalAmount = baseAmount * currentQuantity;
-                createForm.setFieldsValue({ amount: totalAmount });
-              }
-            }}
-            onFinish={async (values) => {
-              try {
-                setCreating(true);
-                const token = localStorage.getItem("token");
-                if (!token) {
-                  message.error("You are not logged in. Please log in first.");
-                  setCreating(false);
-                  return;
-                }
-                
-                // Prepare the payload with new fields
-                const payload = {
-                  documentType: values.documentType,
-                  quantity: values.quantity,
-                  purpose: values.purpose,
-                  amount: values.amount,
-                  residentId: values.residentId,
-                  requestFor: values.requestFor,
-                  ...(values.businessName && { businessName: values.businessName })
-                };
-                
-                await axios.post(
-                  `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/document-requests`,
-                  payload,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
-                message.success("Document request submitted successfully!");
-                setCreateOpen(false);
-                createForm.resetFields();
-                fetchRequests();
-                // Refresh payment status after successful request
-                checkPaymentStatus();
-              } catch (err) {
-                console.error("Error creating request:", err);
-                if (err.response?.status === 401) {
-                  message.error("Authentication error. Please log in again.");
-                } else if (err.response?.status === 403 && err.response?.data?.reason === "NOT_IN_HOUSEHOLD") {
-                  // Handle household validation error
-                  message.error(err.response.data.message || "You must be part of a household to request documents");
-                  setCreateOpen(false);
-                  setIsInHousehold(false);
-                } else if (err.response?.status === 403) {
-                  message.error("Authentication error. Please log in again.");
-                } else if (err.response?.status === 400 && err.response?.data?.paymentStatus) {
-                  // Handle payment validation error
-                  message.error(err.response.data.message || "Outstanding payments must be settled first");
-                  setCreateOpen(false);
-                  // Update payment status to show current state
-                  setPaymentStatus({
-                    canRequestDocuments: false,
-                    paymentStatus: err.response.data.paymentStatus,
-                    message: err.response.data.details
-                  });
-                } else {
-                  message.error(err?.response?.data?.message || "Failed to create document request");
-                }
-              }
-              setCreating(false);
-            }}
+            footer={null}
+            width={750}
           >
-            {/* Resident Dropdown */}
-            <Form.Item 
-              name="residentId" 
-              label={<span className="text-gray-700 font-medium">Resident</span>}
-              rules={[{ required: true, message: 'Please select a resident' }]}
-            >
-              <Select
-                placeholder={resident ? `${resident.firstName} ${resident.lastName} (You)` : "Loading resident..."}
-                size="large"
-                className="w-full"
-                disabled={!resident}
-              >
-                {resident && (
-                  <Select.Option value={resident._id}>
-                    {resident.firstName} {resident.lastName} (You)
-                  </Select.Option>
-                )}
-              </Select>
-            </Form.Item>
-
-            {/* Request For Dropdown */}
-            <Form.Item 
-              name="requestFor" 
-              label={<span className="text-gray-700 font-medium">Request For</span>}
-              rules={[{ required: true, message: 'Please select who this request is for' }]}
-            >
-              <Select
-                placeholder="Select household member"
-                size="large"
-                className="w-full"
-                loading={!resident}
-              >
-                {resident && (
-                  <Select.Option value={resident._id}>
-                    {resident.firstName} {resident.lastName} (You)
-                  </Select.Option>
-                )}
-                {householdMembers.map((member) => (
-                  <Select.Option key={member._id} value={member._id}>
-                    {member.firstName} {member.lastName}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            {/* Document Type - Updated options */}
-            <Form.Item 
-              name="documentType" 
-              label={<span className="text-gray-700 font-medium">Document Type</span>}
-              rules={[{ required: true, message: 'Please select a document type' }]}
-            >
-              <Select
-                placeholder="Select document type"
-                size="large"
-                className="w-full"
-                onChange={(value) => {
-                  // Update the amount field based on document type and current quantity
-                  const currentQuantity = createForm.getFieldValue("quantity") || 1;
-                  const baseAmount = documentPricing[value] || 0;
-                  const totalAmount = baseAmount * currentQuantity;
-                  createForm.setFieldValue("amount", totalAmount);
-                }}
-                options={[
-                  { value: "Indigency", label: "Certificate of Indigency" },
-                  { value: "Barangay Clearance", label: "Barangay Clearance" },
-                  { value: "Business Clearance", label: "Business Clearance" },
-                ]}
-              />
-            </Form.Item>
-
-            {/* Amount Field - Read only */}
-            <Form.Item 
-              name="amount" 
-              label={<span className="text-gray-700 font-medium">Amount</span>}
-              rules={[{ required: true, message: 'Amount is required' }]}
-              help="Amount is automatically calculated based on document type and quantity"
-            >
-              <InputNumber 
-                min={0} 
-                className="w-full" 
-                disabled
-                formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
-                placeholder="Amount will be calculated automatically"
-              />
-            </Form.Item>
-
-            {selectedDocType === "Business Clearance" && (
-              <Form.Item
-                name="businessName"
-                label={<span className="text-gray-700 font-medium">Business Name</span>}
-                rules={[{ required: true, message: 'Please enter your business name' }]}
-              >
-                <Input placeholder="Enter registered business name" />
-              </Form.Item>
+            {createStep === 0 ? (
+              <div className="p-5">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-5">
+                  <h4 className="text-blue-800 font-medium text-base mb-2">Important Information</h4>
+                  <p className="text-blue-700 text-sm leading-relaxed">
+                    Your document request will be reviewed by barangay officials. Processing time may vary depending on the type of document and current volume of requests.
+                  </p>
+                  <ul className="text-blue-700 text-sm mt-3 list-disc pl-5">
+                    <li>Ensure all information is accurate and complete.</li>
+                    <li>Payment (if required) must be settled before release.</li>
+                  </ul>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button onClick={() => setCreateOpen(false)} className="bg-slate-600 hover:bg-slate-700 text-white">Cancel</Button>
+                  <Button type="primary" className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreateStep(1)}>Next</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-5">
+                <Form 
+                  form={createForm} 
+                  layout="vertical"
+                  initialValues={{
+                    residentId: resident?._id,
+                    requestFor: resident?._id,
+                    quantity: 1,
+                    amount: 0
+                  }}
+                  onValuesChange={(changed, values) => {
+                    if ("documentType" in changed && changed.documentType !== "Business Clearance") {
+                      createForm.setFieldsValue({ businessName: undefined });
+                    }
+                    if ("documentType" in changed || "quantity" in changed) {
+                      const currentDocType = changed.documentType || values.documentType;
+                      const currentQuantity = changed.quantity || values.quantity || 1;
+                      const baseAmount = documentPricing[currentDocType] || 0;
+                      const totalAmount = baseAmount * currentQuantity;
+                      createForm.setFieldsValue({ amount: totalAmount });
+                    }
+                  }}
+                  onFinish={async (values) => {
+                    try {
+                      setCreating(true);
+                      const payload = {
+                        documentType: values.documentType,
+                        quantity: values.quantity,
+                        purpose: values.purpose,
+                        amount: values.amount,
+                        residentId: values.residentId,
+                        requestFor: values.requestFor,
+                        ...(values.businessName && { businessName: values.businessName })
+                      };
+                      await apiClient.post(
+                        '/api/document-requests',
+                        payload
+                      );
+                      message.success("Document request submitted successfully!");
+                      setCreateOpen(false);
+                      createForm.resetFields();
+                      fetchRequests();
+                      checkPaymentStatus();
+                    } catch (err) {
+                      console.error("Error creating request:", err);
+                      if (err.response?.status === 401) {
+                        message.error("Authentication error. Please log in again.");
+                      } else if (err.response?.status === 403 && err.response?.data?.reason === "NOT_IN_HOUSEHOLD") {
+                        message.error(err.response.data.message || "You must be part of a household to request documents");
+                        setCreateOpen(false);
+                        setIsInHousehold(false);
+                      } else if (err.response?.status === 403) {
+                        message.error("Authentication error. Please log in again.");
+                      } else if (err.response?.status === 400 && err.response?.data?.paymentStatus) {
+                        message.error(err.response.data.message || "Outstanding payments must be settled first");
+                        setCreateOpen(false);
+                        setPaymentStatus({
+                          canRequestDocuments: false,
+                          paymentStatus: err.response.data.paymentStatus,
+                          message: err.response.data.details
+                        });
+                      } else {
+                        message.error(err?.response?.data?.message || "Failed to create document request");
+                      }
+                    }
+                    setCreating(false);
+                  }}
+                >
+                  {/* Resident Dropdown */}
+                  <Form.Item 
+                    name="residentId" 
+                    label={<span className="text-slate-700 font-medium text-sm">Resident</span>}
+                    rules={[{ required: true, message: 'Please select a resident' }]}
+                  >
+                    <Select
+                      placeholder={resident ? `${resident.firstName} ${resident.lastName} (You)` : "Loading resident..."}
+                      className="w-full"
+                      disabled={!resident}
+                    >
+                      {resident && (
+                        <Select.Option value={resident._id}>
+                          {resident.firstName} {resident.lastName} (You)
+                        </Select.Option>
+                      )}
+                    </Select>
+                  </Form.Item>
+                  {/* Request For Dropdown */}
+                  <Form.Item 
+                    name="requestFor" 
+                    label={<span className="text-slate-700 font-medium text-sm">Request For</span>}
+                    rules={[{ required: true, message: 'Please select who this request is for' }]}
+                  >
+                    <Select
+                      placeholder="Select household member"
+                      className="w-full"
+                      loading={!resident}
+                    >
+                      {resident && (
+                        <Select.Option value={resident._id}>
+                          {resident.firstName} {resident.lastName} (You)
+                        </Select.Option>
+                      )}
+                      {householdMembers.map((member) => (
+                        <Select.Option key={member._id} value={member._id}>
+                          {member.firstName} {member.lastName}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  {/* Document Type - Updated options */}
+                  <Form.Item 
+                    name="documentType" 
+                    label={<span className="text-slate-700 font-medium text-sm">Document Type</span>}
+                    rules={[{ required: true, message: 'Please select a document type' }]}
+                  >
+                    <Select
+                      placeholder="Select document type"
+                      className="w-full"
+                      onChange={(value) => {
+                        const currentQuantity = createForm.getFieldValue("quantity") || 1;
+                        const baseAmount = documentPricing[value] || 0;
+                        const totalAmount = baseAmount * currentQuantity;
+                        createForm.setFieldValue("amount", totalAmount);
+                      }}
+                      options={[
+                        { value: "Indigency", label: "Certificate of Indigency" },
+                        { value: "Barangay Clearance", label: "Barangay Clearance" },
+                        { value: "Business Clearance", label: "Business Clearance" },
+                      ]}
+                    />
+                  </Form.Item>
+                  {/* Amount & Quantity in one row */}
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Form.Item 
+                        name="amount" 
+                        label={<span className="text-slate-700 font-medium text-sm">Amount</span>}
+                        rules={[{ required: true, message: 'Amount is required' }]}
+                        extra="Amount is auto-calculated based on type and quantity."
+                      >
+                        <InputNumber 
+                          min={0} 
+                          className="w-full" 
+                          disabled
+                          formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
+                          placeholder="Amount will be calculated automatically"
+                        />
+                      </Form.Item>
+                    </div>
+                    <div className="w-40">
+                      <Form.Item 
+                        name="quantity" 
+                        label={<span className="text-slate-700 font-medium text-sm">Quantity</span>} 
+                        initialValue={1}
+                        rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity' }]}
+                      >
+                        <InputNumber
+                          min={1}
+                          className="w-full"
+                          parser={value => (value ? value.replace(/[^\d]/g, '') : '')}
+                          onKeyPress={e => {
+                            if (!/\d/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(value) => {
+                            const currentDocType = createForm.getFieldValue("documentType");
+                            const currentQuantity = value || 1;
+                            const baseAmount = documentPricing[currentDocType] || 0;
+                            const totalAmount = baseAmount * currentQuantity;
+                            createForm.setFieldValue("amount", totalAmount);
+                          }}
+                        />
+                      </Form.Item>
+                    </div>
+                  </div>
+                  {selectedDocType === "Business Clearance" && (
+                    <Form.Item
+                      name="businessName"
+                      label={<span className="text-slate-700 font-medium text-sm">Business Name</span>}
+                      rules={[{ required: true, message: 'Please enter your business name' }]}
+                    >
+                      <Input 
+                        placeholder="Enter registered business name" 
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  )}
+                  <Form.Item 
+                    name="purpose" 
+                    label={<span className="text-slate-700 font-medium text-sm">Purpose</span>}
+                    rules={[{ required: true, message: 'Please specify the purpose for your request' }]}
+                    extra="Clearly state why you need this document"
+                  >
+                    <Input.TextArea 
+                      rows={4}
+                      placeholder="Example: For employment requirements, school enrollment, business registration, etc."
+                      className="w-full"
+                    />
+                  </Form.Item>
+                  <div className="flex justify-between gap-3 pt-4 border-t border-slate-200 -mb-5 -mx-6 px-6 pb-5 bg-slate-50">
+                    <Button onClick={() => setCreateStep(0)} className="bg-slate-600 hover:bg-slate-700 text-white">Previous</Button>
+                    <Button 
+                      type="primary" 
+                      htmlType="submit"
+                      loading={creating}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
+                    >
+                      Submit Request
+                    </Button>
+                  </div>
+                </Form>
+              </div>
             )}
-            <Form.Item 
-              name="quantity" 
-              label={<span className="text-gray-700 font-medium">Quantity</span>} 
-              initialValue={1}
-              rules={[{ required: true, type: 'number', min: 1, message: 'Enter quantity' }]}
-            >
-              <InputNumber
-                min={1}
-                className="w-full"
-                parser={value => (value ? value.replace(/[^\d]/g, '') : '')}
-                onKeyPress={e => {
-                  if (!/\d/.test(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onChange={(value) => {
-                  // Update the amount field based on quantity and current document type
-                  const currentDocType = createForm.getFieldValue("documentType");
-                  const currentQuantity = value || 1;
-                  const baseAmount = documentPricing[currentDocType] || 0;
-                  const totalAmount = baseAmount * currentQuantity;
-                  createForm.setFieldValue("amount", totalAmount);
-                }}
-              />
-            </Form.Item>
-            
-            <Form.Item 
-              name="purpose" 
-              label={<span className="text-gray-700 font-medium">Purpose</span>}
-              rules={[{ required: true, message: 'Please specify the purpose for your request' }]}
-              help="Clearly state why you need this document"
-            >
-              <Input.TextArea 
-                rows={4} 
-                placeholder="Example: For employment requirements, school enrollment, business registration, etc."
-                className="w-full"
-              />
-            </Form.Item>
-            
-            <div className="bg-blue-50 p-2 rounded-lg border border-blue-100 mb-2">
-              <h4 className="text-blue-800 font-medium text-xs mb-0.5">Important Information</h4>
-              <p className="text-blue-700 text-xs leading-tight">
-                Your document request will be reviewed by barangay officials. Processing time may vary depending on the type of document and current volume of requests.
-              </p>
-            </div>
-            
-            <div className="flex justify-end gap-3">
-              <Button onClick={() => setCreateOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                type="primary" 
-                htmlType="submit"
-                loading={creating}
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={!isInHousehold || (paymentStatus?.canRequestDocuments === false && paymentStatus?.paymentStatus)}
-              >
-                Submit Request
-              </Button>
-            </div>
-          </Form>
-        </div>
-      </Modal>
+          </Modal>
+        );
+      })()}
     </>
   );
 }

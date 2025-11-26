@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import dayjs from "dayjs";
 import {
   DropdownMenu,
@@ -81,11 +81,7 @@ export default function AdminReportsComplaints() {
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_BASE}/api/admin/complaints`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/complaints');
       setComplaints(res.data);
       // Reset to first page when data is refreshed
       setCurrentPage(1);
@@ -97,11 +93,7 @@ export default function AdminReportsComplaints() {
 
   const fetchResidents = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_BASE}/api/admin/residents`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/residents');
       setResidents(res.data);
     } catch (err) {
       console.error("Failed to load residents:", err);
@@ -115,11 +107,9 @@ export default function AdminReportsComplaints() {
       if (values.category === "Other") {
         values = { ...values, category: customCategory || "Other" };
       }
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `${API_BASE}/api/admin/complaints`,
-        values,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.post(
+        '/api/admin/complaints',
+        values
       );
       message.success("Complaint created successfully!");
       setCreateOpen(false);
@@ -135,11 +125,9 @@ export default function AdminReportsComplaints() {
 
   const handleStatusUpdate = async (id, status, response = "") => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API_BASE}/api/admin/complaints/${id}/status`,
-        { status, response },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.patch(
+        `/api/admin/complaints/${id}/status`,
+        { status, response }
       );
       message.success("Status updated successfully!");
       fetchComplaints();
@@ -150,10 +138,8 @@ export default function AdminReportsComplaints() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/admin/complaints/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/admin/complaints/${id}`
       );
       message.success("Complaint deleted successfully!");
       fetchComplaints();
@@ -223,6 +209,7 @@ export default function AdminReportsComplaints() {
       key: "_id",
       columnKey: "id",
       width: 80,
+      fixed: 'left',
       render: (id) => `#${id.slice(-6)}`,
     },
     {
@@ -322,7 +309,8 @@ export default function AdminReportsComplaints() {
       key: "actions",
       columnKey: "actions",
       width: 200,
-      fixed: 'right',
+      // Only fix Actions column on desktop/tablet, not on mobile
+      ...(typeof window !== 'undefined' && window.innerWidth < 768 ? {} : { fixed: 'right' }),
       render: (_, record) => (
         <div className="flex gap-1 flex-wrap">
           <Button size="small" onClick={() => { setViewComplaint(record); setViewOpen(true); }}>
@@ -377,96 +365,90 @@ export default function AdminReportsComplaints() {
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
             <div>
-              <span className="text-2xl md:text-4xl font-bold text-gray-800">
+              <span className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-800">
                 Reports & Complaints Management
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
+            
           </nav>
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+          <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-xl sm:rounded-2xl shadow-md py-2 sm:py-3 md:py-4 p-2 sm:p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0 mb-1 sm:mb-0">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Total Reports
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {totalComplaints}
+                    <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span className="hidden sm:inline">{totalComplaints}</span>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                <CardContent className="p-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
                     {totalComplaints}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-orange-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+              <Card className="bg-orange-50 text-black rounded-xl sm:rounded-2xl shadow-md py-2 sm:py-3 md:py-4 p-2 sm:p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0 mb-1 sm:mb-0">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Pending
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {pendingComplaints}
+                    <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span className="hidden sm:inline">{pendingComplaints}</span>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                <CardContent className="p-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
                     {pendingComplaints}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+              <Card className="bg-blue-50 text-black rounded-xl sm:rounded-2xl shadow-md py-2 sm:py-3 md:py-4 p-2 sm:p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0 mb-1 sm:mb-0">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Investigating
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {investigatingComplaints}
+                    <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span className="hidden sm:inline">{investigatingComplaints}</span>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                <CardContent className="p-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
                     {investigatingComplaints}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+              <Card className="bg-green-50 text-black rounded-xl sm:rounded-2xl shadow-md py-2 sm:py-3 md:py-4 p-2 sm:p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0 mb-1 sm:mb-0">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Resolved
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {resolvedComplaints}
+                    <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span className="hidden sm:inline">{resolvedComplaints}</span>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                <CardContent className="p-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
                     {resolvedComplaints}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-gray-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+              <Card className="bg-gray-50 text-black rounded-xl sm:rounded-2xl shadow-md py-2 sm:py-3 md:py-4 p-2 sm:p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 sm:col-span-1">
+                <CardHeader className="flex flex-row items-center justify-between p-0 mb-1 sm:mb-0">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Closed
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <ArrowUpRight className="h-3 w-3" />
-                    {closedComplaints}
+                    <ArrowUpRight className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                    <span className="hidden sm:inline">{closedComplaints}</span>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                <CardContent className="p-0">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
                     {closedComplaints}
                   </div>
                 </CardContent>
@@ -476,7 +458,7 @@ export default function AdminReportsComplaints() {
         </div>
 
         {/* Table Section */}
-        <div className="bg-white rounded-2xl p-4 space-y-4">
+        <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
@@ -487,13 +469,14 @@ export default function AdminReportsComplaints() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full text-sm"
+                size="middle"
               />
               
               {/* Customize Columns Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="flex items-center gap-2 whitespace-nowrap">
+                  <Button className="flex items-center gap-1 sm:gap-2 whitespace-nowrap text-xs sm:text-sm px-2 sm:px-4">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"
@@ -579,12 +562,55 @@ export default function AdminReportsComplaints() {
               <Button
                 type="primary"
                 onClick={() => setCreateOpen(true)}
+                className="text-xs sm:text-sm px-2 sm:px-4 w-full sm:w-auto"
               >
                 + Create Report/Complaint
               </Button>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="reports-complaints-table overflow-x-auto -mx-2 sm:mx-0">
+            <style>{`
+              /* MOBILE RESPONSIVE — REPORTS & COMPLAINTS TABLE */
+              @media (max-width: 768px) {
+              .reports-complaints-table .ant-table {
+                  font-size: 12px !important;
+                }
+
+                .reports-complaints-table .ant-table-thead > tr > th {
+                  padding: 8px 6px !important;
+                  font-size: 11px !important;
+                  font-weight: 600 !important;
+                  white-space: nowrap;
+                }
+
+                .reports-complaints-table .ant-table-tbody > tr > td {
+                  padding: 8px 6px !important;
+                  font-size: 12px !important;
+                  white-space: nowrap;
+                }
+
+                /* Smaller action buttons */
+                .reports-complaints-table .ant-btn-sm {
+                  font-size: 11px !important;
+                  padding: 2px 6px !important;
+                  height: 26px !important;
+                }
+
+                /* Tags */
+                .reports-complaints-table .ant-tag {
+                  font-size: 11px !important;
+                  padding: 0 6px !important;
+                  margin: 1px !important;
+                }
+              }
+
+              /* VERY SMALL PHONES (≤ 640px) */
+              @media (max-width: 640px) {
+                .reports-complaints-table .ant-table-tbody > tr > td {
+                  white-space: nowrap !important;
+                }
+              }
+            `}</style>
             <Table
               rowKey="_id"
               loading={loading}
@@ -598,9 +624,12 @@ export default function AdminReportsComplaints() {
                 showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} reports/complaints`,
                 pageSizeOptions: ['10', '20', '50', '100'],
+                responsive: true,
+                showLessItems: window.innerWidth < 768,
               }}
               onChange={handleTableChange}
               scroll={{ x: 1200 }}
+              className="mobile-responsive-table"
             />
           </div>
         </div>
@@ -613,7 +642,49 @@ export default function AdminReportsComplaints() {
           onOk={handleCreate}
           confirmLoading={creating}
           width={600}
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
+          styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' } }}
+          className="mobile-responsive-modal"
         >
+          <style>{`
+            @media (max-width: 768px) {
+              .mobile-responsive-modal .ant-modal-content {
+                margin: 16px;
+              }
+              .mobile-responsive-modal .ant-modal-header {
+                padding: 12px 16px;
+              }
+              .mobile-responsive-modal .ant-modal-title {
+                font-size: 16px;
+              }
+              .mobile-responsive-modal .ant-modal-body {
+                padding: 16px;
+                font-size: 13px;
+              }
+              .mobile-responsive-modal .ant-modal-footer {
+                padding: 10px 16px;
+              }
+              .mobile-responsive-modal .ant-form-item {
+                margin-bottom: 12px;
+              }
+              .mobile-responsive-modal .ant-form-item-label > label {
+                font-size: 13px;
+              }
+              .mobile-responsive-modal .ant-input,
+              .mobile-responsive-modal .ant-select-selector,
+              .mobile-responsive-modal .ant-input-textarea {
+                font-size: 13px;
+              }
+              .mobile-responsive-modal .ant-alert {
+                font-size: 12px;
+                padding: 8px 12px;
+              }
+              .mobile-responsive-modal .ant-btn {
+                font-size: 13px;
+                height: 32px;
+              }
+            }
+          `}</style>
           <Alert
             message="Create Report or Complaint"
             description="Select the resident filing this report or complaint, choose the type, and provide a detailed description."
@@ -720,7 +791,44 @@ export default function AdminReportsComplaints() {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
+          styles={{ body: { maxHeight: 'calc(100vh - 150px)', overflowY: 'auto' } }}
+          className="mobile-responsive-view-modal"
         >
+          <style>{`
+            @media (max-width: 768px) {
+              .mobile-responsive-view-modal .ant-modal-content {
+                margin: 16px;
+              }
+              .mobile-responsive-view-modal .ant-modal-header {
+                padding: 12px 16px;
+              }
+              .mobile-responsive-view-modal .ant-modal-title {
+                font-size: 16px;
+              }
+              .mobile-responsive-view-modal .ant-modal-body {
+                padding: 12px 16px;
+              }
+              .mobile-responsive-view-modal .ant-descriptions-item-label {
+                font-size: 11px;
+                padding: 8px 12px;
+              }
+              .mobile-responsive-view-modal .ant-descriptions-item-content {
+                font-size: 12px;
+                padding: 8px 12px;
+              }
+              .mobile-responsive-view-modal .ant-tag {
+                font-size: 10px;
+                padding: 0 6px;
+              }
+            }
+            @media (min-width: 769px) and (max-width: 1024px) {
+              .mobile-responsive-view-modal .ant-descriptions-item-label,
+              .mobile-responsive-view-modal .ant-descriptions-item-content {
+                font-size: 13px;
+              }
+            }
+          `}</style>
           {viewComplaint && (
             <Descriptions bordered column={1} size="middle">
               <Descriptions.Item label="ID">#{viewComplaint._id.slice(-6)}</Descriptions.Item>
@@ -776,6 +884,9 @@ export default function AdminReportsComplaints() {
           onCancel={() => { setResponseOpen(false); responseForm.resetFields(); }}
           onOk={handleResponse}
           width={600}
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
+          styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' } }}
+          className="mobile-responsive-modal"
         >
           <Form form={responseForm} layout="vertical">
             <Form.Item name="status" label="Status" rules={[{ required: true }]}>

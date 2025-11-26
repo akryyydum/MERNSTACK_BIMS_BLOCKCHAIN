@@ -5,6 +5,7 @@ const FinancialTransaction = require('../models/financialTransaction.model');
 const mongoose = require('mongoose');
 const { validateResidentPaymentStatus } = require('../utils/paymentValidation');
 const Settings = require('../models/settings.model');
+const { notifyDocumentRequestCreated } = require('./adminNotificationController');
 // Fabric client for blockchain mirroring
 const { getContract } = require('../utils/fabricClient');
 
@@ -104,9 +105,15 @@ exports.createRequest = async (req, res) => {
       const settings = await Settings.getSingleton();
       const indigencyFee = settings.documentFees?.indigency ?? 0;
       const clearanceFee = settings.documentFees?.barangayClearance ?? 100;
-      if (type === 'Certificate of Indigency') unitAmount = indigencyFee;
-      else if (type === 'Barangay Clearance') unitAmount = clearanceFee;
-      else if (type === 'Business Clearance') unitAmount = Number(amount || 0);
+      
+      // Handle different document type name variations
+      if (type === 'Certificate of Indigency' || type === 'Indigency') {
+        unitAmount = indigencyFee;
+      } else if (type === 'Barangay Clearance') {
+        unitAmount = clearanceFee;
+      } else if (type === 'Business Clearance') {
+        unitAmount = Number(amount || 0);
+      }
 
       const total = unitAmount * qty;
       
@@ -120,6 +127,14 @@ exports.createRequest = async (req, res) => {
         ? `${subjectResident.firstName} ${subjectResident.lastName}`
         : `${resident.firstName} ${resident.lastName}`;
 
+      // Get user ID from authenticated user or resident's user field
+      const userId = req.user?.id || req.user?._id || resident.user;
+      
+      if (!userId) {
+        console.error('Cannot create financial transaction - no user ID available');
+        throw new Error('User authentication invalid');
+      }
+
       // Create financial transaction (even for $0 amounts for audit trail)
       await FinancialTransaction.create({
         type: 'document_request',
@@ -131,14 +146,15 @@ exports.createRequest = async (req, res) => {
         documentRequestId: doc._id,
         status: 'completed',
         transactionDate: new Date(),
-        paymentMethod: 'cash',
-        createdBy: resident.user,
-        updatedBy: resident.user,
+        paymentMethod: 'Cash',
+        createdBy: userId,
+        updatedBy: userId,
       });
       
       console.log(`Financial transaction created for resident document request: ${type} x ${qty} = ₱${total}`);
     } catch (txErr) {
-      console.error('Error creating financial transaction for resident document request:', txErr.message);
+      console.error('Error creating financial transaction for resident document request:', txErr);
+      console.error('Transaction error stack:', txErr.stack);
       // Non-fatal: continue with document creation
     }
     
@@ -178,10 +194,27 @@ exports.createRequest = async (req, res) => {
       .populate('requestFor', 'firstName lastName')
       .lean();
 
+    // Notify admins about the new document request
+    try {
+      await notifyDocumentRequestCreated(doc, resident);
+    } catch (notifErr) {
+      console.warn('Failed to notify admins about document request:', notifErr.message);
+      // Non-blocking: document request is still created
+    }
+
     res.status(201).json(populated);
   } catch (error) {
-    console.error('Error creating document request:', error);
-    res.status(500).json({ message: error.message || 'Failed to create document request' });
+    console.error('=== ERROR CREATING DOCUMENT REQUEST ===');
+    console.error('Error message:', error.message);
+    console.error('Error name:', error.name);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    console.error('User:', req.user);
+    res.status(500).json({ 
+      message: error.message || 'Failed to create document request',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

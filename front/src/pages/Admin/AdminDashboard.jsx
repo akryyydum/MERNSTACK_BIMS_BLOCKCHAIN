@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { AdminLayout } from './AdminSidebar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import apiClient from '../../utils/apiClient';
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Table, Tag, Progress, Space, Divider, message, Button } from 'antd';
@@ -88,31 +89,25 @@ export default function AdminDashboard() {
     const abort = new AbortController();
     (async () => {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
       try {
-        const endpoints = [
-          `${API_BASE}/api/admin/residents`,
-          `${API_BASE}/api/admin/officials`,
-          `${API_BASE}/api/admin/document-requests`,
-          `${API_BASE}/api/admin/complaints`,
-          `${API_BASE}/api/admin/financial/dashboard`,
-          `${API_BASE}/api/admin/financial/transactions?limit=10`
-        ];
         // Load core dashboard data first and tolerate partial failures
-        const settled = await Promise.allSettled(
-          endpoints.map(url => fetch(url, { headers, signal: abort.signal }))
+        const settled = await Promise.allSettled([
+          apiClient.get('/api/admin/residents'),
+          apiClient.get('/api/admin/officials'),
+          apiClient.get('/api/admin/document-requests'),
+          apiClient.get('/api/admin/complaints'),
+          apiClient.get('/api/admin/financial/dashboard'),
+          apiClient.get('/api/admin/financial/transactions', { params: { limit: 10 } })
+        ]);
+        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = settled.map(
+          (r) => (r.status === 'fulfilled' ? r.value.data : null)
         );
-        const jsons = await Promise.all(
-          settled.map(async (r) => (r.status === 'fulfilled' && r.value.ok) ? r.value.json() : null)
-        );
-        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = jsons;
 
         // Fetch blockchain status separately; don't block dashboard if it fails
         let blockchain = null;
         try {
-          const r = await fetch(`${API_BASE}/api/blockchain/status`, { headers, signal: abort.signal });
-          blockchain = r.ok ? await r.json() : { ok: false, message: `Status ${r.status}` };
+          const r = await apiClient.get('/api/blockchain/status');
+          blockchain = r.data;
         } catch (err) {
           blockchain = { ok: false, message: 'Blockchain unreachable' };
         }
@@ -481,18 +476,18 @@ export default function AdminDashboard() {
     if (cardLoading) {
       return (
         <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-gray-600 text-sm">
+          <CardContent className="p-3 md:p-6">
+            <div className="flex items-center justify-between mb-2 md:mb-4">
+              <div className="flex items-center gap-1 md:gap-2 text-gray-600 text-xs md:text-sm">
                 {icon}
-                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 md:h-4 w-20 md:w-32" />
               </div>
             </div>
-            <div className="space-y-3">
-              <Skeleton className="h-10 w-40" />
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-8 w-full" />
+            <div className="space-y-2 md:space-y-3">
+              <Skeleton className="h-6 md:h-10 w-24 md:w-40" />
+              <Skeleton className="h-2 md:h-3 w-16 md:w-24" />
+              <Skeleton className="h-3 md:h-4 w-12 md:w-16" />
+              <Skeleton className="h-4 md:h-8 w-full" />
             </div>
           </CardContent>
         </Card>
@@ -501,30 +496,30 @@ export default function AdminDashboard() {
 
     return (
       <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-2 text-gray-600 text-sm">
-              {icon}
-              <span>{title}</span>
+        <CardContent className="p-3 md:p-6">
+          <div className="flex items-start justify-between mb-2 md:mb-4">
+            <div className="flex items-center gap-1 md:gap-2 text-gray-600 text-xs md:text-sm">
+              <span className="text-sm md:text-base">{icon}</span>
+              <span className="text-xs md:text-sm leading-tight">{title}</span>
             </div>
           </div>
           
-          <div className="mb-3">
-            <div className="text-3xl font-bold text-gray-900">
+          <div className="mb-2 md:mb-3">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
               {isRevenue ? `₱${value.toLocaleString()}` : value.toLocaleString()}
             </div>
-            <div className="text-xs text-gray-500 mt-1">{sinceLast}</div>
+            <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">{sinceLast}</div>
           </div>
           
           <div className="flex items-center gap-1">
-            <span className={`text-sm font-semibold ml-auto flex items-center gap-1 ${changeColor}`}>
+            <span className={`text-xs md:text-sm font-semibold ml-auto flex items-center gap-1 ${changeColor}`}>
               {Math.abs(change).toFixed(1)}%
-              <TrendIcon className="text-xs" />
+              <TrendIcon className="text-[10px] md:text-xs" />
             </span>
           </div>
           
           {/* Mini trend line */}
-          <div className="mt-3 h-8">
+          <div className="mt-2 md:mt-3 h-6 md:h-8">
             <ChartContainer config={chartConfig} className="h-full w-full">
                 <LineChart width={254} height={32} data={normalizedTrend}>
                   <Line 
@@ -573,19 +568,13 @@ export default function AdminDashboard() {
         {/* Header */}
         <nav className="px-5 h-20 flex items-center justify-between p-15">
           <span className="text-2xl md:text-4xl font-bold text-gray-800">Admin Dashboard</span>
-          <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-            <UserOutlined className="text-2xl text-blue-600" />
-            <div className="flex flex-col items-start">
-              <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-              <span className="text-xs text-gray-500">{username}</span>
-            </div>
-          </div>
+          
         </nav>
 
         {/* Content Container */}
         <div className="px-4 pb-4 space-y-4">
           {/* Top Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {/* Total Residents */}
           <MetricCard
             icon={<TeamOutlined />}
@@ -633,19 +622,19 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 gap-4">
             {/* Total Request Trend (full width) */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-4 flex items-start md:items-center justify-between flex-col md:flex-row gap-3 md:gap-4">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900"><span className="font-bold">Total Request Trend</span></h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="text-base md:text-lg font-bold text-gray-900"><span className="font-bold">Total Request Trend</span></h3>
+                    <p className="text-xs md:text-sm text-gray-500">
                       {requestTrendPeriod === '7days' ? 'Document requests and complaints in the last 7 days' :
                       'Document requests and complaints from January to December'}
                     </p>
                   </div>
-                  <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                  <div className="flex gap-1 md:gap-2 bg-gray-100 p-1 rounded-lg w-full md:w-auto">
                     <button
                       onClick={() => setRequestTrendPeriod('7days')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 font-['Poppins'] ${
+                      className={`flex-1 md:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-200 font-['Poppins'] ${
                         requestTrendPeriod === '7days'
                           ? 'bg-white text-blue-600 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
@@ -655,7 +644,7 @@ export default function AdminDashboard() {
                     </button>
                     <button
                       onClick={() => setRequestTrendPeriod('12months')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 font-['Poppins'] ${
+                      className={`flex-1 md:flex-none px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-200 font-['Poppins'] ${
                         requestTrendPeriod === '12months'
                           ? 'bg-white text-blue-600 shadow-md'
                           : 'text-gray-600 hover:text-gray-900'
@@ -666,7 +655,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               
-              <div className="h-80">
+              <div className="h-64 md:h-80">
                 {requestTrendLoading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-8 w-full" />
@@ -733,16 +722,16 @@ export default function AdminDashboard() {
           </div>
 
           {/* Male/Female Demographics, Purok Distribution, and Blockchain Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Male and Female Residents */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900"> <span className="font-bold">Male and Female Residents</span></h3>
-                  <p className="text-sm text-gray-500">Gender distribution of registered residents</p>
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900"> <span className="font-bold">Male and Female Residents</span></h3>
+                  <p className="text-xs md:text-sm text-gray-500">Gender distribution of registered residents</p>
                 </div>
                 
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   {genderCardLoading ? (
                     <div className="flex flex-col items-center justify-center space-y-4">
                       <Skeleton className="h-48 w-48 rounded-full" />
@@ -755,7 +744,7 @@ export default function AdminDashboard() {
                     <div className="flex flex-col items-center justify-center h-full">
                       <div className="w-full h-64">
                         <ChartContainer config={chartConfig} className="h-full w-full">
-                          <PieChart width={249} height={256}>
+                          <PieChart>
                             <ChartTooltip content={<ChartTooltipContent />} />
                             <Pie 
                               data={genderDemographicsData} 
@@ -763,8 +752,8 @@ export default function AdminDashboard() {
                               nameKey="name" 
                               cx="50%" 
                               cy="50%" 
-                              innerRadius={60} 
-                              outerRadius={90} 
+                              innerRadius="35%" 
+                              outerRadius="55%" 
                               paddingAngle={3}
                               label={({ name, percentage }) => `${name}: ${percentage}%`}
                             >
@@ -805,13 +794,13 @@ export default function AdminDashboard() {
 
             {/* Purok Distribution */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900"><span className="font-bold">Purok Distribution</span></h3>
-                  <p className="text-sm text-gray-500">Residents by purok area</p>
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900"><span className="font-bold">Purok Distribution</span></h3>
+                  <p className="text-xs md:text-sm text-gray-500">Residents by purok area</p>
                 </div>
                 
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   {purokCardLoading ? (
                     <div className="flex flex-col items-center justify-center space-y-4">
                       <Skeleton className="h-44 w-44 rounded-full" />
@@ -826,7 +815,7 @@ export default function AdminDashboard() {
                     <div className="flex flex-col items-center justify-center h-full">
                       <div className="w-full h-56">
                         <ChartContainer config={chartConfig} className="h-full w-full">
-                          <PieChart width={249} height={224}>
+                          <PieChart>
                             <ChartTooltip content={<ChartTooltipContent />} />
                             <Pie 
                               data={purokDemographicsData} 
@@ -834,8 +823,8 @@ export default function AdminDashboard() {
                               nameKey="name" 
                               cx="50%" 
                               cy="50%" 
-                              innerRadius={50} 
-                              outerRadius={80} 
+                              innerRadius="30%" 
+                              outerRadius="50%" 
                               paddingAngle={2}
                               label={({ percentage }) => `${percentage}%`}
                             >
@@ -877,14 +866,14 @@ export default function AdminDashboard() {
 
             {/* Blockchain Network Status */}
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <CardContent className="p-4 md:p-6">
+                <div className="mb-3 md:mb-4">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                     <CloudServerOutlined /> <span className="font-bold">Blockchain Network Status</span>
                   </h3>
                 </div>
               
-              <div className="h-64">
+              <div className="h-56 md:h-64">
                 {blockchainCardLoading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-6 w-40" />
@@ -930,14 +919,14 @@ export default function AdminDashboard() {
           </div>
 
           {/* Tables Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <ThunderboltOutlined /> Recent Document Requests
               </CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="overflow-x-auto p-3 md:p-6">
               {docTableLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />
@@ -962,12 +951,12 @@ export default function AdminDashboard() {
           </Card>
 
           <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <CardHeader>
+            <CardHeader className="p-4 md:p-6">
               <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <DollarCircleOutlined /> Recent Payment Fees
               </CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="overflow-x-auto p-3 md:p-6">
               {paymentTableLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />

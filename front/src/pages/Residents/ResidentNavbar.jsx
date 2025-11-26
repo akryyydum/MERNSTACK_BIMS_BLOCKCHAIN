@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import logo from "../../assets/logo.png";
-import { Layout, Menu, Avatar, Dropdown, Drawer } from "antd";
+import { Layout, Menu, Avatar, Dropdown, Drawer, Badge, Popover, List, Button, Empty, Spin } from "antd";
+import apiClient from "../../utils/apiClient";
 import {
   DashboardOutlined,
   FileTextOutlined,
@@ -12,10 +13,18 @@ import {
   MenuUnfoldOutlined,
   CloudSyncOutlined,
   EllipsisOutlined,
+  BellOutlined,
+  CheckOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { useNavigate, NavLink, useLocation } from "react-router-dom";
+import axios from "axios";
+import { useSocket } from "../../hooks/useSocket";
 
 const { Header } = Layout;
+
+// Get API URL from environment or default
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 const ResidentNavbar = () => {
   const navigate = useNavigate();
@@ -23,6 +32,10 @@ const ResidentNavbar = () => {
   const [residentName, setResidentName] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   useEffect(() => {
     const loadResidentName = () => {
@@ -58,12 +71,141 @@ const ResidentNavbar = () => {
   return () => window.removeEventListener("resize", handleResize);
 }, []);
 
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const response = await apiClient.get('/api/resident/notifications');
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userData");
-    navigate("/login", { replace: true });
+      setNotifications(response.data.notifications || []);
+      setUnreadCount(response.data.unreadCount || 0);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Fetch notifications on mount and periodically
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Refresh notifications every 5 minutes as fallback
+    const interval = setInterval(fetchNotifications, 300000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Socket.IO for real-time notifications
+  useSocket(
+    // onNewNotification
+    (notification) => {
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      
+      // Optional: Show a toast notification
+      console.log('New notification:', notification.title);
+    },
+    // onNotificationUpdate
+    (notificationId, updates) => {
+      setNotifications(prev => 
+        prev.map(n => n._id === notificationId ? { ...n, ...updates } : n)
+      );
+      if (updates.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    },
+    // onNotificationDelete
+    (notificationId) => {
+      const deletedNotif = notifications.find(n => n._id === notificationId);
+      setNotifications(prev => prev.filter(n => n._id !== notificationId));
+      if (deletedNotif && !deletedNotif.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    }
+  );
+
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      await apiClient.patch(
+        `/api/resident/notifications/${notificationId}/read`
+      );
+      
+      // Update local state
+      setNotifications(notifications.map(n => 
+        n._id === notificationId ? { ...n, isRead: true } : n
+      ));
+      setUnreadCount(Math.max(0, unreadCount - 1));
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    try {
+      await apiClient.patch(
+        `/api/resident/notifications/read-all`
+      );
+      
+      // Update local state
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId) => {
+    try {
+      await apiClient.delete(
+        `/api/resident/notifications/${notificationId}`
+      );
+      
+      // Update local state
+      const deletedNotif = notifications.find(n => n._id === notificationId);
+      setNotifications(notifications.filter(n => n._id !== notificationId));
+      if (deletedNotif && !deletedNotif.isRead) {
+        setUnreadCount(Math.max(0, unreadCount - 1));
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification._id);
+    }
+    if (notification.link) {
+      navigate(notification.link);
+      setNotificationsVisible(false);
+    }
+  };
+
+
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to clear HTTP-only cookies
+      const API_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem("role");
+      localStorage.removeItem("userData");
+      navigate("/login", { replace: true });
+    }
   };
 
   const profileMenu = [
@@ -80,6 +222,111 @@ const ResidentNavbar = () => {
       onClick: handleLogout,
     },
   ];
+
+  // Notification content for popover
+  const notificationContent = (
+    <div style={{ width: isMobile ? 220 : 380, maxWidth: isMobile ? 220 : 400, maxHeight: isMobile ? 'calc(100vh - 200px)' : 500, overflow: 'auto' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: '#fff', zIndex: 1 }}>
+        <span style={{ fontWeight: 600, fontSize: 15 }}>Notifications</span>
+        {unreadCount > 0 && (
+          <Button type="link" size="small" onClick={markAllAsRead}>
+            Mark all read
+          </Button>
+        )}
+      </div>
+      
+      {loadingNotifications ? (
+        <div style={{ padding: 48, textAlign: 'center' }}>
+          <Spin size="large" />
+        </div>
+      ) : notifications.length === 0 ? (
+        <Empty 
+          image={Empty.PRESENTED_IMAGE_SIMPLE} 
+          description="No notifications"
+          style={{ padding: '48px 16px' }}
+        />
+      ) : (
+        <List
+          dataSource={notifications.slice(0, isMobile ? 10 : 20)}
+          renderItem={(item) => {
+            const priorityColors = {
+              high: '#ff4d4f',
+              medium: '#faad14',
+              low: '#52c41a'
+            };
+            
+            return (
+              <List.Item
+                style={{
+                  padding: isMobile ? '10px 12px' : '12px 16px',
+                  cursor: 'pointer',
+                  backgroundColor: item.isRead ? 'transparent' : '#f0f5ff',
+                  borderLeft: `3px solid ${priorityColors[item.priority] || '#d9d9d9'}`,
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fafafa'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = item.isRead ? 'transparent' : '#f0f5ff'}
+                onClick={() => handleNotificationClick(item)}
+                actions={[
+                  !item.isRead && (
+                    <Button
+                      type="text"
+                      size={isMobile ? 'small' : 'middle'}
+                      icon={<CheckOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markAsRead(item._id);
+                      }}
+                      title="Mark as read"
+                    />
+                  ),
+                  <Button
+                    type="text"
+                    size={isMobile ? 'small' : 'middle'}
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteNotification(item._id);
+                    }}
+                    title="Delete"
+                  />
+                ].filter(Boolean)}
+              >
+                <List.Item.Meta
+                  title={
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontWeight: item.isRead ? 400 : 600, fontSize: isMobile ? 13 : 14, flex: 1, lineHeight: '1.4' }}>
+                        {item.title}
+                      </span>
+                      {!item.isRead && (
+                        <Badge status="processing" />
+                      )}
+                    </div>
+                  }
+                  description={
+                    <div>
+                      <div style={{ fontSize: isMobile ? 12 : 13, marginBottom: 4, color: '#595959', lineHeight: '1.5' }}>
+                        {item.message}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 4 }}>
+                        {new Date(item.createdAt).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  }
+                />
+              </List.Item>
+            );
+          }}
+        />
+      )}
+    </div>
+  );
 
   const menuItems = [
     {
@@ -180,27 +427,56 @@ const ResidentNavbar = () => {
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
       }}
     >
-      {/* LEFT */}
-      <div className="flex items-center min-w-[200px]">
-        {isMobile ? (
+      {/* LEFT (menu button on mobile, branding on desktop) */}
+      <div className="flex items-center min-w-[60px] lg:min-w-[200px]">
+        {isMobile && (
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="mr-3 flex items-center rounded-md border border-gray-300 px-3 py-2 hover:bg-gray-100"
+            aria-label="Open navigation menu"
           >
             <MenuUnfoldOutlined />
           </button>
-        ) : (
+        )}
+        {!isMobile && (
           <div className="flex items-center gap-3">
-            <img src={logo} className="w-12 h-12 object-contain" />
+            <img src={logo} className="w-12 h-12 object-contain" alt="Barangay Logo" />
             <div className="flex flex-col leading-tight">
               <span className="text-lg font-semibold text-black">La Torre North</span>
-              <span className="text-[8px] text-gray-600">
-                Barangay Management Information System
-              </span>
+              <span className="text-[8px] text-gray-600">Barangay Management Information System</span>
             </div>
           </div>
         )}
       </div>
+
+      {/* CENTER (logo centered on mobile) */}
+      {isMobile && (
+        <div className="flex flex-1 justify-center items-center lg:hidden">
+          <img src={logo} className="w-12 h-12 object-contain" alt="Barangay Logo" />
+        </div>
+      )}
+
+      {/* RIGHT - Notification Bell (Mobile Only) */}
+      {isMobile && (
+        <div className="flex items-center min-w-[60px] justify-end lg:hidden">
+          <Popover
+            content={notificationContent}
+            trigger="click"
+            placement="bottomRight"
+            overlayStyle={{ maxWidth: '95vw' }}
+            getPopupContainer={(trigger) => trigger.parentElement || document.body}
+          >
+            <Badge count={unreadCount} offset={[-5, 5]} size="small">
+              <Button
+                type="text"
+                shape="circle"
+                icon={<BellOutlined style={{ fontSize: 20 }} />}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              />
+            </Badge>
+          </Popover>
+        </div>
+      )}
 
       {/* CENTER MENU */}
       <div className="hidden lg:flex flex-1 justify-center min-w-0 overflow-hidden">
@@ -208,7 +484,27 @@ const ResidentNavbar = () => {
       </div>
 
       {/* RIGHT PROFILE */}
-      <div className="hidden lg:flex items-center ml-auto min-w-[200px] justify-end">
+      <div className="hidden lg:flex items-center ml-auto min-w-[200px] justify-end gap-4">
+        {/* Notification Bell */}
+        <Popover
+          content={notificationContent}
+          trigger="click"
+          open={notificationsVisible}
+          onOpenChange={setNotificationsVisible}
+          placement="bottomRight"
+          overlayStyle={{ zIndex: 1050 }}
+        >
+          <Badge count={unreadCount} offset={[-5, 5]}>
+            <Button
+              type="text"
+              shape="circle"
+              icon={<BellOutlined style={{ fontSize: 20 }} />}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            />
+          </Badge>
+        </Popover>
+
+        {/* Profile Dropdown */}
         <Dropdown menu={{ items: profileMenu }} placement="bottomRight">
           <div className="cursor-pointer flex items-center gap-2 truncate">
             <Avatar icon={<UserOutlined />} />
@@ -231,7 +527,7 @@ const ResidentNavbar = () => {
         <div className="px-4 py-3 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Avatar icon={<UserOutlined />} size="large" />
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1">
               <span className="text-base font-semibold text-gray-800">{residentName}</span>
               <span className="text-xs text-gray-500">Resident</span>
             </div>

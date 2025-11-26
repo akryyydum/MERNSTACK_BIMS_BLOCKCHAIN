@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Table, Input, Button, Tag, message, Space, Typography, Tabs } from "antd";
 import { SearchOutlined, FileTextOutlined, ReloadOutlined, CloudSyncOutlined, FolderOpenOutlined, DollarOutlined, BlockOutlined, UserOutlined } from "@ant-design/icons";
 import axios from "axios";
+import apiClient from "../../utils/apiClient";
 import dayjs from "dayjs";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +19,6 @@ export default function AdminBlockchainNetwork() {
   const [publicDocs, setPublicDocs] = useState([]);
   const [finance, setFinance] = useState([]); // on-chain financial transactions
 
-  const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-  const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
@@ -27,10 +26,7 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "requests") return; // only fetch for requests tab
     setLoading(true);
     try {
-      const res = await axios.get(`${baseURL}/api/blockchain/requests`, {
-        // back-end ignores filter for now; we'll filter client-side
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/blockchain/requests');
       setResults(Array.isArray(res.data) ? res.data : []);
       setLastFetchedAt(new Date());
     } catch (err) {
@@ -43,9 +39,7 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "finance") return; // only fetch for finance tab
     setLoading(true);
     try {
-      const res = await axios.get(`${baseURL}/api/blockchain/financial-transactions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/blockchain/financial-transactions');
       setFinance(Array.isArray(res.data) ? res.data : []);
       setLastFetchedAt(new Date());
     } catch (err) {
@@ -59,9 +53,7 @@ export default function AdminBlockchainNetwork() {
     setLoading(true);
     try {
       // Fetch combined data from admin endpoint (contains mongoDocs with status + blockchainDocs raw)
-      const res = await axios.get(`${baseURL}/api/admin/public-documents`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiClient.get('/api/admin/public-documents');
       const mongoDocs = res.data?.mongoDocs || [];
       const blockchainDocs = res.data?.blockchainDocs || [];
 
@@ -86,9 +78,7 @@ export default function AdminBlockchainNetwork() {
     if (activeTab !== "requests") return; // only valid for requests tab
     setLoading(true);
     try {
-      await axios.post(`${baseURL}/api/blockchain/sync-from-db`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await apiClient.post('/api/blockchain/sync-from-db');
       message.success('Sync complete');
       await handleSearch();
     } catch (err) {
@@ -249,64 +239,58 @@ export default function AdminBlockchainNetwork() {
             <div>
               <span className="text-2xl md:text-4xl font-bold text-gray-800">Blockchain Network</span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
+            
           </nav>
 
           {/* Statistics Section */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Requests</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Requests</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {filteredRequests?.length || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{filteredRequests?.length || 0}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{filteredRequests?.length || 0}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Public Documents</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Public Documents</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {filteredPublicDocs?.length || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{filteredPublicDocs?.length || 0}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{filteredPublicDocs?.length || 0}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Finance Records</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Finance Records</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {filteredFinance?.length || 0}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{filteredFinance?.length || 0}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{filteredFinance?.length || 0}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Last Fetched</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Last Fetched</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {lastFetchedAt ? dayjs(lastFetchedAt).format('HH:mm') : '—'}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{lastFetchedAt ? dayjs(lastFetchedAt).format('HH:mm') : '—'}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{lastFetchedAt ? dayjs(lastFetchedAt).format('HH:mm') : '—'}</div>
                 </CardContent>
               </Card>
             </div>
@@ -317,29 +301,33 @@ export default function AdminBlockchainNetwork() {
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
           <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <Input.Search
-                allowClear
-                placeholder={activeTab === 'requests' ? 'Search for Document Requests' : activeTab === 'publicdocs' ? 'Search for Public Documents' : 'Search for Transactions'}
-                onSearch={(v) => setQuery(v.trim())}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                enterButton
-                className="min-w-[500px] max-w-xs"
-              />
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full md:w-auto">
+              <div className="w-full sm:w-auto">
+                <Input.Search
+                  allowClear
+                  placeholder={activeTab === 'requests' ? 'Search for Document Requests' : activeTab === 'publicdocs' ? 'Search for Public Documents' : 'Search for Transactions'}
+                  onSearch={(v) => setQuery(v.trim())}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  enterButton
+                  className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                />
+              </div>
               {/* Unified Refresh button per active tab */}
-              {activeTab === 'requests' && (
-                <>
-                  <Button icon={<ReloadOutlined />} onClick={handleSearch} loading={loading}>Refresh</Button>
-                  <Button icon={<CloudSyncOutlined />} onClick={handleSync} loading={loading}>Sync from DB</Button>
-                </>
-              )}
-              {activeTab === 'publicdocs' && (
-                <Button icon={<ReloadOutlined />} onClick={handlePublicDocsFetch} loading={loading}>Refresh</Button>
-              )}
-              {activeTab === 'finance' && (
-                <Button icon={<ReloadOutlined />} onClick={handleFinanceFetch} loading={loading}>Refresh</Button>
-              )}
+              <div className="flex flex-row gap-2 w-full sm:w-auto">
+                {activeTab === 'requests' && (
+                  <>
+                    <Button icon={<ReloadOutlined />} onClick={handleSearch} loading={loading} className="flex-1 sm:flex-initial whitespace-nowrap">Refresh</Button>
+                    <Button icon={<CloudSyncOutlined />} onClick={handleSync} loading={loading} className="flex-1 sm:flex-initial whitespace-nowrap">Sync from DB</Button>
+                  </>
+                )}
+                {activeTab === 'publicdocs' && (
+                  <Button icon={<ReloadOutlined />} onClick={handlePublicDocsFetch} loading={loading} className="w-full sm:w-auto whitespace-nowrap">Refresh</Button>
+                )}
+                {activeTab === 'finance' && (
+                  <Button icon={<ReloadOutlined />} onClick={handleFinanceFetch} loading={loading} className="w-full sm:w-auto whitespace-nowrap">Refresh</Button>
+                )}
+              </div>
             </div>
           </div>
 

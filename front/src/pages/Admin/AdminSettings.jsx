@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Form, Input, Button, message, Divider, Alert, InputNumber, Spin, Popconfirm } from "antd";
 import { LockOutlined, UserOutlined, InfoCircleOutlined, SafetyOutlined, BellOutlined } from "@ant-design/icons";
+import apiClient from "@/utils/apiClient";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -13,35 +14,13 @@ export default function AdminSettings() {
   const [updatingFees, setUpdatingFees] = useState(false);
   const [settings, setSettings] = useState(null);
 
-  const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
-  const token = localStorage.getItem("token");
-
   const handleChangePassword = async (values) => {
     setLoading(true);
     try {
-      console.log("API_BASE:", API_BASE);
-      console.log("Full URL:", `${API_BASE}/api/auth/change-password`);
-      console.log("Token:", token ? "Present" : "Missing");
-      
-      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          currentPassword: values.currentPassword,
-          newPassword: values.newPassword,
-        }),
+      const res = await apiClient.post('/api/auth/change-password', {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
       });
-
-      console.log("Response status:", res.status);
-      const data = await res.json();
-      console.log("Response data:", data);
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to change password");
-      }
 
       message.success({
         content: "Password updated successfully! Your new password is now active.",
@@ -64,12 +43,8 @@ export default function AdminSettings() {
   const fetchSettings = async () => {
     setSettingsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to load settings');
-      setSettings(data);
+      const res = await apiClient.get('/api/admin/settings');
+      setSettings(res.data);
       feesForm.setFieldsValue({
         garbageFeeRegularAnnual: data.garbageFeeRegularAnnual,
         garbageFeeBusinessAnnual: data.garbageFeeBusinessAnnual,
@@ -100,14 +75,8 @@ export default function AdminSettings() {
           barangayClearance: Number(values.barangayClearanceFee)
         }
       };
-      const res = await fetch(`${API_BASE}/api/admin/settings`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update fees');
-      setSettings(data);
+      const res = await apiClient.patch('/api/admin/settings', payload);
+      setSettings(res.data);
       message.success('Fees updated successfully');
     } catch (e) {
       message.error(e.message);
@@ -122,62 +91,56 @@ export default function AdminSettings() {
 
   return (
     <AdminLayout title="Admin">
-      <div className="space-y-4 px-2 md:px-1 bg-gray-50 rounded-2xl outline outline-offset-1 outline-slate-300">
+      <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
             <div>
-              <span className="text-2xl md:text-4xl font-bold text-gray-800">
+              <span className="text-xl md:text-2xl lg:text-4xl font-bold text-gray-800">
                 Settings
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3 bg-white">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
+            
           </nav>
         </div>
 
         {/* Main Content */}
-        <div className="px-5 pb-8">
-          <div className="w-full space-y-6">
+        <div className="px-3 md:px-5 pb-4 md:pb-8">
+          <div className="w-full space-y-4 md:space-y-6">
             
             {/* Row 1: Account Information and Change Password */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               {/* Account Information Card */}
               <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
-                    <UserOutlined />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-sm md:text-base font-semibold text-black flex items-center gap-2">
+                    <UserOutlined className="text-base md:text-lg" />
                     <span>Account Information</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <CardContent className="p-4 md:p-6 pt-0">
+                  <div className="space-y-3 md:space-y-4">
+                    <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-100">
                       <div>
-                        <p className="font-medium text-gray-900">Full Name</p>
-                        <p className="text-sm text-gray-500 mt-1">{userProfile.fullName || "Administrator"}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Full Name</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1">{userProfile.fullName || "Administrator"}</p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-100">
                       <div>
-                        <p className="font-medium text-gray-900">Username</p>
-                        <p className="text-sm text-gray-500 mt-1">{username}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Username</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1">{username}</p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-100">
                       <div>
-                        <p className="font-medium text-gray-900">Role</p>
-                        <p className="text-sm text-gray-500 mt-1 capitalize">{userProfile.role || "Admin"}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Role</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1 capitalize">{userProfile.role || "Admin"}</p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center py-3">
+                    <div className="flex justify-between items-center py-2 md:py-3">
                       <div>
-                        <p className="font-medium text-gray-900">Email</p>
-                        <p className="text-sm text-gray-500 mt-1">{userProfile.contact?.email || "Not set"}</p>
+                        <p className="text-sm md:text-base font-medium text-gray-900">Email</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-1 break-all">{userProfile.contact?.email || "Not set"}</p>
                       </div>
                     </div>
                   </div>
@@ -186,22 +149,22 @@ export default function AdminSettings() {
 
               {/* Change Password Card */}
               <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
-                    <LockOutlined />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="text-sm md:text-base font-semibold text-black flex items-center gap-2">
+                    <LockOutlined className="text-base md:text-lg" />
                     <span>Change Password</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 md:p-6 pt-0">
                   {successMessage && (
                     <Alert
-                      message="Password Updated Successfully!"
-                      description="Your new password is now active. You can use it the next time you log in."
+                      message={<span className="text-sm md:text-base">Password Updated Successfully!</span>}
+                      description={<span className="text-xs md:text-sm">Your new password is now active. You can use it the next time you log in.</span>}
                       type="success"
                       showIcon
                       closable
                       onClose={() => setSuccessMessage(false)}
-                      className="mb-4"
+                      className="mb-3 md:mb-4"
                     />
                   )}
                   <Form
@@ -209,9 +172,10 @@ export default function AdminSettings() {
                     layout="vertical"
                     onFinish={handleChangePassword}
                     autoComplete="off"
+                    className="settings-form"
                   >
                     <Form.Item
-                      label="Current Password"
+                      label={<span className="text-xs md:text-sm">Current Password</span>}
                       name="currentPassword"
                       rules={[
                         {
@@ -224,11 +188,12 @@ export default function AdminSettings() {
                         prefix={<LockOutlined className="text-gray-400" />}
                         placeholder="Enter current password"
                         size="large"
+                        className="text-sm"
                       />
                     </Form.Item>
 
                     <Form.Item
-                      label="New Password"
+                      label={<span className="text-xs md:text-sm">New Password</span>}
                       name="newPassword"
                       rules={[
                         {
@@ -245,11 +210,12 @@ export default function AdminSettings() {
                         prefix={<LockOutlined className="text-gray-400" />}
                         placeholder="Enter new password"
                         size="large"
+                        className="text-sm"
                       />
                     </Form.Item>
 
                     <Form.Item
-                      label="Confirm New Password"
+                      label={<span className="text-xs md:text-sm">Confirm New Password</span>}
                       name="confirmPassword"
                       dependencies={["newPassword"]}
                       rules={[
@@ -273,6 +239,7 @@ export default function AdminSettings() {
                         prefix={<LockOutlined className="text-gray-400" />}
                         placeholder="Confirm new password"
                         size="large"
+                        className="text-sm"
                       />
                     </Form.Item>
 
@@ -282,7 +249,7 @@ export default function AdminSettings() {
                         htmlType="submit"
                         loading={loading}
                         size="large"
-                        className="w-full md:w-auto"
+                        className="w-full md:w-auto text-sm"
                       >
                         Change Password
                       </Button>
@@ -382,40 +349,7 @@ export default function AdminSettings() {
                 </CardContent>
               </Card>
 
-              {/* Security Settings Card */}
-              <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-black flex items-center gap-2">
-                    <SafetyOutlined />
-                    <span>Security & Privacy</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                      <div>
-                        <p className="font-medium text-gray-900">Two-Factor Authentication</p>
-                        <p className="text-sm text-gray-500 mt-1">Add an extra layer of security to your account</p>
-                      </div>
-                      <span className="text-sm text-orange-600 font-medium">Not Enabled</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                      <div>
-                        <p className="font-medium text-gray-900">Session Timeout</p>
-                        <p className="text-sm text-gray-500 mt-1">Auto logout after inactivity</p>
-                      </div>
-                      <span className="text-sm text-gray-600 font-medium">30 minutes</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3">
-                      <div>
-                        <p className="font-medium text-gray-900">Login Activity</p>
-                        <p className="text-sm text-gray-500 mt-1">Track login history and active sessions</p>
-                      </div>
-                      <span className="text-sm text-green-600 font-medium">Monitored</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              
             </div>
             
           </div>

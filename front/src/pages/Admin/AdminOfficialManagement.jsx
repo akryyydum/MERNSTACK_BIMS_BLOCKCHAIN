@@ -15,11 +15,32 @@ import {
   Alert,
 } from "antd";
 import { AdminLayout } from "./AdminSidebar";
+import apiClient from '../../utils/apiClient';
 import { UserOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight } from "lucide-react";
 
-const API_URL = "/api/admin/officials";
+// Use environment variable for backend API base.
+// Supports both VITE_API_BASE_URL and legacy VITE_API_URL for compatibility.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const OFFICIALS_ENDPOINT = `${API_BASE}/api/admin/officials`;
+const RESIDENTS_ENDPOINT = `${API_BASE}/api/admin/residents`;
+
+// Safe JSON parser to surface HTML/other unexpected content clearly
+async function safeParseJson(res) {
+  const contentType = res.headers.get("content-type") || "";
+  const text = await res.text();
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Expected JSON but received '${contentType || "unknown"}'.\nStatus: ${res.status} ${res.statusText}.\nBody preview: ${text.slice(0,200)}`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid JSON: ${e.message}. Preview: ${text.slice(0,200)}`);
+  }
+}
 
 // Position hierarchy for sorting (lower number = higher rank)
 const POSITION_HIERARCHY = {
@@ -113,14 +134,8 @@ export default function AdminOfficialManagement() {
   const fetchOfficials = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(API_URL, { headers: { Authorization: `Bearer ${token}` } });
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch officials: ${res.status} ${res.statusText}`);
-      }
-      
-      const data = await res.json();
+      const res = await apiClient.get('/api/admin/officials');
+      const data = res.data;
       console.log("Officials response:", data);
       
       // Handle both array and object responses
@@ -152,16 +167,8 @@ export default function AdminOfficialManagement() {
 
   const fetchResidents = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/admin/residents", { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch residents: ${res.status} ${res.statusText}`);
-      }
-      
-      const data = await res.json();
+      const res = await apiClient.get('/api/admin/residents');
+      const data = res.data;
       console.log("Residents response (officials page):", data);
       
       // Handle both array and object responses
@@ -380,8 +387,6 @@ export default function AdminOfficialManagement() {
         throw new Error("No position selected");
       }
       
-      const token = localStorage.getItem("token");
-      
       // Build payload - always include email and mobile (even as empty string) so backend knows to update/clear them
       const submitData = {
         residentId: values.residentId,
@@ -390,17 +395,8 @@ export default function AdminOfficialManagement() {
         mobile: (values.mobile || '').trim()
       };
       
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(submitData)
-      });
-      
-      const responseData = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(responseData.message || `Server error: ${res.status} ${res.statusText}`);
-      }
+      const res = await apiClient.post('/api/admin/officials', submitData);
+      const responseData = res.data;
       
       message.success("Official added!");
       setAddOpen(false); 
@@ -434,7 +430,6 @@ export default function AdminOfficialManagement() {
     try {
       setEditing(true);
       const values = await editForm.validateFields();
-      const token = localStorage.getItem("token");
       // Only send fields that are provided; allow clearing by sending empty string which backend unsets
       const payload = {};
       if (values.fullName !== undefined) payload.fullName = values.fullName;
@@ -443,12 +438,8 @@ export default function AdminOfficialManagement() {
       if (values.email !== undefined) payload.email = (values.email || '').trim();
       if (values.mobile !== undefined) payload.mobile = (values.mobile || '').trim();
 
-      const res = await fetch(`${API_URL}/${selectedOfficial._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error((await res.json()).message || "Failed to update official");
+      const res = await apiClient.patch(`/api/admin/officials/${selectedOfficial._id}`, payload);
+      const responseData = res.data;
       message.success("Official updated!");
       setEditOpen(false); 
       await fetchOfficials();
@@ -459,9 +450,7 @@ export default function AdminOfficialManagement() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Failed to delete official");
+      await apiClient.delete(`/api/admin/officials/${id}`);
       message.success("Official deleted!"); 
       
       // adjust page if last item removed
@@ -490,22 +479,14 @@ export default function AdminOfficialManagement() {
                 Officials Management
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">
-                  Administrator
-                </span>
-                <span className="text-xs text-gray-500">admin</span>
-              </div>
-            </div>
+           
           </nav>
 
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 sm:py-4 p-2 sm:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Total Officials
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -514,14 +495,14 @@ export default function AdminOfficialManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl sm:text-3xl font-bold text-black">
                     {totalOfficials}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 sm:py-4 p-2 sm:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Active Officials
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -530,14 +511,14 @@ export default function AdminOfficialManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl sm:text-3xl font-bold text-black">
                     {activeOfficials}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 sm:py-4 p-2 sm:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 md:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs sm:text-sm font-bold text-black">
                     Inactive Officials
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -546,7 +527,7 @@ export default function AdminOfficialManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl sm:text-3xl font-bold text-black">
                     {inactiveOfficials}
                   </div>
                 </CardContent>
@@ -571,34 +552,50 @@ export default function AdminOfficialManagement() {
             />
             </div>
               <div className="flex flex-col items-end gap-1">
-                <div className="flex flex-wrap gap-2 items-center">
-                <Button 
-                  type="primary" 
-                  onClick={() => setAddOpen(true)}
-                  disabled={getAvailableResidents().length === 0}
-                  title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
-                >
-                  + Add Official
-                </Button>
-              <Button 
-                icon={<ReloadOutlined />}
-                onClick={async () => {
-                  setLoading(true);
-                  await fetchResidents();
-                  await fetchOfficials();
-                  message.success('Data refreshed');
-                  setLoading(false);
-                }}
-                title="Refresh data"
-              >
-                Refresh
-              </Button>
-                {getAvailableResidents().length === 0 && (
-                  <span className="text-xs text-gray-500">
-                    All residents are already officials
-                  </span>
-                )}
-              </div>
+                <div className="officials-btn-row w-full flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  <Button
+                    type="primary"
+                    onClick={() => setAddOpen(true)}
+                    disabled={getAvailableResidents().length === 0}
+                    title={getAvailableResidents().length === 0 ? "All residents are already officials" : "Add new official"}
+                    className="officials-action-btn"
+                  >
+                    + Add Official
+                  </Button>
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={async () => {
+                      setLoading(true);
+                      await fetchResidents();
+                      await fetchOfficials();
+                      message.success('Data refreshed');
+                      setLoading(false);
+                    }}
+                    title="Refresh data"
+                    className="officials-action-btn"
+                  >
+                    Refresh
+                  </Button>
+                  {getAvailableResidents().length === 0 && (
+                    <span className="text-xs text-gray-500 w-full sm:w-auto text-center sm:text-left">
+                      All residents are already officials
+                    </span>
+                  )}
+                </div>
+                  <style>{`
+                    @media (max-width: 640px) {
+                      .officials-btn-row {
+                        flex-direction: row !important;
+                        gap: 8px !important;
+                      }
+                      .officials-action-btn {
+                        flex: 1 1 0%;
+                        width: 100% !important;
+                        min-width: 0 !important;
+                        margin: 0 !important;
+                      }
+                    }
+                  `}</style>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -611,7 +608,7 @@ export default function AdminOfficialManagement() {
                   const hierarchy = POSITION_HIERARCHY[item.position] || 999;
                   return (
                     <List.Item className="border rounded-lg px-3 py-2 mb-2 shadow-sm">
-                      <div className="w-full flex flex-col gap-1 text-sm">
+                      <div className="w-full flex flex-col gap-1 text-sm ml-2">
                         <div className="flex justify-between">
                           <span className="font-semibold">{formatOfficialDisplayName(item)}</span>
                           <Tag color={item.isActive ? 'green':'red'}>{item.isActive ? 'Active':'Inactive'}</Tag>
@@ -663,44 +660,56 @@ export default function AdminOfficialManagement() {
 
         {/* Add Modal */}
         <Modal
-          title="Add Official"
+          title={<span className="text-base sm:text-lg">Add Official</span>}
           open={addOpen}
           onCancel={() => {
             addForm.resetFields();
             setSelectedResident(null);
             setAddOpen(false);
           }}
-          width={500}
-          footer={[
-            <Button
-              key="cancel"
-              onClick={() => {
-                addForm.resetFields();
-                setSelectedResident(null);
-                setAddOpen(false);
-              }}
-            >
-              Cancel
-            </Button>,
-            <Button
-              key="submit"
-              type="primary"
-              loading={creating}
-              onClick={handleAddOfficial}
-            >
-              Add
-            </Button>,
-          ]}
+          width={isMobile ? '95%' : 500}
+          centered
+          styles={{
+            body: {
+              padding: isMobile ? '12px' : '24px',
+            },
+          }}
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0 sm:justify-end">
+              <Button
+                key="cancel"
+                onClick={() => {
+                  addForm.resetFields();
+                  setSelectedResident(null);
+                  setAddOpen(false);
+                }}
+                className="w-full sm:w-auto"
+                size={isMobile ? 'large' : 'middle'}
+              >
+                Cancel
+              </Button>
+              <Button
+                key="submit"
+                type="primary"
+                loading={creating}
+                onClick={handleAddOfficial}
+                className="w-full sm:w-auto sm:ml-2"
+                size={isMobile ? 'large' : 'middle'}
+              >
+                Add
+              </Button>
+            </div>
+          }
         >
           <Alert
-            message="Add New Official"
-            description="Select a resident from the list and assign them a barangay position. Only residents who are not yet officials will appear in the dropdown. Ensure all contact information is complete."
+            message={<span className="text-sm sm:text-base">Add New Official</span>}
+            description={<span className="text-xs sm:text-sm">Select a resident from the list and assign them a barangay position. Only residents who are not yet officials will appear in the dropdown. Ensure all contact information is complete.</span>}
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-3 sm:mb-4"
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={addForm} layout="vertical" autoComplete="off">
+          <div style={{ marginBottom: isMobile ? 8 : 16 }} />
+          <Form form={addForm} layout="vertical" autoComplete="off" size={isMobile ? 'small' : 'middle'}>
             <Form.Item
               name="residentId"
               label="Select Resident"
@@ -835,44 +844,56 @@ export default function AdminOfficialManagement() {
 
         {/* Edit Modal */}
         <Modal
-          title="Edit Official"
+          title={<span className="text-base sm:text-lg">Edit Official</span>}
           open={editOpen}
           onCancel={() => {
             setEditOpen(false);
             editForm.resetFields();
             setSelectedOfficial(null);
           }}
-          width={500}
-          footer={[
-            <Button
-              key="cancel"
-              onClick={() => {
-                setEditOpen(false);
-                editForm.resetFields();
-                setSelectedOfficial(null);
-              }}
-            >
-              Cancel
-            </Button>,
-            <Button
-              key="submit"
-              type="primary"
-              loading={editing}
-              onClick={handleEditOfficial}
-            >
-              Save
-            </Button>,
-          ]}
+          width={isMobile ? '95%' : 500}
+          centered
+          styles={{
+            body: {
+              padding: isMobile ? '12px' : '24px',
+            },
+          }}
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0 sm:justify-end">
+              <Button
+                key="cancel"
+                onClick={() => {
+                  setEditOpen(false);
+                  editForm.resetFields();
+                  setSelectedOfficial(null);
+                }}
+                className="w-full sm:w-auto"
+                size={isMobile ? 'large' : 'middle'}
+              >
+                Cancel
+              </Button>
+              <Button
+                key="submit"
+                type="primary"
+                loading={editing}
+                onClick={handleEditOfficial}
+                className="w-full sm:w-auto sm:ml-2"
+                size={isMobile ? 'large' : 'middle'}
+              >
+                Save
+              </Button>
+            </div>
+          }
         >
           <Alert
-            message="Edit Official Information"
-            description="Update the official's position, contact details, and active status. Note: The full name is linked to the resident record and cannot be modified here."
+            message={<span className="text-sm sm:text-base">Edit Official Information</span>}
+            description={<span className="text-xs sm:text-sm">Update the official's position, contact details, and active status. Note: The full name is linked to the resident record and cannot be modified here.</span>}
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-3 sm:mb-4"
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={editForm} layout="vertical">
+          <div style={{ marginBottom: isMobile ? 8 : 16 }} />
+          <Form form={editForm} layout="vertical" size={isMobile ? 'small' : 'middle'}>
             <Form.Item name="fullName" label="Full Name" rules={[{ required: true, message: "Full Name is required" }]}> 
               <Input disabled />
             </Form.Item>

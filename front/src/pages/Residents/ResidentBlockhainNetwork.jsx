@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Table, Spin, Alert, Tag, Input } from 'antd';
+import { Table, Spin, Alert, Tag, Input, Button } from 'antd';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { FileTextOutlined, DollarOutlined, ThunderboltOutlined, CloudSyncOutlined, SearchOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import ResidentNavbar from './ResidentNavbar';
+import apiClient from '@/utils/apiClient';
 
 // Resident blockchain network dashboard
 // Shows:
@@ -12,10 +15,6 @@ import ResidentNavbar from './ResidentNavbar';
 // 4. Basic chain status (block height, peers)
 
 const API_BASE = import.meta?.env?.VITE_API_URL || 'http://localhost:4000';
-
-const authHeaders = () => ({
-	Authorization: `Bearer ${localStorage.getItem('token')}`,
-});
 
 const statusColor = (status) => {
 	switch ((status || '').toLowerCase()) {
@@ -148,9 +147,8 @@ export default function ResidentBlockchainNetwork() {
 	useEffect(() => {
 		const loadProfile = async () => {
 			try {
-				const res = await fetch(`${API_BASE}/api/resident/profile`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Profile load failed (${res.status})`);
-				const data = await res.json();
+				const res = await apiClient.get('/api/resident/profile');
+				const data = res.data;
 				setResidentProfile(data);
 			} catch (e) {
 				console.error('Profile error', e);
@@ -159,40 +157,47 @@ export default function ResidentBlockchainNetwork() {
 		loadProfile();
 	}, []);
 
-	// Blockchain status
+	// Blockchain status (lite - accessible to residents)
 	useEffect(() => {
 		const loadStatus = async () => {
 			setLoadingStatus(true); setErrorStatus(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/blockchain/status`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Status failed (${res.status})`);
-				setChainStatus(await res.json());
+				const res = await apiClient.get('/api/blockchain/status-lite');
+				setChainStatus(res.data);
 			} catch (e) { setErrorStatus(e.message); } finally { setLoadingStatus(false); }
 		};
 		loadStatus();
 	}, []);
 
-	// Requests from blockchain (resident scoped only)
+	// Requests from blockchain: fetch all, then scope to resident + exclude synthetic utility *_payment entries (match admin page logic)
 	useEffect(() => {
+		if (!residentProfile?._id) return; // wait until profile is loaded to filter correctly
 		const loadRequests = async () => {
 			setLoadingRequests(true); setErrorRequests(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/blockchain/requests/me`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Requests failed (${res.status})`);
-				const mine = await res.json();
-				setRequests(Array.isArray(mine) ? mine : []);
+				// Use resident-scoped endpoint directly
+				const res = await apiClient.get('/api/blockchain/requests/me');
+				const mine = res.data;
+				// Filter out synthetic utility/payment entries if chaincode ever stores them similarly
+				const excludedKeywords = ['garbage', 'street', 'streetlight', 'utility', 'fee', '_payment', 'payment'];
+				const cleaned = (Array.isArray(mine) ? mine : []).filter(r => {
+					const type = (r.documentType || '').toString().toLowerCase().trim();
+					if (!type) return false;
+					if (excludedKeywords.some(k => type.includes(k))) return false;
+					return true;
+				});
+				setRequests(cleaned);
 			} catch (e) { setErrorRequests(e.message); } finally { setLoadingRequests(false); }
 		};
 		loadRequests();
-	}, []);
+	}, [residentProfile?._id]);
 	// Financial transactions from blockchain (resident + household head scoped via backend)
 	useEffect(() => {
 		const loadTxns = async () => {
 			setLoadingTxns(true); setErrorTxns(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/blockchain/financial-transactions/me`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Transactions failed (${res.status})`);
-				const mine = await res.json();
+				const res = await apiClient.get('/api/blockchain/financial-transactions/me');
+				const mine = res.data;
 				setTransactions(Array.isArray(mine) ? mine : []);
 			} catch (e) { setErrorTxns(e.message); } finally { setLoadingTxns(false); }
 		};
@@ -205,9 +210,8 @@ export default function ResidentBlockchainNetwork() {
 		const loadUtilities = async () => {
 			setLoadingUtilities(true); setErrorUtilities(null);
 			try {
-				const res = await fetch(`${API_BASE}/api/resident/payments`, { headers: authHeaders() });
-				if (!res.ok) throw new Error(`Utilities failed (${res.status})`);
-				const data = await res.json();
+				const res = await apiClient.get('/api/resident/payments');
+				const data = res.data;
 				const flat = normalizeUtilityResponse(data);
 				const records = flat.map(buildPaymentRecord);
 				// Keep raw for debugging and derived for display
@@ -225,7 +229,11 @@ export default function ResidentBlockchainNetwork() {
 
 	const filteredTxns = useMemo(() => {
 		const term = search.toLowerCase();
-		return transactions.filter(t => !term || [t.description, t.paymentMethod, t.amount].filter(Boolean).join(' ').toLowerCase().includes(term));
+		return transactions.filter(t => !term || [t.residentName, t.description, t.paymentMethod, t.amount]
+			.filter(Boolean)
+			.join(' ')
+			.toLowerCase()
+			.includes(term));
 	}, [search, transactions]);
 
 	const requestsColumns = [
@@ -240,6 +248,7 @@ export default function ResidentBlockchainNetwork() {
 	const txnColumns = [
 		{ title: 'Tx ID', dataIndex: 'txId', width: 180, ellipsis: true },
 		{ title: 'Request', dataIndex: 'requestId', width: 180, ellipsis: true },
+		{ title: 'Resident', dataIndex: 'residentName', render: v => <span className="whitespace-normal break-words max-w-[140px] sm:max-w-none">{v || '—'}</span> },
 		{ title: 'Amount', dataIndex: 'amount', render: a => `₱${Number(a||0).toFixed(2)}` },
 		{ title: 'Method', dataIndex: 'paymentMethod' },
 		{ title: 'Description', dataIndex: 'description', ellipsis: true },
@@ -277,205 +286,238 @@ export default function ResidentBlockchainNetwork() {
 	const verifiedPaidGarbage = garbageRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
 	const verifiedPaidStreet = streetlightRecords.filter(r => r.status === 'paid' && verifiedSet.has(`${r.type}|${r.monthKey}`)).length;
 
+	// ==== PDF Export Helpers ====
+	const exportRequestsPDF = () => {
+		try {
+			const doc = new jsPDF();
+			doc.setFontSize(14);
+			doc.text('Document Requests', 14, 15);
+			const headers = ['ID','Type','Purpose','Status','Requested At','Updated At'];
+			const rows = (filteredRequests || []).map(r => [
+				r.requestId || '-',
+				r.documentType || '-',
+				r.purpose || '-',
+				r.status || '-',
+				r.requestedAt ? new Date(r.requestedAt).toLocaleString() : '-',
+				r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-',
+			]);
+			doc.autoTable({ head: [headers], body: rows, startY: 20, styles: { fontSize: 8 } });
+			doc.save('document_requests.pdf');
+		} catch (e) {
+			console.error('PDF export (requests) failed', e);
+		}
+	};
+
+	const exportTransactionsPDF = () => {
+		try {
+			const doc = new jsPDF();
+			doc.setFontSize(14);
+			doc.text('Financial Transactions in Blockchain', 14, 15);
+			const headers = ['Tx ID','Request','Resident','Amount','Method','Description','Created','Updated'];
+			const rows = (filteredTxns || []).map(t => {
+				const amount = Number(t.amount || 0);
+				const formattedAmount = `P ${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+				return [
+					t.txId || '-',
+					t.requestId || '-',
+					t.residentName || '-',
+					formattedAmount,
+					t.paymentMethod || '-',
+					t.description || '-',
+					t.createdAt ? new Date(t.createdAt).toLocaleString() : '-',
+					t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '-',
+				];
+			});
+			doc.autoTable({ head: [headers], body: rows, startY: 20, styles: { fontSize: 8 } });
+			doc.save('financial_transactions.pdf');
+		} catch (e) {
+			console.error('PDF export (transactions) failed', e);
+		}
+	};
+
 		return (
 			<div className="min-h-screen bg-slate-50">
 				<ResidentNavbar />
-				<main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-					{/* Page header */}
-					<Card className="w-full">
-						<CardHeader>
-							<CardTitle className="text-2xl font-semibold text-slate-900">Blockchain Activity</CardTitle>
-							<CardDescription>View your on-chain document requests, fee payments, and transactions</CardDescription>
-						</CardHeader>
-					</Card>
-
-					{/* Summary cards grid */}
-					<Card className="w-full">
-						<CardHeader>
-							<CardTitle className="text-lg font-semibold text-slate-900">Overview</CardTitle>
-							<CardDescription>On-chain records and barangay utility fee status</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className="flex flex-col lg:grid lg:grid-cols-4 gap-4">
-								{/* Requests count */}
-								<Card className="w-full border border-blue-200 bg-blue-50">
-									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
-										<div className="flex items-center justify-between">
-											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-blue-700">On-chain Requests</p>
-												<p className="text-lg md:text-xl font-bold text-blue-900 mt-0.5 md:mt-1">{requests.length}</p>
-												<p className="text-[10px] md:text-xs text-blue-600 mt-0.5 md:mt-1">Total stored</p>
-											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-												<FileTextOutlined className="text-blue-600 text-sm md:text-lg" />
-											</div>
-										</div>
-									</CardContent>
-								</Card>
-								{/* Transactions count */}
-								<Card className="w-full border border-green-200 bg-green-50">
-									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
-										<div className="flex items-center justify-between">
-											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-green-700">Transactions</p>
-												<p className="text-lg md:text-xl font-bold text-green-900 mt-0.5 md:mt-1">{transactions.length}</p>
-												<p className="text-[10px] md:text-xs text-green-600 mt-0.5 md:mt-1">Financial records</p>
-											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-												<DollarOutlined className="text-green-600 text-sm md:text-lg" />
-											</div>
-										</div>
-									</CardContent>
-								</Card>
-								{/* Garbage fee */}
-								<Card className="w-full border border-amber-200 bg-amber-50">
-									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
-										<div className="flex items-center justify-between">
-											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-amber-700">Garbage Paid Months</p>
-												<p className="text-lg md:text-xl font-bold text-amber-900 mt-0.5 md:mt-1">{totalPaidGarbage}</p>
-												<p className="text-[10px] md:text-xs text-amber-600 mt-0.5 md:mt-1">Verified on-chain: {verifiedPaidGarbage}/{totalPaidGarbage}</p>
-											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-												<CloudSyncOutlined className="text-amber-600 text-sm md:text-lg" />
-											</div>
-										</div>
-										<div className="text-[10px] md:text-xs text-amber-700">Months Recorded: {totalGarbage}</div>
-									</CardContent>
-								</Card>
-								{/* Streetlight fee */}
-								<Card className="w-full border border-purple-200 bg-purple-50">
-									<CardContent className="space-y-3 px-3 py-4 md:px-4 md:py-6">
-										<div className="flex items-center justify-between">
-											<div className="flex-1">
-												<p className="text-xs md:text-sm font-medium text-purple-700">Streetlight Paid Months</p>
-												<p className="text-lg md:text-xl font-bold text-purple-900 mt-0.5 md:mt-1">{totalPaidStreet}</p>
-												<p className="text-[10px] md:text-xs text-purple-600 mt-0.5 md:mt-1">Verified on-chain: {verifiedPaidStreet}/{totalPaidStreet}</p>
-											</div>
-											<div className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-												<ThunderboltOutlined className="text-purple-600 text-sm md:text-lg" />
-											</div>
-										</div>
-										<div className="text-[10px] md:text-xs text-purple-700">Months Recorded: {totalStreet}</div>
-									</CardContent>
-								</Card>
+				<main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+					<Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
+						<CardHeader className="pb-3">
+							<div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+								<div className="flex-1">
+									<CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+										Blockchain Activity
+									</CardTitle>
+									<CardDescription className="text-xs sm:text-sm text-slate-600">
+										View your on-chain document requests, fee payments, and transactions
+									</CardDescription>
+								</div>
 							</div>
-						</CardContent>
+						</CardHeader>
 					</Card>
 
-					{/* Chain & Utility Status */}
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						{/* Chain status */}
-						<Card className="w-full">
+					<div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-4">
+						<Card className="w-full lg:col-span-5 border border-slate-200 shadow-md bg-white">
 							<CardHeader>
-								<CardTitle className="text-lg font-semibold text-slate-900">Chain Status</CardTitle>
-								<CardDescription>Hyperledger Fabric network snapshot</CardDescription>
+								<CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Overview</CardTitle>
+								<CardDescription className="text-xs sm:text-sm text-slate-600">On-chain records and barangay utility fee status</CardDescription>
 							</CardHeader>
-							<CardContent className="py-4">
-								{loadingStatus && (
-									<div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading status...</div>
-								)}
-								{errorStatus && <Alert type="error" message={errorStatus} />}
-								{!loadingStatus && chainStatus && (
-									<div className="space-y-2 text-sm">
-										<div className="flex justify-between"><span className="text-slate-600">Channel:</span><span className="font-medium text-slate-800">{chainStatus.channel}</span></div>
-										<div className="flex justify-between"><span className="text-slate-600">Block Height:</span><span className="font-medium text-slate-800">{chainStatus.blockHeight ?? 'N/A'}</span></div>
-										<div className="flex justify-between"><span className="text-slate-600">Peers:</span><span className="font-medium text-slate-800">{Array.isArray(chainStatus.peers) ? chainStatus.peers.map(p => p.name).join(', ') : 'N/A'}</span></div>
-										<div className="flex justify-between"><span className="text-slate-600">Latency:</span><span className="font-medium text-slate-800">{chainStatus.latencyMs} ms</span></div>
-									</div>
-								)}
+							<CardContent className="pt-5">
+								<div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-2 sm:gap-4">
+									<Card className="border border-blue-200 bg-blue-50 shadow-sm">
+										<CardContent className="p-2 sm:p-4">
+											<div className="flex items-center gap-2 sm:gap-3">
+												<div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 border border-blue-200">
+													<FileTextOutlined className="text-blue-600 text-lg sm:text-xl" />
+												</div>
+												<div className="flex-1 min-w-0">
+													<p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">On-chain Requests</p>
+													<p className="text-xl sm:text-3xl font-bold text-slate-800">{requests.length}</p>
+													<p className="text-[10px] sm:text-xs text-slate-400">Total stored</p>
+												</div>
+											</div>
+										</CardContent>
+									</Card>
+									<Card className="border border-green-200 bg-green-50 shadow-sm">
+										<CardContent className="p-2 sm:p-4">
+											<div className="flex items-center gap-2 sm:gap-3">
+												<div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0 border border-green-200">
+													<DollarOutlined className="text-green-600 text-lg sm:text-xl" />
+												</div>
+												<div className="flex-1 min-w-0">
+													<p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Transactions</p>
+													<p className="text-xl sm:text-3xl font-bold text-slate-800">{transactions.length}</p>
+													<p className="text-[10px] sm:text-xs text-slate-400">Financial records</p>
+												</div>
+											</div>
+										</CardContent>
+									</Card>
+								</div>
 							</CardContent>
 						</Card>
-
-						{/* Garbage fee summary */}
-							<Card className="w-full">
-								<CardHeader>
-									<CardTitle className="text-lg font-semibold text-slate-900">Garbage Fee Summary</CardTitle>
-									<CardDescription>Monthly payment tracking</CardDescription>
-								</CardHeader>
-								<CardContent className="py-4">
-									{loadingUtilities && <div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading...</div>}
-									{errorUtilities && <Alert type="error" message={errorUtilities} />}
-									{!loadingUtilities && Array.isArray(utilitySummary) ? (
-										<div className="space-y-2 text-sm">
-											<div className="flex justify-between"><span className="text-slate-600">Months Recorded:</span><span className="font-medium text-slate-800">{utilitySummary.filter(p => p.type === 'garbage').length}</span></div>
-											<div className="flex justify-between"><span className="text-slate-600">Paid Months:</span><span className="font-medium text-slate-800">{totalPaidGarbage}</span></div>
-										</div>
-									) : (!loadingUtilities && <div className="text-sm text-slate-500">No data</div>)}
-								</CardContent>
-							</Card>
-
-						{/* Streetlight fee summary */}
-							<Card className="w-full">
-								<CardHeader>
-									<CardTitle className="text-lg font-semibold text-slate-900">Streetlight Fee Summary</CardTitle>
-									<CardDescription>Monthly payment tracking</CardDescription>
-								</CardHeader>
-								<CardContent className="py-4">
-									{loadingUtilities && <div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading...</div>}
-									{errorUtilities && <Alert type="error" message={errorUtilities} />}
-									{!loadingUtilities && Array.isArray(utilitySummary) ? (
-										<div className="space-y-2 text-sm">
-											<div className="flex justify-between"><span className="text-slate-600">Months Recorded:</span><span className="font-medium text-slate-800">{utilitySummary.filter(p => p.type === 'streetlight').length}</span></div>
-											<div className="flex justify-between"><span className="text-slate-600">Paid Months:</span><span className="font-medium text-slate-800">{totalPaidStreet}</span></div>
-										</div>
-									) : (!loadingUtilities && <div className="text-sm text-slate-500">No data</div>)}
-								</CardContent>
-							</Card>
+						<Card className="w-full lg:col-span-7 border border-slate-200 shadow-md bg-white">
+							<CardHeader>
+								<CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Chain & Utility Status</CardTitle>
+								<CardDescription className="text-xs sm:text-sm text-slate-600">Hyperledger Fabric network snapshot and utility fee summary</CardDescription>
+							</CardHeader>
+							<CardContent className="pt-5">
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+									<Card className="border border-slate-200 shadow-sm">
+										<CardHeader>
+											<CardTitle className="text-sm font-semibold text-slate-800">Chain Status</CardTitle>
+											<CardDescription className="text-xs text-slate-600">Fabric network</CardDescription>
+										</CardHeader>
+										<CardContent>
+											{loadingStatus && (
+												<div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading status...</div>
+											)}
+											{errorStatus && <Alert type="error" message={errorStatus} />}
+											{!loadingStatus && chainStatus && (
+												<div className="space-y-2 text-sm">
+													<div className="flex justify-between"><span className="text-slate-600">Channel:</span><span className="font-medium text-slate-800">{chainStatus.channel}</span></div>
+													<div className="flex justify-between"><span className="text-slate-600">Block Height:</span><span className="font-medium text-slate-800">{chainStatus.blockHeight ?? 'N/A'}</span></div>
+													<div className="flex justify-between"><span className="text-slate-600">Peers:</span><span className="font-medium text-slate-800">{Array.isArray(chainStatus.peers) ? chainStatus.peers.map(p => p.name).join(', ') : 'N/A'}</span></div>
+													<div className="flex justify-between"><span className="text-slate-600">Latency:</span><span className="font-medium text-slate-800">{chainStatus.latencyMs} ms</span></div>
+												</div>
+											)}
+										</CardContent>
+									</Card>
+									<Card className="border border-slate-200 shadow-sm">
+										<CardHeader>
+											<CardTitle className="text-sm font-semibold text-slate-800">Garbage Fee Summary</CardTitle>
+											<CardDescription className="text-xs text-slate-600">Monthly payment</CardDescription>
+										</CardHeader>
+										<CardContent>
+											{loadingUtilities && <div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading...</div>}
+											{errorUtilities && <Alert type="error" message={errorUtilities} />}
+											{!loadingUtilities && Array.isArray(utilitySummary) ? (
+												<div className="space-y-2 text-sm">
+													<div className="flex justify-between"><span className="text-slate-600">Months Recorded:</span><span className="font-medium text-slate-800">{utilitySummary.filter(p => p.type === 'garbage').length}</span></div>
+													<div className="flex justify-between"><span className="text-slate-600">Paid Months:</span><span className="font-medium text-slate-800">{totalPaidGarbage}</span></div>
+												</div>
+											) : (!loadingUtilities && <div className="text-sm text-slate-500">No data</div>)}
+										</CardContent>
+									</Card>
+									<Card className="border border-slate-200 shadow-sm">
+										<CardHeader>
+											<CardTitle className="text-sm font-semibold text-slate-800">Streetlight Fee Summary</CardTitle>
+											<CardDescription className="text-xs text-slate-600">Monthly payment</CardDescription>
+										</CardHeader>
+										<CardContent>
+											{loadingUtilities && <div className="flex items-center gap-2 text-sm text-slate-600"><Spin size="small" /> Loading...</div>}
+											{errorUtilities && <Alert type="error" message={errorUtilities} />}
+											{!loadingUtilities && Array.isArray(utilitySummary) ? (
+												<div className="space-y-2 text-sm">
+													<div className="flex justify-between"><span className="text-slate-600">Months Recorded:</span><span className="font-medium text-slate-800">{utilitySummary.filter(p => p.type === 'streetlight').length}</span></div>
+													<div className="flex justify-between"><span className="text-slate-600">Paid Months:</span><span className="font-medium text-slate-800">{totalPaidStreet}</span></div>
+												</div>
+											) : (!loadingUtilities && <div className="text-sm text-slate-500">No data</div>)}
+										</CardContent>
+									</Card>
+								</div>
+							</CardContent>
+						</Card>
 					</div>
 
-					{/* Search + tables */}
-					<Card className="w-full">
+					   <Card className="w-full border border-slate-200 shadow-md bg-white">
 						<CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 							<div>
-								<CardTitle className="text-lg font-semibold text-slate-900">On-chain Records</CardTitle>
-								<CardDescription>Document requests and financial transactions</CardDescription>
+								<CardTitle className="text-base sm:text-lg font-semibold text-slate-900">On-chain Records</CardTitle>
+								<CardDescription className="text-xs sm:text-sm">Document requests and financial transactions</CardDescription>
 							</div>
 							<div className="w-full sm:w-72">
-								<Input allowClear prefix={<SearchOutlined />} placeholder="Search requests & transactions" value={search} onChange={e => setSearch(e.target.value)} />
+								<Input allowClear size="small" className="h-9" prefix={<SearchOutlined />} placeholder="Search requests & transactions" value={search} onChange={e => setSearch(e.target.value)} />
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-10">
-							{/* Requests table */}
 							<div className="space-y-4">
-								<div className="flex items-center justify-between">
-									<h3 className="text-sm font-semibold text-slate-800">Document Requests ({filteredRequests.length})</h3>
-									{loadingRequests && <Spin size="small" />}
+								<div className="flex items-center justify-between gap-2 flex-wrap">
+									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Document Requests ({filteredRequests.length})</h3>
+									<div className="flex items-center gap-2">
+										<Button size="small" type="primary" onClick={exportRequestsPDF} disabled={loadingRequests || filteredRequests.length === 0}>Export PDF</Button>
+										{loadingRequests && <Spin size="small" />}
+									</div>
 								</div>
 								{errorRequests && <Alert type="error" message={errorRequests} style={{ marginBottom: 8 }} />}
-								<Table
-									size="small"
-									dataSource={filteredRequests}
-									columns={requestsColumns}
-									rowKey={r => r.requestId}
-									pagination={{ pageSize: 8 }}
-								/>
+								<div className="overflow-x-auto -mx-2 md:mx-0">
+									<Table
+										size="small"
+										dataSource={filteredRequests}
+										columns={requestsColumns}
+										rowKey={r => r.requestId}
+										pagination={{ pageSize: 8, size: 'small' }}
+										scroll={{ x: 600 }}
+									/>
+								</div>
 								{!loadingRequests && !errorRequests && filteredRequests.length === 0 && (
 									<div className="flex items-center gap-2 text-xs text-slate-500"><ExclamationCircleOutlined /> No on-chain requests found.</div>
 								)}
 							</div>
-							{/* Transactions table */}
 							<div className="space-y-4">
-								<div className="flex items-center justify-between">
-									<h3 className="text-sm font-semibold text-slate-800">Financial Transactions ({filteredTxns.length})</h3>
-									{loadingTxns && <Spin size="small" />}
+								<div className="flex items-center justify-between gap-2 flex-wrap">
+									<h3 className="text-xs sm:text-sm font-semibold text-slate-800">Financial Transactions ({filteredTxns.length})</h3>
+									<div className="flex items-center gap-2">
+										<Button size="small" type="primary" onClick={exportTransactionsPDF} disabled={loadingTxns || filteredTxns.length === 0}>Export PDF</Button>
+										{loadingTxns && <Spin size="small" />}
+									</div>
 								</div>
 								{errorTxns && <Alert type="error" message={errorTxns} style={{ marginBottom: 8 }} />}
-								<Table
-									size="small"
-									dataSource={filteredTxns}
-									columns={txnColumns}
-									rowKey={t => t.txId}
-									pagination={{ pageSize: 8 }}
-								/>
+								<div className="overflow-x-auto -mx-2 md:mx-0">
+									<Table
+										size="small"
+										dataSource={filteredTxns}
+										columns={txnColumns}
+										rowKey={t => t.txId}
+										pagination={{ pageSize: 8, size: 'small' }}
+										scroll={{ x: 700 }}
+									/>
+								</div>
 								{!loadingTxns && !errorTxns && filteredTxns.length === 0 && (
 									<div className="flex items-center gap-2 text-xs text-slate-500"><ExclamationCircleOutlined /> No on-chain transactions found.</div>
 								)}
 							</div>
-						</CardContent>
-					</Card>
-				</main>
-			</div>
-		);
+						   </CardContent>
+					   </Card>
+				   </main>
+			   </div>
+			   );
 }
 

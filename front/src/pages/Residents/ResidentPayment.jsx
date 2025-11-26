@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import { Tabs, Table, Pagination } from "antd";
 import {
   AlertTriangle,
@@ -182,11 +182,7 @@ export default function ResidentPayment() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const response = await axios.get(`${API_BASE}/api/resident/payments`, {
-        headers,
-      });
+      const response = await apiClient.get('/api/resident/payments');
 
       // Store the payment summary for annual calculations
       setPaymentSummary(response.data);
@@ -418,71 +414,84 @@ export default function ResidentPayment() {
   return (
     <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
-      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-2xl font-semibold text-slate-900">
-                Resident Payments
-              </CardTitle>
-              <CardDescription>
-                Track your garbage and streetlight fee payments, outstanding balances, and due dates.
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-blue-900">
-              <DollarSign className="h-5 w-5 text-blue-600" />
+      <main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-blue-700">Payment Schedule</p>
-                <p className="text-sm font-semibold">Monthly (Due end of month)</p>
+                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+                  Resident Payments
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">
+                  Track your garbage and streetlight fee payments, outstanding balances, and due dates.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 sm:px-4 sm:py-3 text-blue-900">
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <div>
+                  <p className="text-[10px] sm:text-xs font-medium text-blue-700">Payment Schedule</p>
+                  <p className="text-xs sm:text-sm font-semibold">Monthly (Due end of month)</p>
+                </div>
               </div>
             </div>
           </CardHeader>
         </Card>
 
         {error && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
-          </div>
+          <Card className="w-full border border-rose-200 bg-rose-50 shadow-md">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-sm text-rose-700">{error}</p>
+            </CardContent>
+          </Card>
         )}
 
-        <Card className="w-full">
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">Payment Summary</CardTitle>
-            <CardDescription>Overview of your current balances and recent payments.</CardDescription>
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Payment Summary</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Overview of your current balances and recent payments</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Card className="w-full border border-amber-200 bg-amber-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-amber-700">Current Balance Due</p>
-                  <p className="text-2xl font-bold text-amber-900">
-                    ₱{totals.totalDue.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-amber-600">
-                    Includes pending and overdue balances across all fees.
-                  </p>
+          <CardContent className="pt-5">
+            <div className="grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4 md:grid-cols-3 md:grid-rows-1">
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-amber-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-200">
+                      <DollarSign className="text-amber-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Balance Due</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">₱{totals.totalDue.toFixed(2)}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Outstanding</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-rose-200 bg-rose-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-rose-700">Overdue Amount</p>
-                  <p className="text-2xl font-bold text-rose-900">
-                    ₱{totals.overdueAmount.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-rose-600">
-                    Amounts past due that need immediate attention.
-                  </p>
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-rose-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0 border border-rose-200">
+                      <AlertTriangle className="text-rose-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Overdue</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">₱{totals.overdueAmount.toFixed(2)}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Needs attention</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-emerald-200 bg-emerald-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-emerald-700">Total Paid (This Year)</p>
-                  <p className="text-2xl font-bold text-emerald-900">
-                    ₱{totals.paidAmount.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-emerald-600">
-                    Total successful payments recorded for your household.
-                  </p>
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-emerald-50 to-white col-span-2 md:col-span-1">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                      <CheckCircle2 className="text-emerald-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Total Paid</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">₱{totals.paidAmount.toFixed(2)}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">This year</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -490,46 +499,46 @@ export default function ResidentPayment() {
         </Card>
 
         {/* Yearly Breakdown by Fee Type */}
-        <Card className="w-full">
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">
               {new Date().getFullYear()} Yearly Breakdown
             </CardTitle>
-            <CardDescription>
-              Detailed breakdown of garbage and streetlight fees for the current year.
+            <CardDescription className="text-xs sm:text-sm text-slate-600">
+              Detailed breakdown of garbage and streetlight fees for the current year
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <CardContent className="pt-5">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
               {/* Garbage Fee Yearly Summary */}
-              <Card className="w-full border border-orange-200 bg-orange-50">
-                <CardContent className="px-4 py-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-orange-600" />
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-orange-50 to-white">
+                <CardContent className="p-3 sm:px-4 sm:py-5">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-orange-100 flex items-center justify-center border border-orange-200">
+                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-orange-900">Garbage Fees</h3>
-                      <p className="text-sm text-orange-700">Year-to-date summary</p>
+                      <h3 className="text-sm sm:text-base font-semibold text-slate-800">Garbage Fees</h3>
+                      <p className="text-[10px] sm:text-xs text-slate-500">Year-to-date</p>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-orange-700">Outstanding Balance:</span>
-                      <span className="text-lg font-bold text-orange-900">
+                      <span className="text-xs sm:text-sm text-slate-600">Outstanding:</span>
+                      <span className="text-sm sm:text-base font-bold text-slate-800">
                         ₱{totals.garbageYearlyDue.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-orange-700">Total Paid:</span>
-                      <span className="text-lg font-semibold text-emerald-700">
+                      <span className="text-xs sm:text-sm text-slate-600">Total Paid:</span>
+                      <span className="text-sm sm:text-base font-semibold text-emerald-700">
                         ₱{totals.garbageYearlyPaid.toFixed(2)}
                       </span>
                     </div>
-                    <hr className="border-orange-200" />
+                    <hr className="border-slate-200" />
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-orange-700">Total Fees:</span>
-                      <span className="text-xl font-bold text-orange-900">
+                      <span className="text-xs sm:text-sm font-medium text-slate-600">Total Fees:</span>
+                      <span className="text-base sm:text-lg font-bold text-slate-800">
                         ₱{totals.garbageYearlyTotal.toFixed(2)}
                       </span>
                     </div>
@@ -538,34 +547,34 @@ export default function ResidentPayment() {
               </Card>
 
               {/* Streetlight Fee Yearly Summary */}
-              <Card className="w-full border border-blue-200 bg-blue-50">
-                <CardContent className="px-4 py-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-blue-600" />
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-blue-50 to-white">
+                <CardContent className="p-3 sm:px-4 sm:py-5">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-blue-100 flex items-center justify-center border border-blue-200">
+                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-blue-900">Streetlight Fees</h3>
-                      <p className="text-sm text-blue-700">Year-to-date summary</p>
+                      <h3 className="text-sm sm:text-base font-semibold text-slate-800">Streetlight Fees</h3>
+                      <p className="text-[10px] sm:text-xs text-slate-500">Year-to-date</p>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-blue-700">Outstanding Balance:</span>
-                      <span className="text-lg font-bold text-blue-900">
+                      <span className="text-xs sm:text-sm text-slate-600">Outstanding:</span>
+                      <span className="text-sm sm:text-base font-bold text-slate-800">
                         ₱{totals.streetlightYearlyDue.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-blue-700">Total Paid:</span>
-                      <span className="text-lg font-semibold text-emerald-700">
+                      <span className="text-xs sm:text-sm text-slate-600">Total Paid:</span>
+                      <span className="text-sm sm:text-base font-semibold text-emerald-700">
                         ₱{totals.streetlightYearlyPaid.toFixed(2)}
                       </span>
                     </div>
-                    <hr className="border-blue-200" />
+                    <hr className="border-slate-200" />
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-blue-700">Total Fees:</span>
-                      <span className="text-xl font-bold text-blue-900">
+                      <span className="text-xs sm:text-sm font-medium text-slate-600">Total Fees:</span>
+                      <span className="text-base sm:text-lg font-bold text-slate-800">
                         ₱{totals.streetlightYearlyTotal.toFixed(2)}
                       </span>
                     </div>
@@ -576,133 +585,149 @@ export default function ResidentPayment() {
           </CardContent>
         </Card>
 
-        <Card className="w-full">
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">
               Barangay Fee Information
             </CardTitle>
-            <CardDescription>
-              Monthly rates for garbage collection and streetlight maintenance services.
+            <CardDescription className="text-xs sm:text-sm text-slate-600">
+              Monthly rates for garbage collection and streetlight maintenance services
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <Card className="w-full border border-slate-200 bg-white shadow-none">
-                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
-                  <p className="text-base font-semibold text-blue-800">Garbage Collection Fee</p>
-                  <p className="text-sm text-muted-foreground">
-                    Covers waste management services for your household, billed monthly.
+          <CardContent className="space-y-3 pt-5 sm:space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="space-y-2 p-3 sm:space-y-3 sm:px-4 sm:py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center border border-orange-200">
+                      <DollarSign className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <p className="text-sm sm:text-base font-semibold text-slate-800">Garbage Collection Fee</p>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Covers waste management services for your household, billed monthly
                   </p>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Monthly Rate (Standard):</span>
-                      <span className="font-semibold text-slate-900">₱35.00</span>
+                      <span className="text-slate-600">Standard Rate:</span>
+                      <span className="font-semibold text-slate-900">₱35.00/month</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Monthly Rate (With Business):</span>
-                      <span className="font-semibold text-slate-900">₱50.00</span>
+                      <span className="text-slate-600">With Business:</span>
+                      <span className="font-semibold text-slate-900">₱50.00/month</span>
                     </div>
+                    <hr className="border-slate-200 my-2" />
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Annual Total Range:</span>
-                      <span className="font-semibold text-slate-900">₱420.00 – ₱600.00</span>
+                      <span className="text-slate-600 font-medium">Annual Range:</span>
+                      <span className="font-bold text-slate-900">₱420.00 – ₱600.00</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-slate-200 bg-white shadow-none">
-                <CardContent className="space-y-3 px-4 py-5 sm:px-6">
-                  <p className="text-base font-semibold text-blue-800">Streetlight Maintenance Fee</p>
-                  <p className="text-sm text-muted-foreground">
-                    Funds the maintenance of community streetlights, collected monthly.
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Monthly Rate:</span>
-                      <span className="font-semibold text-slate-900">₱10.00</span>
+              <Card className="w-full border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="space-y-2 p-3 sm:space-y-3 sm:px-4 sm:py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center border border-blue-200">
+                      <DollarSign className="h-4 w-4 text-blue-600" />
                     </div>
+                    <p className="text-sm sm:text-base font-semibold text-slate-800">Streetlight Maintenance Fee</p>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Funds the maintenance of community streetlights, collected monthly
+                  </p>
+                  <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Annual Total:</span>
-                      <span className="font-semibold text-slate-900">₱120.00</span>
+                      <span className="text-slate-600">Monthly Rate:</span>
+                      <span className="font-semibold text-slate-900">₱10.00/month</span>
+                    </div>
+                    <hr className="border-slate-200 my-2" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600 font-medium">Annual Total:</span>
+                      <span className="font-bold text-slate-900">₱120.00</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
-            <p className="text-sm text-muted-foreground">
-              <strong className="font-semibold text-slate-900">Note:</strong> Payments are due by the
-              last calendar day of each month. Balances that remain unsettled after the due date
-              automatically become overdue.
-            </p>
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <p className="text-xs sm:text-sm text-blue-900">
+                <strong className="font-semibold">Important:</strong> Payments are due by the
+                last calendar day of each month. Balances that remain unsettled after the due date
+                automatically become overdue.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <Card className="w-full">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
+          <Card className="w-full border border-slate-200 shadow-md bg-white">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-slate-900">Monthly Overview</CardTitle>
-              <CardDescription>Monitor billing status for each month across your fees.</CardDescription>
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Monthly Overview</CardTitle>
+              <CardDescription className="text-xs sm:text-sm text-slate-600">Monitor billing status for each month across your fees</CardDescription>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Month
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Garbage Fee
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Streetlight Fee
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
-                  {monthlyOverview.map((month) => (
-                    <tr key={month.monthKey} className="transition-colors hover:bg-slate-50">
-                      <td className="px-6 py-4 text-slate-700">{month.label}</td>
-                      <td className="px-6 py-4">
-                        {renderOverviewCell(month.garbage, month.garbageStatus)}
-                      </td>
-                      <td className="px-6 py-4">
-                        {renderOverviewCell(month.streetlight, month.streetlightStatus)}
-                      </td>
+            <CardContent className="pt-5">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
+                <table className="min-w-full bg-white table-auto">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
+                        Month
+                      </th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
+                        Garbage Fee
+                      </th>
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
+                        Streetlight Fee
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {monthlyOverview.map((month) => (
+                      <tr key={month.monthKey} className="hover:bg-slate-50 transition-colors duration-150">
+                        <td className="py-4 px-4 text-sm text-slate-700 font-medium">{month.label}</td>
+                        <td className="py-4 px-4">
+                          {renderOverviewCell(month.garbage, month.garbageStatus)}
+                        </td>
+                        <td className="py-4 px-4">
+                          {renderOverviewCell(month.streetlight, month.streetlightStatus)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="w-full">
+          <Card className="w-full border border-slate-200 shadow-md bg-white">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-slate-900">Payment History</CardTitle>
-              <CardDescription>Review individual charges and their payment status.</CardDescription>
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Payment History</CardTitle>
+              <CardDescription className="text-xs sm:text-sm text-slate-600">Review individual charges and their payment status</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               <Tabs 
                 defaultActiveKey="all"
-                className="mb-6"
+                className="mb-4"
                 type="card"
                 items={[
                   {
                     key: 'all',
-                    label: `All`,
+                    label: 'All Payments',
                     children: null,
                   },
                   {
                     key: 'pending',
-                    label: `Pending`,
+                    label: 'Pending',
                     children: null,
                   },
                   {
                     key: 'overdue',
-                    label: `Overdue`,
+                    label: 'Overdue',
                     children: null,
                   },
                   {
                     key: 'paid',
-                    label: `Paid`,
+                    label: 'Paid',
                     children: null,
                   },
                 ]}
@@ -711,77 +736,87 @@ export default function ResidentPayment() {
                 }}
               />
               
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-sm">
-                  <thead className="bg-slate-50">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
+                <table className="min-w-full bg-white table-auto">
+                  <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
                         Description
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden sm:table-cell">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
                         Charge
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide hidden md:table-cell">
                         Balance
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <th className="py-3 px-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">
                         Status
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
+                  <tbody className="divide-y divide-slate-200">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-4 text-center text-slate-500">
-                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                          Loading...
+                        <td colSpan={5} className="text-center py-8">
+                          <div className="flex justify-center items-center">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                            <span className="ml-2 text-slate-500">Loading payments...</span>
+                          </div>
                         </td>
                       </tr>
                     ) : filteredPayments.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-4 text-center text-slate-500">
-                          No payments found
+                        <td colSpan={5} className="text-center py-10 sm:py-12">
+                          <div className="flex flex-col items-center">
+                            <DollarSign className="h-12 w-12 text-slate-400 mb-3" />
+                            <p className="text-slate-500 font-medium text-base sm:text-lg">No payments found</p>
+                            <p className="text-slate-400 text-sm sm:text-base mt-1">
+                              {activeTab === 'all' ? 'No payment records available' : `No ${activeTab} payments`}
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
                       paginatedPayments.map((payment) => (
-                        <tr key={payment.id} className="transition-colors hover:bg-slate-50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center">
-                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                                <DollarSign className="h-4 w-4 text-blue-600" />
+                        <tr key={payment.id} className="hover:bg-slate-50 transition-colors duration-150">
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
+                                <DollarSign className="text-slate-600 text-base" />
                               </div>
                               <div>
-                                <p className="font-medium text-slate-800">{payment.type}</p>
+                                <p className="font-medium text-slate-800 text-sm">{payment.type}</p>
                                 <p className="text-xs text-slate-500">{payment.period}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-slate-700">{payment.type}</td>
-                          <td className="px-6 py-4">
+                          <td className="py-4 px-4 text-sm text-slate-700 hidden sm:table-cell">{payment.type}</td>
+                          <td className="py-4 px-4">
                             <div>
                               <p className="text-sm font-medium text-slate-700">₱{payment.amount.toFixed(2)}</p>
                               <p className="text-xs text-slate-500">Paid: ₱{payment.amountPaid.toFixed(2)}</p>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-slate-700">₱{payment.balance.toFixed(2)}</td>
-                          <td className="px-6 py-4">
+                          <td className="py-4 px-4 text-sm text-slate-700 font-medium hidden md:table-cell">
+                            ₱{payment.balance.toFixed(2)}
+                          </td>
+                          <td className="py-4 px-4">
                             {payment.status === 'paid' && (
-                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">
-                                PAID
+                              <span className="px-2 py-1 text-xs font-medium rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                Paid
                               </span>
                             )}
                             {payment.status === 'pending' && (
-                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
-                                PENDING
+                              <span className="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">
+                                Pending
                               </span>
                             )}
                             {payment.status === 'overdue' && (
-                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                                OVERDUE
+                              <span className="px-2 py-1 text-xs font-medium rounded-md bg-rose-100 text-rose-700 border border-rose-200">
+                                Overdue
                               </span>
                             )}
                           </td>
@@ -793,7 +828,10 @@ export default function ResidentPayment() {
               </div>
               
               {filteredPayments.length > 0 && (
-                <div className="mt-4 flex items-center justify-end">
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-slate-600">
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredPayments.length)} of {filteredPayments.length} payments
+                  </p>
                   <Pagination
                     current={currentPage}
                     pageSize={pageSize}

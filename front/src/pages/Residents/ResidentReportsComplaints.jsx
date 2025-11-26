@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Tabs, Alert } from "antd";
 import ResidentNavbar from "./ResidentNavbar";
+import apiClient from "../../utils/apiClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   PlusOutlined, 
@@ -50,16 +51,7 @@ export default function ResidentReportsComplaints() {
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        message.error("You are not logged in.");
-        setLoading(false);
-        return;
-      }
-      const res = await axios.get(
-        `${API_BASE}/api/resident/complaints`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/resident/complaints');
       setComplaints(res.data);
     } catch (err) {
       const status = err.response?.status;
@@ -81,7 +73,6 @@ export default function ResidentReportsComplaints() {
     try {
       setCreating(true);
       const values = await createForm.validateFields();
-      const token = localStorage.getItem("token");
       
       // If Other category is selected, use the custom category text
       const submitData = {
@@ -91,10 +82,9 @@ export default function ResidentReportsComplaints() {
           : values.category
       };
       
-      await axios.post(
-        `${API_BASE}/api/resident/complaints`,
-        submitData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.post(
+        '/api/resident/complaints',
+        submitData
       );
       
       message.success("Complaint submitted successfully!");
@@ -121,7 +111,6 @@ export default function ResidentReportsComplaints() {
     try {
       setUpdating(true);
       const values = await editForm.validateFields();
-      const token = localStorage.getItem("token");
       
       // If Other category is selected, use the custom category text
       const submitData = {
@@ -131,10 +120,9 @@ export default function ResidentReportsComplaints() {
           : values.category
       };
       
-      await axios.put(
-        `${API_BASE}/api/resident/complaints/${editComplaint._id}`,
-        submitData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.put(
+        `/api/resident/complaints/${editComplaint._id}`,
+        submitData
       );
       
       message.success("Complaint updated successfully!");
@@ -158,10 +146,8 @@ export default function ResidentReportsComplaints() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/resident/complaints/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/resident/complaints/${id}`
       );
       message.success("Complaint deleted successfully!");
       fetchComplaints();
@@ -293,59 +279,93 @@ export default function ResidentReportsComplaints() {
     <div className="min-h-screen bg-slate-50">
       <ResidentNavbar />
       
-      <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-2xl font-semibold text-slate-900">
-                Reports & Complaints
-              </CardTitle>
-              <CardDescription>
-                Submit and track your reports and complaints to the barangay
-              </CardDescription>
+      <main className="mx-auto w-full max-w-9xl space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+        <Card className="w-full border border-slate-200 shadow-md bg-gradient-to-r from-slate-50 via-white to-slate-50">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex-1">
+                <CardTitle className="text-lg sm:text-xl font-bold text-slate-800">
+                  Reports & Complaints
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">
+                  Submit and track your reports and complaints to the barangay
+                </CardDescription>
+              </div>
+              <Button
+                type="primary"
+                size="large"
+                icon={<PlusOutlined />}
+                onClick={() => setCreateOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-2 w-full sm:w-auto"
+              >
+                Submit New
+              </Button>
             </div>
-            <Button
-              type="primary"
-              size="large"
-              icon={<PlusOutlined />}
-              onClick={() => setCreateOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-1"
-            >
-              Submit New
-            </Button>
           </CardHeader>
         </Card>
 
-        {/* Statistics Cards */}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">Summary</CardTitle>
-            <CardDescription>Overview of your complaints and their current status</CardDescription>
+        {/* Summary Statistics */}
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Summary</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">Overview of your complaints and their current status</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-              <Card className="w-full border border-blue-200 bg-blue-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-blue-700">Total</p>
-                  <p className="text-2xl font-bold text-blue-900">{totalComplaints}</p>
+          <CardContent className="pt-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 border border-blue-200">
+                      <CommentOutlined className="text-blue-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Total</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{totalComplaints}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">All reports</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-amber-200 bg-amber-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-amber-700">Pending</p>
-                  <p className="text-2xl font-bold text-amber-900">{pendingComplaints}</p>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-200">
+                      <ClockCircleOutlined className="text-amber-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Pending</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{pendingComplaints}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Under review</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-purple-200 bg-purple-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-purple-700">Investigating</p>
-                  <p className="text-2xl font-bold text-purple-900">{investigatingComplaints}</p>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0 border border-purple-200">
+                      <ExclamationCircleOutlined className="text-purple-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Investigating</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{investigatingComplaints}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">In progress</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="w-full border border-emerald-200 bg-emerald-50">
-                <CardContent className="space-y-2 px-4 py-5 sm:px-6">
-                  <p className="text-sm font-medium text-emerald-700">Resolved</p>
-                  <p className="text-2xl font-bold text-emerald-900">{resolvedComplaints}</p>
+              <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
+                <CardContent className="p-2 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                      <CheckCircleOutlined className="text-emerald-600 text-lg sm:text-xl" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Resolved</p>
+                      <p className="text-xl sm:text-3xl font-bold text-slate-800">{resolvedComplaints}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400">Completed</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -353,12 +373,12 @@ export default function ResidentReportsComplaints() {
         </Card>
 
         {/* Main Content Card */}
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">My Complaints</CardTitle>
-            <CardDescription>View and manage your submitted complaints</CardDescription>
+        <Card className="w-full border border-slate-200 shadow-md bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">My Complaints</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-slate-600">View and manage your submitted complaints</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="pt-5 space-y-4 sm:space-y-6">
             {/* Filter Tabs */}
             <Tabs 
               activeKey={activeTab}
@@ -386,6 +406,7 @@ export default function ResidentReportsComplaints() {
                 },
               ]}
               onChange={(key) => setActiveTab(key)}
+              className="complaints-tabs"
             />
 
             {/* Search Bar */}
@@ -395,138 +416,151 @@ export default function ResidentReportsComplaints() {
                 prefix={<SearchOutlined />}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-64"
+                className="w-full sm:w-64"
                 allowClear
               />
             </div>
 
-            {/* Table */}
-            <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
-              <table className="min-w-full bg-white table-auto">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Complaint</th>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">Purok</th>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">Priority</th>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                    <th className="py-3 px-6 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {loading ? (
-                    <tr>
-                      <td colSpan="6" className="text-center py-8">
-                        <div className="flex justify-center items-center space-x-2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                          <span className="text-slate-500">Loading complaints...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : filteredComplaints.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="text-center py-12">
-                        <div className="flex flex-col items-center">
-                          <CommentOutlined style={{ fontSize: '32px' }} className="text-slate-400 mb-2" />
-                          <p className="text-slate-500 font-medium">No complaints found</p>
-                          <p className="text-slate-400 text-sm mt-1">Submit your first complaint to get started</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredComplaints.map((complaint) => (
-                      <tr key={complaint._id} className="hover:bg-slate-50 transition-colors duration-150">
-                        <td className="py-4 px-6">
-                          <div className="flex items-center">
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                              {complaint.type === 'complaint' ? <ExclamationCircleOutlined className="text-red-600" /> : <FileTextOutlined className="text-blue-600" />}
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-800">{complaint.title}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Tag size="small" color={complaint.type === "complaint" ? "red" : "blue"}>
-                                  {complaint.type.toUpperCase()}
-                                </Tag>
-                                <p className="text-xs text-slate-500">#{complaint._id.slice(-6)}</p>
+            {/* Complaints List */}
+            {loading ? (
+              <div className="text-center py-8 sm:py-12">
+                <div className="flex justify-center items-center space-x-2">
+                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500"></div>
+                  <span className="text-slate-500 text-sm sm:text-base">Loading complaints...</span>
+                </div>
+              </div>
+            ) : filteredComplaints.length === 0 ? (
+              <div className="text-center py-10 sm:py-16 border border-slate-200 rounded-lg bg-slate-50">
+                <div className="flex flex-col items-center">
+                  <CommentOutlined style={{ fontSize: '40px' }} className="text-slate-400 mb-3" />
+                  <p className="text-slate-500 font-medium text-base sm:text-lg">No complaints found</p>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-1">Submit your first complaint to get started</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredComplaints.map((complaint) => (
+                  <Card key={complaint._id} className="border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200">
+                    <CardContent className="p-3 sm:p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                        {/* Icon and Main Info */}
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+                            complaint.type === 'complaint' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
+                          }`}>
+                            {complaint.type === 'complaint' ? 
+                              <ExclamationCircleOutlined className="text-red-600 text-lg sm:text-xl" /> : 
+                              <FileTextOutlined className="text-blue-600 text-lg sm:text-xl" />
+                            }
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-slate-800 text-sm sm:text-base line-clamp-2">{complaint.title}</h3>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <Tag size="small" color={complaint.type === "complaint" ? "red" : "blue"}>
+                                    {complaint.type.toUpperCase()}
+                                  </Tag>
+                                  <span className="text-xs text-slate-500">#{complaint._id.slice(-6)}</span>
+                                </div>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex-shrink-0">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                                  complaint.status === "pending" ? "bg-amber-100 text-amber-800 border border-amber-200" :
+                                  complaint.status === "investigating" ? "bg-blue-100 text-blue-800 border border-blue-200" :
+                                  complaint.status === "resolved" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+                                  "bg-slate-100 text-slate-800 border border-slate-200"
+                                }`}>
+                                  {complaint.status?.toUpperCase()}
+                                </span>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6 text-sm text-slate-700 hidden sm:table-cell">
-                          <div className="max-w-xs truncate">{complaint.category}</div>
-                        </td>
-                        <td className="py-4 px-6 text-sm text-slate-700 hidden md:table-cell">
-                          <div className="max-w-xs truncate">{complaint.location}</div>
-                        </td>
-                        <td className="py-4 px-6 hidden lg:table-cell">
-                          <Tag color={getPriorityColor(complaint.priority)} size="small">
-                            {complaint.priority?.toUpperCase()}
-                          </Tag>
-                        </td>
-                        <td className="py-4 px-6 hidden sm:table-cell">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            complaint.status === "pending" ? "bg-amber-100 text-amber-800 border border-amber-200" :
-                            complaint.status === "investigating" ? "bg-blue-100 text-blue-800 border border-blue-200" :
-                            complaint.status === "resolved" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
-                            "bg-slate-100 text-slate-800 border border-slate-200"
-                          }`}>
-                            {complaint.status?.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex gap-1">
-                            <Button
-                              type="default"
-                              size="small"
-                              icon={<EyeOutlined />}
-                              onClick={() => { setViewComplaint(complaint); setViewOpen(true); }}
-                              className="border border-blue-600 text-blue-600 hover:bg-blue-50"
-                            >
-                              View
-                            </Button>
-                            {canEdit(complaint) && (
-                              <>
-                                <Button
-                                  type="default"
-                                  size="small"
-                                  icon={<EditOutlined />}
-                                  onClick={() => openEdit(complaint)}
-                                  className="border border-green-600 text-green-600 hover:bg-green-50"
-                                >
-                                  Edit
-                                </Button>
-                                <Popconfirm
-                                  title="Delete complaint?"
-                                  description="This action cannot be undone."
-                                  okButtonProps={{ danger: true }}
-                                  onConfirm={() => handleDelete(complaint._id)}
-                                >
-                                  <Button
-                                    danger
-                                    size="small"
-                                    icon={<DeleteOutlined />}
-                                    className="border border-red-600 text-red-600 hover:bg-red-50"
-                                  >
-                                    Delete
-                                  </Button>
-                                </Popconfirm>
-                              </>
+                            
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mt-3 bg-slate-50 rounded-lg p-2 sm:p-3 border border-slate-100">
+                              <div>
+                                <p className="text-[10px] sm:text-xs font-medium text-slate-500 mb-0.5">Category</p>
+                                <p className="text-xs sm:text-sm text-slate-700 truncate">{complaint.category}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] sm:text-xs font-medium text-slate-500 mb-0.5">Purok</p>
+                                <p className="text-xs sm:text-sm text-slate-700 truncate">{complaint.location}</p>
+                              </div>
+                              <div className="col-span-2 sm:col-span-1">
+                                <p className="text-[10px] sm:text-xs font-medium text-slate-500 mb-0.5">Priority</p>
+                                <Tag color={getPriorityColor(complaint.priority)} size="small">
+                                  {complaint.priority?.toUpperCase()}
+                                </Tag>
+                              </div>
+                            </div>
+
+                            {/* Description Preview */}
+                            {complaint.description && (
+                              <div className="mt-3">
+                                <p className="text-xs sm:text-sm text-slate-600 line-clamp-2">
+                                  {complaint.description}
+                                </p>
+                              </div>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex sm:flex-col gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l border-slate-100 sm:pl-4 justify-end sm:justify-start">
+                          <Button
+                            type="default"
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => { setViewComplaint(complaint); setViewOpen(true); }}
+                            className="border border-blue-600 text-blue-600 hover:bg-blue-50 flex-1 sm:flex-none sm:w-full"
+                          >
+                            View
+                          </Button>
+                          {canEdit(complaint) && (
+                            <>
+                              <Button
+                                type="default"
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => openEdit(complaint)}
+                                className="border border-green-600 text-green-600 hover:bg-green-50 flex-1 sm:flex-none sm:w-full"
+                              >
+                                Edit
+                              </Button>
+                              <Popconfirm
+                                title="Delete complaint?"
+                                description="This action cannot be undone."
+                                okButtonProps={{ danger: true }}
+                                onConfirm={() => handleDelete(complaint._id)}
+                              >
+                                <Button
+                                  danger
+                                  size="small"
+                                  icon={<DeleteOutlined />}
+                                  className="border border-red-600 text-red-600 hover:bg-red-50 flex-1 sm:flex-none sm:w-full"
+                                >
+                                  Delete
+                                </Button>
+                              </Popconfirm>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
 
       {/* Create Modal */}
       <Modal
-        title="Submit New Report/Complaint"
+        title={<span className="text-base sm:text-lg font-semibold">Submit New Report/Complaint</span>}
         open={createOpen}
         onOk={createStep === 0 ? () => setCreateStep(1) : handleCreate}
         onCancel={() => {
@@ -540,9 +574,11 @@ export default function ResidentReportsComplaints() {
           }
         }}
         confirmLoading={creating}
-        width={750}
+        width="95%"
+        style={{ maxWidth: '750px', top: 20 }}
         okText={createStep === 0 ? "Next" : "Submit"}
         cancelText={createStep === 0 ? "Cancel" : "Previous"}
+        className="mobile-modal"
       >
         {createStep === 0 ? (
           <Alert
@@ -744,28 +780,29 @@ export default function ResidentReportsComplaints() {
           setViewComplaint(null);
         }}
         footer={null}
-        width={"90%"}
-        style={{ maxWidth: "950px" }}
+        width="95%"
+        style={{ maxWidth: "950px", top: 20 }}
         bodyStyle={{ padding: 0 }}
+        className="mobile-modal"
       >
         {viewComplaint && (
           <div>
             {/* Header Section */}
-            <div className="bg-gray-50 p-3 border-b">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{viewComplaint.title}</h3>
-                  <div className="flex items-center gap-2 mt-1">
+            <div className="bg-gray-50 p-3 sm:p-4 border-b">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                <div className="flex-1">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 break-words">{viewComplaint.title}</h3>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Tag color={viewComplaint.type === "complaint" ? "red" : "blue"}>
                       {viewComplaint.type?.toUpperCase()}
                     </Tag>
-                    <p className="text-gray-500">ID: #{viewComplaint._id?.slice(-6)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">ID: #{viewComplaint._id?.slice(-6)}</p>
                   </div>
                 </div>
                 
                 {/* Status Badge */}
-                <div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                <div className="flex-shrink-0">
+                  <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                     viewComplaint.status === "pending" ? "bg-amber-100 text-amber-800" :
                     viewComplaint.status === "investigating" ? "bg-blue-100 text-blue-800" :
                     viewComplaint.status === "resolved" ? "bg-green-100 text-green-800" :
@@ -778,47 +815,47 @@ export default function ResidentReportsComplaints() {
             </div>
             
             {/* Details */}
-            <div className="p-3">
-              <h4 className="text-base font-medium text-gray-800 mb-2">Complaint Details</h4>
+            <div className="p-3 sm:p-4 md:p-5">
+              <h4 className="text-sm sm:text-base font-medium text-gray-800 mb-3">Complaint Details</h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-0.5">CATEGORY</p>
-                  <p className="text-gray-800">{viewComplaint.category}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">CATEGORY</p>
+                  <p className="text-sm sm:text-base text-gray-800 break-words">{viewComplaint.category}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-0.5">PRIORITY</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">PRIORITY</p>
                   <Tag color={getPriorityColor(viewComplaint.priority)} size="small">
                     {viewComplaint.priority?.toUpperCase()}
                   </Tag>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-0.5">PUROK</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">PUROK</p>
                   <p className="text-sm text-gray-800">{viewComplaint.location}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-0.5">DATE SUBMITTED</p>
-                  <p className="text-sm text-gray-800">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">DATE SUBMITTED</p>
+                  <p className="text-xs sm:text-sm text-gray-800 break-words">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
                 </div>
               </div>
               
-              <div className="mb-3">
-                <p className="text-xs font-medium text-gray-500 mb-1">DESCRIPTION</p>
-                <div className="bg-gray-50 p-2 rounded-lg">
-                  <p className="text-sm text-gray-800">{viewComplaint.description}</p>
+              <div className="mb-4">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">DESCRIPTION</p>
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                  <p className="text-xs sm:text-sm text-gray-800 leading-relaxed break-words">{viewComplaint.description}</p>
                 </div>
               </div>
 
               {viewComplaint.response && (
-                <div className="mb-3">
-                  <p className="text-xs font-medium text-gray-500 mb-1">ADMIN RESPONSE</p>
-                  <div className="bg-blue-50 p-2 rounded-lg border-l-4 border-blue-400">
-                    <p className="text-sm text-gray-800">{viewComplaint.response}</p>
+                <div className="mb-4">
+                  <p className="text-xs font-medium text-gray-500 mb-1.5">ADMIN RESPONSE</p>
+                  <div className="bg-blue-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-400">
+                    <p className="text-xs sm:text-sm text-gray-800 leading-relaxed break-words">{viewComplaint.response}</p>
                     {viewComplaint.resolvedAt && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-2">
                         Responded on {dayjs(viewComplaint.resolvedAt).format("MMMM DD, YYYY [at] h:mm A")}
                       </p>
                     )}
@@ -828,36 +865,36 @@ export default function ResidentReportsComplaints() {
 
               {/* Status Timeline */}
               <div>
-                <h4 className="text-base font-medium text-gray-800 mb-2">Status Timeline</h4>
+                <h4 className="text-sm sm:text-base font-medium text-gray-800 mb-3">Status Timeline</h4>
                 
                 <div className="relative">
                   {/* Timeline Line */}
-                  <div className="absolute left-3 top-0 h-full w-0.5 bg-gray-200"></div>
+                  <div className="absolute left-3 sm:left-4 top-0 h-full w-0.5 bg-gray-200"></div>
                   
                   {/* Timeline Steps */}
-                  <div className="space-y-3 relative">
+                  <div className="space-y-4 relative">
                     {/* Submitted Step */}
                     <div className="flex items-start">
-                      <div className="flex-shrink-0 h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center z-10">
-                        <CheckCircleOutlined className="text-white text-xs" />
+                      <div className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-blue-500 flex items-center justify-center z-10">
+                        <CheckCircleOutlined className="text-white text-xs sm:text-sm" />
                       </div>
-                      <div className="ml-3">
-                        <p className="text-xs font-medium text-gray-800">Submitted</p>
-                        <p className="text-xs text-gray-500">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
+                      <div className="ml-3 sm:ml-4">
+                        <p className="text-xs sm:text-sm font-medium text-gray-800">Submitted</p>
+                        <p className="text-xs text-gray-500 break-words">{dayjs(viewComplaint.createdAt).format("MMMM DD, YYYY [at] h:mm A")}</p>
                       </div>
                     </div>
                     
                     {/* Processing Step */}
                     <div className="flex items-start">
-                      <div className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center z-10 
+                      <div className={`flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center z-10 
                         ${viewComplaint.status === "pending" ? "bg-amber-500" : 
                           viewComplaint.status === "investigating" ? "bg-blue-500" : "bg-blue-500"}`}>
-                        {viewComplaint.status === "pending" ? <ClockCircleOutlined className="text-white text-xs" /> :
-                         viewComplaint.status === "investigating" ? <ExclamationCircleOutlined className="text-white text-xs" /> :
-                         <CheckCircleOutlined className="text-white text-xs" />}
+                        {viewComplaint.status === "pending" ? <ClockCircleOutlined className="text-white text-xs sm:text-sm" /> :
+                         viewComplaint.status === "investigating" ? <ExclamationCircleOutlined className="text-white text-xs sm:text-sm" /> :
+                         <CheckCircleOutlined className="text-white text-xs sm:text-sm" />}
                       </div>
-                      <div className="ml-3">
-                        <p className="text-xs font-medium text-gray-800">
+                      <div className="ml-3 sm:ml-4">
+                        <p className="text-xs sm:text-sm font-medium text-gray-800">
                           {viewComplaint.status === "pending" ? "Pending Review" :
                            viewComplaint.status === "investigating" ? "Under Investigation" :
                            "Processing Complete"}
@@ -873,12 +910,12 @@ export default function ResidentReportsComplaints() {
                     {/* Resolution Step */}
                     {(viewComplaint.status === "resolved" || viewComplaint.status === "closed") && (
                       <div className="flex items-start">
-                        <div className="flex-shrink-0 h-7 w-7 rounded-full bg-green-500 flex items-center justify-center z-10">
-                          <CheckCircleOutlined className="text-white text-xs" />
+                        <div className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-green-500 flex items-center justify-center z-10">
+                          <CheckCircleOutlined className="text-white text-xs sm:text-sm" />
                         </div>
-                        <div className="ml-3">
-                          <p className="text-xs font-medium text-gray-800">Resolved</p>
-                          <p className="text-xs text-gray-500">
+                        <div className="ml-3 sm:ml-4">
+                          <p className="text-xs sm:text-sm font-medium text-gray-800">Resolved</p>
+                          <p className="text-xs text-gray-500 break-words">
                             {viewComplaint.resolvedAt ? dayjs(viewComplaint.resolvedAt).format("MMMM DD, YYYY [at] h:mm A") : "Resolution date not available"}
                           </p>
                         </div>
@@ -889,15 +926,15 @@ export default function ResidentReportsComplaints() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-2 mt-3 pt-2 border-t">
-                <Button onClick={() => setViewOpen(false)}>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4 pt-3 border-t">
+                <Button onClick={() => setViewOpen(false)} className="w-full sm:w-auto">
                   Close
                 </Button>
                 {canEdit(viewComplaint) && (
                   <Button type="primary" icon={<EditOutlined />} onClick={() => {
                     setViewOpen(false);
                     openEdit(viewComplaint);
-                  }}>
+                  }} className="w-full sm:w-auto">
                     Edit Complaint
                   </Button>
                 )}

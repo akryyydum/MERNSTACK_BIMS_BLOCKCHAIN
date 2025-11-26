@@ -1,26 +1,15 @@
+import { getItem } from './storage';
+
 export const isAuthenticated = () => {
-  const token = localStorage.getItem("token");
-  if (!token) return false;
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    const expMs = payload?.exp ? payload.exp * 1000 : 0;
-    if (!expMs || Date.now() >= expMs) return false; // expired
-    return true;
-  } catch {
-    return false;
-  }
+  // Check if role exists in localStorage (set during login)
+  const role = getItem("role");
+  return !!role;
 };
 
 export const getUserRole = () => {
-  // Prefer role from JWT, fallback to localStorage
-  const token = localStorage.getItem("token");
-  if (token) {
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      if (payload?.role) return payload.role;
-    } catch {}
-  }
-  return localStorage.getItem("role");
+  // Get role from localStorage (set during login)
+  const role = getItem("role");
+  return role ? (typeof role === 'string' ? role : role.role || role) : null;
 };
 
 export const getDefaultPathByRole = (role) => {

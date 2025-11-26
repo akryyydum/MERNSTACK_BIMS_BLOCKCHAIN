@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions, Steps, Alert } from "antd";
+import { Table, Input, Button, Modal, Form, Select, DatePicker, Popconfirm, message, Switch, Descriptions, Steps, Alert, Tabs } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 import {
@@ -82,6 +82,16 @@ export default function AdminResidentManagement() {
   const [loading, setLoading] = useState(false);
   const [residents, setResidents] = useState([]);
   const [search, setSearch] = useState("");
+  // Tab state
+  const [activeTab, setActiveTab] = useState('residents');
+  // Unverified resident state
+  const [unverified, setUnverified] = useState([]);
+  const [loadingUnverified, setLoadingUnverified] = useState(false);
+  const [unverifiedSearch, setUnverifiedSearch] = useState('');
+  const [unverifiedViewOpen, setUnverifiedViewOpen] = useState(false);
+  const [unverifiedSelected, setUnverifiedSelected] = useState(null);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm] = Form.useForm();
   const [creating, setCreating] = useState(false);
@@ -153,22 +163,8 @@ export default function AdminResidentManagement() {
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
   useEffect(() => {
-    // Check authentication before fetching
-    const token = localStorage.getItem("token");
-    const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    
-    console.log("Auth check:", {
-      token: token ? "Present" : "Missing",
-      userProfile,
-      role: userProfile.role
-    });
-    
-    if (!token) {
-      message.error("No authentication token found. Please login again.");
-      return;
-    }
-    
     fetchResidents();
+    fetchUnverified();
   }, []);
 
   // Reset to page 1 when search changes
@@ -179,14 +175,7 @@ export default function AdminResidentManagement() {
   const fetchResidents = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      console.log("API_BASE:", API_BASE);
-      console.log("Token:", token ? "Present" : "Missing");
-      
-      const res = await axios.get(
-        `${API_BASE}/api/admin/residents`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/residents');
       
       console.log("Residents response:", res.data);
       
@@ -206,6 +195,54 @@ export default function AdminResidentManagement() {
       setResidents([]); // Set empty array on error
     }
     setLoading(false);
+  };
+
+  // Fetch unverified resident submissions awaiting approval
+  const fetchUnverified = async () => {
+    setLoadingUnverified(true);
+    try {
+      const res = await apiClient.get('/api/admin/unverified-residents');
+      // Controller returns { data: [...] }
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      setUnverified(data);
+    } catch (err) {
+      console.error('Fetch unverified error:', err.response?.data || err.message);
+      message.error(err.response?.data?.message || 'Failed to fetch unverified submissions');
+    } finally {
+      setLoadingUnverified(false);
+    }
+  };
+
+  const approveUnverified = async (id) => {
+    setApproving(true);
+    try {
+      await apiClient.post(`/api/admin/unverified-residents/${id}/approve`, {});
+      message.success('Submission approved; resident record created');
+      setUnverified(prev => prev.filter(u => u._id !== id));
+      setUnverifiedViewOpen(false);
+      setUnverifiedSelected(null);
+      // Refresh residents list to include the newly created resident
+      fetchResidents();
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Failed to approve submission');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const rejectUnverified = async (id) => {
+    setRejecting(true);
+    try {
+      await apiClient.delete(`/api/admin/unverified-residents/${id}`);
+      message.success('Submission rejected and removed');
+      setUnverified(prev => prev.filter(u => u._id !== id));
+      setUnverifiedViewOpen(false);
+      setUnverifiedSelected(null);
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Failed to reject submission');
+    } finally {
+      setRejecting(false);
+    }
   };
 
   // Add Resident
@@ -260,10 +297,9 @@ export default function AdminResidentManagement() {
       setEmailTaken(false);
       setMobileTaken(false);
       
-      await axios.post(
-        `${API_BASE}/api/admin/residents`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.post(
+        '/api/admin/residents',
+        payload
       );
       message.success("Resident added!");
       setAddOpen(false);
@@ -365,10 +401,9 @@ export default function AdminResidentManagement() {
       setEmailTaken(false);
       setMobileTaken(false);
       
-      await axios.patch(
-        `${API_BASE}/api/admin/residents/${selectedResident._id}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.patch(
+        `/api/admin/residents/${selectedResident._id}`,
+        payload
       );
       message.success("Resident updated!");
       setEditOpen(false);
@@ -382,10 +417,8 @@ export default function AdminResidentManagement() {
   // Delete Resident
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/admin/residents/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await apiClient.delete(
+        `/api/admin/residents/${id}`
       );
       message.success("Resident deleted!");
       fetchResidents();
@@ -402,15 +435,10 @@ export default function AdminResidentManagement() {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      
       // Delete residents one by one
       await Promise.all(
         selectedRowKeys.map(id =>
-          axios.delete(
-            `${API_BASE}/api/admin/residents/${id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
+          apiClient.delete(`/api/admin/residents/${id}`)
         )
       );
       
@@ -486,10 +514,8 @@ export default function AdminResidentManagement() {
         purok: values.purok,
       });
 
-      const token = localStorage.getItem("token");
-      const res = await axios.post(`${API_BASE}/api/admin/residents/import`, formData, {
+      const res = await apiClient.post('/api/admin/residents/import', formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
       });
@@ -645,6 +671,7 @@ export default function AdminResidentManagement() {
   const totalResidents = Array.isArray(residents) ? residents.length : 0;
   const maleResidents = Array.isArray(residents) ? residents.filter(r => r.sex === "male").length : 0;
   const femaleResidents = Array.isArray(residents) ? residents.filter(r => r.sex === "female").length : 0;
+  const unverifiedResidentsCount = Array.isArray(unverified) ? unverified.length : 0;
 
   // Purok statistics
   const purok1Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 1").length : 0;
@@ -654,6 +681,14 @@ export default function AdminResidentManagement() {
   const purok5Count = Array.isArray(residents) ? residents.filter(r => r.address?.purok === "Purok 5").length : 0;
 
   // Define all columns with visibility keys
+  // Detect if mobile (width <= 768px)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const allColumns = [
     {
       title: "Full Name",
@@ -759,7 +794,7 @@ export default function AdminResidentManagement() {
       key: "actions",
       columnKey: "actions",
       width: 200,
-      fixed: 'right',
+      fixed: isMobile ? false : 'right',
       render: (_, r) => (
         <div className="flex gap-2">
           <Button size="small" onClick={() => openView(r)}>View</Button>
@@ -812,6 +847,50 @@ export default function AdminResidentManagement() {
       return b._id.localeCompare(a._id);
     });
 
+  // Filtered unverified list
+  const filteredUnverified = (Array.isArray(unverified) ? unverified : [])
+    .filter(u => [
+      u.firstName,
+      u.middleName,
+      u.lastName,
+      u.suffix,
+      u.sex,
+      u.civilStatus,
+      u.address?.purok,
+      u.birthPlace,
+      u.citizenship,
+      u.occupation,
+      u.contact?.email,
+      u.contact?.mobile
+    ].filter(Boolean).join(' ').toLowerCase().includes(unverifiedSearch.toLowerCase()))
+    .sort((a,b) => {
+      if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+      return b._id.localeCompare(a._id);
+    });
+
+  const openUnverifiedView = (record) => {
+    setUnverifiedSelected(record);
+    setUnverifiedViewOpen(true);
+  };
+
+  const unverifiedColumns = [
+    {
+      title: 'Full Name',
+      key: 'fullName',
+      render: (_, r) => [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(' ')
+    },
+    { title: 'Sex', dataIndex: 'sex', key: 'sex' },
+    { title: 'Civil Status', dataIndex: 'civilStatus', key: 'civilStatus' },
+    { title: 'Purok', key: 'purok', render: (_, r) => r.address?.purok || '' },
+    { title: 'Birth Date', dataIndex: 'dateOfBirth', key: 'dateOfBirth', render: v => v ? new Date(v).toLocaleDateString() : '' },
+    { title: 'Status', dataIndex: 'status', key: 'status', render: v => v },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, r) => <Button size="small" onClick={() => openUnverifiedView(r)}>View</Button>
+    }
+  ];
+
   const openView = (resident) => {
     setViewResident(resident);
     setViewOpen(true);
@@ -863,6 +942,119 @@ export default function AdminResidentManagement() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{`
+        /* Responsive modal styling */
+        @media (max-width: 768px) {
+          .responsive-modal .ant-modal {
+            max-width: 95vw !important;
+            margin: 10px auto !important;
+          }
+          .responsive-modal .ant-modal-content {
+            padding: 8px !important;
+          }
+          .responsive-modal .ant-modal-header {
+            padding: 12px 16px !important;
+          }
+          .responsive-modal .ant-modal-body {
+            padding: 12px 16px !important;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+          }
+          .responsive-modal .ant-modal-footer {
+            padding: 10px 16px !important;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .responsive-modal .ant-modal-footer .ant-btn {
+            margin: 0 !important;
+            flex: 1 1 auto;
+            min-width: 80px !important;
+          }
+          /* Form row responsiveness */
+          .form-row {
+            flex-direction: column !important;
+          }
+          .form-row .ant-form-item {
+            width: 100% !important;
+          }
+          /* Steps responsive */
+          .ant-steps-horizontal.ant-steps-label-horizontal {
+            flex-direction: column !important;
+          }
+          .ant-steps-item {
+            margin-bottom: 8px !important;
+          }
+          /* Descriptions responsive */
+          .responsive-descriptions .ant-descriptions-item-label {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+          }
+          .responsive-descriptions .ant-descriptions-item-content {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+            word-break: break-word;
+          }
+          /* Alert responsive */
+          .ant-alert {
+            font-size: 12px !important;
+            padding: 8px 12px !important;
+          }
+          .ant-alert-message {
+            font-size: 13px !important;
+          }
+          .ant-alert-description {
+            font-size: 11px !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .form-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 0;
+          }
+          .form-row .ant-form-item {
+            flex: 1;
+          }
+        }
+        /* Compact form styles */
+        .compact-form .ant-form-item {
+          margin-bottom: 8px;
+        }
+        .compact-form .ant-form-item-label {
+          padding-bottom: 4px;
+        }
+        .compact-form .ant-form-item-explain {
+          min-height: 18px;
+        }
+      `}</style>
+      <style>{`
+        /* Unverified Submission Modal Responsive Enhancements */
+        .responsive-modal .ant-modal {
+          width: 95vw !important;
+          max-width: 760px;
+        }
+        .responsive-modal .ant-modal-body {
+          max-height: 70vh;
+          overflow-y: auto;
+          padding: 16px;
+        }
+        .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-label,
+        .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-content {
+          word-break: break-word;
+          font-size: 12px;
+        }
+        @media (min-width: 640px) {
+          .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-label,
+          .responsive-modal .ant-descriptions-bordered .ant-descriptions-item-content { font-size: 13px; }
+        }
+        @media (min-width: 768px) {
+          .responsive-modal .ant-modal-body { padding: 20px; }
+        }
+        @media (min-width: 1024px) {
+          .responsive-modal .ant-modal { max-width: 820px; }
+        }
+      `}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -871,389 +1063,268 @@ export default function AdminResidentManagement() {
                 Residents Management
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
           </nav>
+          {/* Statistics Section - Copied from User Management, adapted for residents */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            {/* Row 1: Total, Male, Female, Unverified */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+              {/* Total Residents */}
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Total Residents
-                  </CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Total Residents</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {totalResidents}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {totalResidents}
-                  </div>
+                  <div className="text-xl md:text-3xl font-bold text-black">{totalResidents}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              {/* Male Residents */}
+              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Male Residents
-                  </CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Male Residents</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {maleResidents}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {maleResidents}
-                  </div>
+                  <div className="text-xl md:text-3xl font-bold text-black">{maleResidents}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              {/* Female Residents */}
+              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
-                    Female Residents
-                  </CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Female Residents</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {femaleResidents}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
-                    {femaleResidents}
+                  <div className="text-xl md:text-3xl font-bold text-black">{femaleResidents}</div>
+                </CardContent>
+              </Card>
+              {/* Unverified Residents */}
+              <Card className="bg-orange-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+                <CardHeader className="flex flex-row items-center justify-between p-0">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Unverified Residents</CardTitle>
+                  <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
+                    <ArrowUpRight className="h-3 w-3" />
+                    {unverifiedResidentsCount}
                   </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl md:text-3xl font-bold text-black">{unverifiedResidentsCount}</div>
+                  <div className="mt-1 text-xs text-gray-600">Pending approval</div>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Second Row: Purok Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
-              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            {/* Row 2: Purok Statistics - 5 cols on desktop, 2 cols on mobile/tablet */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mt-3 md:mt-4">
+              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 1</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok1Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok1Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok1Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 2</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 2</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok2Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok2Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok2Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 3</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 3</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok3Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok3Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok3Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 4</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 4</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok4Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok4Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok4Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 lg:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 5</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 5</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok5Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok5Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok5Count}</div>
                 </CardContent>
               </Card>
             </div>
           </div>
         </div>
-        {/* Table Section */}
+        {/* Tabbed Table Section */}
         <div className="bg-white rounded-2xl p-4 space-y-4">
-          <hr className="border-t border-gray-300" />
-          <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
-              <Input.Search
-                allowClear
-                placeholder="Search for Residents"
-                onSearch={v => setSearch(v.trim())}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                enterButton
-                className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
-              />
-              
-              {/* Customize Columns Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button className="flex items-center gap-2 whitespace-nowrap">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect width="7" height="7" x="3" y="3" rx="1" />
-                      <rect width="7" height="7" x="14" y="3" rx="1" />
-                      <rect width="7" height="7" x="14" y="14" rx="1" />
-                      <rect width="7" height="7" x="3" y="14" rx="1" />
-                    </svg>
-                    Customize Columns
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-white" onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.sex}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, sex: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Sex
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.dateOfBirth}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, dateOfBirth: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Date of Birth
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.civilStatus}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, civilStatus: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Civil Status
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.religion}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, religion: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Religion
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.mobile}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, mobile: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Mobile Number
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.purok}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, purok: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Purok
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.citizenship}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, citizenship: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Citizenship
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.ethnicity}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, ethnicity: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Ethnicity
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.occupation}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, occupation: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Occupation
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.sectoralInfo}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, sectoralInfo: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Sectoral Info
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.employmentStatus}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, employmentStatus: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Employment Status
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={visibleColumns.registeredVoter}
-                    onCheckedChange={(checked) =>
-                      setVisibleColumns({ ...visibleColumns, registeredVoter: checked })
-                    }
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    Registered Voter
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="primary"
-                onClick={() => {
-                  setAddStep(0);
-                  // Apply the defaults each time Add is opened
-                  addForm.setFieldsValue({
-                    address: { ...(addForm.getFieldValue("address") || {}), ...ADDRESS_DEFAULTS },
-                    citizenship: "Filipino",
-                  });
-                  setEmailTaken(false);
-                  setMobileTaken(false);
-                  setAddOpen(true);
-                }}
-              >
-                + Add Resident
-              </Button>
-              <Button
-                onClick={() => {
-                  exportForm.setFieldsValue({ purokFilter: "all" });
-                  setExportOpen(true);
-                }}
-              >
-                Export Excel
-              </Button>
-              <Button
-                onClick={() => {
-                  setImportOpen(true);
-                }}
-              >
-                Import Residents
-              </Button>
-
-
-              {!selectAllClicked && (
-                <Button onClick={handleSelectAll} type="default">
-                  Select All ({filteredResidents.length})
-                </Button>
-              )}
-
-              {selectedRowKeys.length > 0 && (
-                <>
-                  <Button onClick={handleClearSelection}>
-                    Undo Selection
-                  </Button>
-                  <Popconfirm
-                    title={`Delete ${selectedRowKeys.length} resident(s)?`}
-                    description="This action cannot be undone."
-                    okButtonProps={{ danger: true }}
-                    onConfirm={handleBulkDelete}
-                  >
-                    <Button danger>
-                      Delete Selected ({selectedRowKeys.length})
-                    </Button>
-                  </Popconfirm>
-                </>
-              )}
-
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <Table
-              rowKey="_id"
-              loading={loading}
-              dataSource={filteredResidents}
-              columns={columns}
-              rowSelection={{
-                selectedRowKeys,
-                onChange: onSelectChange,
-                onSelectAll: onSelectAll,
-                type: 'checkbox',
-                getCheckboxProps: (record) => ({
-                  name: record.name,
-                }),
-                selections: [
-                  {
-                    key: 'all-pages',
-                    text: 'Select All Pages',
-                    onSelect: () => {
-                      handleSelectAll();
-                    },
-                  },
-                  {
-                    key: 'clear-all',
-                    text: 'Clear All',
-                    onSelect: () => {
-                      handleClearSelection();
-                    },
-                  },
-                ],
-              }}
-              pagination={{
-                current: currentPage,
-                pageSize: pageSize,
-                total: filteredResidents.length,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
-                pageSizeOptions: ['10', '20', '50', '100'],
-              }}
-              onChange={handleTableChange}
-              scroll={{ x: 1400 }}
-            />
-          </div>
+          <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
+            {
+              key: 'residents',
+              label: `Residents (${filteredResidents.length})`,
+              children: (
+                <div className="space-y-4">
+                  <hr className="border-t border-gray-300" />
+                  <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full md:w-auto">
+                      <Input.Search
+                        allowClear
+                        placeholder="Search for Residents"
+                        onSearch={v => setSearch(v.trim())}
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        enterButton
+                        className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button className="flex items-center gap-2 whitespace-nowrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect width="7" height="7" x="3" y="3" rx="1" />
+                              <rect width="7" height="7" x="14" y="3" rx="1" />
+                              <rect width="7" height="7" x="14" y="14" rx="1" />
+                              <rect width="7" height="7" x="3" y="14" rx="1" />
+                            </svg>
+                            Customize Columns
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56 bg-white" onCloseAutoFocus={(e) => e.preventDefault()}>
+                          <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuCheckboxItem checked={visibleColumns.sex} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, sex: checked })} onSelect={(e) => e.preventDefault()}>Sex</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.dateOfBirth} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, dateOfBirth: checked })} onSelect={(e) => e.preventDefault()}>Date of Birth</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.civilStatus} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, civilStatus: checked })} onSelect={(e) => e.preventDefault()}>Civil Status</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.religion} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, religion: checked })} onSelect={(e) => e.preventDefault()}>Religion</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.mobile} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, mobile: checked })} onSelect={(e) => e.preventDefault()}>Mobile Number</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.purok} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, purok: checked })} onSelect={(e) => e.preventDefault()}>Purok</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.citizenship} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, citizenship: checked })} onSelect={(e) => e.preventDefault()}>Citizenship</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.ethnicity} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, ethnicity: checked })} onSelect={(e) => e.preventDefault()}>Ethnicity</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.occupation} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, occupation: checked })} onSelect={(e) => e.preventDefault()}>Occupation</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.sectoralInfo} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, sectoralInfo: checked })} onSelect={(e) => e.preventDefault()}>Sectoral Info</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.employmentStatus} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, employmentStatus: checked })} onSelect={(e) => e.preventDefault()}>Employment Status</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={visibleColumns.registeredVoter} onCheckedChange={(checked) => setVisibleColumns({ ...visibleColumns, registeredVoter: checked })} onSelect={(e) => e.preventDefault()}>Registered Voter</DropdownMenuCheckboxItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full md:w-auto">
+                      <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                        <Button type="primary" onClick={() => { setAddStep(0); addForm.setFieldsValue({ address: { ...(addForm.getFieldValue('address') || {}), ...ADDRESS_DEFAULTS }, citizenship: 'Filipino' }); setEmailTaken(false); setMobileTaken(false); setAddOpen(true); }} className="flex-1 md:flex-initial">+ Add Resident</Button>
+                        <Button onClick={() => { exportForm.setFieldsValue({ purokFilter: 'all' }); setExportOpen(true); }} className="flex-1 md:flex-initial">Export Excel</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                        <Button onClick={() => { setImportOpen(true); }} className="flex-1 md:flex-initial">Import Residents</Button>
+                        {!selectAllClicked && selectedRowKeys.length === 0 && (
+                          <Button onClick={handleSelectAll} type="default" className="flex-1 md:flex-initial">Select All ({filteredResidents.length})</Button>
+                        )}
+                        {(selectAllClicked || selectedRowKeys.length > 0) && (
+                          <>
+                            <Button onClick={handleClearSelection} className="flex-1 md:flex-initial">Undo Selection</Button>
+                            <Popconfirm title={`Delete ${selectedRowKeys.length} resident(s)?`} description="This action cannot be undone." okButtonProps={{ danger: true }} onConfirm={handleBulkDelete}>
+                              <Button danger className="flex-1 md:flex-initial">Delete Selected ({selectedRowKeys.length})</Button>
+                            </Popconfirm>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table
+                      rowKey="_id"
+                      loading={loading}
+                      dataSource={filteredResidents}
+                      columns={columns}
+                      rowSelection={{
+                        selectedRowKeys,
+                        onChange: onSelectChange,
+                        onSelectAll: onSelectAll,
+                        type: 'checkbox',
+                        getCheckboxProps: (record) => ({ name: record.name }),
+                        selections: [
+                          { key: 'all-pages', text: 'Select All Pages', onSelect: () => { handleSelectAll(); } },
+                          { key: 'clear-all', text: 'Clear All', onSelect: () => { handleClearSelection(); } },
+                        ],
+                      }}
+                      pagination={{
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: filteredResidents.length,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
+                        pageSizeOptions: ['10', '20', '50', '100'],
+                      }}
+                      onChange={handleTableChange}
+                      scroll={{ x: 1400 }}
+                    />
+                  </div>
+                </div>
+              )
+            },
+            {
+              key: 'unverified',
+              label: `Unverified (${unverified.length})`,
+              children: (
+                <div className="space-y-4">
+                  <hr className="border-t border-gray-300" />
+                  <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
+                    <Input.Search
+                      allowClear
+                      placeholder="Search Unverified Submissions"
+                      onSearch={v => setUnverifiedSearch(v.trim())}
+                      value={unverifiedSearch}
+                      onChange={e => setUnverifiedSearch(e.target.value)}
+                      enterButton
+                      className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={fetchUnverified} loading={loadingUnverified}>Refresh</Button>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table
+                      rowKey="_id"
+                      loading={loadingUnverified}
+                      dataSource={filteredUnverified}
+                      columns={unverifiedColumns}
+                      pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10','20','50'] }}
+                    />
+                  </div>
+                </div>
+              )
+            }
+          ]} />
         </div>
 
         {/* Export Modal */}
@@ -1281,6 +1352,8 @@ export default function AdminResidentManagement() {
           okText="Export"
           okButtonProps={{ disabled: !exportHasData }}
           width={400}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
         >
           <Form form={exportForm} layout="vertical" initialValues={{ purokFilter: "all" }}>
             <Form.Item 
@@ -1610,6 +1683,8 @@ export default function AdminResidentManagement() {
           confirmLoading={importing}
           okText="Import"
           width={500}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
         >
           <Form form={importForm} layout="vertical">
             <Form.Item
@@ -1674,7 +1749,9 @@ export default function AdminResidentManagement() {
           open={addOpen}
           onCancel={() => { setAddOpen(false); setAddStep(0); }}
           width={900}
-          bodyStyle={{ padding: '24px 48px' }}
+          bodyStyle={{ padding: '16px 20px' }}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
           footer={[
             <Button key="cancel" onClick={() => { setAddOpen(false); setAddStep(0); }}>
               Cancel
@@ -1724,25 +1801,6 @@ export default function AdminResidentManagement() {
             className="mb-2"
           />
           <Form form={addForm} layout="vertical" className="compact-form">
-            <style jsx="true">{`
-              .compact-form .ant-form-item {
-                margin-bottom: 8px;
-              }
-              .compact-form .ant-form-item-label {
-                padding-bottom: 4px;
-              }
-              .compact-form .ant-form-item-explain {
-                min-height: 18px;
-              }
-              .form-row {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 0;
-              }
-              .form-row .ant-form-item {
-                flex: 1;
-              }
-            `}</style>
             
             {/* Step 1 - Personal */}
             <div style={{ display: addStep === 0 ? "block" : "none" }}>
@@ -1977,7 +2035,9 @@ export default function AdminResidentManagement() {
           open={editOpen}
           onCancel={() => { setEditOpen(false); setEditStep(0); }}
           width={900}
-          bodyStyle={{ padding: '24px 48px' }}
+          bodyStyle={{ padding: '16px 20px' }}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
           footer={[
             <Button key="cancel" onClick={() => { setEditOpen(false); setEditStep(0); }}>
               Cancel
@@ -2027,25 +2087,6 @@ export default function AdminResidentManagement() {
             className="mb-2"
           />
           <Form form={editForm} layout="vertical" className="compact-form">
-            <style jsx="true">{`
-              .compact-form .ant-form-item {
-                margin-bottom: 8px;
-              }
-              .compact-form .ant-form-item-label {
-                padding-bottom: 4px;
-              }
-              .compact-form .ant-form-item-explain {
-                min-height: 18px;
-              }
-              .form-row {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 0;
-              }
-              .form-row .ant-form-item {
-                flex: 1;
-              }
-            `}</style>
             
             {/* Step 1 - Personal */}
             <div style={{ display: editStep === 0 ? "block" : "none" }}>
@@ -2284,9 +2325,16 @@ export default function AdminResidentManagement() {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
         >
           {viewResident && (
-            <Descriptions bordered column={1} size="middle">
+            <Descriptions 
+              bordered 
+              column={{ xs: 1, sm: 1, md: 1, lg: 1, xl: 1, xxl: 1 }} 
+              size="small"
+              className="responsive-descriptions"
+            >
               <Descriptions.Item label="Full Name">
                 {[viewResident.firstName, viewResident.middleName, viewResident.lastName, viewResident.suffix].filter(Boolean).join(" ")}
               </Descriptions.Item>
@@ -2308,6 +2356,50 @@ export default function AdminResidentManagement() {
               <Descriptions.Item label="Email">{viewResident.contact?.email}</Descriptions.Item>
               {/* Address and Purok fields removed as requested */}
             </Descriptions>
+          )}
+        </Modal>
+        {/* Unverified View Modal */}
+        <Modal
+          title="Unverified Submission"
+          open={unverifiedViewOpen}
+          onCancel={() => { setUnverifiedViewOpen(false); setUnverifiedSelected(null); }}
+          footer={null}
+          className="responsive-modal"
+          centered
+          width={900}
+          style={{ maxWidth: '95vw' }}
+        >
+          {unverifiedSelected && (
+            <div className="space-y-4">
+              <Descriptions bordered column={{ xs:1, sm:1, md:2 }} size="small" className="responsive-descriptions">
+                <Descriptions.Item label="Full Name">{[unverifiedSelected.firstName, unverifiedSelected.middleName, unverifiedSelected.lastName, unverifiedSelected.suffix].filter(Boolean).join(' ')}</Descriptions.Item>
+                <Descriptions.Item label="Sex">{unverifiedSelected.sex}</Descriptions.Item>
+                <Descriptions.Item label="Birth Date">{unverifiedSelected.dateOfBirth ? new Date(unverifiedSelected.dateOfBirth).toLocaleDateString() : ''}</Descriptions.Item>
+                <Descriptions.Item label="Civil Status">{unverifiedSelected.civilStatus}</Descriptions.Item>
+                <Descriptions.Item label="Birth Place">{unverifiedSelected.birthPlace}</Descriptions.Item>
+                <Descriptions.Item label="Citizenship">{unverifiedSelected.citizenship}</Descriptions.Item>
+                <Descriptions.Item label="Occupation">{unverifiedSelected.occupation}</Descriptions.Item>
+                <Descriptions.Item label="Sectoral Info">{unverifiedSelected.sectoralInformation || 'None'}</Descriptions.Item>
+                <Descriptions.Item label="Employment Status">{unverifiedSelected.employmentStatus || 'Not Specified'}</Descriptions.Item>
+                <Descriptions.Item label="Registered Voter">{unverifiedSelected.registeredVoter ? 'Yes' : 'No'}</Descriptions.Item>
+                <Descriptions.Item label="Purok">{unverifiedSelected.address?.purok}</Descriptions.Item>
+                <Descriptions.Item label="Email">{unverifiedSelected.contact?.email || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Mobile">{unverifiedSelected.contact?.mobile || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Status">{unverifiedSelected.status}</Descriptions.Item>
+              </Descriptions>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="primary" loading={approving} onClick={() => approveUnverified(unverifiedSelected._id)}>Approve & Create Resident</Button>
+                <Popconfirm
+                  title="Reject submission?"
+                  description="This will permanently delete the unverified record."
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => rejectUnverified(unverifiedSelected._id)}
+                >
+                  <Button danger loading={rejecting}>Reject</Button>
+                </Popconfirm>
+                <Button onClick={() => { setUnverifiedViewOpen(false); setUnverifiedSelected(null); }}>Close</Button>
+              </div>
+            </div>
           )}
         </Modal>
       </div>

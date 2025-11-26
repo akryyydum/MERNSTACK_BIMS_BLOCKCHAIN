@@ -4,9 +4,22 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp } from "lucide-react";
 import { UserOutlined, FileTextOutlined, DeleteOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from '../../utils/apiClient';
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
+
+// Custom CSS for compact table rows
+const compactTableStyles = `
+  .compact-row td {
+    padding: 4px 8px !important;
+    line-height: 1.2 !important;
+  }
+  .compact-row .ant-btn-sm {
+    padding: 0px 7px !important;
+    height: 22px !important;
+    font-size: 12px !important;
+  }
+`;
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
@@ -187,20 +200,11 @@ export default function AdminFinancialReports() {
     validateExportData();
   }, [exportOpen, transactions]);
 
-  // Helper function for auth headers
-  const authHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
+
 
   const fetchDashboard = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/financial/dashboard`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.get('/api/admin/financial/dashboard');
       
       console.log('Dashboard data:', res.data);
       console.log('Revenue by type:', res.data.revenueByType);
@@ -217,10 +221,7 @@ export default function AdminFinancialReports() {
     try {
       console.log('Fetching transactions');
 
-      const res = await axios.get(
-        `${API_BASE}/api/admin/financial/transactions`,
-        { headers: authHeaders() }
-      );
+      const res = await apiClient.get('/api/admin/financial/transactions');
       
       console.log('Transactions fetched:', res.data.transactions?.length);
       const fetchedTransactions = (res.data.transactions || []).map((tx) => ({
@@ -245,9 +246,7 @@ export default function AdminFinancialReports() {
 
   const fetchResidents = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/residents`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.get('/api/admin/residents');
       const raw = res.data;
       const list = Array.isArray(raw) ? raw : (raw?.residents || raw?.data || []);
       if (!Array.isArray(list)) {
@@ -265,9 +264,7 @@ export default function AdminFinancialReports() {
 
   const fetchHouseholds = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/households`, {
-        headers: authHeaders()
-      });
+      const res = await apiClient.get('/api/admin/households');
       const list = Array.isArray(res.data) ? res.data : [];
       setHouseholds(list);
       console.log('Households loaded:', list.length);
@@ -334,9 +331,7 @@ export default function AdminFinancialReports() {
       }
       
       console.log('Creating transaction with values:', payload);
-      await axios.post(`${API_BASE}/api/admin/financial/transactions`, payload, {
-        headers: authHeaders()
-      });
+      await apiClient.post('/api/admin/financial/transactions', payload);
       
       console.log('Transaction created successfully, refreshing dashboard...');
       message.success('Transaction created successfully!');
@@ -478,10 +473,9 @@ export default function AdminFinancialReports() {
       setCreating(true);
       const values = await editForm.validateFields();
       
-      await axios.put(
-        `${API_BASE}/api/admin/financial/transactions/${editTransaction._id}`, 
-        values, 
-        { headers: authHeaders() }
+      await apiClient.put(
+        `/api/admin/financial/transactions/${editTransaction._id}`, 
+        values
       );
       
       message.success('Transaction updated successfully!');
@@ -559,7 +553,7 @@ export default function AdminFinancialReports() {
         console.log('Adding paymentIndex to delete URL:', paymentIndex);
       }
 
-      const response = await axios.delete(deleteUrl, { headers: authHeaders() });
+      const response = await apiClient.delete(deleteUrl);
       
       console.log('Delete response:', response.data);
       
@@ -607,10 +601,9 @@ export default function AdminFinancialReports() {
             return;
           }
 
-          const response = await axios.post(
-            `${API_BASE}/api/admin/financial/transactions/bulk-delete`,
-            { ids: uniqueKeys },
-            { headers: authHeaders() }
+          const response = await apiClient.post(
+            '/api/admin/financial/transactions/bulk-delete',
+            { ids: uniqueKeys }
           );
           
           console.log('Bulk delete response:', response.data); // Debug log
@@ -654,7 +647,6 @@ export default function AdminFinancialReports() {
   async function handleDeleteAllTransactions(groupRecord) {
     try {
       setDeletingId(groupRecord.__rowKey);
-      const token = localStorage.getItem('token');
       let successCount = 0;
       let failCount = 0;
 
@@ -662,14 +654,14 @@ export default function AdminFinancialReports() {
         try {
           // Utility synthesized payment (garbage/streetlight) entries
           if (tx.isUtilityPayment && tx.mongoId && tx.paymentIndex !== undefined) {
-            await axios.delete(`${API_BASE}/api/admin/financial/transactions/${tx.mongoId}?paymentIndex=${tx.paymentIndex}`, { headers: { Authorization: `Bearer ${token}` } });
+            await apiClient.delete(`/api/admin/financial/transactions/${tx.mongoId}?paymentIndex=${tx.paymentIndex}`);
             successCount++;
             continue;
           }
           // Real FinancialTransaction
           const isObjectId = typeof tx._id === 'string' && /^[0-9a-fA-F]{24}$/.test(tx._id);
           if (isObjectId) {
-            await axios.delete(`${API_BASE}/api/admin/financial/transactions/${tx._id}`, { headers: { Authorization: `Bearer ${token}` } });
+            await apiClient.delete(`/api/admin/financial/transactions/${tx._id}`);
             successCount++;
             continue;
           }
@@ -677,7 +669,7 @@ export default function AdminFinancialReports() {
           if (typeof tx._id === 'string' && tx._id.startsWith('document_')) {
             const docId = tx._id.replace('document_', '');
             if (/^[0-9a-fA-F]{24}$/.test(docId)) {
-              await axios.delete(`${API_BASE}/api/admin/document-requests/${docId}`, { headers: { Authorization: `Bearer ${token}` } });
+              await apiClient.delete(`/api/admin/document-requests/${docId}`);
               successCount++;
               continue;
             }
@@ -902,6 +894,7 @@ export default function AdminFinancialReports() {
 
   return (
     <AdminLayout>
+      <style>{compactTableStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         {/* Navbar */}
         <div>
@@ -911,110 +904,104 @@ export default function AdminFinancialReports() {
                 Financial Reports
               </span>
             </div>
-            <div className="flex items-center outline-1 outline-offset-1 outline-slate-300 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
+            
           </nav>
 
           {/* Statistics Section */}
           <div className="px-4 pb-1" key={dashboardRefreshKey}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-green-200">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-green-200">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-green-800">
+                  <CardTitle className="text-xs md:text-sm font-bold text-green-800">
                     Total Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-green-600 text-xs font-semibold">
-                    <TrendingUp className="h-4 w-4" />
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-700">
+                  <div className="text-xl md:text-3xl font-bold text-green-700">
                     ₱{totalRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-red-200">
+              <Card className="bg-red-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2 border-red-200">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-red-800">
+                  <CardTitle className="text-xs md:text-sm font-bold text-red-800">
                     Total Expenses
                   </CardTitle>
                   <div className="flex items-center gap-1 text-red-600 text-xs font-semibold">
-                    <TrendingUp className="h-4 w-4 rotate-180" />
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4 rotate-180" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-red-700">
+                  <div className="text-xl md:text-3xl font-bold text-red-700">
                     ₱{totalExpenses.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2`}>
+              <Card className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg border-2`}>
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className={`text-sm font-bold ${balance >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
+                  <CardTitle className={`text-xs md:text-sm font-bold ${balance >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>
                     Net Balance
                   </CardTitle>
                   <div className={`flex items-center gap-1 ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-xs font-semibold`}>
-                    <DollarSign className="h-4 w-4" />
+                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-3xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                  <div className={`text-xl md:text-3xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
                     ₱{balance.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">Revenue - Expenses</div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Document Request Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <FileTextOutlined className="h-4 w-4" />
+                    <FileTextOutlined className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     ₱{documentRequestRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Garbage Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <TrendingUp className="h-4 w-4" />
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     ₱{garbageFeeRevenue.toLocaleString()}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Streetlight Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <DollarSign className="h-4 w-4" />
+                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     ₱{streetlightFeeRevenue.toLocaleString()}
                   </div>
                 </CardContent>
@@ -1046,9 +1033,9 @@ export default function AdminFinancialReports() {
         {/* Transactions Table Section */}
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
-          <div className="mb-4 flex flex-row justify-between items-center gap-2">
-            <div className="flex gap-2 flex-grow">
-              <div className="flex-shrink-0" style={{ width: '350px' }}>
+          <div className="mb-4 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-2">
+            <div className="flex flex-col md:flex-row gap-2 flex-grow">
+              <div className="flex-grow md:flex-shrink-0 md:w-auto" style={{ maxWidth: '350px' }}>
                 <Input.Search
                   allowClear
                   placeholder="Search for Resident"
@@ -1063,7 +1050,7 @@ export default function AdminFinancialReports() {
                 allowClear
                 value={feeTypeFilter}
                 onChange={setFeeTypeFilter}
-                style={{ width: 200 }}
+                className="w-full md:w-[200px]"
                 options={[
                   { label: 'Document Request Fee', value: 'document_request' },
                   { label: 'Garbage Fee', value: 'garbage_fee' },
@@ -1072,16 +1059,18 @@ export default function AdminFinancialReports() {
                 ]}
               />
             </div>
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex flex-col md:flex-row gap-2 md:flex-shrink-0">
               <Button 
                 type="primary"
                 onClick={() => { fetchResidents(); fetchHouseholds(); setCreateOpen(true); }}
+                className="financial-action-btn"
               >
                 + Add Transaction
               </Button>
               <Button 
                 loading={exporting}
                 onClick={() => setExportOpen(true)}
+                className="financial-action-btn"
               >
                 Export to Excel
               </Button>
@@ -1115,8 +1104,12 @@ export default function AdminFinancialReports() {
                       },
                     }}
                     rowKey={(tx) => tx.__rowKey ?? tx._id ?? getTransactionKey(tx)}
-                    size="medium"
+                    size="small"
                     className="ml-8"
+                    style={{ 
+                      fontSize: '12px',
+                    }}
+                    rowClassName={() => 'compact-row'}
                   />
                 ),
                 rowExpandable: (record) => record.transactions && record.transactions.length > 0,
@@ -1153,10 +1146,13 @@ export default function AdminFinancialReports() {
           confirmLoading={exporting}
           okButtonProps={{ disabled: !exportHasData }}
           width={600}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Form 
             form={exportForm} 
             layout="vertical"
+            className="financial-responsive-form"
             initialValues={{ 
               exportTypes: ['all'],
               year: dayjs().year(),
@@ -1343,6 +1339,8 @@ export default function AdminFinancialReports() {
           onOk={handleCreateTransaction}
           confirmLoading={creating}
           width={700}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
             message="Add Financial Transaction"
@@ -1352,7 +1350,7 @@ export default function AdminFinancialReports() {
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
-          <Form form={createForm} layout="vertical" initialValues={{ paymentMethod: 'Cash', category: 'revenue' }}>
+          <Form form={createForm} layout="vertical" className="financial-responsive-form" initialValues={{ paymentMethod: 'Cash', category: 'revenue' }}>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>
@@ -1496,6 +1494,8 @@ export default function AdminFinancialReports() {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           {viewTransaction && (
             <Descriptions bordered column={1}>
@@ -1535,6 +1535,8 @@ export default function AdminFinancialReports() {
           onOk={handleEditTransaction}
           confirmLoading={creating}
           width={700}
+          className="financial-modal-responsive"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
             message="Edit Financial Transaction"
@@ -1544,7 +1546,7 @@ export default function AdminFinancialReports() {
             className="mb-4"
           />
           <div style={{ marginBottom: 16 }} />
-          <Form form={editForm} layout="vertical">
+          <Form form={editForm} layout="vertical" className="financial-responsive-form">
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="category" label="Category" rules={[{ required: true, message: 'Please select a category' }]}>

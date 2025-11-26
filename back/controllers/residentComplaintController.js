@@ -1,5 +1,6 @@
 const Complaint = require('../models/complaint.model');
 const Resident = require('../models/resident.model');
+const { notifyComplaintCreated } = require('./adminNotificationController');
 
 // Get complaints for the authenticated resident (fallback resolve residentId if missing in token)
 exports.getMyComplaints = async (req, res) => {
@@ -67,7 +68,18 @@ exports.createComplaint = async (req, res) => {
     const populated = await Complaint.findById(complaint._id)
       .populate('residentId')
       .populate('resolvedBy', 'username');
+    
+    // Notify admins about the new complaint
+    try {
+      const residentDoc = await Resident.findById(residentId);
+      await notifyComplaintCreated(complaint, residentDoc);
+    } catch (notifErr) {
+      console.warn('Failed to notify admins about complaint:', notifErr.message);
+      // Non-blocking: complaint is still created
+    }
+    
     res.status(201).json(populated);
+    
   } catch (error) {
     console.error('Error creating complaint:', error);
     if (error.name === 'ValidationError') {

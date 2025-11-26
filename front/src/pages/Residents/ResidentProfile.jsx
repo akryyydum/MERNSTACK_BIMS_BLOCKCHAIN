@@ -1,4 +1,18 @@
+// Custom hook to detect if screen is mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false
+  );
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return isMobile;
+}
 import React, { useState, useEffect } from 'react';
+
+
 import { Descriptions, Typography, Layout, message, Spin, Avatar, Input, Select, DatePicker, Button, Alert } from 'antd';
 import { 
   UserOutlined, 
@@ -15,7 +29,7 @@ import {
 } from '@ant-design/icons';
 import ResidentNavbar from './ResidentNavbar';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import axios from 'axios';
+import apiClient from '@/utils/apiClient';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -34,6 +48,7 @@ const ResidentProfile = () => {
   const [usernameTaken, setUsernameTaken] = useState(false);
   const [allResidents, setAllResidents] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchProfile();
@@ -44,11 +59,8 @@ const ResidentProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/resident/profile');
       setProfile(response.data);
       setEditedProfile(response.data);
     } catch (error) {
@@ -61,10 +73,7 @@ const ResidentProfile = () => {
 
   const fetchAllResidents = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/residents?limit=10000`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/admin/residents?limit=10000');
       setAllResidents(response.data.items || []);
     } catch (error) {
       console.error('Error fetching residents:', error);
@@ -73,10 +82,7 @@ const ResidentProfile = () => {
 
   const fetchAllUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/users?limit=10000`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/admin/users?limit=10000');
       setAllUsers(response.data.items || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -180,7 +186,6 @@ const ResidentProfile = () => {
 
     try {
       setSaving(true);
-      const token = localStorage.getItem('token');
       
       // Prepare payload with only updatable fields
       const payload = {
@@ -213,12 +218,9 @@ const ResidentProfile = () => {
         }
       };
       
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/profile`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      const response = await apiClient.put(
+        '/api/resident/profile',
+        payload
       );
       
       const updatedResident = response.data.resident;
@@ -423,9 +425,9 @@ const ResidentProfile = () => {
     return (
       <div>
         <ResidentNavbar />
-        <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center min-h-[400px]">
-            <Spin size="large" />
+        <main className="mx-auto w-full max-w-9xl space-y-3 px-2 py-3 sm:space-y-8 sm:px-4 sm:py-6 lg:px-8">
+          <div className="flex justify-center items-center min-h-[200px] sm:min-h-[400px]">
+            <Spin size="small" className="sm:size-large" />
           </div>
         </main>
       </div>
@@ -436,10 +438,10 @@ const ResidentProfile = () => {
     return (
       <div>
         <ResidentNavbar />
-        <main className="mx-auto w-full max-w-9xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-9xl space-y-3 px-2 py-3 sm:space-y-8 sm:px-4 sm:py-6 lg:px-8">
           <Card className="w-full">
-            <CardContent className="text-center py-12">
-              <Title level={3}>Profile not found</Title>
+            <CardContent className="text-center py-6 sm:py-12">
+              <Title level={3} className="text-sm sm:text-2xl">Profile not found</Title>
             </CardContent>
           </Card>
         </main>
@@ -465,36 +467,39 @@ const ResidentProfile = () => {
                     : 'View your complete resident profile information, contact details, and account status.'}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex sm:flex-row flex-col gap-2 sm:items-center items-stretch w-full sm:w-auto">
                 {!isEditing ? (
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<EditOutlined />}
                     onClick={handleEdit}
                     size="large"
+                    className="text-base px-4 h-10 min-w-[120px] w-full sm:w-auto sm:px-6"
                   >
                     Edit Profile
                   </Button>
                 ) : (
-                  <>
-                    <Button 
+                  <div className="flex sm:flex-row flex-col gap-2 w-full sm:w-auto">
+                    <Button
                       icon={<CloseOutlined />}
                       onClick={handleCancel}
                       size="large"
                       disabled={saving}
+                      className="text-base px-4 h-10 min-w-[120px] w-full sm:w-auto sm:px-6"
                     >
                       Cancel
                     </Button>
-                    <Button 
+                    <Button
                       type="primary"
                       icon={<SaveOutlined />}
                       onClick={handleSave}
                       size="large"
                       loading={saving}
+                      className="text-base px-4 h-10 min-w-[120px] w-full sm:w-auto sm:px-6"
                     >
                       Save Changes
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
             </div>

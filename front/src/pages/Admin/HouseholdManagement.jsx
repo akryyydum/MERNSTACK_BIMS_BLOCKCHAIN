@@ -4,10 +4,94 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined, FileExcelOutlined, FilterOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from '../../utils/apiClient';
 import * as XLSX from 'xlsx';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
+
+// Responsive styles for modals and table
+const responsiveStyles = `
+  @media (max-width: 768px) {
+    .household-modal .ant-modal {
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px auto !important;
+    }
+    
+    .household-modal .ant-modal-content {
+      padding: 12px !important;
+    }
+    
+    .household-modal .ant-modal-header {
+      padding: 12px 16px !important;
+    }
+    
+    .household-modal .ant-modal-body {
+      padding: 16px !important;
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+    
+    .household-modal .ant-modal-footer {
+      padding: 10px 16px !important;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .household-modal .ant-modal-footer .ant-btn {
+      margin: 0 !important;
+      flex: 1 1 auto;
+      min-width: 80px !important;
+    }
+    
+    .household-modal .ant-form-item {
+      margin-bottom: 12px !important;
+    }
+    
+    .household-modal .ant-form-item-label > label {
+      font-size: 13px !important;
+    }
+    
+    .household-modal .ant-input,
+    .household-modal .ant-select-selector {
+      font-size: 13px !important;
+    }
+    
+    .household-modal .ant-alert {
+      font-size: 12px !important;
+      padding: 8px 12px !important;
+    }
+    
+    .household-modal .ant-alert-message {
+      font-size: 13px !important;
+      margin-bottom: 4px !important;
+    }
+    
+    .household-modal .ant-alert-description {
+      font-size: 11px !important;
+    }
+    
+    .household-modal .ant-descriptions-item-label,
+    .household-modal .ant-descriptions-item-content {
+      font-size: 12px !important;
+      padding: 8px !important;
+    }
+    
+    /* Removed custom mobile table font sizing to mirror AdminBlockchainNetwork default responsiveness */
+  }
+  
+  @media (max-width: 640px) {
+    .household-modal .ant-modal {
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px !important;
+      top: 16px !important;
+    }
+    
+    .household-modal .ant-modal-body {
+      max-height: calc(100vh - 160px);
+    }
+  }
+`;
 
 export default function HouseholdManagement() {
   const [loading, setLoading] = useState(false);
@@ -79,13 +163,11 @@ export default function HouseholdManagement() {
     validateExportData();
   }, [exportOpen, households, exportForm]);
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  });
+
 
   const fetchResidents = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/api/admin/residents`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/residents');
       setResidents(res.data || []);
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to load residents");
@@ -95,7 +177,7 @@ export default function HouseholdManagement() {
   const fetchHouseholds = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/api/admin/households`, { headers: authHeaders() });
+      const res = await apiClient.get('/api/admin/households');
       console.log("Households response:", res.data);
       // Handle both array and object responses
       let data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
@@ -134,7 +216,7 @@ export default function HouseholdManagement() {
         hasBusiness: values.hasBusiness || false,
         businessType: values.businessType || null,
       };
-      await axios.post(`${API_BASE}/api/admin/households`, payload, { headers: authHeaders() });
+      await apiClient.post('/api/admin/households', payload);
       message.success("Household added!");
       setAddOpen(false);
       addForm.resetFields();
@@ -189,7 +271,7 @@ export default function HouseholdManagement() {
         hasBusiness: values.hasBusiness || false,
         businessType: values.businessType || null,
       };
-      await axios.patch(`${API_BASE}/api/admin/households/${selectedHousehold._id}`, payload, { headers: authHeaders() });
+      await apiClient.patch(`/api/admin/households/${selectedHousehold._id}`, payload);
       message.success("Household updated!");
       setEditOpen(false);
       fetchHouseholds();
@@ -203,7 +285,7 @@ export default function HouseholdManagement() {
   // Delete Household
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API_BASE}/api/admin/households/${id}`, { headers: authHeaders() });
+      await apiClient.delete(`/api/admin/households/${id}`);
       message.success("Household deleted!");
       fetchHouseholds();
     } catch (err) {
@@ -222,7 +304,7 @@ export default function HouseholdManagement() {
       // Delete households one by one
       await Promise.all(
         selectedRowKeys.map(id =>
-          axios.delete(`${API_BASE}/api/admin/households/${id}`, { headers: authHeaders() })
+          apiClient.delete(`/api/admin/households/${id}`)
         )
       );
       
@@ -553,9 +635,9 @@ export default function HouseholdManagement() {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
-        <div className="flex gap-2">
-          <Button size="small" onClick={() => openView(r)}>View</Button>
-          <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
+        <div className="flex flex-wrap gap-1 md:gap-2">
+          <Button size="small" onClick={() => openView(r)} className="text-xs">View</Button>
+          <Button size="small" onClick={() => openEdit(r)} className="text-xs">Edit</Button>
           <Popconfirm
             title="Delete household?"
             description="This action cannot be undone."
@@ -563,7 +645,7 @@ export default function HouseholdManagement() {
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(r._id)}
           >
-            <Button danger size="small">Delete</Button>
+            <Button danger size="small" className="text-xs">Delete</Button>
           </Popconfirm>
         </div>
       ),
@@ -674,6 +756,7 @@ export default function HouseholdManagement() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{responsiveStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300">
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -682,19 +765,14 @@ export default function HouseholdManagement() {
                 Household Management
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
           </nav>
+          {/* Statistics Section - Copied from User Management, adapted for households */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            {/* Row 1: Total Households, Total Members, Avg. Household Size, Single Member, Family Households */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Households
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -703,14 +781,14 @@ export default function HouseholdManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {totalHouseholds}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Members
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -719,14 +797,14 @@ export default function HouseholdManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {totalMembers}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Avg. Household Size
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -735,14 +813,14 @@ export default function HouseholdManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {avgHouseholdSize}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Single Member
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -751,14 +829,14 @@ export default function HouseholdManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {singleMemberHouseholds}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-10 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 md:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Family Households
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -767,73 +845,72 @@ export default function HouseholdManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {familyHouseholds}
                   </div>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Second Row: Purok Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
-              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            {/* Row 2: Purok Statistics - 5 cols on desktop, 2 cols on mobile/tablet */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mt-3 md:mt-4">
+              <Card className="bg-blue-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 1</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 1</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok1Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok1Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok1Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-green-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 2</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 2</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok2Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok2Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok2Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-yellow-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 3</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 3</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok3Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok3Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok3Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-purple-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 4</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 4</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok4Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok4Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok4Count}</div>
                 </CardContent>
               </Card>
-              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-pink-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 lg:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">Purok 5</CardTitle>
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">Purok 5</CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
                     <ArrowUpRight className="h-3 w-3" />
                     {purok5Count}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">{purok5Count}</div>
+                  <div className="text-2xl md:text-3xl font-bold text-black">{purok5Count}</div>
                 </CardContent>
               </Card>
             </div>
@@ -842,8 +919,8 @@ export default function HouseholdManagement() {
         {/* Table Section */}
         <div className="bg-white rounded-2xl p-4 space-y-4">
           <hr className="border-t border-gray-300" />
-          <div className="flex flex-col md:flex-row flex-wrap gap-2 md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <Input.Search
                 allowClear
                 placeholder="Search for Households"
@@ -851,100 +928,114 @@ export default function HouseholdManagement() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 enterButton
-                className="w-full sm:min-w-[350px] md:min-w-[500spx] max-w-full"
+                className="w-full md:min-w-[350px] lg:min-w-[500px]"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="primary"
-                onClick={() => {
-                  addForm.resetFields();
-                  setAddOpen(true);
-                }}
-              >
-                + Add Household
-              </Button>
-              <Button 
-                onClick={() => setExportOpen(true)}
-              >
-                Export Excel
-              </Button>
-
-              {!selectAllClicked && (
-                <Button 
-                  onClick={handleSelectAll}
+            <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full md:w-auto">
+              {/* First Row - Primary Actions (Mobile: Full Width) */}
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    addForm.resetFields();
+                    setAddOpen(true);
+                  }}
+                  className="text-xs md:text-sm flex-1 md:flex-initial"
                 >
-                  Select All ({filteredHouseholds.length})
+                  + Add Household
                 </Button>
-              )}
+                <Button 
+                  onClick={() => setExportOpen(true)}
+                  className="text-xs md:text-sm flex-1 md:flex-initial"
+                >
+                  Export Excel
+                </Button>
+              </div>
 
-              {selectedRowKeys.length > 0 && (
-                <>
-                  <Button onClick={handleClearSelection}>
-                    Undo Selection
-                  </Button>
-                  <Popconfirm
-                    title={`Delete ${selectedRowKeys.length} household(s)?`}
-                    description="This action cannot be undone."
-                    okButtonProps={{ danger: true }}
-                    onConfirm={handleBulkDelete}
+              {/* Second Row - Secondary Actions (Mobile: Full Width) */}
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                {!selectAllClicked && selectedRowKeys.length === 0 && (
+                  <Button 
+                    onClick={handleSelectAll}
+                    className="text-xs md:text-sm flex-1 md:flex-initial"
                   >
-                    <Button danger>
-                      Delete Selected ({selectedRowKeys.length})
+                    Select All ({filteredHouseholds.length})
+                  </Button>
+                )}
+
+                {(selectAllClicked || selectedRowKeys.length > 0) && (
+                  <>
+                    <Button onClick={handleClearSelection} className="text-xs md:text-sm flex-1 md:flex-initial">
+                      Undo Selection
                     </Button>
-                  </Popconfirm>
-                </>
-              )}
+                    <Popconfirm
+                      title={`Delete ${selectedRowKeys.length} household(s)?`}
+                      description="This action cannot be undone."
+                      okButtonProps={{ danger: true }}
+                      onConfirm={handleBulkDelete}
+                    >
+                      <Button danger className="text-xs md:text-sm flex-1 md:flex-initial">
+                        Delete Selected ({selectedRowKeys.length})
+                      </Button>
+                    </Popconfirm>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
-            <Table
-              rowKey="_id"
-              loading={loading}
-              dataSource={filteredHouseholds}
-              columns={columns}
-              rowSelection={{
-                selectedRowKeys,
-                onChange: onSelectChange,
-                onSelectAll: onSelectAll,
-                type: 'checkbox',
-                getCheckboxProps: (record) => ({
-                  name: record.householdId,
-                }),
-                selections: [
-                  {
-                    key: 'all-pages',
-                    text: 'Select All Pages',
-                    onSelect: () => {
-                      handleSelectAll();
+            <div>
+              <Table
+                rowKey="_id"
+                loading={loading}
+                dataSource={filteredHouseholds}
+                columns={columns}
+                rowSelection={{
+                  selectedRowKeys,
+                  onChange: onSelectChange,
+                  onSelectAll: onSelectAll,
+                  type: 'checkbox',
+                  getCheckboxProps: (record) => ({
+                    name: record.householdId,
+                  }),
+                  selections: [
+                    {
+                      key: 'all-pages',
+                      text: 'Select All Pages',
+                      onSelect: () => {
+                        handleSelectAll();
+                      },
                     },
-                  },
-                  {
-                    key: 'clear-all',
-                    text: 'Clear All',
-                    onSelect: () => {
-                      handleClearSelection();
+                    {
+                      key: 'clear-all',
+                      text: 'Clear All',
+                      onSelect: () => {
+                        handleClearSelection();
+                      },
                     },
-                  },
-                ],
-              }}
-              pagination={{ 
-                current: currentPage,
-                pageSize: pageSize,
-                total: filteredHouseholds.length,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
-                pageSizeOptions: ['10', '20', '50', '100'],
-              }}
-              onChange={handleTableChange}
-              scroll={{ x: 800 }}
-              expandable={{
-                expandedRowRender: record => renderHouseholdMembers(record),
-                rowExpandable: record => record.members?.length > 0,
-                expandRowByClick: true,
-              }}
-            />
+                  ],
+                }}
+                pagination={{ 
+                  current: currentPage,
+                  pageSize: pageSize,
+                  total: filteredHouseholds.length,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
+                  pageSizeOptions: ['10', '20', '50', '100'],
+                  responsive: true,
+                  className: "text-xs md:text-sm"
+                }}
+                onChange={handleTableChange}
+                scroll={{ x: 800 }}
+                expandable={{
+                  expandedRowRender: record => renderHouseholdMembers(record),
+                  rowExpandable: record => record.members?.length > 0,
+                  expandRowByClick: true,
+                }}
+                className="household-table"
+              />
+            </div>
           </div>
         </div>
         {/* Add Household Modal */}
@@ -956,15 +1047,17 @@ export default function HouseholdManagement() {
           confirmLoading={creating}
           okText="Add"
           width={600}
+          className="household-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
             message="Create New Household"
             description="Select a head of household and add household members. Only residents not yet assigned to any household will appear in the lists. You can also include business information if applicable."
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-2 md:mb-4"
           />
-          <div style={{ marginBottom: 16 }} />
+          <div style={{ marginBottom: 8 }} />
           <Form form={addForm} layout="vertical">
             {/* Head of Household (only unassigned residents) */}
             <Form.Item name="headOfHousehold" label="Head of Household" rules={[{ required: true, message: 'Please select the head of household' }]}>
@@ -1043,15 +1136,17 @@ export default function HouseholdManagement() {
           confirmLoading={editing}
           okText="Save"
           width={600}
+          className="household-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Alert
             message="Edit Household Information"
             description="Update the household head, members, address, and business details. You can reassign members between households or mark a household as having only the head with no additional members."
             type="info"
             showIcon
-            className="mb-4"
+            className="mb-2 md:mb-4"
           />
-          <div style={{ marginBottom: 16 }} />
+          <div style={{ marginBottom: 8 }} />
           <Form form={editForm} layout="vertical">
             <Form.Item label="Household ID" name="householdId">
               <Input disabled />
@@ -1128,9 +1223,11 @@ export default function HouseholdManagement() {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          className="household-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           {viewHousehold && (
-            <Descriptions bordered column={1} size="middle">
+            <Descriptions bordered column={1} size="small" className="text-xs md:text-sm">
               <Descriptions.Item label="Household ID">{viewHousehold.householdId}</Descriptions.Item>
               <Descriptions.Item label="Head of Household">
                 {(() => {
@@ -1145,16 +1242,16 @@ export default function HouseholdManagement() {
                 {viewHousehold.members?.length || 0}
               </Descriptions.Item>
               <Descriptions.Item label="Members">
-                <ul className="list-disc pl-5">
+                <ul className="list-disc pl-4 md:pl-5">
                   {(viewHousehold.members || []).map(m => {
                     const id = m?._id || m;
                     const mObj = (typeof m === "object" ? m : residents.find(r => r._id === id)) || {};
                     const headId = viewHousehold.headOfHousehold?._id || viewHousehold.headOfHousehold;
                     return (
-                      <li key={id}>
+                      <li key={id} className="text-xs md:text-sm py-0.5">
                         {fullName(mObj) || "Unknown Member"}
                         {id === headId && (
-                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                          <span className="ml-1 md:ml-2 text-xs bg-blue-100 text-blue-800 px-1.5 md:px-2 py-0.5 rounded-full">
                             Head of Household
                           </span>
                         )}
@@ -1205,6 +1302,8 @@ export default function HouseholdManagement() {
           okText="Export"
           okButtonProps={{ disabled: !exportHasData }}
           width={500}
+          className="household-modal"
+          style={{ maxWidth: 'calc(100vw - 32px)' }}
         >
           <Form form={exportForm} layout="vertical">
             <Form.Item
@@ -1303,15 +1402,15 @@ export default function HouseholdManagement() {
             </Form.Item>
 
             {!exportHasData && (
-              <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200 mb-3">
+              <div className="text-xs md:text-sm text-amber-600 bg-amber-50 p-2 md:p-3 rounded border border-amber-200 mb-2 md:mb-3">
                 <p className="font-semibold">No data matches the selected filters</p>
                 <p className="text-xs mt-1">Please adjust your filter criteria to export data.</p>
               </div>
             )}
 
-            <div className="text-sm text-gray-500 mt-2">
+            <div className="text-xs md:text-sm text-gray-500 mt-2">
               <strong>Export Format:</strong>
-              <ul className="list-disc ml-5 mt-2">
+              <ul className="list-disc ml-4 md:ml-5 mt-1 md:mt-2 space-y-0.5">
                 <li>Household ID, Purok, Role</li>
                 <li>Personal Information (Last Name, First Name, Middle Name, Suffix)</li>
                 <li>Place of Birth, Date of Birth, Age</li>
@@ -1329,9 +1428,9 @@ export default function HouseholdManagement() {
                     const totalMembers = purokHouseholds.reduce((acc, h) => acc + (h.members?.length || 0), 0);
                     
                     return (
-                      <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                        <strong className="text-blue-800">Selected Purok Summary:</strong>
-                        <div className="text-sm mt-1">
+                      <div className="mt-2 md:mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                        <strong className="text-blue-800 text-xs md:text-sm">Selected Purok Summary:</strong>
+                        <div className="text-xs md:text-sm mt-1">
                           <div>Households: {purokHouseholds.length}</div>
                           <div>Total Members: {totalMembers}</div>
                         </div>
@@ -1342,9 +1441,9 @@ export default function HouseholdManagement() {
                   if (exportType === 'all') {
                     const totalMembers = households.reduce((acc, h) => acc + (h.members?.length || 0), 0);
                     return (
-                      <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                        <strong className="text-blue-800">All Households Summary:</strong>
-                        <div className="text-sm mt-1">
+                      <div className="mt-2 md:mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                        <strong className="text-blue-800 text-xs md:text-sm">All Households Summary:</strong>
+                        <div className="text-xs md:text-sm mt-1">
                           <div>Total Households: {households.length}</div>
                           <div>Total Members: {totalMembers}</div>
                         </div>

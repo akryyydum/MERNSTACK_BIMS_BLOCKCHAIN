@@ -1,12 +1,68 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Button, Input, Select, Tag, Switch, Modal, Form, message, Popconfirm, Alert } from "antd";
 import { AdminLayout } from "./AdminSidebar";
+import apiClient from "../../utils/apiClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight } from "lucide-react"
 import { UserOutlined } from "@ant-design/icons";
 
 const { Search } = Input;
 const { Option } = Select;
+
+// Add responsive styles for modals
+const modalStyles = `
+  @media (max-width: 768px) {
+    .user-modal-responsive .ant-modal-header {
+      padding: 12px 16px;
+    }
+    .user-modal-responsive .ant-modal-title {
+      font-size: 16px;
+    }
+    .user-modal-responsive .ant-modal-footer {
+      padding: 10px 16px !important;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .user-modal-responsive .ant-modal-footer .ant-btn {
+      margin: 0 !important;
+      flex: 1 1 auto;
+      min-width: 80px !important;
+    }
+    .responsive-form .ant-form-item-label > label {
+      font-size: 13px;
+    }
+    .responsive-form .ant-form-item-explain,
+    .responsive-form .ant-form-item-extra {
+      font-size: 11px;
+    }
+    .ant-alert-icon {
+      font-size: 16px;
+    }
+    .create-user-btn {
+      width: 100% !important;
+      min-width: 0 !important;
+      margin-top: 4px;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .user-modal-responsive .ant-modal {
+      max-width: calc(100vw - 16px) !important;
+      margin: 8px !important;
+      top: 16px !important;
+    }
+    
+    .user-modal-responsive .ant-modal-body {
+      max-height: calc(100vh - 160px);
+    }
+    .create-user-btn {
+      width: 100% !important;
+      min-width: 0 !important;
+      margin-top: 4px;
+    }
+  }
+`;
 
 export default function AdminUserManagement() {
   const [loading, setLoading] = useState(false);
@@ -48,22 +104,12 @@ export default function AdminUserManagement() {
     ],
   };
 
-  const API_BASE = import.meta?.env?.VITE_API_URL || "http://localhost:4000";
-  const token = localStorage.getItem("token");
-  const authHeaders = useMemo(
-    () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
-    [token]
-  );
-
   const fetchUsers = async () => {
     setLoading(true);
     try {
       // Fetch all users without pagination (like resident management)
-      const res = await fetch(`${API_BASE}/api/admin/users?limit=1000`, {
-        headers: authHeaders,
-      });
-      if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
-      const data = await res.json();
+      const res = await apiClient.get('/api/admin/users?limit=1000');
+      const data = res.data;
       setUsers(data.items || []);
       setAllUsers(data.items || []);
       setTotal(data.total || (data.items || []).length);
@@ -88,75 +134,44 @@ export default function AdminUserManagement() {
 
   const handleRoleChange = async (userId, nextRole) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({ role: nextRole }),
-      });
-      if (!res.ok) throw new Error("Failed to update role");
+      await apiClient.patch(`/api/admin/users/${userId}`, { role: nextRole });
       message.success("Role updated");
       fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update role");
     }
   };
 
   const handleToggleActive = async (userId, next) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({ 
-          isActive: next
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to update active status");
+      await apiClient.patch(`/api/admin/users/${userId}`, { isActive: next });
       message.success(next ? "User activated!" : "User deactivated!");
       fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update active status");
     }
   };
 
   const handleToggleStatus = async (userId, next) => {
     try {
-      const payload = { 
-        residentStatus: next ? "verified" : "pending"
-      };
-      console.log('Sending status update:', payload);
-      
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify(payload),
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('Status update error:', errorData);
-        throw new Error(errorData.message || "Failed to update status");
-      }
-      
+      const payload = { residentStatus: next ? "verified" : "pending" };
+      await apiClient.patch(`/api/admin/users/${userId}`, payload);
       message.success(next ? "User verified!" : "User set to pending!");
       fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update status");
     }
   };
 
   const handleDelete = async (userId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      });
-      if (!res.ok) throw new Error("Failed to delete user");
+      await apiClient.delete(`/api/admin/users/${userId}`);
       message.success("User deleted");
       // adjust page if last item removed
       if (users.length === 1 && currentPage > 1) setCurrentPage(currentPage - 1);
       else fetchUsers();
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to delete user");
     }
   };
 
@@ -173,14 +188,10 @@ export default function AdminUserManagement() {
   const fetchUnlinkedResidents = async () => {
     setLoadingUnlinked(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/residents?unlinked=true`, {
-        headers: authHeaders,
-      });
-      if (!res.ok) throw new Error("Failed to load residents without account");
-      const data = await res.json();
-      setUnlinkedResidents(data || []);
+      const res = await apiClient.get('/api/admin/residents?unlinked=true');
+      setUnlinkedResidents(res.data || []);
     } catch (e) {
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to load residents without account");
     } finally {
       setLoadingUnlinked(false);
     }
@@ -228,21 +239,13 @@ export default function AdminUserManagement() {
         residentStatus: 'verified', // Automatically verified when created by admin
       };
 
-      const res = await fetch(`${API_BASE}/api/admin/users`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to create user");
-      }
+      await apiClient.post('/api/admin/users', payload);
       message.success("User created");
       setCreateOpen(false);
       fetchUsers();
     } catch (e) {
       if (e?.errorFields) return;
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to create user");
     } finally {
       setCreating(false);
     }
@@ -283,25 +286,16 @@ export default function AdminUserManagement() {
       setChangingPassword(true);
 
       // Change to new password (admin can change without current password)
-      const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}/change-password`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          newPassword: values.newPassword,
-        }),
+      await apiClient.post(`/api/admin/users/${editingUser._id}/change-password`, {
+        newPassword: values.newPassword,
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to change password");
-      }
 
       message.success("Password changed successfully");
       setChangePasswordOpen(false);
       changePasswordForm.resetFields();
     } catch (e) {
       if (e?.errorFields) return;
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to change password");
     } finally {
       setChangingPassword(false);
     }
@@ -355,33 +349,25 @@ export default function AdminUserManagement() {
       setUsernameTaken(false);
       setEmailTaken(false);
       setMobileTaken(false);
-      const res = await fetch(`${API_BASE}/api/admin/users/${editingUser._id}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({
-          fullName: values.fullName,
-          username: values.username,
-          role: values.role,
-          isActive: values.isActive,
-          isVerified: values.isVerified,
-          residentStatus: values.residentStatus,
-          contact: {
-            email: values.contact?.email,
-            mobile: values.contact?.mobile,
-          },
-        }),
+      await apiClient.patch(`/api/admin/users/${editingUser._id}`, {
+        fullName: values.fullName,
+        username: values.username,
+        role: values.role,
+        isActive: values.isActive,
+        isVerified: values.isVerified,
+        residentStatus: values.residentStatus,
+        contact: {
+          email: values.contact?.email,
+          mobile: values.contact?.mobile,
+        },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to update user");
-      }
       message.success("User updated");
       setEditOpen(false);
       setEditingUser(null);
       fetchUsers();
     } catch (e) {
       if (e?.errorFields) return;
-      message.error(e.message);
+      message.error(e.response?.data?.message || e.message || "Failed to update user");
     } finally {
       setSavingEdit(false);
     }
@@ -572,6 +558,7 @@ export default function AdminUserManagement() {
 
   return (
     <AdminLayout title="Admin">
+      <style>{modalStyles}</style>
       <div className="space-y-4 px-2 md:px-1 bg-white rounded-2xl outline outline-offset-1 outline-slate-300 " >
         <div>
           <nav className="px-5 h-20 flex items-center justify-between p-15">
@@ -580,21 +567,15 @@ export default function AdminUserManagement() {
                 User Management
               </span>
             </div>
-            <div className="flex items-center outline outline-1 rounded-2xl p-5 gap-3">
-              <UserOutlined className="text-2xl text-blue-600" />
-              <div className="flex flex-col items-start">
-                <span className="font-semibold text-gray-700">{userProfile.fullName || "Administrator"}</span>
-                <span className="text-xs text-gray-500">{username}</span>
-              </div>
-            </div>
+           
           </nav>
           {/* Statistics Section */}
           <div className="px-4 pb-4">
             {/* Row 1: Total Users, Total Officials, Total Residents, Verified Users */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -603,14 +584,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Officials
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -619,14 +600,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.role === "official").length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Residents
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -635,14 +616,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.role === "resident").length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Verified Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -651,7 +632,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.residentStatus === 'verified').length}
                   </div>
                 </CardContent>
@@ -659,10 +640,10 @@ export default function AdminUserManagement() {
             </div>
             
             {/* Row 2: Pending Users, Active Users, Inactive Users - Full Width */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 mt-2 md:mt-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Pending Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -671,14 +652,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => (u.residentStatus || 'pending') === 'pending').length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Active Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -687,14 +668,14 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => u.isActive).length}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-2 md:py-4 p-2 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg col-span-2 md:col-span-1">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Inactive Users
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -703,7 +684,7 @@ export default function AdminUserManagement() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-xl md:text-3xl font-bold text-black">
                     {users.filter(u => !u.isActive).length}
                   </div>
                 </CardContent>
@@ -727,10 +708,11 @@ export default function AdminUserManagement() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="primary" onClick={openCreate}> + Create User</Button>
+            <Button type="primary" onClick={openCreate} className="create-user-btn"> + Create User</Button>
           </div>
         </div>
 
+        {/* Responsive table wrapper aligned with AdminBlockchainNetwork.jsx */}
         <div className="overflow-x-auto">
           <Table
             rowKey="_id"
@@ -748,7 +730,13 @@ export default function AdminUserManagement() {
             }}
             onChange={handleTableChangeWithStatus}
             scroll={{ x: 800 }}
+            className="responsive-table"
           />
+          {!loading && filteredUsers.length === 0 && (
+            <div className="pt-4 text-sm text-gray-500">
+              No users found.
+            </div>
+          )}
         </div>
   </div>
         <Modal
@@ -758,13 +746,18 @@ export default function AdminUserManagement() {
           confirmLoading={creating}
           onCancel={() => setCreateOpen(false)}
           okText="Create"
-          width={window.innerWidth < 600 ? "95vw" : 520}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 520}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '80vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
           afterOpenChange={(open) => {
             if (open) {
               fetchUnlinkedResidents(); // Fetch for all roles now
             }
           }}
+          className="user-modal-responsive"
         >
           <Alert
             message="Create New User Account"
@@ -772,20 +765,30 @@ export default function AdminUserManagement() {
             type="info"
             showIcon
             className="mb-12"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '12px' : '16px'
+            }}
           />
-          <div style={{ marginBottom: 16 }} />
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
           <Form
             form={createForm}
             layout="vertical"
             onValuesChange={(changed) => {
               if (changed.role) fetchUnlinkedResidents(); // Fetch when role changes
             }}
+            style={{
+              '--form-item-margin': window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px'
+            }}
+            className="responsive-form"
           >
             <Form.Item
               name="role"
               label="Role"
               rules={[{ required: true, message: "Role is required" }]}
               initialValue="resident"
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Select
                 options={[
@@ -793,6 +796,7 @@ export default function AdminUserManagement() {
                   { value: "admin", label: "Admin", disabled: adminCount >= 1 },
                   { value: "resident", label: "Resident" },
                 ]}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -801,6 +805,7 @@ export default function AdminUserManagement() {
               label="Select Resident (no account yet)"
               rules={[{ required: true, message: "Please select a resident" }]}
               extra="List shows residents without a linked user account."
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Select
                 loading={loadingUnlinked}
@@ -811,6 +816,7 @@ export default function AdminUserManagement() {
                   value: r._id,
                   label: `${r.lastName}, ${r.firstName}${r.middleName ? " " + r.middleName : ""}${r.suffix ? " " + r.suffix : ""} • ${r.address?.purok || ""}`,
                 }))}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
             <Form.Item
@@ -820,6 +826,7 @@ export default function AdminUserManagement() {
                 { required: true, message: "Username is required" },
                 { min: 6, message: "Username must be at least 6 characters" },
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 autoComplete="off" 
@@ -833,6 +840,7 @@ export default function AdminUserManagement() {
                     setUsernameTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -842,7 +850,11 @@ export default function AdminUserManagement() {
                 description="Please choose a different username."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
@@ -853,8 +865,13 @@ export default function AdminUserManagement() {
                 { required: true, message: "Password is required" },
                 { min: 6, message: "Password must be at least 6 characters" }
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input.Password autoComplete="new-password" placeholder="At least 6 characters" />
+              <Input.Password 
+                autoComplete="new-password" 
+                placeholder="At least 6 characters"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             <Form.Item
@@ -872,8 +889,12 @@ export default function AdminUserManagement() {
                   },
                 }),
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input.Password placeholder="Re-enter password" />
+              <Input.Password 
+                placeholder="Re-enter password"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             {/* Optional preview */}
@@ -897,8 +918,13 @@ export default function AdminUserManagement() {
           confirmLoading={savingEdit}
           onCancel={() => { setEditOpen(false); setEditingUser(null); }}
           okText="Save"
-          width={window.innerWidth < 600 ? "95vw" : 800}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 16 }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 800}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '80vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
+          className="user-modal-responsive"
         >
           <Alert
             message="Edit User Information"
@@ -906,15 +932,24 @@ export default function AdminUserManagement() {
             type="info"
             showIcon
             className="mb-4"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '8px' : '12px'
+            }}
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={editForm} layout="vertical" style={{ gap: 0 }}>
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
+          <Form form={editForm} layout="vertical" style={{ gap: 0 }} className="responsive-form">
             <Form.Item
               name="fullName"
               label="Full name"
               rules={[{ required: true, message: "Full name is required" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input disabled />
+              <Input 
+                disabled
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             <Form.Item
@@ -924,6 +959,7 @@ export default function AdminUserManagement() {
                 { required: true, message: "Username is required" },
                 { min: 6, message: "Username must be at least 6 characters" },
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 placeholder="Username (minimum of 6 characters)"
@@ -939,6 +975,7 @@ export default function AdminUserManagement() {
                     setUsernameTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -948,12 +985,23 @@ export default function AdminUserManagement() {
                 description="Please choose a different username."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
-            <Form.Item label={<span>Password </span>} required>
-              <Button type="default" onClick={openChangePassword}>
+            <Form.Item 
+              label={<span>Password </span>} 
+              required
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}>
+              <Button 
+                type="default" 
+                onClick={openChangePassword}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              >
                 Change Password
               </Button>
             </Form.Item>
@@ -962,6 +1010,7 @@ export default function AdminUserManagement() {
               name="role"
               label="Role"
               rules={[{ required: true, message: "Role is required" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Select
                 options={[
@@ -969,6 +1018,7 @@ export default function AdminUserManagement() {
                   { value: "official", label: "Official" },
                   { value: "resident", label: "Resident" },
                 ]}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -976,6 +1026,7 @@ export default function AdminUserManagement() {
               name={["contact", "email"]}
               label="Email"
               rules={[{ type: "email", message: "Invalid email" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 type="email" 
@@ -992,6 +1043,7 @@ export default function AdminUserManagement() {
                     setEmailTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -1001,7 +1053,11 @@ export default function AdminUserManagement() {
                 description="This email is already used by another user."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
@@ -1013,6 +1069,7 @@ export default function AdminUserManagement() {
                 pattern: /^09\d{9}$/,
                 message: "Only numbers are allowed"
               }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
               <Input 
                 type="tel" 
@@ -1029,6 +1086,7 @@ export default function AdminUserManagement() {
                     setMobileTaken(false);
                   }
                 }}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
 
@@ -1038,7 +1096,11 @@ export default function AdminUserManagement() {
                 description="This mobile number is already used by another user."
                 type="error"
                 showIcon
-                style={{ marginBottom: 16 }}
+                style={{ 
+                  marginBottom: window.innerWidth < 480 ? 12 : 16,
+                  fontSize: window.innerWidth < 480 ? '12px' : '13px',
+                  padding: window.innerWidth < 480 ? '6px 10px' : '8px 12px'
+                }}
               />
             )}
 
@@ -1046,12 +1108,14 @@ export default function AdminUserManagement() {
               name="residentStatus"
               label="Resident Status"
               rules={[{ required: true, message: "Status is required" }]}
+              style={{ marginBottom: window.innerWidth < 480 ? '8px' : window.innerWidth < 768 ? '12px' : '24px' }}
             >
               <Select
                 options={[
                   { value: "pending", label: "Pending" },
                   { value: "verified", label: "Verified" },
                 ]}
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>
           </Form>
@@ -1069,8 +1133,13 @@ export default function AdminUserManagement() {
             setCurrentPasswordError(false);
           }}
           okText="Change Password"
-          width={window.innerWidth < 600 ? "95vw" : 500}
-          bodyStyle={{ padding: window.innerWidth < 600 ? 8 : 24 }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 500}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '70vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
+          className="user-modal-responsive"
         >
           <Alert
             message="Change User Password"
@@ -1078,9 +1147,14 @@ export default function AdminUserManagement() {
             type="warning"
             showIcon
             className="mb-4"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '8px' : '12px'
+            }}
           />
-          <div style={{ marginBottom: 16 }} />
-          <Form form={changePasswordForm} layout="vertical">
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
+          <Form form={changePasswordForm} layout="vertical" className="responsive-form">
             <Form.Item
               name="newPassword"
               label="New Password"
@@ -1088,8 +1162,12 @@ export default function AdminUserManagement() {
                 { required: true, message: "New password is required" },
                 { min: 6, message: "Password must be at least 6 characters" },
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '16px' : '24px' }}
             >
-              <Input.Password placeholder="Enter new password (min 6 chars)" />
+              <Input.Password 
+                placeholder="Enter new password (min 6 chars)"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
 
             <Form.Item
@@ -1107,8 +1185,12 @@ export default function AdminUserManagement() {
                   },
                 }),
               ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '8px' : window.innerWidth < 768 ? '12px' : '24px' }}
             >
-              <Input.Password placeholder="Re-enter new password" />
+              <Input.Password 
+                placeholder="Re-enter new password"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
             </Form.Item>
           </Form>
         </Modal>

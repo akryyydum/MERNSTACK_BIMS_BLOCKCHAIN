@@ -7,7 +7,7 @@ const documentRequestSchema = new mongoose.Schema({
   requestFor: { type: mongoose.Schema.Types.ObjectId, ref: 'Resident' }, // Who the document is for (temporarily not required)
   documentType: { 
     type: String, 
-    enum: ['Certificate of Indigency', 'Barangay Clearance', 'Business Clearance'], 
+    enum: ['Certificate of Indigency', 'Indigency', 'Barangay Clearance', 'Business Clearance'], 
     required: true 
   },
   // Quantity of copies requested

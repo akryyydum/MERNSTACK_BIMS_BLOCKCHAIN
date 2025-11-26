@@ -2,6 +2,9 @@ const { getContract } = require("../utils/fabricClient");
 const os = require("os");
 
 exports.getBlockchainStatus = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   const started = Date.now();
   try {
     const { gateway, contract } = await getContract();
@@ -52,7 +55,47 @@ exports.getBlockchainStatus = async (req, res) => {
   }
 };
 
+// Public (authenticated) lite status: exposes only basic non-sensitive metrics
+exports.getBlockchainStatusLite = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  const started = Date.now();
+  try {
+    const { gateway, contract } = await getContract();
+    const network = contract.network || (gateway.getNetwork && await gateway.getNetwork('mychannel'));
+    const channel = network && typeof network.getChannel === 'function' ? network.getChannel() : null;
+
+    let blockHeight = null;
+    try {
+      if (channel && typeof channel.queryInfo === 'function') {
+        const info = await channel.queryInfo();
+        const heightStr = (info.height && (info.height.toString ? info.height.toString() : info.height.low)) ?? null;
+        blockHeight = heightStr != null ? parseInt(heightStr, 10) : null;
+      }
+    } catch (innerErr) {
+      console.warn('Lite status: unable to query block height:', innerErr.message);
+    } finally {
+      await gateway.disconnect();
+    }
+    const latencyMs = Date.now() - started;
+    res.json({
+      ok: true,
+      channel: channel && typeof channel.getName === 'function' ? channel.getName() : 'mychannel',
+      blockHeight,
+      latencyMs,
+      observedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Blockchain lite status error:', error);
+    res.status(500).json({ ok: false, message: error.message || 'Failed to retrieve blockchain status' });
+  }
+};
+
 exports.getAllBlockchainRequests = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   try {
     const { gateway, contract } = await getContract();
 
@@ -76,6 +119,9 @@ exports.getAllBlockchainRequests = async (req, res) => {
 
 // Financial transactions from chaincode (FinancialTransactionContract)
 exports.getAllFinancialTransactions = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   try {
     const { gateway, contract } = await getContract();
 
@@ -146,6 +192,18 @@ exports.getResidentFinancialTransactions = async (req, res) => {
     }).lean();
 
     const queryIds = new Set([resident._id.toString()]);
+    // Include special resident(s) named "Barangay Official" regardless of household
+    try {
+      const barangayOfficials = await Resident.find({
+        $or: [
+          { firstName: /barangay/i, lastName: /official/i },
+          { middleName: /barangay official/i }, // coverage if stored differently
+        ]
+      }).select('_id firstName middleName lastName suffix');
+      barangayOfficials.forEach(o => queryIds.add(o._id.toString()));
+    } catch (officialErr) {
+      console.warn('Failed to lookup Barangay Official resident(s):', officialErr.message || officialErr);
+    }
     // Also consider the authenticated user id; some txns may have used userId instead of residentId
     if (req.user?.id) queryIds.add(req.user.id.toString());
     if (household?.headOfHousehold) {
@@ -155,7 +213,7 @@ exports.getResidentFinancialTransactions = async (req, res) => {
 
     const { gateway, contract } = await getContract();
 
-    // Fetch transactions for each relevant resident id and merge
+    // Fetch transactions for each relevant resident id (including Barangay Official) and merge
     const results = [];
     for (const id of Array.from(queryIds)) {
       try {
@@ -188,6 +246,12 @@ exports.getResidentFinancialTransactions = async (req, res) => {
       const allowedReqIdSet = new Set(allowedRequests.map(r => r._id.toString()));
       const related = Array.isArray(allTxns) ? allTxns.filter(t => t?.requestId && allowedReqIdSet.has(t.requestId.toString())) : [];
       results.push(...related);
+      // Also include any transaction whose description or residentName explicitly mentions "Barangay Official"
+      const officialKeyword = /barangay\s+official/i;
+      const officialTxns = Array.isArray(allTxns) ? allTxns.filter(t => {
+        return officialKeyword.test(String(t?.description || '')) || officialKeyword.test(String(t?.residentName || ''));
+      }) : [];
+      results.push(...officialTxns);
     } catch (fallbackErr) {
       console.warn('Fallback all-transactions filter failed:', fallbackErr.message || fallbackErr);
     }
@@ -216,6 +280,9 @@ exports.getResidentFinancialTransactions = async (req, res) => {
 const DocumentRequest = require("../models/document.model");
 
 exports.syncFromDB = async (req, res) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: admin access only" });
+  }
   try {
     const { gateway, contract } = await getContract();
 

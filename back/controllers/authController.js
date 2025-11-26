@@ -1,9 +1,14 @@
 const User = require('../models/user.model');
 const Resident = require('../models/resident.model');
+const UnverifiedResident = require('../models/unverifiedResident.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+const { generateTokenPair } = require('../utils/tokenManager');
+const { logAuthEvent, ActionType } = require('../utils/auditLogger');
+const { recordAuthAttempt } = require('../utils/metrics');
+const { encryptForStorage } = require('../utils/storageEncryption');
 
 function normalize(str) {
   return String(str || '').trim();
@@ -71,12 +76,6 @@ async function register(req, res) {
       if (existingUserWithEmail) {
         return res.status(400).json({ message: 'Email already exists' });
       }
-
-      // Check if resident with same email already exists
-      const existingResident = await Resident.findOne({ 'contact.email': email });
-      if (existingResident) {
-        return res.status(400).json({ message: 'A resident with this email already exists' });
-      }
     }
 
     // Compute full name
@@ -85,7 +84,7 @@ async function register(req, res) {
 
     const passwordHash = await bcrypt.hash(password, 10);
     
-    // Create User first
+    // Create User first (mark isVerified false until resident record is linked & verified)
     const user = await User.create({
       username: normalize(username),
       passwordHash,
@@ -95,12 +94,57 @@ async function register(req, res) {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined
       },
-      isVerified: true,
+      isVerified: false,
       isActive: true,
     });
+    
+    // Try to match existing resident roster by name and birthdate
+    const existingResidentRoster = await Resident.findOne({
+      firstName: normalize(firstName),
+      lastName: normalize(lastName),
+      dateOfBirth: new Date(dateOfBirth)
+    });
 
-    // Create Resident record linked to the user
-    const resident = await Resident.create({
+    if (existingResidentRoster) {
+      // If already linked to another user, abort
+      if (existingResidentRoster.user) {
+        return res.status(400).json({ message: 'Resident record already linked to an account. Contact admin.' });
+      }
+      existingResidentRoster.user = user._id;
+      existingResidentRoster.status = existingResidentRoster.status || 'pending';
+      await existingResidentRoster.save();
+      // User stays unverified until resident.status becomes 'verified'
+      return res.status(201).json({ message: 'Registration received. Your existing resident record is now linked and pending verification.' });
+    }
+    
+    // If email provided, check if resident with same email exists (but different name/dob)
+    if (email) {
+      const existingResidentByEmail = await Resident.findOne({ 'contact.email': email });
+      if (existingResidentByEmail) {
+        // Check if details match
+        const detailsMatch = 
+          normalize(existingResidentByEmail.firstName) === normalize(firstName) &&
+          normalize(existingResidentByEmail.lastName) === normalize(lastName) &&
+          sameDay(existingResidentByEmail.dateOfBirth, dateOfBirth);
+        
+        if (detailsMatch) {
+          // Details match, link to this resident
+          if (existingResidentByEmail.user) {
+            return res.status(400).json({ message: 'Resident record already linked to an account. Contact admin.' });
+          }
+          existingResidentByEmail.user = user._id;
+          existingResidentByEmail.status = existingResidentByEmail.status || 'pending';
+          await existingResidentByEmail.save();
+          return res.status(201).json({ message: 'Registration received. Your existing resident record is now linked and pending verification.' });
+        } else {
+          // Email exists but details don't match
+          return res.status(400).json({ message: 'A resident with this email already exists with different details. Contact admin.' });
+        }
+      }
+    }
+
+    // Create unverified resident entry (to be approved by admin later)
+    await UnverifiedResident.create({
       user: user._id,
       firstName,
       middleName,
@@ -114,18 +158,24 @@ async function register(req, res) {
       ethnicity,
       address,
       citizenship,
-  occupation,
+      occupation,
       sectoralInformation,
       registeredVoter: typeof registeredVoter === 'boolean' ? registeredVoter : false,
       contact: {
         email: email || undefined,
         mobile: normalize(contact.mobile || '') || undefined
       },
-      status: 'pending', // new registrations start as pending
+      status: 'pending'
     });
 
-    res.status(201).json({ message: 'Registration successful! You can log in immediately.' });
+    // Log registration
+    await logAuthEvent(ActionType.REGISTER, user._id, 'success', req, { username });
+    recordAuthAttempt('success');
+    
+    res.status(201).json({ message: 'Registration submitted. Awaiting admin approval.' });
   } catch (err) {
+    await logAuthEvent(ActionType.REGISTER, null, 'failure', req, { error: err.message });
+    recordAuthAttempt('failure');
     res.status(500).json({ message: err.message });
   }
 }
@@ -159,6 +209,8 @@ async function login(req, res) {
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+      await logAuthEvent(ActionType.LOGIN, user._id, 'failure', req, { reason: 'invalid_password' });
+      recordAuthAttempt('failure');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -196,19 +248,42 @@ async function login(req, res) {
       userData.firstName = user.fullName ? user.fullName.split(' ')[0] : '';
       userData.lastName = user.fullName ? user.fullName.split(' ').slice(1).join(' ') : '';
     }
-    const token = jwt.sign(
-      tokenPayload,
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-    console.log('[AUTH] Login response:', { 
-      userId: user._id.toString(), 
-      role: user.role, 
-      isVerified 
+    // Generate token pair (access + refresh)
+    const tokens = generateTokenPair(tokenPayload);
+    
+    // Set HTTP-only cookies for maximum security
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: isProduction, // HTTPS only in production
+      sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production, 'lax' for dev
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/',
     });
-    res.json({ token, role: user.role, isVerified, userData });
+    
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+    
+    // Log successful login
+    await logAuthEvent(ActionType.LOGIN, user._id, 'success', req, { role: user.role });
+    recordAuthAttempt('success');
+    
+    res.json({ 
+      role: user.role, 
+      isVerified, 
+      userData,
+      message: 'Login successful'
+    });
   } catch (err) {
     console.error('[AUTH] Login error', err);
+    await logAuthEvent(ActionType.LOGIN, null, 'failure', req, { error: err.message });
+    recordAuthAttempt('failure');
     res.status(500).json({ message: err.message });
   }
 }
@@ -271,6 +346,37 @@ async function requestPasswordOtp(req, res) {
   }
 }
 
+// Verify OTP only (without changing password)
+async function verifyOtpOnly(req, res) {
+  try {
+    const { identifier, otp } = req.body;
+    if (!identifier || !otp) {
+      return res.status(400).json({ message: 'identifier and otp are required' });
+    }
+
+    let user = await User.findOne({ username: identifier.trim() });
+    if (!user) {
+      user = await User.findOne({ fullName: new RegExp(`^${identifier.trim()}$`, 'i') });
+    }
+    if (!user) return res.status(404).json({ message: 'Account not yet registered' });
+
+    if (!user.passwordResetOtpHash || !user.passwordResetOtpExpires) {
+      return res.status(400).json({ message: 'No active OTP request. Please request a new OTP.' });
+    }
+    if (user.passwordResetOtpExpires < new Date()) {
+      return res.status(400).json({ message: 'OTP expired. Please request a new OTP.' });
+    }
+    const hash = crypto.createHash('sha256').update(otp).digest('hex');
+    if (hash !== user.passwordResetOtpHash) {
+      return res.status(400).json({ message: 'Invalid OTP code.' });
+    }
+
+    res.json({ message: 'OTP verified successfully.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 // Verify OTP and change password
 async function verifyPasswordOtp(req, res) {
   try {
@@ -304,6 +410,8 @@ async function verifyPasswordOtp(req, res) {
     user.passwordResetOtpExpires = undefined;
     await user.save();
 
+    await logAuthEvent(ActionType.PASSWORD_RESET, user._id, 'success', req);
+    
     res.json({ message: 'Password changed successfully.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -321,6 +429,9 @@ async function resetPassword(req, res) {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.verificationToken = undefined;
     await user.save();
+    
+    await logAuthEvent(ActionType.PASSWORD_RESET, user._id, 'success', req);
+    
     res.json({ message: 'Password reset successful.' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -353,6 +464,8 @@ async function changePassword(req, res) {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
 
+    await logAuthEvent(ActionType.PASSWORD_CHANGE, userId, 'success', req);
+    
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -366,5 +479,6 @@ module.exports = {
   resetPassword,
   changePassword,
   requestPasswordOtp,
+  verifyOtpOnly,
   verifyPasswordOtp
 };

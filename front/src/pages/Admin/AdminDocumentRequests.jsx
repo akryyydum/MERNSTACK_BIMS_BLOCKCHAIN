@@ -4,7 +4,7 @@ import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { UserOutlined, DeleteOutlined } from "@ant-design/icons";
-import axios from "axios";
+import apiClient from "@/utils/apiClient";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
@@ -100,10 +100,7 @@ export default function AdminDocumentRequests() {
     // Fetch settings (admin endpoint)
     (async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/settings`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await apiClient.get('/api/admin/settings');
         setSettings(res.data || null);
       } catch (_) {}
     })();
@@ -159,11 +156,7 @@ export default function AdminDocumentRequests() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/document-requests');
       setRequests(sortByNewest(res.data)); // sort here
     } catch (error) {
       console.error("Error fetching document requests:", error);
@@ -174,11 +167,7 @@ export default function AdminDocumentRequests() {
 
   const fetchResidents = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/residents`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/residents');
       setResidents(res.data);
     } catch {
       message.error("Failed to load residents");
@@ -188,11 +177,7 @@ export default function AdminDocumentRequests() {
   // Fetch households for resident->household mapping
   const fetchHouseholds = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/households`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/households');
       setHouseholds(res.data || []);
     } catch (err) {
       console.error("Failed to load households", err);
@@ -227,11 +212,7 @@ export default function AdminDocumentRequests() {
   // Fetch officials roster needed for printing (Captain, Kagawads, SK Chairman)
   const fetchOfficialsRoster = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/officials`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await apiClient.get('/api/admin/officials');
       const officials = Array.isArray(res.data) ? res.data : [];
       // Captain
       const isCaptain = (o) => String(o?.position || '').toLowerCase() === 'barangay captain';
@@ -290,11 +271,7 @@ export default function AdminDocumentRequests() {
 
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await apiClient.delete(`/api/admin/document-requests/${id}`);
       setRequests(prev => prev.filter(r => r._id !== id));
       message.success("Request deleted.");
     } catch (err) {
@@ -305,7 +282,6 @@ export default function AdminDocumentRequests() {
   const handleDeleteAllRequests = async (record) => {
     try {
       setDeletingId(record.__rowKey);
-      const token = localStorage.getItem("token");
       
       let successCount = 0;
       let failCount = 0;
@@ -313,10 +289,7 @@ export default function AdminDocumentRequests() {
       // Delete each request individually
       for (const request of record.requests) {
         try {
-          await axios.delete(
-            `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${request._id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          await apiClient.delete(`/api/admin/document-requests/${request._id}`);
           successCount++;
         } catch (error) {
           console.error('Error deleting request:', request, error);
@@ -404,8 +377,10 @@ export default function AdminDocumentRequests() {
                 danger
                 icon={<DeleteOutlined />}
                 loading={deletingId === record.__rowKey}
+                className="whitespace-nowrap"
               >
-                Delete All
+                <span className="hidden sm:inline">Delete All</span>
+                <span className="sm:hidden">Delete</span>
               </Button>
             </Popconfirm>
           )}
@@ -468,10 +443,10 @@ export default function AdminDocumentRequests() {
       title: "Actions",
       key: "actions",
       render: (_, r) => (
-        <div className="flex gap-2">
-          <Button size="small" onClick={() => { openView(r); }}>View Details</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="small" onClick={() => { openView(r); }} className="whitespace-nowrap">View Details</Button>
           {r.status !== 'declined' && r.status !== 'pending' && (
-            <Button size="small" onClick={() => handlePrint(r)}>Print</Button>
+            <Button size="small" onClick={() => handlePrint(r)} className="whitespace-nowrap">Print</Button>
           )}
           {r.status === "pending" && (
             <>
@@ -483,7 +458,7 @@ export default function AdminDocumentRequests() {
                 } else {
                   handleAction(r._id, 'accept');
                 }
-              }}>Accept</Button>
+              }} className="whitespace-nowrap">Accept</Button>
               <Popconfirm
                 title="Reject this request?"
                 description="This action cannot be undone."
@@ -492,12 +467,12 @@ export default function AdminDocumentRequests() {
                 cancelText="Cancel"
                 onConfirm={() => handleAction(r._id, 'decline')}
               >
-                <Button size="small" danger>Decline</Button>
+                <Button size="small" danger className="whitespace-nowrap">Decline</Button>
               </Popconfirm>
             </>
           )}
           {r.status === "accepted" && (
-            <Button size="small" type="default" onClick={() => handleAction(r._id, 'complete')}>Mark as Completed</Button>
+            <Button size="small" type="default" onClick={() => handleAction(r._id, 'complete')} className="whitespace-nowrap">Mark as Completed</Button>
           )}
           <Popconfirm
             title="Delete this request?"
@@ -506,7 +481,7 @@ export default function AdminDocumentRequests() {
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(r._id)}
           >
-            <Button size="small" danger>Delete</Button>
+            <Button size="small" danger className="whitespace-nowrap">Delete</Button>
           </Popconfirm>
         </div>
       ),
@@ -650,8 +625,6 @@ export default function AdminDocumentRequests() {
     }
     try {
       setPaymentsCheckLoading(true);
-      const token = localStorage.getItem("token");
-      const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
       const now = dayjs();
       const year = now.year();
       const currentMonthIdx = now.month() + 1; // 1..12
@@ -659,15 +632,13 @@ export default function AdminDocumentRequests() {
 
       // For each month, fetch both statuses
       const garbagePromises = months.map(m =>
-        axios.get(`${API}/api/admin/households/${householdId}/garbage`, {
-          headers: { Authorization: `Bearer ${token}` },
+        apiClient.get(`/api/admin/households/${householdId}/garbage`, {
           params: { month: m },
         }).then(res => ({ month: m, status: res.data?.status || "unpaid" }))
           .catch(() => ({ month: m, status: "unpaid" }))
       );
       const streetPromises = months.map(m =>
-        axios.get(`${API}/api/admin/households/${householdId}/streetlight`, {
-          headers: { Authorization: `Bearer ${token}` },
+        apiClient.get(`/api/admin/households/${householdId}/streetlight`, {
           params: { month: m },
         }).then(res => ({ month: m, status: res.data?.status || "unpaid" }))
           .catch(() => ({ month: m, status: "unpaid" }))
@@ -954,11 +925,9 @@ const handlePrint = async (record) => {
 
 const handleAction = async (id, action) => {
   try {
-    const token = localStorage.getItem("token");
-    await axios.patch(
-      `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${id}/${action}`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
+    await apiClient.patch(
+      `/api/admin/document-requests/${id}/${action}`,
+      {}
     );
     setRequests(prev =>
       sortByNewest(
@@ -1119,10 +1088,18 @@ const handleExport = async () => {
           </nav>
           {/* Statistics Section */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg released-card">
+                      {/* Responsive style for Released card to span 2 columns on mobile */}
+                      <style>{`
+                        @media (max-width: 767px) {
+                          .released-card {
+                            grid-column: span 2 / span 2 !important;
+                          }
+                        }
+                      `}</style>
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Total Requests
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1131,14 +1108,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {totalRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Pending
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1147,14 +1124,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {pendingRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Approved
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1163,14 +1140,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {approvedRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Rejected
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1179,14 +1156,14 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {rejectedRequests}
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-4 p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
+              <Card className="bg-slate-50 text-black rounded-2xl shadow-md py-3 md:py-4 p-3 md:p-4 transition duration-200 hover:scale-105 hover:shadow-lg">
                 <CardHeader className="flex flex-row items-center justify-between p-0">
-                  <CardTitle className="text-sm font-bold text-black">
+                  <CardTitle className="text-xs md:text-sm font-bold text-black">
                     Released
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
@@ -1195,7 +1172,7 @@ const handleExport = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-black">
+                  <div className="text-2xl md:text-3xl font-bold text-black">
                     {releasedRequests}
                   </div>
                 </CardContent>
@@ -1285,9 +1262,9 @@ const handleExport = async () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="primary" onClick={() => setCreateOpen(true)}>
-                + Create Request Document
+            <div className="flex flex-row gap-2 w-full sm:w-auto">
+              <Button type="primary" onClick={() => setCreateOpen(true)} className="flex-1 min-w-0 whitespace-nowrap">
+                + Create Request
               </Button>
               <Button
                 onClick={() => {
@@ -1295,6 +1272,7 @@ const handleExport = async () => {
                   // initialize default export values
                   exportForm.setFieldsValue({ reportType: 'detailed', docTypeFilter: 'all', purokFilter: 'all', rangeType: "month", period: dayjs() });
                 }}
+                className="flex-1 min-w-0 whitespace-nowrap"
               >
                 Export as Excel
               </Button>
@@ -1308,29 +1286,32 @@ const handleExport = async () => {
               columns={columns}
               expandable={{
                 expandedRowRender: (record) => (
-                  <Table
-                    columns={expandedColumns}
-                    dataSource={record.requests}
-                    pagination={{
-                      defaultPageSize: 5,
-                      showTotal: (total) => `Total ${total} requests`,
-                      showSizeChanger: false,
-                      showQuickJumper: false,
-                      showLessItems: true,
-                      itemRender: (page, type, originalElement) => {
-                        if (type === 'prev') {
-                          return originalElement;
-                        }
-                        if (type === 'next') {
-                          return originalElement;
-                        }
-                        return null;
-                      },
-                    }}
-                    rowKey="_id"
-                    size="medium"
-                    className="ml-8"
-                  />
+                  <div className="overflow-x-auto">
+                    <Table
+                      columns={expandedColumns}
+                      dataSource={record.requests}
+                      pagination={{
+                        defaultPageSize: 5,
+                        showTotal: (total) => `Total ${total} requests`,
+                        showSizeChanger: false,
+                        showQuickJumper: false,
+                        showLessItems: true,
+                        itemRender: (page, type, originalElement) => {
+                          if (type === 'prev') {
+                            return originalElement;
+                          }
+                          if (type === 'next') {
+                            return originalElement;
+                          }
+                          return null;
+                        },
+                      }}
+                      rowKey="_id"
+                      size="medium"
+                      className="ml-0 sm:ml-8"
+                      scroll={{ x: 'max-content' }}
+                    />
+                  </div>
                 ),
                 rowExpandable: (record) => record.requests && record.requests.length > 0,
               }}
@@ -1342,9 +1323,10 @@ const handleExport = async () => {
                 showQuickJumper: true,
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Total Requests: ${filteredRequests.length}`,
                 pageSizeOptions: ['10', '20', '50', '100'],
+                responsive: true,
               }}
               onChange={handleTableChange}
-              scroll={{ x: 800 }}
+              scroll={{ x: 'max-content' }}
             />
           </div>
         </div>
@@ -1355,6 +1337,8 @@ const handleExport = async () => {
           onCancel={() => setViewOpen(false)}
           footer={null}
           width={700}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         >
           {viewRequest && (
             <Descriptions bordered column={1} size="middle">
@@ -1418,6 +1402,9 @@ const handleExport = async () => {
           title="Create Document Request"
           open={createOpen}
           onCancel={() => { setCreateOpen(false); setShowUnpaidModal(false); setUnpaidMonths({ garbage: [], streetlight: [] }); setBlockCreate(false); createForm.resetFields(); }}
+          width={600}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
           onOk={async () => {
             try {
               setCreating(true);
@@ -1438,11 +1425,9 @@ const handleExport = async () => {
               
               console.log("Sending admin create request with payload:", payload);
               
-              const token = localStorage.getItem("token");
-              await axios.post(
-                `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests`,
-                payload,
-                { headers: { Authorization: `Bearer ${token}` } }
+              await apiClient.post(
+                '/api/admin/document-requests',
+                payload
               );
               message.success("Document request created!");
               setCreateOpen(false);
@@ -1457,7 +1442,6 @@ const handleExport = async () => {
           confirmLoading={creating}
           okText="Create"
           okButtonProps={{ disabled: blockCreate || paymentsCheckLoading }}
-          width={600}
         >
           <Alert
             message="Create Document Request"
@@ -1515,8 +1499,8 @@ const handleExport = async () => {
             )}
             
             {selectedRequestFor && (
-              <div className="mb-3 -mt-2 flex items-center gap-2">
-                <Button size="small" onClick={() => setShowUnpaidModal(true)} disabled={paymentsCheckLoading}>
+              <div className="mb-3 -mt-2 flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <Button size="small" onClick={() => setShowUnpaidModal(true)} disabled={paymentsCheckLoading} className="whitespace-nowrap">
                   View Unpaid Months
                 </Button>
                 {paymentsCheckLoading ? (
@@ -1593,6 +1577,8 @@ const handleExport = async () => {
           onCancel={() => setShowUnpaidModal(false)}
           footer={null}
           width={520}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         >
           {!selectedRequestFor ? (
             <div className="text-sm text-gray-500">Select a resident to view payment status.</div>
@@ -1638,15 +1624,16 @@ const handleExport = async () => {
           title="Accept Request: Business Clearance"
           open={acceptOpen}
           onCancel={() => setAcceptOpen(false)}
+          width={420}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
           onOk={async () => {
             try {
               const { amount } = await acceptForm.validateFields();
               setAccepting(true);
-              const token = localStorage.getItem("token");
-              await axios.patch(
-                `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/document-requests/${acceptRecord._id}/accept`,
-                { amount: Number(amount) },
-                { headers: { Authorization: `Bearer ${token}` } }
+              await apiClient.patch(
+                `/api/admin/document-requests/${acceptRecord._id}/accept`,
+                { amount: Number(amount) }
               );
               message.success('Request accepted and recorded');
               setAcceptOpen(false);
@@ -1658,7 +1645,6 @@ const handleExport = async () => {
           }}
           confirmLoading={accepting}
           okText="Accept"
-          width={420}
         >
           {acceptRecord && (
             <Form form={acceptForm} layout="vertical" initialValues={{ amount: acceptRecord.feeAmount }}>
@@ -1684,6 +1670,8 @@ const handleExport = async () => {
           okText="Export"
           okButtonProps={{ disabled: !exportHasData }}
           width={420}
+          className="max-w-[95vw]"
+          styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
         >
           <Form 
             form={exportForm} 
