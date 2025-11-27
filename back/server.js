@@ -104,37 +104,7 @@ function stripDangerous(obj) {
 }
 // Will run after body parsing (moved below) – placeholder here for clarity.
 
-// Rate limiters with proper proxy handling
-const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: 'Too many auth requests from this IP. Try again in an hour.',
-  // Skip validation for trust proxy since we're in a controlled environment
-  validate: { trustProxy: false }
-});
-
-// Slightly higher cap for financial & complaint endpoints (still conservative)
-const sensitiveLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: 'Too many requests. Slow down.',
-  validate: { trustProxy: false }
-});
-
-// Global fallback limiter (very high cap, acts as circuit breaker)
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000,
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { trustProxy: false }
-});
-app.use(globalLimiter);
-
+// CORS MUST run before any rate-limiter so even 429/401 responses include CORS headers.
 // CORS with explicit allowed origins
 const allowedOrigins = [
   "https://mernstack-bims-blockchain-3.vercel.app",
@@ -150,27 +120,52 @@ const vercelPreviewRegex = /^https:\/\/mernstack-bims-blockchain-[a-z0-9-]+\.ver
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    // Treat 127.0.0.1 the same as localhost for dev convenience
+    if (!origin) return callback(null, true); // Non-browser / curl
     const normalizedOrigin = origin.replace('127.0.0.1', 'localhost');
-
     if (allowedOrigins.includes(origin) ||
         allowedOrigins.includes(normalizedOrigin) ||
         vercelPreviewRegex.test(origin)) {
       return callback(null, true);
-    } else {
-      console.log("CORS BLOCKED:", origin);
-      return callback(new Error("Not allowed by CORS"));
     }
+    console.log("CORS BLOCKED:", origin);
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
+// Rate limiters with proper proxy handling (after CORS)
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many auth requests from this IP. Try again in an hour.',
+  validate: { trustProxy: false }
+});
 
-app.use(express.json({ limit: '1mb' }));
+const sensitiveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests. Slow down.',
+  validate: { trustProxy: false }
+});
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false }
+});
+app.use(globalLimiter);
+
+
+// Increase body size limit to support bulk operations (e.g., 2000+ IDs)
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Apply custom sanitization AFTER json parsing so we can mutate safely.

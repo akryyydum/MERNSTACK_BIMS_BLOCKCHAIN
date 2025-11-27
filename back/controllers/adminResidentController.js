@@ -422,6 +422,109 @@ exports.remove = async (req, res) => {
   }
 };
 
+// DELETE /api/admin/residents/bulk-delete
+exports.bulkRemove = async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : [];
+    if (!ids.length) {
+      return res.status(400).json({ message: "No resident IDs provided" });
+    }
+
+    // Process in manageable batches to avoid DB/resource spikes
+    const batchSize = 100;
+    const summary = {
+      attempted: ids.length,
+      deletedResidents: 0,
+      deletedUsers: 0,
+      deletedDocumentRequests: 0,
+      deletedFinancialTransactions: 0,
+      deletedComplaints: 0,
+      householdsRemoved: 0,
+      householdsDeleted: 0,
+      deletedUtilityPayments: 0,
+      errors: []
+    };
+
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const chunk = ids.slice(i, i + batchSize);
+
+      // Load residents for this chunk to gather related references
+      const residents = await Resident.find({ _id: { $in: chunk } });
+      const userIds = residents.map(r => r.user).filter(Boolean);
+
+      // Delete linked users in bulk
+      if (userIds.length) {
+        const userRes = await User.deleteMany({ _id: { $in: userIds } });
+        summary.deletedUsers += userRes.deletedCount || 0;
+      }
+
+      // Related collections bulk deletions
+      const DocumentRequest = require('../models/document.model');
+      const FinancialTransaction = require('../models/financialTransaction.model');
+      const Complaint = require('../models/complaint.model');
+      const Household = require('../models/household.model');
+      const UtilityPayment = require('../models/utilityPayment.model');
+
+      const docRes = await DocumentRequest.deleteMany({
+        $or: [
+          { residentId: { $in: chunk } },
+          { requestedBy: { $in: chunk } },
+          { requestFor: { $in: chunk } }
+        ]
+      });
+      summary.deletedDocumentRequests += docRes.deletedCount || 0;
+
+      const finRes = await FinancialTransaction.deleteMany({ residentId: { $in: chunk } });
+      summary.deletedFinancialTransactions += finRes.deletedCount || 0;
+
+      const compRes = await Complaint.deleteMany({ residentId: { $in: chunk } });
+      summary.deletedComplaints += compRes.deletedCount || 0;
+
+      // Households where residents are head
+      const householdsAsHead = await Household.find({ headOfHousehold: { $in: chunk } });
+      for (const household of householdsAsHead) {
+        if (household.members && household.members.length > 0) {
+          // Remove any of the chunk residents from members
+          household.members = household.members.filter(m => !chunk.includes(String(m)) && !chunk.includes(m?.toString?.()))
+            .map(m => m); // keep ObjectIds
+          if (household.members.length > 0) {
+            household.headOfHousehold = household.members[0];
+            await household.save();
+            summary.householdsRemoved++;
+          } else {
+            const utilRes = await UtilityPayment.deleteMany({ household: household._id });
+            summary.deletedUtilityPayments += utilRes.deletedCount || 0;
+            await Household.findByIdAndDelete(household._id);
+            summary.householdsDeleted++;
+          }
+        } else {
+          const utilRes = await UtilityPayment.deleteMany({ household: household._id });
+          summary.deletedUtilityPayments += utilRes.deletedCount || 0;
+          await Household.findByIdAndDelete(household._id);
+          summary.householdsDeleted++;
+        }
+      }
+
+      // Households where residents are members (not head)
+      const householdsAsMember = await Household.find({ members: { $in: chunk } });
+      for (const household of householdsAsMember) {
+        household.members = household.members.filter(m => !chunk.includes(String(m)) && !chunk.includes(m?.toString?.()));
+        await household.save();
+        summary.householdsRemoved++;
+      }
+
+      // Finally delete residents in this chunk
+      const resDel = await Resident.deleteMany({ _id: { $in: chunk } });
+      summary.deletedResidents += resDel.deletedCount || 0;
+    }
+
+    return res.json({ message: "Bulk delete complete", summary });
+  } catch (err) {
+    console.error('Bulk delete error:', err);
+    return res.status(500).json({ message: err.message || 'Bulk delete failed' });
+  }
+};
+
 // PATCH /api/admin/residents/:id/verify
 exports.verify = async (req, res) => {
   try {

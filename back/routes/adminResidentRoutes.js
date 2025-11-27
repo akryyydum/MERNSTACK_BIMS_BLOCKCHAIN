@@ -8,6 +8,13 @@ router.get("/", auth, authorize("admin"), controller.list);
 router.post("/", auth, authorize("admin"), controller.create);
 router.patch("/:id", auth, authorize("admin"), controller.update);
 router.delete("/:id", auth, authorize("admin"), controller.remove);
+// Bulk delete by IDs array
+router.delete(
+  "/bulk-delete",
+  auth,
+  authorize("admin"),
+  controller.bulkRemove
+);
 router.patch("/:id/verify", auth, authorize("admin"), controller.verify);
 
 // ✅ Import route

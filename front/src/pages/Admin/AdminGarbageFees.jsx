@@ -1604,23 +1604,24 @@ export default function AdminGarbageFees() {
   // Get all members with their household info for searching - memoized for performance
   const allMembersWithHousehold = useMemo(() => {
     const membersWithHousehold = [];
-    
-    households.forEach(household => {
-      if (household.members && Array.isArray(household.members)) {
-        household.members.forEach(member => {
+    (Array.isArray(households) ? households : []).forEach(household => {
+      const headId = household?.headOfHousehold?._id;
+      const members = Array.isArray(household?.members) ? household.members : [];
+      members
+        .filter(Boolean)
+        .filter(m => m && m._id)
+        .forEach(member => {
           const memberName = fullName(member);
           membersWithHousehold.push({
             id: member._id,
             name: memberName,
-            member: member,
-            household: household,
-            isHead: member._id === household.headOfHousehold._id,
-            searchText: `${memberName} ${household.householdId} ${household.address?.street || ''} ${household.address?.purok || ''}`.toLowerCase()
+            member,
+            household,
+            isHead: !!headId && member._id === headId,
+            searchText: `${memberName} ${household?.householdId || ''} ${household?.address?.street || ''} ${household?.address?.purok || ''}`.toLowerCase()
           });
         });
-      }
     });
-    
     return membersWithHousehold;
   }, [households]);
 
@@ -1869,12 +1870,6 @@ export default function AdminGarbageFees() {
                     </div>
                     <div className="text-xs md:text-sm text-gray-600">
                       <span className="font-semibold">With Business (Monthly):</span> ₱{Number(stats.feeStructure?.withBusiness || 50).toFixed(2)}
-                    </div>
-                    <div className="text-[10px] md:text-xs text-gray-500 pt-1">
-                      Aggregate Monthly (All Households): ₱{(stats.feeStructure?.expectedMonthly || 0).toFixed(2)}
-                    </div>
-                    <div className="text-[10px] md:text-xs text-gray-500">
-                      Aggregate Yearly (All Households): ₱{(stats.feeStructure?.expectedYearly || 0).toFixed(2)}
                     </div>
                     {settings?.feeHistory && (() => {
                       const gbHist = settings.feeHistory.filter(f => f.kind === 'garbageFeeRegularAnnual' || f.kind === 'garbageFeeBusinessAnnual');
@@ -2321,8 +2316,8 @@ export default function AdminGarbageFees() {
                         >
                           <span className="font-medium">{memberData.name}</span>
                           {memberData.isHead && <> <Tag color="blue" size="small">Head</Tag></>}
-                          {' - '}<span className="font-bold">{memberData.household.householdId}</span>
-                          {memberData.household.address?.purok && ` - ${memberData.household.address.purok}`}
+                          {' - '}<span className="font-bold">{memberData.household?.householdId}</span>
+                          {memberData.household?.address?.purok && ` - ${memberData.household.address.purok}`}
                         </Select.Option>
                       ))}
                     </Select>
@@ -2354,16 +2349,20 @@ export default function AdminGarbageFees() {
                   rules={[{ required: true, message: "Please select who is making the payment" }]}
                 >
                   <Select placeholder="Select household member">
-                    {selectedHouseholdForPayment?.members?.map(member => (
-                      <Select.Option key={member._id} value={member._id}>
-                        <div className="flex items-center gap-2">
-                          <span>{fullName(member)}</span>
-                          {member._id === selectedHouseholdForPayment.headOfHousehold._id && (
-                            <Tag color="blue" size="small">Head of Household</Tag>
-                          )}
-                        </div>
-                      </Select.Option>
-                    ))}
+                    {selectedHouseholdForPayment?.members
+                      ?.filter(Boolean)
+                      .filter(m => m && m._id)
+                      .map(member => (
+                        <Select.Option key={member._id} value={member._id}>
+                          <div className="flex items-center gap-2">
+                            <span>{fullName(member)}</span>
+                            {selectedHouseholdForPayment?.headOfHousehold?._id &&
+                              member._id === selectedHouseholdForPayment.headOfHousehold._id && (
+                                <Tag color="blue" size="small">Head of Household</Tag>
+                              )}
+                          </div>
+                        </Select.Option>
+                      ))}
                   </Select>
                 </Form.Item>
                 
@@ -2383,7 +2382,8 @@ export default function AdminGarbageFees() {
               {payHousehold?.payingMember && (
                 <div className="text-sm text-gray-600 font-normal mt-1">
                   Payment by: {fullName(payHousehold.payingMember)}
-                  {payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
+                  {payHousehold?.payingMember?._id && payHousehold?.headOfHousehold?._id &&
+                    payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
                     <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Head of Household</span>
                   }
                 </div>
@@ -2718,7 +2718,8 @@ export default function AdminGarbageFees() {
               {payHousehold?.payingMember && (
                 <div className="text-sm text-gray-600 font-normal mt-1">
                   Payment by: {fullName(payHousehold.payingMember)}
-                  {payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
+                  {payHousehold?.payingMember?._id && payHousehold?.headOfHousehold?._id &&
+                    payHousehold.payingMember._id === payHousehold.headOfHousehold._id && 
                     <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Head of Household</span>
                   }
                 </div>
