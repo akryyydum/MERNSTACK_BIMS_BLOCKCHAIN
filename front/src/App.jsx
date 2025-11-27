@@ -5,7 +5,7 @@ import Login from './auth/Login'
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicOnly from "./routes/PublicOnly";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
-// import OfficialDashboard from "./pages/BarangayOfficers/OfficialDashboard"; // File doesn't exist
+
 import ResidentDashboard from "./pages/Residents/ResidentDashboard";
 import ResidentRequest from "./pages/Residents/ResidentRequest";
 import ResidentPayment from "./pages/Residents/ResidentPayment";

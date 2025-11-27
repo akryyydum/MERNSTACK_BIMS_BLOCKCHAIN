@@ -438,9 +438,21 @@ export default function ResidentPayment() {
         </Card>
 
         {error && (
-          <Card className="w-full border border-rose-200 bg-rose-50 shadow-md">
-            <CardContent className="p-3 sm:p-4">
-              <p className="text-sm text-rose-700">{error}</p>
+          <Card className="w-full bg-rose-50 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-rose-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-rose-900 mb-1">
+                    Unable to Load Payment Information
+                  </h4>
+                  <p className="text-sm text-rose-700">
+                    {error}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}

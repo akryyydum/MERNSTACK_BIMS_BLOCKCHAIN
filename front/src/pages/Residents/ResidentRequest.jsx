@@ -380,14 +380,12 @@ export default function ResidentRequest() {
 
         {/* Payment Status Alert */}
         {paymentStatus && !paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
-          <Card className="w-full border border-rose-200 bg-rose-50 shadow-md">
             <CardContent className="p-3 sm:p-4">
               <PaymentStatusAlert 
                 paymentStatus={paymentStatus}
                 onPaymentClick={handleGoToPayments}
               />
             </CardContent>
-          </Card>
         )}
 
 
