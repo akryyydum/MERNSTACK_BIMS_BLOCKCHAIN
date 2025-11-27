@@ -262,17 +262,53 @@ exports.update = async (req, res) => {
     
     const resident = await Resident.findByIdAndUpdate(id, update, { new: true });
     
-    // If name fields were updated and resident has a linked user account, update the user's fullName
-    if (resident && resident.user && (update.firstName || update.middleName || update.lastName || update.suffix)) {
-      const fullName = [
-        resident.firstName,
-        resident.middleName,
-        resident.lastName,
-        resident.suffix
-      ].filter(Boolean).join(' ').trim();
+    // Sync updates to User model if resident has a linked user account
+    if (resident && resident.user) {
+      const userUpdates = {};
+      const userUnsets = {};
       
-      if (fullName) {
-        await User.findByIdAndUpdate(resident.user, { fullName });
+      // Sync name changes to fullName
+      if (update.firstName || update.middleName || update.lastName || update.suffix) {
+        const fullName = [
+          resident.firstName,
+          resident.middleName,
+          resident.lastName,
+          resident.suffix
+        ].filter(Boolean).join(' ').trim();
+        
+        if (fullName) {
+          userUpdates.fullName = fullName;
+        }
+      }
+      
+      // Sync contact email
+      if (update.contact?.email !== undefined) {
+        const emailTrim = String(update.contact.email || '').toLowerCase().trim();
+        if (emailTrim) {
+          console.log(`[SYNC] Admin update: Setting User email to ${emailTrim}`);
+          userUpdates['contact.email'] = emailTrim;
+        } else {
+          console.log(`[SYNC] Admin update: Removing email from User model (resident email removed)`);
+          userUnsets['contact.email'] = '';
+        }
+      }
+      
+      // Sync contact mobile
+      if (update.contact?.mobile !== undefined) {
+        const mobileTrim = String(update.contact.mobile || '').trim();
+        if (mobileTrim) {
+          userUpdates['contact.mobile'] = mobileTrim;
+        } else {
+          userUnsets['contact.mobile'] = '';
+        }
+      }
+      
+      // Apply user updates
+      if (Object.keys(userUpdates).length > 0 || Object.keys(userUnsets).length > 0) {
+        const userOps = {};
+        if (Object.keys(userUpdates).length > 0) userOps.$set = userUpdates;
+        if (Object.keys(userUnsets).length > 0) userOps.$unset = userUnsets;
+        await User.findByIdAndUpdate(resident.user, userOps);
       }
     }
     

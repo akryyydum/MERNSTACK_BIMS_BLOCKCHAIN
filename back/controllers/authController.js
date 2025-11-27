@@ -291,7 +291,21 @@ async function login(req, res) {
 async function forgotPassword(req, res) {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ 'contact.email': email });
+    
+    // Validate email input
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    
+    const user = await User.findOne({ 'contact.email': normalizedEmail });
     if (!user) {
       return res.status(404).json({ message: 'Email not found' });
     }
@@ -299,7 +313,7 @@ async function forgotPassword(req, res) {
     user.verificationToken = resetToken;
     await user.save();
     await sendEmail(
-      email,
+      normalizedEmail,
       'Password Reset Request',
       `Use this token to reset your password: ${resetToken}`
     );
@@ -321,11 +335,49 @@ async function requestPasswordOtp(req, res) {
       // Fallback: fullName case-insensitive exact match
       user = await User.findOne({ fullName: new RegExp(`^${identifier.trim()}$`, 'i') });
     }
-    if (!user) return res.status(404).json({ message: 'Account not yet registered' });
+    if (!user) {
+      console.log(`[OTP] FAIL: User not found with identifier: ${identifier.trim()}`);
+      return res.status(404).json({ message: 'Account not found. Please check your username or contact your admin.' });
+    }
 
-    // Must have email to send OTP
-    const email = user.contact?.email;
-    if (!email) return res.status(400).json({ message: 'No email on file. Please contact your admin.' });
+    console.log(`[OTP] User found: ${user.username} (${user.role})`);
+    console.log(`[OTP] User model email: ${user.contact?.email || 'NONE'}`);
+
+    // Check for email in both User and Resident models (prioritize Resident)
+    let email = user.contact?.email;
+    let emailSource = 'User model';
+    
+    if (user.role === 'resident' || user.role === 'official') {
+      const resident = await Resident.findOne({ user: user._id });
+      console.log(`[OTP] Resident found: ${resident ? 'Yes' : 'No'}`);
+      
+      if (resident) {
+        console.log(`[OTP] Resident model email: ${resident.contact?.email || 'NONE'}`);
+        
+        if (resident?.contact?.email) {
+          email = resident.contact.email;
+          emailSource = 'Resident model (priority)';
+        }
+      }
+    }
+    
+    console.log(`[OTP] Final email to use: ${email || 'NONE'} (from ${emailSource})`);
+    
+    // Validate email exists and is not empty
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      console.log(`[OTP] FAIL: No valid email found`);
+      return res.status(400).json({ message: 'No email on file. Please contact your admin.' });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      console.log(`[OTP] FAIL: Invalid email format: ${email}`);
+      return res.status(400).json({ message: 'Invalid email format on file. Please contact your admin to update your email.' });
+    }
+    
+    email = email.trim().toLowerCase();
+    console.log(`[OTP] Normalized email: ${email}`);
 
     // Generate 6-digit OTP
     const otp = ('' + Math.floor(100000 + Math.random() * 900000));
@@ -333,10 +385,14 @@ async function requestPasswordOtp(req, res) {
     user.passwordResetOtpHash = hash;
     user.passwordResetOtpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await user.save();
+    
+    console.log(`[OTP] Generated OTP for ${user.username}, attempting to send to ${email}`);
 
     try {
       await sendEmail(email, 'Your Password Reset OTP', `Your OTP code is: ${otp}\nIt expires in 15 minutes.`);
+      console.log(`[OTP] SUCCESS: Email sent to ${email}`);
     } catch (e) {
+      console.log(`[OTP] FAIL: Email send error - ${e.message}`);
       return res.status(500).json({ message: 'Failed to send OTP email', error: e.message });
     }
 

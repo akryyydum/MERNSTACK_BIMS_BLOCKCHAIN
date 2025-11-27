@@ -126,8 +126,28 @@ const updateProfile = async (req, res) => {
           });
         }
         resident.contact.email = normalizedEmail;
+        // Sync email to User model
+        if (resident.user) {
+          await User.findByIdAndUpdate(resident.user, { 
+            $set: { 'contact.email': normalizedEmail } 
+          });
+        }
       } else if (contact.email !== undefined) {
         resident.contact.email = contact.email;
+        // Sync empty/null email to User model
+        if (resident.user) {
+          if (contact.email) {
+            console.log(`[SYNC] Setting User email to: ${contact.email}`);
+            await User.findByIdAndUpdate(resident.user, { 
+              $set: { 'contact.email': contact.email } 
+            });
+          } else {
+            console.log(`[SYNC] Removing email from User model (resident email removed)`);
+            await User.findByIdAndUpdate(resident.user, { 
+              $unset: { 'contact.email': '' } 
+            });
+          }
+        }
       }
 
       // Validate mobile uniqueness if being updated
@@ -144,8 +164,26 @@ const updateProfile = async (req, res) => {
           });
         }
         resident.contact.mobile = normalizedMobile;
+        // Sync mobile to User model
+        if (resident.user) {
+          await User.findByIdAndUpdate(resident.user, { 
+            $set: { 'contact.mobile': normalizedMobile } 
+          });
+        }
       } else if (contact.mobile !== undefined) {
         resident.contact.mobile = contact.mobile;
+        // Sync empty/null mobile to User model
+        if (resident.user) {
+          if (contact.mobile) {
+            await User.findByIdAndUpdate(resident.user, { 
+              $set: { 'contact.mobile': contact.mobile } 
+            });
+          } else {
+            await User.findByIdAndUpdate(resident.user, { 
+              $unset: { 'contact.mobile': '' } 
+            });
+          }
+        }
       }
     }
 
