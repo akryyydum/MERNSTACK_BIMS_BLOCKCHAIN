@@ -116,8 +116,10 @@ export default function AdminResidentManagement() {
   const [exportFilterType, setExportFilterType] = useState(null);
   const [exportHasData, setExportHasData] = useState(true);
 
-  // Selection state for bulk operations
-  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  // Delete by Purok state
+  const [deletePurokOpen, setDeletePurokOpen] = useState(false);
+  const [selectedPurokToDelete, setSelectedPurokToDelete] = useState(null);
+  const [deletingPurok, setDeletingPurok] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -183,8 +185,6 @@ export default function AdminResidentManagement() {
       const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
       setResidents(data);
       
-      // Clear selection when data refreshes
-      setSelectedRowKeys([]);
       // Reset to first page when data is refreshed
       setCurrentPage(1);
     } catch (err) {
@@ -427,63 +427,52 @@ export default function AdminResidentManagement() {
     }
   };
 
-  // Bulk Delete Residents
-  const handleBulkDelete = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning("Please select residents to delete");
+  // Delete Residents by Purok
+  const handleDeleteByPurok = async (purok) => {
+    if (!purok) {
+      message.warning("Please select a Purok");
       return;
     }
 
+    setDeletingPurok(true);
     try {
+      // Get all residents from the selected Purok with normalized comparison
+      const residentsToDelete = residents.filter(r => {
+        const residentPurok = r.address?.purok?.trim();
+        const selectedPurok = purok?.trim();
+        console.log(`Comparing: "${residentPurok}" === "${selectedPurok}"`, residentPurok === selectedPurok);
+        return residentPurok === selectedPurok;
+      });
+      
+      console.log(`Found ${residentsToDelete.length} residents in ${purok}`, residentsToDelete);
+      
+      if (residentsToDelete.length === 0) {
+        message.warning(`No residents found in ${purok}`);
+        setDeletingPurok(false);
+        return;
+      }
+
       // Delete residents one by one
-      await Promise.all(
-        selectedRowKeys.map(id =>
-          apiClient.delete(`/api/admin/residents/${id}`)
-        )
+      const deletePromises = residentsToDelete.map(resident =>
+        apiClient.delete(`/api/admin/residents/${resident._id}`)
+          .catch(err => {
+            console.error(`Failed to delete resident ${resident._id}:`, err);
+            throw err;
+          })
       );
       
-      message.success(`${selectedRowKeys.length} resident(s) deleted successfully!`);
-      setSelectedRowKeys([]);
+      await Promise.all(deletePromises);
+      
+      message.success(`${residentsToDelete.length} resident(s) from ${purok} deleted successfully!`);
+      setDeletePurokOpen(false);
+      setSelectedPurokToDelete(null);
       fetchResidents();
     } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to delete selected residents");
+      console.error("Delete by Purok error:", err);
+      message.error(err?.response?.data?.message || "Failed to delete residents");
+    } finally {
+      setDeletingPurok(false);
     }
-  };
-
-  // Row selection handlers
-  const onSelectChange = (newSelectedRowKeys) => {
-    setSelectedRowKeys(newSelectedRowKeys);
-  };
-
-  const onSelectAll = (selected, selectedRows, changeRows) => {
-    if (selected) {
-      // Select ALL residents that match the current filter (across all pages)
-      const allKeys = filteredResidents.map(resident => resident._id);
-      setSelectedRowKeys(allKeys);
-      if (allKeys.length > 10) {
-        message.info(`Selected ${allKeys.length} resident(s) across all pages`);
-      }
-    } else {
-      // Deselect all
-      setSelectedRowKeys([]);
-    }
-  };
-
-
-  // Manual select all function for button
-  const [selectAllClicked, setSelectAllClicked] = useState(false);
-  const handleSelectAll = () => {
-    const allKeys = filteredResidents.map(resident => resident._id);
-    setSelectedRowKeys(allKeys);
-    setSelectAllClicked(true);
-    message.success(`Selected all ${allKeys.length} resident(s) across all pages`);
-  };
-
-  // Clear all selections
-  const handleClearSelection = () => {
-    setSelectedRowKeys([]);
-    setSelectAllClicked(false);
-    message.info("Cleared all selections");
   };
 
   // Pagination change handler
@@ -1245,17 +1234,7 @@ export default function AdminResidentManagement() {
                       </div>
                       <div className="flex flex-wrap gap-2 w-full md:w-auto">
                         <Button onClick={() => { setImportOpen(true); }} className="flex-1 md:flex-initial">Import Residents</Button>
-                        {!selectAllClicked && selectedRowKeys.length === 0 && (
-                          <Button onClick={handleSelectAll} type="default" className="flex-1 md:flex-initial">Select All ({filteredResidents.length})</Button>
-                        )}
-                        {(selectAllClicked || selectedRowKeys.length > 0) && (
-                          <>
-                            <Button onClick={handleClearSelection} className="flex-1 md:flex-initial">Undo Selection</Button>
-                            <Popconfirm title={`Delete ${selectedRowKeys.length} resident(s)?`} description="This action cannot be undone." okButtonProps={{ danger: true }} onConfirm={handleBulkDelete}>
-                              <Button danger className="flex-1 md:flex-initial">Delete Selected ({selectedRowKeys.length})</Button>
-                            </Popconfirm>
-                          </>
-                        )}
+                        <Button danger onClick={() => { setDeletePurokOpen(true); }} className="flex-1 md:flex-initial">Delete by Purok</Button>
                       </div>
                     </div>
                   </div>
@@ -1265,24 +1244,13 @@ export default function AdminResidentManagement() {
                       loading={loading}
                       dataSource={filteredResidents}
                       columns={columns}
-                      rowSelection={{
-                        selectedRowKeys,
-                        onChange: onSelectChange,
-                        onSelectAll: onSelectAll,
-                        type: 'checkbox',
-                        getCheckboxProps: (record) => ({ name: record.name }),
-                        selections: [
-                          { key: 'all-pages', text: 'Select All Pages', onSelect: () => { handleSelectAll(); } },
-                          { key: 'clear-all', text: 'Clear All', onSelect: () => { handleClearSelection(); } },
-                        ],
-                      }}
                       pagination={{
                         current: currentPage,
                         pageSize: pageSize,
                         total: filteredResidents.length,
                         showSizeChanger: true,
                         showQuickJumper: true,
-                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents | Selected: ${selectedRowKeys.length}`,
+                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} residents`,
                         pageSizeOptions: ['10', '20', '50', '100'],
                       }}
                       onChange={handleTableChange}
@@ -1741,6 +1709,103 @@ export default function AdminResidentManagement() {
               </ul>
             </div>
           </Form>
+        </Modal>
+
+        {/* Delete by Purok Modal */}
+        <Modal
+          title="Delete Residents by Purok"
+          open={deletePurokOpen}
+          onCancel={() => {
+            if (!deletingPurok) {
+              setDeletePurokOpen(false);
+              setSelectedPurokToDelete(null);
+            }
+          }}
+          closable={!deletingPurok}
+          maskClosable={!deletingPurok}
+          keyboard={!deletingPurok}
+          footer={[
+            <Button 
+              key="cancel" 
+              disabled={deletingPurok}
+              onClick={() => {
+                setDeletePurokOpen(false);
+                setSelectedPurokToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>,
+            <Button
+              key="delete"
+              danger
+              type="primary"
+              loading={deletingPurok}
+              disabled={!selectedPurokToDelete || deletingPurok}
+              onClick={() => {
+                if (selectedPurokToDelete) {
+                  handleDeleteByPurok(selectedPurokToDelete);
+                }
+              }}
+            >
+              {deletingPurok ? 'Deleting...' : 'Delete All Residents'}
+            </Button>,
+          ]}
+          width={500}
+          style={{ maxWidth: '95vw' }}
+          className="responsive-modal"
+        >
+          <Alert
+            message="Warning: This action cannot be undone"
+            description="All residents in the selected Purok will be permanently deleted from the system."
+            type="error"
+            showIcon
+            className="mb-4"
+          />
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">Select Purok to Delete</label>
+            <Select
+              placeholder="Choose a Purok"
+              value={selectedPurokToDelete}
+              onChange={setSelectedPurokToDelete}
+              disabled={deletingPurok}
+              style={{ width: '100%' }}
+              options={[
+                { 
+                  value: "Purok 1", 
+                  label: `Purok 1 (${purok1Count} resident${purok1Count !== 1 ? 's' : ''})` 
+                },
+                { 
+                  value: "Purok 2", 
+                  label: `Purok 2 (${purok2Count} resident${purok2Count !== 1 ? 's' : ''})` 
+                },
+                { 
+                  value: "Purok 3", 
+                  label: `Purok 3 (${purok3Count} resident${purok3Count !== 1 ? 's' : ''})` 
+                },
+                { 
+                  value: "Purok 4", 
+                  label: `Purok 4 (${purok4Count} resident${purok4Count !== 1 ? 's' : ''})` 
+                },
+                { 
+                  value: "Purok 5", 
+                  label: `Purok 5 (${purok5Count} resident${purok5Count !== 1 ? 's' : ''})` 
+                },
+              ]}
+            />
+          </div>
+
+          {selectedPurokToDelete && (
+            <div className="text-sm text-gray-600 p-3 bg-gray-50 rounded">
+              <p className="font-semibold">
+                {selectedPurokToDelete === "Purok 1" && `${purok1Count} resident${purok1Count !== 1 ? 's' : ''} will be deleted from Purok 1`}
+                {selectedPurokToDelete === "Purok 2" && `${purok2Count} resident${purok2Count !== 1 ? 's' : ''} will be deleted from Purok 2`}
+                {selectedPurokToDelete === "Purok 3" && `${purok3Count} resident${purok3Count !== 1 ? 's' : ''} will be deleted from Purok 3`}
+                {selectedPurokToDelete === "Purok 4" && `${purok4Count} resident${purok4Count !== 1 ? 's' : ''} will be deleted from Purok 4`}
+                {selectedPurokToDelete === "Purok 5" && `${purok5Count} resident${purok5Count !== 1 ? 's' : ''} will be deleted from Purok 5`}
+              </p>
+            </div>
+          )}
         </Modal>
 
         {/* Add Resident Modal */}

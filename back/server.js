@@ -161,7 +161,25 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
   validate: { trustProxy: false }
 });
-app.use(globalLimiter);
+
+// Conditional rate limiter that skips admin delete operations
+const conditionalRateLimiter = (req, res, next) => {
+  // Skip rate limiting for DELETE requests on admin routes
+  const isDeleteOperation = req.method === 'DELETE';
+  const isAdminManagementRoute = 
+    req.path.includes('/api/admin/residents') ||
+    req.path.includes('/api/admin/users') ||
+    req.path.includes('/api/admin/households');
+  
+  if (isDeleteOperation && isAdminManagementRoute) {
+    return next();
+  }
+  
+  // Apply rate limiter for all other requests
+  return globalLimiter(req, res, next);
+};
+
+app.use(conditionalRateLimiter);
 
 
 // Increase body size limit to support bulk operations (e.g., 2000+ IDs)
@@ -208,6 +226,8 @@ const adminOfficialManagementRoutes = require("./routes/adminOfficialManagementR
 app.use("/api/admin/officials", adminOfficialManagementRoutes);
 const adminResidentRoutes = require("./routes/adminResidentRoutes");
 app.use("/api/admin/residents", adminResidentRoutes);
+const adminHouseholdRoutes = require("./routes/adminHouseholdRoutes");
+app.use("/api/admin/households", adminHouseholdRoutes);
 // Unverified resident submissions
 const adminUnverifiedResidentRoutes = require('./routes/adminUnverifiedResidentRoutes');
 app.use('/api/admin/unverified-residents', adminUnverifiedResidentRoutes);
@@ -219,8 +239,6 @@ const adminFinancialRoutes = require("./routes/adminFinancialRoutes");
 app.use("/api/admin/financial", sensitiveLimiter, adminFinancialRoutes);
 const residentDocumentRequestRoutes = require("./routes/residentDocumentRequestRoutes");
 app.use("/api/document-requests", residentDocumentRequestRoutes);
-const adminHouseholdRoutes = require("./routes/adminHouseholdRoutes");
-app.use("/api/admin/households", adminHouseholdRoutes);
 const adminPublicDocumentRoutes = require("./routes/adminPublicDocumentRoutes");
 app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
