@@ -1092,7 +1092,13 @@ const Login = () => {
                     className="mb-4"
                   />
                   
-                  <Descriptions title="Personal Information" bordered column={2} className="mb-4" size="middle">
+                  <Descriptions 
+                    title="Personal Information" 
+                    bordered 
+                    column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} 
+                    className="mb-4" 
+                    size="small"
+                  >
                     <Descriptions.Item label="First Name" span={1}>{regForm.getFieldValue('firstName')}</Descriptions.Item>
                     <Descriptions.Item label="Middle Name" span={1}>{regForm.getFieldValue('middleName') || 'N/A'}</Descriptions.Item>
                     <Descriptions.Item label="Last Name" span={1}>{regForm.getFieldValue('lastName')}</Descriptions.Item>
@@ -1105,23 +1111,35 @@ const Login = () => {
                     <Descriptions.Item label="Ethnicity" span={1}>{regForm.getFieldValue('ethnicity')}</Descriptions.Item>
                   </Descriptions>
                   
-                  <Descriptions title="Address Information" bordered column={2} className="mb-4" size="middle">
-                    <Descriptions.Item label="Purok" span={2}>{regForm.getFieldValue(['address', 'purok'])}</Descriptions.Item>
-                    <Descriptions.Item label="Barangay" span={2}>{regForm.getFieldValue(['address', 'barangay'])}</Descriptions.Item>
-                    <Descriptions.Item label="Municipality" span={2}>{regForm.getFieldValue(['address', 'municipality'])}</Descriptions.Item>
-                    <Descriptions.Item label="Province" span={2}>{regForm.getFieldValue(['address', 'province'])}</Descriptions.Item>
-                    <Descriptions.Item label="ZIP Code" span={2}>{regForm.getFieldValue(['address', 'zipCode'])}</Descriptions.Item>
+                  <Descriptions 
+                    title="Address Information" 
+                    bordered 
+                    column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} 
+                    className="mb-4" 
+                    size="small"
+                  >
+                    <Descriptions.Item label="Purok">{regForm.getFieldValue(['address', 'purok'])}</Descriptions.Item>
+                    <Descriptions.Item label="Barangay">{regForm.getFieldValue(['address', 'barangay'])}</Descriptions.Item>
+                    <Descriptions.Item label="Municipality">{regForm.getFieldValue(['address', 'municipality'])}</Descriptions.Item>
+                    <Descriptions.Item label="Province">{regForm.getFieldValue(['address', 'province'])}</Descriptions.Item>
+                    <Descriptions.Item label="ZIP Code">{regForm.getFieldValue(['address', 'zipCode'])}</Descriptions.Item>
                   </Descriptions>
                   
-                  <Descriptions title="Other Information" bordered column={2} className="mb-4" size="middle">
+                  <Descriptions 
+                    title="Other Information" 
+                    bordered 
+                    column={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }} 
+                    className="mb-4" 
+                    size="small"
+                  >
                     <Descriptions.Item label="Citizenship" span={1}>{regForm.getFieldValue('citizenship')}</Descriptions.Item>
                     <Descriptions.Item label="Occupation" span={1}>{regForm.getFieldValue('occupation')}</Descriptions.Item>
-                    <Descriptions.Item label="Sectoral Information" span={2}>{regForm.getFieldValue('sectoralInformation') || 'None'}</Descriptions.Item>
-                    <Descriptions.Item label="Employment Status" span={2}>{regForm.getFieldValue('employmentStatus') || 'Not specified'}</Descriptions.Item>
-                    <Descriptions.Item label="Registered Voter" span={2}>{regForm.getFieldValue('registeredVoter') ? 'Yes' : 'No'}</Descriptions.Item>
-                    <Descriptions.Item label="Mobile" span={2}>{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>
-                    <Descriptions.Item label="Email" span={2}>{regForm.getFieldValue(['contact', 'email'])}</Descriptions.Item>
-                    <Descriptions.Item label="Username" span={2}>{regForm.getFieldValue('username')}</Descriptions.Item>
+                    <Descriptions.Item label="Sectoral Information">{regForm.getFieldValue('sectoralInformation') || 'None'}</Descriptions.Item>
+                    <Descriptions.Item label="Employment Status">{regForm.getFieldValue('employmentStatus') || 'Not specified'}</Descriptions.Item>
+                    <Descriptions.Item label="Registered Voter">{regForm.getFieldValue('registeredVoter') ? 'Yes' : 'No'}</Descriptions.Item>
+                    <Descriptions.Item label="Mobile">{regForm.getFieldValue(['contact', 'mobile'])}</Descriptions.Item>
+                    <Descriptions.Item label="Email">{regForm.getFieldValue(['contact', 'email'])}</Descriptions.Item>
+                    <Descriptions.Item label="Username">{regForm.getFieldValue('username')}</Descriptions.Item>
                   </Descriptions>
                   
                   {/* Terms and Conditions */}
