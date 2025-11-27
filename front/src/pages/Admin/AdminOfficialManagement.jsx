@@ -185,6 +185,17 @@ export default function AdminOfficialManagement() {
   const activeOfficials = officials.filter(o => o.isActive).length;
   const inactiveOfficials = totalOfficials - activeOfficials;
 
+  // Helper to format resident display name with middle initial
+  const formatResidentDisplayName = (resident) => {
+    if (!resident) return '';
+    const first = resident.firstName || '';
+    const middleName = resident.middleName ? String(resident.middleName).trim() : '';
+    const middle = middleName.length > 0 ? (middleName[0].toUpperCase() + '.') : '';
+    const last = resident.lastName || '';
+    const suffix = resident.suffix ? String(resident.suffix).trim() : '';
+    return [first, middle, last, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  };
+
   // Helper to format official display name with middle initial (if resident data available)
   const formatOfficialDisplayName = (official) => {
     if (!official) return '';
@@ -202,11 +213,7 @@ export default function AdminOfficialManagement() {
       }) || null;
     }
     if (resident) {
-      const first = resident.firstName || '';
-      const middle = resident.middleName ? (resident.middleName.trim()[0].toUpperCase() + '.') : '';
-      const last = resident.lastName || '';
-      const suffix = resident.suffix ? resident.suffix.trim() : '';
-      return [first, middle, last, suffix].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      return formatResidentDisplayName(resident);
     }
     // If we can't map to resident, return stored fullName as-is
     return official.fullName || '';
@@ -761,11 +768,10 @@ export default function AdminOfficialManagement() {
                 }}
               >
                 {getAvailableResidents().map(resident => {
-                  const fullName = resident.fullName || 
-                    `${resident.firstName || ''} ${resident.middleName || ''} ${resident.lastName || ''}`.replace(/\s+/g, ' ').trim();
+                  const displayName = formatResidentDisplayName(resident);
                   return (
                     <Select.Option key={resident._id} value={resident._id}>
-                      {fullName}
+                      {displayName}
                     </Select.Option>
                   );
                 })}

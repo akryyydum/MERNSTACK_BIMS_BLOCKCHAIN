@@ -17,17 +17,28 @@ exports.list = async (req, res) => {
           .select('_id firstName middleName lastName suffix contact')
           .lean();
         
+        // Format full name with middle initial
+        let formattedFullName = official.fullName;
+        if (resident) {
+          const firstName = resident.firstName || '';
+          const middleName = resident.middleName ? String(resident.middleName).trim() : '';
+          const middleInitial = middleName.length > 0 ? (middleName[0].toUpperCase() + '.') : '';
+          const lastName = resident.lastName || '';
+          const suffix = resident.suffix ? String(resident.suffix).trim() : '';
+          formattedFullName = [firstName, middleInitial, lastName, suffix]
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        
         return {
           ...official,
           residentId: resident?._id || null,
           // Override contact with resident's contact if available
           contact: resident?.contact || official.contact,
-          // Add full name from resident if available
-          fullName: resident 
-            ? [resident.firstName, resident.middleName, resident.lastName, resident.suffix]
-                .filter(Boolean)
-                .join(' ')
-            : official.fullName
+          // Add full name from resident with middle initial format
+          fullName: formattedFullName
         };
       })
     );
@@ -66,6 +77,23 @@ exports.create = async (req, res) => {
       user.role = "official";
       user.position = position?.trim();
       
+      // Format fullName with middle initial
+      const firstName = resident.firstName || '';
+      const middleName = resident.middleName ? String(resident.middleName).trim() : '';
+      const middleInitial = middleName.length > 0 ? (middleName[0].toUpperCase() + '.') : '';
+      const lastName = resident.lastName || '';
+      const suffix = resident.suffix ? String(resident.suffix).trim() : '';
+      const formattedFullName = [firstName, middleInitial, lastName, suffix]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Update fullName with middle initial format
+      if (formattedFullName) {
+        user.fullName = formattedFullName;
+      }
+      
       // Handle email - if provided as empty string, remove it
       if (email !== undefined) {
         const cleanEmail = String(email).toLowerCase().trim();
@@ -93,46 +121,70 @@ exports.create = async (req, res) => {
       // Create new user account for the resident
       const emailToCheck = String(email || resident.contact?.email || '').toLowerCase().trim();
       
-      // Only check for existing email if there's actually an email to check
-      const existsQuery = { username: resident.username };
+      // Generate username from resident's name
+      let username = '';
+      if (resident.firstName && resident.lastName) {
+        username = `${resident.firstName}${resident.lastName}`.toLowerCase().replace(/\s/g, '');
+      } else if (resident.firstName) {
+        username = `${resident.firstName}_${resident._id}`.toLowerCase().replace(/\s/g, '');
+      } else {
+        username = `resident_${resident._id}`;
+      }
+      
+      // Check if username or email already exists
+      const existsQuery = { username: username };
       if (emailToCheck && emailToCheck.length > 0) {
         existsQuery.$or = [
-          { username: resident.username },
+          { username: username },
           { "contact.email": emailToCheck },
         ];
       }
       
       const exists = await User.findOne(existsQuery);
       if (exists) {
-        const conflictField = exists.username === resident.username ? "Username" : "Email";
-        return res.status(400).json({ message: `${conflictField} already exists` });
+        // If username conflicts, add a suffix
+        if (exists.username === username) {
+          username = `${username}_${Date.now()}`;
+          // Check again with new username and email
+          const existsAgain = await User.findOne({
+            $or: [
+              { username: username },
+              ...(emailToCheck && emailToCheck.length > 0 ? [{ "contact.email": emailToCheck }] : [])
+            ]
+          });
+          if (existsAgain) {
+            return res.status(400).json({ message: "Email already exists" });
+          }
+        } else {
+          return res.status(400).json({ message: "Email already exists" });
+        }
       }
 
       // Generate a temporary password (they can change it later)
       const tempPassword = Math.random().toString(36).slice(-8);
       const passwordHash = await bcrypt.hash(tempPassword, 10);
       
-      // Generate username more safely
-      let username = resident.username;
-      if (!username) {
-        if (resident.firstName && resident.lastName) {
-          username = `${resident.firstName}${resident.lastName}`.toLowerCase().replace(/\s/g, '');
-        } else if (resident.fullName) {
-          username = resident.fullName.toLowerCase().replace(/\s/g, '');
-        } else {
-          username = `resident_${resident._id}`;
-        }
-      }
-      
       const contact = { };
       if (emailToCheck && emailToCheck.length > 0) contact.email = emailToCheck;
       if (mobile) contact.mobile = mobile;
+
+      // Format fullName with middle initial
+      const firstName = resident.firstName || '';
+      const middleName = resident.middleName ? String(resident.middleName).trim() : '';
+      const middleInitial = middleName.length > 0 ? (middleName[0].toUpperCase() + '.') : '';
+      const lastName = resident.lastName || '';
+      const suffix = resident.suffix ? String(resident.suffix).trim() : '';
+      const formattedFullName = [firstName, middleInitial, lastName, suffix]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
       user = await User.create({
         username: username,
         passwordHash,
         role: "official",
-        fullName: resident.fullName || `${resident.firstName || ''} ${resident.lastName || ''}`.trim(),
+        fullName: formattedFullName || resident.fullName || `${firstName} ${lastName}`.trim(),
         position: position?.trim(),
         contact,
         isVerified: true,
