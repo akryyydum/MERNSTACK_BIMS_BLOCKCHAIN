@@ -391,55 +391,75 @@ exports.remove = async (req, res) => {
     
     // 5. Handle household memberships
     const Household = require('../models/household.model');
+    const UtilityPayment = require('../models/utilityPayment.model');
+    const GasPayment = require('../models/gasPayment.model');
+    const StreetlightPayment = require('../models/streetlightPayment.model');
     
-    // Find households where resident is head
-    const householdsAsHead = await Household.find({ headOfHousehold: id });
-    console.log('Households where resident is head:', householdsAsHead.length);
-    
-    for (const household of householdsAsHead) {
-      // If household has other members, assign new head
-      if (household.members && household.members.length > 0) {
-        // Remove resident from members array
-        household.members = household.members.filter(m => m.toString() !== id);
-        
-        if (household.members.length > 0) {
-          // Assign first member as new head
-          household.headOfHousehold = household.members[0];
-          await household.save();
-          console.log(`Transferred household ${household.householdId} to new head`);
-          deletionSummary.householdsRemoved++;
-        } else {
-          // No other members, delete household and its utility payments
-          const UtilityPayment = require('../models/utilityPayment.model');
-          await UtilityPayment.deleteMany({ household: household._id });
-          await Household.findByIdAndDelete(household._id);
-          console.log(`Deleted household ${household.householdId} (no remaining members)`);
-          deletionSummary.householdsDeleted++;
+    try {
+      // Find households where resident is head
+      const householdsAsHead = await Household.find({ headOfHousehold: id });
+      console.log('Households where resident is head:', householdsAsHead.length);
+      
+      for (const household of householdsAsHead) {
+        try {
+          // If household has other members, assign new head
+          if (household.members && household.members.length > 0) {
+            // Remove resident from members array
+            household.members = household.members.filter(m => m.toString() !== id);
+            
+            if (household.members.length > 0) {
+              // Assign first member as new head
+              household.headOfHousehold = household.members[0];
+              await household.save();
+              console.log(`Transferred household ${household.householdId} to new head`);
+              deletionSummary.householdsRemoved++;
+            } else {
+              // No other members, delete household and its payments
+              await UtilityPayment.deleteMany({ household: household._id });
+              await GasPayment.deleteMany({ household: household._id });
+              await StreetlightPayment.deleteMany({ household: household._id });
+              await Household.findByIdAndDelete(household._id);
+              console.log(`Deleted household ${household.householdId} (no remaining members)`);
+              deletionSummary.householdsDeleted++;
+            }
+          } else {
+            // No other members, delete household and its payments
+            const utilDeleteResult = await UtilityPayment.deleteMany({ household: household._id });
+            await GasPayment.deleteMany({ household: household._id });
+            await StreetlightPayment.deleteMany({ household: household._id });
+            deletionSummary.utilityPayments += utilDeleteResult.deletedCount;
+            await Household.findByIdAndDelete(household._id);
+            console.log(`Deleted household ${household.householdId} (resident was only member)`);
+            deletionSummary.householdsDeleted++;
+          }
+        } catch (householdErr) {
+          console.error(`Error handling household ${household.householdId}:`, householdErr);
+          // Continue with other households even if one fails
         }
-      } else {
-        // No other members, delete household and its utility payments
-        const UtilityPayment = require('../models/utilityPayment.model');
-        const utilDeleteResult = await UtilityPayment.deleteMany({ household: household._id });
-        deletionSummary.utilityPayments += utilDeleteResult.deletedCount;
-        await Household.findByIdAndDelete(household._id);
-        console.log(`Deleted household ${household.householdId} (resident was only member)`);
-        deletionSummary.householdsDeleted++;
       }
-    }
-    
-    // Find households where resident is a member (but not head)
-    const householdsAsMember = await Household.find({ 
-      members: id,
-      headOfHousehold: { $ne: id }
-    });
-    console.log('Households where resident is member:', householdsAsMember.length);
-    
-    for (const household of householdsAsMember) {
-      // Remove resident from members array
-      household.members = household.members.filter(m => m.toString() !== id);
-      await household.save();
-      console.log(`Removed resident from household ${household.householdId}`);
-      deletionSummary.householdsRemoved++;
+      
+      // Find households where resident is a member (but not head)
+      const householdsAsMember = await Household.find({ 
+        members: id,
+        headOfHousehold: { $ne: id }
+      });
+      console.log('Households where resident is member:', householdsAsMember.length);
+      
+      for (const household of householdsAsMember) {
+        try {
+          // Remove resident from members array
+          household.members = household.members.filter(m => m.toString() !== id);
+          await household.save();
+          console.log(`Removed resident from household ${household.householdId}`);
+          deletionSummary.householdsRemoved++;
+        } catch (householdErr) {
+          console.error(`Error removing from household ${household.householdId}:`, householdErr);
+          // Continue with other households even if one fails
+        }
+      }
+    } catch (householdError) {
+      console.error('Error in household cleanup:', householdError);
+      // Continue with deletion even if household cleanup fails
     }
     
     // 6. Finally, delete the resident record
@@ -518,35 +538,52 @@ exports.bulkRemove = async (req, res) => {
 
       // Households where residents are head
       const householdsAsHead = await Household.find({ headOfHousehold: { $in: chunk } });
+      const GasPayment = require('../models/gasPayment.model');
+      const StreetlightPayment = require('../models/streetlightPayment.model');
+      
       for (const household of householdsAsHead) {
-        if (household.members && household.members.length > 0) {
-          // Remove any of the chunk residents from members
-          household.members = household.members.filter(m => !chunk.includes(String(m)) && !chunk.includes(m?.toString?.()))
-            .map(m => m); // keep ObjectIds
-          if (household.members.length > 0) {
-            household.headOfHousehold = household.members[0];
-            await household.save();
-            summary.householdsRemoved++;
+        try {
+          if (household.members && household.members.length > 0) {
+            // Remove any of the chunk residents from members
+            household.members = household.members.filter(m => !chunk.includes(String(m)) && !chunk.includes(m?.toString?.()))
+              .map(m => m); // keep ObjectIds
+            if (household.members.length > 0) {
+              household.headOfHousehold = household.members[0];
+              await household.save();
+              summary.householdsRemoved++;
+            } else {
+              const utilRes = await UtilityPayment.deleteMany({ household: household._id });
+              await GasPayment.deleteMany({ household: household._id });
+              await StreetlightPayment.deleteMany({ household: household._id });
+              summary.deletedUtilityPayments += utilRes.deletedCount || 0;
+              await Household.findByIdAndDelete(household._id);
+              summary.householdsDeleted++;
+            }
           } else {
             const utilRes = await UtilityPayment.deleteMany({ household: household._id });
+            await GasPayment.deleteMany({ household: household._id });
+            await StreetlightPayment.deleteMany({ household: household._id });
             summary.deletedUtilityPayments += utilRes.deletedCount || 0;
             await Household.findByIdAndDelete(household._id);
             summary.householdsDeleted++;
           }
-        } else {
-          const utilRes = await UtilityPayment.deleteMany({ household: household._id });
-          summary.deletedUtilityPayments += utilRes.deletedCount || 0;
-          await Household.findByIdAndDelete(household._id);
-          summary.householdsDeleted++;
+        } catch (householdErr) {
+          console.error(`Error handling household ${household.householdId}:`, householdErr);
+          summary.errors.push(`Household ${household.householdId}: ${householdErr.message}`);
         }
       }
 
       // Households where residents are members (not head)
       const householdsAsMember = await Household.find({ members: { $in: chunk } });
       for (const household of householdsAsMember) {
-        household.members = household.members.filter(m => !chunk.includes(String(m)) && !chunk.includes(m?.toString?.()));
-        await household.save();
-        summary.householdsRemoved++;
+        try {
+          household.members = household.members.filter(m => !chunk.includes(String(m)) && !chunk.includes(m?.toString?.()));
+          await household.save();
+          summary.householdsRemoved++;
+        } catch (householdErr) {
+          console.error(`Error removing from household ${household.householdId}:`, householdErr);
+          summary.errors.push(`Household ${household.householdId}: ${householdErr.message}`);
+        }
       }
 
       // Finally delete residents in this chunk

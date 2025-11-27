@@ -843,6 +843,20 @@ const ResidentProfile = () => {
                 {profile.user?.role === 'official' && profile.user?.position && (
                   <Descriptions.Item label="Position">{profile.user.position}</Descriptions.Item>
                 )}
+                <Descriptions.Item label="Verification Status">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    profile.status === 'verified'
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      : profile.status === 'pending'
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : 'bg-rose-100 text-rose-700 border border-rose-200'
+                  }`}>
+                    {profile.status === 'verified' && <CheckCircleOutlined className="mr-1" />}
+                    {profile.status === 'pending' && <ClockCircleOutlined className="mr-1" />}
+                    {profile.status === 'rejected' && <CloseCircleOutlined className="mr-1" />}
+                    {profile.status?.charAt(0).toUpperCase() + profile.status?.slice(1)}
+                  </span>
+                </Descriptions.Item>
                 <Descriptions.Item label="Account Status">
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                     profile.user?.isActive
@@ -858,25 +872,6 @@ const ResidentProfile = () => {
                       <>
                         <CloseCircleOutlined className="mr-1" />
                         Inactive
-                      </>
-                    )}
-                  </span>
-                </Descriptions.Item>
-                <Descriptions.Item label="Verified">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    profile.user?.isVerified
-                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                      : 'bg-rose-100 text-rose-700 border border-rose-200'
-                  }`}>
-                    {profile.user?.isVerified ? (
-                      <>
-                        <CheckCircleOutlined className="mr-1" />
-                        Verified
-                      </>
-                    ) : (
-                      <>
-                        <CloseCircleOutlined className="mr-1" />
-                        Not Verified
                       </>
                     )}
                   </span>
