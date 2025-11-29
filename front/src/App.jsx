@@ -26,6 +26,7 @@ import AdminSettings from "./pages/Admin/AdminSettings";
 import ResidentPublicDocuments from "./pages/Residents/ResidentPublicDocuments";
 import ResidentReportsComplaints from "./pages/Residents/ResidentReportsComplaints";
 import ResidentBlockchainNetwork from "./pages/Residents/ResidentBlockhainNetwork";
+import LandingPage from "./pages/Landing/LandingPage";
 
 function App() {
   const [count, setCount] = useState(0)
@@ -34,6 +35,9 @@ function App() {
     <>
       <BrowserRouter>
       <Routes>
+        {/* Landing Page - Public route */}
+        <Route path="/" element={<LandingPage />} />
+        
         {/* Public route (blocked for authenticated users) */}
         <Route element={<PublicOnly />}>
           <Route path="/login" element={<Login />} />
@@ -70,7 +74,7 @@ function App() {
         </Route>
 
         {/* Default and 404 handling */}
-        <Route path="/" element={<SplashRedirect />} />
+        <Route path="/dashboard" element={<SplashRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
