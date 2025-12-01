@@ -20,30 +20,42 @@ export const GridDistortion = ({
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
+    let rect = canvas.getBoundingClientRect();
     
     // Set canvas size with device pixel ratio for sharp rendering
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
+    
+    const initializeCanvas = () => {
+      rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      return rect;
+    };
+    
+    initializeCanvas();
 
-    const actualRows = Math.ceil(rect.height / cellSize) + 2;
-    const actualCols = Math.ceil(rect.width / cellSize) + 2;
+    let actualRows = Math.ceil(rect.height / cellSize) + 2;
+    let actualCols = Math.ceil(rect.width / cellSize) + 2;
 
     // Initialize grid points
-    const points = [];
-    for (let i = 0; i < actualRows; i++) {
-      points[i] = [];
-      for (let j = 0; j < actualCols; j++) {
-        points[i][j] = {
-          x: j * cellSize,
-          y: i * cellSize,
-          originalX: j * cellSize,
-          originalY: i * cellSize
-        };
+    const initializePoints = () => {
+      const points = [];
+      for (let i = 0; i < actualRows; i++) {
+        points[i] = [];
+        for (let j = 0; j < actualCols; j++) {
+          points[i][j] = {
+            x: j * cellSize,
+            y: i * cellSize,
+            originalX: j * cellSize,
+            originalY: i * cellSize
+          };
+        }
       }
-    }
+      return points;
+    };
+    
+    let points = initializePoints();
 
     let time = 0;
 
@@ -132,18 +144,36 @@ export const GridDistortion = ({
     animate();
 
     const handleResize = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
+      const newRect = initializeCanvas();
+      actualRows = Math.ceil(newRect.height / cellSize) + 2;
+      actualCols = Math.ceil(newRect.width / cellSize) + 2;
+      points = initializePoints();
+      rect = newRect;
     };
 
+    // Listen for both resize and zoom events
     window.addEventListener('resize', handleResize);
+    
+    // Detect zoom changes
+    const mediaQuery = window.matchMedia('screen');
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleResize);
+    }
+    
+    // Additional zoom detection via resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    resizeObserver.observe(canvas);
 
     return () => {
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('resize', handleResize);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleResize);
+      }
+      resizeObserver.disconnect();
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
