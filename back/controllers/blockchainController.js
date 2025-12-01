@@ -146,26 +146,53 @@ exports.getAllFinancialTransactions = async (req, res) => {
 };
 
 
-// Resident-scoped: get only the blockchain requests for the authenticated resident
+// Resident-scoped: get blockchain requests relevant to the authenticated resident
+// Includes the resident and their household (head + members) so requests made "for"
+// family members also appear in the resident's view.
 exports.getResidentBlockchainRequests = async (req, res) => {
   try {
     const Resident = require('../models/resident.model');
-    const resident = await Resident.findOne({ user: req.user.id });
+    const Household = require('../models/household.model');
+
+    const resident = await Resident.findOne({ user: req.user.id }).select('_id').lean();
     if (!resident) return res.status(404).json({ message: 'Resident profile not found' });
+
+    // Build the set of resident IDs relevant to the viewer (self + household)
+    const idSet = new Set([resident._id.toString()]);
+    try {
+      const hh = await Household.findOne({
+        $or: [
+          { headOfHousehold: resident._id },
+          { members: resident._id },
+        ],
+      }).select('headOfHousehold members').lean();
+      if (hh) {
+        const headId = (hh.headOfHousehold && hh.headOfHousehold.toString) ? hh.headOfHousehold.toString() : String(hh.headOfHousehold || '');
+        if (headId) idSet.add(headId);
+        (hh.members || []).forEach(m => {
+          const mid = (m && m.toString) ? m.toString() : String(m || '');
+          if (mid) idSet.add(mid);
+        });
+      }
+    } catch (hhErr) {
+      // Non-fatal: proceed with only the resident's own ID
+      console.warn('Household lookup failed for blockchain requests:', hhErr.message || hhErr);
+    }
 
     const { gateway, contract } = await getContract();
     const result = await contract.evaluateTransaction('getAllRequests');
     const all = JSON.parse(result.toString());
     await gateway.disconnect();
 
-    // Filter by residentId strictly matching current resident ObjectId string
-    const myId = resident._id.toString();
-    const mine = Array.isArray(all) ? all.filter(r => (r?.residentId || '').toString() === myId) : [];
+    // Keep requests whose residentId matches any relevant ID
+    const relevant = Array.isArray(all)
+      ? all.filter(r => idSet.has(String(r?.residentId || '')))
+      : [];
 
     // Sort newest first
-    mine.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
+    relevant.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
 
-    res.json(mine);
+    res.json(relevant);
   } catch (error) {
     console.error('Error fetching resident blockchain requests:', error);
     res.status(500).json({ message: 'Failed to load resident blockchain requests', error: error.message });
