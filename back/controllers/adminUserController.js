@@ -147,7 +147,7 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-  const { role, isActive, isVerified, fullName, contact, residentStatus, username } = req.body;
+  const { role, isActive, isVerified, fullName, contact, residentStatus, username, inactiveReason } = req.body;
 
   console.log('Update user request:', { id, body: req.body });
 
@@ -166,7 +166,21 @@ exports.update = async (req, res) => {
         update.username = usernameTrim;
       }
     }
-    if (typeof isActive === "boolean") update.isActive = isActive;
+    if (typeof isActive === "boolean") {
+      update.isActive = isActive;
+      // If setting to active, remove inactive reason
+      if (isActive) {
+        unset.inactiveReason = "";
+      }
+    }
+    // Handle inactive reason
+    if (inactiveReason !== undefined) {
+      if (inactiveReason && String(inactiveReason).trim()) {
+        update.inactiveReason = String(inactiveReason).trim();
+      } else {
+        unset.inactiveReason = "";
+      }
+    }
     if (typeof isVerified === "boolean") update.isVerified = isVerified;
     if (fullName) update.fullName = String(fullName).trim();
     if (role) {
