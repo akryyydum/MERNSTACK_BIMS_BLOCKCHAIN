@@ -1090,10 +1090,21 @@ export default function ResidentRequest() {
                       <div className="mb-4">
                         <label className="text-slate-700 font-medium text-sm block mb-2">Amount</label>
                         <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-md">
-                          <span className="text-lg font-semibold text-slate-800">
-                            ₱{(selectedAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          <p className="text-xs text-slate-500 mt-1">Auto-calculated based on type and quantity</p>
+                          {selectedDocType === "Business Clearance" ? (
+                            <>
+                              <span className="text-lg font-semibold text-amber-600">
+                                Not final amount
+                              </span>
+                              <p className="text-xs text-slate-500 mt-1">Amount will be determined by admin</p>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-lg font-semibold text-slate-800">
+                                ₱{(selectedAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <p className="text-xs text-slate-500 mt-1">Auto-calculated based on type and quantity</p>
+                            </>
+                          )}
                         </div>
                       </div>
                       <Form.Item name="amount" hidden>
