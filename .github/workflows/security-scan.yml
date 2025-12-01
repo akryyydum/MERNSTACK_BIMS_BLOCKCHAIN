@@ -49,7 +49,7 @@ jobs:
       
       - name: Upload audit report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: audit-report-${{ matrix.directory }}
           path: ${{ matrix.directory }}/audit-report.json
@@ -102,7 +102,7 @@ jobs:
       
       - name: Upload ZAP report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: zap-baseline-report
           path: |
