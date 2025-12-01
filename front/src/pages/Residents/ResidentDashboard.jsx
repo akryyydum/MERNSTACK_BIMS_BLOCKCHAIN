@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
 import PaymentStatusAlert from './PaymentStatusAlert';
 import apiClient from "../../utils/apiClient";
-import { Button, message, Spin } from "antd";
+import { Button, message, Spin, Modal } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   FileTextOutlined, 
@@ -16,7 +16,8 @@ import {
   CalendarOutlined,
   ExclamationCircleOutlined,
   AlertOutlined,
-  FlagOutlined
+  FlagOutlined,
+  BellOutlined
 } from '@ant-design/icons';
 import axios from "axios";
 
@@ -29,6 +30,9 @@ export default function ResidentDashboard() {
   const [payments, setPayments] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [latestAnnouncement, setLatestAnnouncement] = useState(null);
+  const [loadingAnnouncement, setLoadingAnnouncement] = useState(false);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
 
   const userData = JSON.parse(localStorage.getItem("userData") || "{}");
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -40,6 +44,26 @@ export default function ResidentDashboard() {
     if (!dateValue) return "Not available";
     const date = new Date(dateValue);
     return isNaN(date.getTime()) ? "Not available" : date.toLocaleDateString();
+  };
+
+  // Fetch latest announcement from public documents
+  const fetchLatestAnnouncement = async () => {
+    setLoadingAnnouncement(true);
+    try {
+      const res = await apiClient.get('/api/resident/public-documents');
+      // Filter for announcements only and get the latest one
+      const announcements = res.data.filter(
+        doc => doc.category && doc.category.toLowerCase() === 'announcement'
+      );
+      if (announcements.length > 0) {
+        // Already sorted by createdAt desc from API
+        setLatestAnnouncement(announcements[0]);
+      }
+    } catch (error) {
+      // Silently fail - announcement is optional
+      console.error("Error fetching announcements:", error);
+    }
+    setLoadingAnnouncement(false);
   };
 
   // Fetch resident profile from API
@@ -61,6 +85,7 @@ export default function ResidentDashboard() {
     checkPaymentStatus();
     fetchRealPayments(); // Fetch real payment data instead of mock data
     fetchResidentProfile(); // Fetch full resident profile from API
+    fetchLatestAnnouncement(); // Fetch latest announcement
     // Avoid logging sensitive localStorage contents
   }, []);
 
@@ -458,42 +483,47 @@ export default function ResidentDashboard() {
         </Card>
 
         {/* Payments Up to Date Alert Card */}
-        {paymentStatus && paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
-          <Card className="w-full border border-emerald-200 bg-emerald-50">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircleOutlined className="text-emerald-600 text-sm sm:text-base" />
+        {/* Payment Status, Dashboard Overview and Latest Announcement Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column: Payment Status and Dashboard Overview */}
+          <div className="flex flex-col gap-4">
+            {/* Payments Up to Date Alert Card */}
+            {paymentStatus && paymentStatus.canRequestDocuments && paymentStatus.paymentStatus && (
+              <Card className="w-full border border-emerald-200 bg-emerald-50">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <CheckCircleOutlined className="text-emerald-600 text-sm sm:text-base" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <h3 className="text-sm sm:text-base font-semibold text-emerald-900">All Payments Up to Date</h3>
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] sm:text-xs font-medium rounded-full">
+                          Good Standing
+                        </span>
+                      </div>
+                      <p className="text-emerald-800 mb-3 text-xs sm:text-sm">
+                        Great! Your garbage and streetlight fees are current. You can now request official documents from the barangay.
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <h3 className="text-sm sm:text-base font-semibold text-emerald-900">All Payments Up to Date</h3>
-                    <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] sm:text-xs font-medium rounded-full">
-                      Good Standing
-                    </span>
-                  </div>
-                  <p className="text-emerald-800 mb-3 text-xs sm:text-sm">
-                    Great! Your garbage and streetlight fees are current. You can now request official documents from the barangay.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        
-        {/* Dashboard Statistics - Combined Document Requests, Complaints & Barangay Fee Summary */}
-        <Card className="w-full border border-slate-200 shadow-md bg-white">
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Dashboard Overview</CardTitle>
-            <CardDescription className="text-xs sm:text-sm text-slate-600">Track your requests, complaints, and barangay fees</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-5">
-            {/* Responsive grid: 2 columns on mobile (2x2), 4 columns on large screens */}
-            <div
-              className="grid grid-cols-2 grid-rows-2 gap-2 sm:grid-cols-2 sm:grid-rows-2 lg:grid-cols-4 lg:grid-rows-1 sm:gap-4"
-            >
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Dashboard Statistics - Combined Document Requests, Complaints & Barangay Fee Summary */}
+            <Card className="w-full border border-slate-200 shadow-md bg-white">
+              <CardHeader>
+                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-slate-800">Dashboard Overview</CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">Track your requests, complaints, and barangay fees</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-5">
+                {/* Responsive grid: 2 columns on mobile (2x2), 4 columns on large screens */}
+                <div
+                  className="grid grid-cols-2 grid-rows-2 gap-2 sm:grid-cols-2 sm:grid-rows-2 lg:grid-cols-2 lg:grid-rows-2 sm:gap-4"
+                >
               {/* All Requests Card */}
               <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-br from-slate-50 to-white">
                 <CardContent className="p-2 sm:p-4">
@@ -531,7 +561,7 @@ export default function ResidentDashboard() {
                 <CardContent className="p-2 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 border border-orange-200">
-                      <DollarOutlined className="text-orange-600 text-lg sm:text-xl" />
+                      <span className="text-black-600 text-lg sm:text-xl font-bold">₱</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Monthly</p>
@@ -560,6 +590,116 @@ export default function ResidentDashboard() {
             </div>
           </CardContent>
         </Card>
+          </div>
+
+          {/* Right Column: Latest Announcement Card */}
+          {latestAnnouncement && (
+            <Card className="w-full border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-blue-50 shadow-md flex flex-col">
+              <CardContent className="p-3 sm:p-4 flex flex-col flex-1">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="flex-shrink-0">
+                    <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <BellOutlined className="text-blue-600 text-sm sm:text-base" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h3 className="text-sm sm:text-base font-semibold text-blue-900">Latest Announcement</h3>
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] sm:text-xs font-medium rounded-full">
+                        New
+                      </span>
+                    </div>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-800 mb-2">{latestAnnouncement.title}</h4>
+                    {latestAnnouncement.description && (
+                      <div className="mb-2">
+                        <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
+                          {latestAnnouncement.description.length > 200
+                            ? `${latestAnnouncement.description.substring(0, 200)}...`
+                            : latestAnnouncement.description}
+                        </p>
+                        {latestAnnouncement.description.length > 200 && (
+                          <Button
+                            type="link"
+                            size="small"
+                            className="p-0 h-auto text-blue-600 hover:text-blue-800 font-medium mt-1"
+                            onClick={() => setShowAnnouncementModal(true)}
+                          >
+                            See More
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 mt-3">
+                      <CalendarOutlined className="text-slate-400" />
+                      <span>Posted {formatDate(latestAnnouncement.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Display announcement image if it's an image type */}
+                {latestAnnouncement.mimeType && latestAnnouncement.mimeType.startsWith('image/') && (
+                  <div className="w-full flex-1 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center">
+                    <img
+                      src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/public-documents/${latestAnnouncement._id}/preview`}
+                      alt={latestAnnouncement.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Announcement Modal */}
+        <Modal
+          open={showAnnouncementModal}
+          onCancel={() => setShowAnnouncementModal(false)}
+          footer={null}
+          width={800}
+          centered
+          title={
+            <div className="flex items-center gap-2">
+              <BellOutlined className="text-blue-600" />
+              <span className="text-lg font-semibold">Announcement</span>
+            </div>
+          }
+        >
+          {latestAnnouncement && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">{latestAnnouncement.title}</h3>
+                <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                  <CalendarOutlined className="text-slate-400" />
+                  <span>Posted {formatDate(latestAnnouncement.createdAt)}</span>
+                </div>
+              </div>
+              
+              {latestAnnouncement.description && (
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap">
+                    {latestAnnouncement.description}
+                  </p>
+                </div>
+              )}
+              
+              {latestAnnouncement.mimeType && latestAnnouncement.mimeType.startsWith('image/') && (
+                <div className="w-full rounded-lg overflow-hidden border border-slate-200 bg-white">
+                  <img
+                    src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/public-documents/${latestAnnouncement._id}/preview`}
+                    alt={latestAnnouncement.title}
+                    className="w-full h-auto max-h-[500px] object-contain"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </Modal>
         
         {/* Recent Activity Section */}
         <Card className="w-full border border-slate-200 shadow-md bg-white">
