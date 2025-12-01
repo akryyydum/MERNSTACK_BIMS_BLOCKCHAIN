@@ -442,7 +442,7 @@ const ResidentNavbar = () => {
           <div className="flex items-center gap-3">
             <img src={logo} className="w-12 h-12 object-contain" alt="Barangay Logo" />
             <div className="flex flex-col leading-tight">
-              <span className="text-lg font-semibold text-black">La Torre North</span>
+              <span className="text-lg font-semibold text-black">La Torre North, Bayombong, NV</span>
               <span className="text-[8px] text-gray-600">Barangay Management Information System</span>
             </div>
           </div>
