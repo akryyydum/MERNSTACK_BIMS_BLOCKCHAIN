@@ -260,6 +260,10 @@ app.use('/api/blockchain', blockchainRoutes);
 const adminSettingsRoutes = require('./routes/adminSettingsRoutes');
 app.use('/api/admin/settings', adminSettingsRoutes);
 
+// Export routes (CSV downloads)
+const exportRoutes = require('./routes/exportRoutes');
+app.use('/api/export', exportRoutes);
+
 // Additional admin routes for garbage management
 const adminHouseholdController = require("./controllers/adminHouseholdController");
 app.get("/api/admin/garbage-payments", auth, authorize("admin"), adminHouseholdController.listGarbagePayments);

@@ -6,8 +6,9 @@ import apiClient from '../../utils/apiClient';
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Table, Tag, Progress, Space, Divider, message, Button } from 'antd';
-import { UserOutlined, TeamOutlined, FileProtectOutlined, DollarCircleOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, FileProtectOutlined, DollarCircleOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import ExportSummaryModal from '../../components/ExportSummaryModal';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const PUROK_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#a855f7', '#ef4444'];
@@ -81,6 +82,7 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [requestTrendPeriod, setRequestTrendPeriod] = useState('12months'); // '7days' | '12months'
+  const [exportModalVisible, setExportModalVisible] = useState(false);
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
   const username = userProfile.username || localStorage.getItem("username") || "Admin";
 
@@ -569,6 +571,16 @@ export default function AdminDashboard() {
         <nav className="px-5 h-20 flex items-center justify-between p-15">
           <span className="text-2xl md:text-4xl font-bold text-gray-800">Admin Dashboard</span>
           
+          {/* Export Summary Button */}
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            size="large"
+            onClick={() => setExportModalVisible(true)}
+            className="bg-blue-600 hover:bg-blue-700 font-medium"
+          >
+            Export Summary
+          </Button>
         </nav>
 
         {/* Content Container */}
@@ -982,6 +994,12 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Export Summary Modal */}
+      <ExportSummaryModal
+        visible={exportModalVisible}
+        onClose={() => setExportModalVisible(false)}
+      />
     </AdminLayout>
   );
 }
