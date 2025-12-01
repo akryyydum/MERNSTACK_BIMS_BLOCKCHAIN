@@ -23,6 +23,8 @@ const documentRequestSchema = new mongoose.Schema({
   businessName: { type: String },
   // Optional fee amount set by admin (e.g., for Business Clearance)
   feeAmount: { type: Number },
+  // Reason for declining the request
+  declineReason: { type: String },
   
   blockchain: {
     hash: String,

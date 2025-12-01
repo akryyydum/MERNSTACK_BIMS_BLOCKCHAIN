@@ -51,6 +51,12 @@ export default function AdminDocumentRequests() {
   const [acceptForm] = Form.useForm();
   const [deletingId, setDeletingId] = useState(null);
 
+  // Decline modal for reason
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [declineRecord, setDeclineRecord] = useState(null);
+  const [declineForm] = Form.useForm();
+
   const [createForm] = Form.useForm();
   const selectedCreateDocType = Form.useWatch("documentType", createForm); // NEW
   const selectedRequestFor = Form.useWatch("requestFor", createForm); // Person document is for
@@ -459,16 +465,14 @@ export default function AdminDocumentRequests() {
                   handleAction(r._id, 'accept');
                 }
               }} className="whitespace-nowrap">Accept</Button>
-              <Popconfirm
-                title="Reject this request?"
-                description="This action cannot be undone."
-                okText="Reject"
-                okButtonProps={{ danger: true }}
-                cancelText="Cancel"
-                onConfirm={() => handleAction(r._id, 'decline')}
+              <Button 
+                size="small" 
+                danger 
+                onClick={() => handleDeclineRequest(r)}
+                className="whitespace-nowrap"
               >
-                <Button size="small" danger className="whitespace-nowrap">Decline</Button>
-              </Popconfirm>
+                Decline
+              </Button>
             </>
           )}
           {r.status === "accepted" && (
@@ -957,6 +961,43 @@ const handleAction = async (id, action) => {
   }
 };
 
+// Handle decline with reason modal
+const handleDeclineRequest = (record) => {
+  setDeclineRecord(record);
+  declineForm.resetFields();
+  setDeclineOpen(true);
+};
+
+const handleDeclineSubmit = async () => {
+  try {
+    const values = await declineForm.validateFields();
+    setDeclining(true);
+    
+    await apiClient.patch(`/api/admin/document-requests/${declineRecord._id}/decline`, {
+      reason: values.reason
+    });
+    
+    setRequests(prev =>
+      sortByNewest(
+        prev.map(r => r._id === declineRecord._id ? { ...r, status: 'declined', declineReason: values.reason } : r)
+      )
+    );
+    
+    message.success('Request declined and resident notified');
+    setDeclineOpen(false);
+    setDeclineRecord(null);
+    declineForm.resetFields();
+  } catch (error) {
+    if (error.errorFields) {
+      // Validation error, don't show message
+      return;
+    }
+    message.error(error?.response?.data?.message || 'Failed to decline request');
+  } finally {
+    setDeclining(false);
+  }
+};
+
 // Helpers for export
 function formatResidentName(resident) {
   if (!resident) return "-";
@@ -1404,6 +1445,11 @@ const handleExport = async () => {
                   return <Tag color={color} className="capitalize">{viewRequest.status}</Tag>;
                 })()}
               </Descriptions.Item>
+              {viewRequest.status === "declined" && viewRequest.declineReason && (
+                <Descriptions.Item label="Decline Reason">
+                  <div className="text-red-600">{viewRequest.declineReason}</div>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Requested At">{viewRequest.requestedAt ? new Date(viewRequest.requestedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Updated At">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : ""}</Descriptions.Item>
               <Descriptions.Item label="Blockchain Hash">{viewRequest.blockchain?.hash || "-"}</Descriptions.Item>
@@ -1668,6 +1714,57 @@ const handleExport = async () => {
                 <InputNumber min={0} className="w-full" />
               </Form.Item>
             </Form>
+          )}
+        </Modal>
+
+        {/* Decline Modal for Reason */}
+        <Modal
+          title="Decline Document Request"
+          open={declineOpen}
+          onCancel={() => {
+            setDeclineOpen(false);
+            setDeclineRecord(null);
+            declineForm.resetFields();
+          }}
+          onOk={handleDeclineSubmit}
+          confirmLoading={declining}
+          okText="Decline Request"
+          okButtonProps={{ danger: true }}
+          width={500}
+          className="max-w-[95vw]"
+        >
+          {declineRecord && (
+            <div>
+              <p className="mb-4 text-gray-600">
+                You are declining the request for <strong>{declineRecord.documentType}</strong> by{' '}
+                <strong>
+                  {[
+                    declineRecord.requestedBy?.firstName,
+                    declineRecord.requestedBy?.lastName
+                  ].filter(Boolean).join(' ')}
+                </strong>.
+              </p>
+              <Form form={declineForm} layout="vertical">
+                <Form.Item
+                  name="reason"
+                  label="Reason for Declining"
+                  rules={[
+                    { required: true, message: 'Please provide a reason for declining this request' },
+                    { min: 10, message: 'Reason must be at least 10 characters' }
+                  ]}
+                >
+                  <Input.TextArea
+                    rows={4}
+                    placeholder="Enter the reason why this request is being declined..."
+                    maxLength={500}
+                    showCount
+                  />
+                </Form.Item>
+              </Form>
+              <p className="text-xs text-gray-500 mt-2">
+                The resident will be notified with this reason via their notifications.
+              </p>
+            </div>
           )}
         </Modal>
 

@@ -852,6 +852,12 @@ export default function ResidentRequest() {
                         <div className="flex-1">
                           <p className="text-xs font-medium text-slate-800">{viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}</p>
                           <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                          {viewRequest.status === "declined" && viewRequest.declineReason && (
+                            <div className="mt-2 bg-rose-50 border border-rose-200 rounded p-2">
+                              <p className="text-[11px] font-medium text-rose-700 mb-1">Reason for rejection:</p>
+                              <p className="text-xs text-rose-600">{viewRequest.declineReason}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
