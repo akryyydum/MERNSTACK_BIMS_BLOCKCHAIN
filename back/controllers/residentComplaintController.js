@@ -1,6 +1,8 @@
 const Complaint = require('../models/complaint.model');
 const Resident = require('../models/resident.model');
 const { notifyComplaintCreated } = require('./adminNotificationController');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Get complaints for the authenticated resident (fallback resolve residentId if missing in token)
 exports.getMyComplaints = async (req, res) => {
@@ -55,6 +57,14 @@ exports.createComplaint = async (req, res) => {
       return res.status(400).json({ message: 'Invalid priority value' });
     }
 
+    // Handle file attachments
+    const attachments = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        attachments.push(file.filename);
+      }
+    }
+
     const complaint = await Complaint.create({
       residentId,
       type,
@@ -62,7 +72,8 @@ exports.createComplaint = async (req, res) => {
       title: title.trim(),
       description: description.trim(),
       location: location.trim(),
-      priority: priority || 'medium'
+      priority: priority || 'medium',
+      attachments
     });
 
     const populated = await Complaint.findById(complaint._id)
@@ -148,6 +159,13 @@ exports.updateComplaint = async (req, res) => {
     complaint.location = location || complaint.location;
     complaint.priority = priority || complaint.priority;
 
+    // Handle new file attachments
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        complaint.attachments.push(file.filename);
+      }
+    }
+
     await complaint.save();
 
     const updated = await Complaint.findById(complaintId)
@@ -179,10 +197,49 @@ exports.deleteComplaint = async (req, res) => {
       });
     }
 
+    // Delete associated files
+    if (complaint.attachments && complaint.attachments.length > 0) {
+      const uploadDir = path.join(__dirname, '..', 'uploads', 'complaints');
+      for (const filename of complaint.attachments) {
+        try {
+          await fs.unlink(path.join(uploadDir, filename));
+        } catch (err) {
+          console.warn(`Failed to delete file ${filename}:`, err.message);
+        }
+      }
+    }
+
     await Complaint.findByIdAndDelete(complaintId);
     res.json({ message: 'Complaint deleted successfully' });
   } catch (error) {
     console.error('Error deleting complaint:', error);
     res.status(500).json({ message: 'Failed to delete complaint' });
+  }
+};
+
+// Download attachment
+exports.downloadAttachment = async (req, res) => {
+  try {
+    let residentId = req.user.residentId;
+    if (!residentId) {
+      const residentDoc = await Resident.findOne({ user: req.user.id }).select('_id');
+      if (residentDoc) residentId = residentDoc._id.toString();
+    }
+    const { id, filename } = req.params;
+
+    const complaint = await Complaint.findOne({ _id: id, residentId });
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    if (!complaint.attachments.includes(filename)) {
+      return res.status(404).json({ message: 'Attachment not found' });
+    }
+
+    const filePath = path.join(__dirname, '..', 'uploads', 'complaints', filename);
+    res.download(filePath);
+  } catch (error) {
+    console.error('Error downloading attachment:', error);
+    res.status(500).json({ message: 'Failed to download attachment' });
   }
 };

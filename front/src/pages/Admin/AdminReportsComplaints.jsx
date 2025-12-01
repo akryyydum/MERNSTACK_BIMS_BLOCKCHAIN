@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Table, Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Descriptions, Alert } from "antd";
+import { Table, Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Descriptions, Alert, Upload } from "antd";
 import { AdminLayout } from "./AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, UploadOutlined } from "@ant-design/icons";
 import apiClient from "@/utils/apiClient";
 import dayjs from "dayjs";
 import {
@@ -32,6 +32,7 @@ export default function AdminReportsComplaints() {
 
   const [isOtherCategory, setIsOtherCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
+  const [fileList, setFileList] = useState([]);
 
   const [createForm] = Form.useForm();
   const [responseForm] = Form.useForm();
@@ -107,15 +108,36 @@ export default function AdminReportsComplaints() {
       if (values.category === "Other") {
         values = { ...values, category: customCategory || "Other" };
       }
+      
+      const formData = new FormData();
+      Object.keys(values).forEach(key => {
+        if (values[key] !== undefined && values[key] !== null) {
+          formData.append(key, values[key]);
+        }
+      });
+      
+      // Append files
+      fileList.forEach(file => {
+        if (file.originFileObj) {
+          formData.append('attachments', file.originFileObj);
+        }
+      });
+      
       await apiClient.post(
         '/api/admin/complaints',
-        values
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
       );
       message.success("Complaint created successfully!");
       setCreateOpen(false);
       createForm.resetFields();
       setCustomCategory("");
       setIsOtherCategory(false);
+      setFileList([]);
       fetchComplaints();
     } catch (err) {
       message.error(err?.response?.data?.message || "Failed to create complaint");
@@ -770,7 +792,7 @@ export default function AdminReportsComplaints() {
                 ]}
               />
             </Form.Item>
-            <Form.Item name="priority" label="Priority" rules={[{ required: true, message: "Please select a priority" }]} style={{ marginBottom: 0 }}>
+            <Form.Item name="priority" label="Priority" rules={[{ required: true, message: "Please select a priority" }]} style={{ marginBottom: 12 }}>
               <Select
                 placeholder="Select priority"
                 options={[
@@ -780,6 +802,27 @@ export default function AdminReportsComplaints() {
                   { value: "urgent", label: "Urgent" },
                 ]}
               />
+            </Form.Item>
+            <Form.Item
+              label="Attachments (Optional)"
+              extra="Upload images or videos (max 5 files, 10MB each)"
+              style={{ marginBottom: 0 }}
+            >
+              <Upload
+                listType="picture-card"
+                fileList={fileList}
+                onChange={({ fileList: newFileList }) => setFileList(newFileList)}
+                beforeUpload={() => false}
+                accept="image/*,video/*"
+                maxCount={5}
+              >
+                {fileList.length >= 5 ? null : (
+                  <div>
+                    <UploadOutlined />
+                    <div style={{ marginTop: 8 }}>Upload</div>
+                  </div>
+                )}
+              </Upload>
             </Form.Item>
           </Form>
         </Modal>
@@ -859,6 +902,36 @@ export default function AdminReportsComplaints() {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Description">{viewComplaint.description}</Descriptions.Item>
+              {viewComplaint.attachments && viewComplaint.attachments.length > 0 && (
+                <Descriptions.Item label="Attachments" span={1}>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                    {viewComplaint.attachments.map((filename, idx) => {
+                      const isVideo = /\.(mp4|mov|avi|webm)$/i.test(filename);
+                      const fileUrl = `${API_BASE}/api/admin/complaints/${viewComplaint._id}/attachments/${filename}`;
+                      
+                      return (
+                        <div key={idx} className="relative group">
+                          {isVideo ? (
+                            <video 
+                              src={fileUrl} 
+                              controls 
+                              className="w-full h-24 object-cover rounded border"
+                            />
+                          ) : (
+                            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                              <img 
+                                src={fileUrl} 
+                                alt={`Attachment ${idx + 1}`} 
+                                className="w-full h-24 object-cover rounded border hover:opacity-75 transition"
+                              />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Admin Response">
                 {viewComplaint.response || "No response yet"}
               </Descriptions.Item>

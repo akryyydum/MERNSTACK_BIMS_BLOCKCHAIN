@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Tabs, Alert } from "antd";
+import { Input, Button, Modal, Form, Select, Popconfirm, message, Tag, Tabs, Alert, Upload } from "antd";
 import ResidentNavbar from "./ResidentNavbar";
 import apiClient from "../../utils/apiClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,7 +13,9 @@ import {
   FileTextOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  CommentOutlined
+  CommentOutlined,
+  UploadOutlined,
+  PaperClipOutlined
 } from "@ant-design/icons";
 import axios from "axios";
 import dayjs from "dayjs";
@@ -36,6 +38,8 @@ export default function ResidentReportsComplaints() {
   const [showOtherCategory, setShowOtherCategory] = useState(false);
   const [showOtherCategoryEdit, setShowOtherCategoryEdit] = useState(false);
   const [createStep, setCreateStep] = useState(0); // 0 = instructions, 1 = form
+  const [fileList, setFileList] = useState([]);
+  const [editFileList, setEditFileList] = useState([]);
 
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -82,15 +86,36 @@ export default function ResidentReportsComplaints() {
           : values.category
       };
       
+      const formData = new FormData();
+      Object.keys(submitData).forEach(key => {
+        if (submitData[key] !== undefined && submitData[key] !== null) {
+          formData.append(key, submitData[key]);
+        }
+      });
+      
+      // Append files
+      fileList.forEach(file => {
+        if (file.originFileObj) {
+          formData.append('attachments', file.originFileObj);
+        }
+      });
+      
       await apiClient.post(
         '/api/resident/complaints',
-        submitData
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
       );
       
       message.success("Complaint submitted successfully!");
       setCreateOpen(false);
+      setCreateStep(0);
       createForm.resetFields();
       setShowOtherCategory(false);
+      setFileList([]);
       fetchComplaints();
     } catch (err) {
       const status = err.response?.status;
@@ -120,15 +145,36 @@ export default function ResidentReportsComplaints() {
           : values.category
       };
       
+      const formData = new FormData();
+      Object.keys(submitData).forEach(key => {
+        if (submitData[key] !== undefined && submitData[key] !== null) {
+          formData.append(key, submitData[key]);
+        }
+      });
+      
+      // Append new files
+      editFileList.forEach(file => {
+        if (file.originFileObj) {
+          formData.append('attachments', file.originFileObj);
+        }
+      });
+      
       await apiClient.put(
         `/api/resident/complaints/${editComplaint._id}`,
-        submitData
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
       );
       
       message.success("Complaint updated successfully!");
       setEditOpen(false);
       editForm.resetFields();
       setEditComplaint(null);
+      setEditFileList([]);
+      setShowOtherCategoryEdit(false);
       setShowOtherCategoryEdit(false);
       fetchComplaints();
     } catch (err) {
@@ -663,11 +709,30 @@ export default function ResidentReportsComplaints() {
           >
             <Select placeholder="Select priority" options={priorityOptions} />
           </Form.Item>
-          </Form>
-        )}
-      </Modal>
 
-      {/* Edit Modal */}
+          <Form.Item
+            label="Attachments (Optional)"
+            extra="Upload images or videos (max 5 files, 10MB each)"
+          >
+            <Upload
+              listType="picture-card"
+              fileList={fileList}
+              onChange={({ fileList: newFileList }) => setFileList(newFileList)}
+              beforeUpload={() => false}
+              accept="image/*,video/*"
+              maxCount={5}
+            >
+              {fileList.length >= 5 ? null : (
+                <div>
+                  <UploadOutlined />
+                  <div style={{ marginTop: 8 }}>Upload</div>
+                </div>
+              )}
+            </Upload>
+          </Form.Item>
+        </Form>
+        )}
+      </Modal>      {/* Edit Modal */}
       <Modal
         title="Edit Report/Complaint"
         open={editOpen}
@@ -768,6 +833,28 @@ export default function ResidentReportsComplaints() {
           >
             <Select placeholder="Select priority" options={priorityOptions} />
           </Form.Item>
+
+          <Form.Item
+            label="Add More Attachments (Optional)"
+            extra="Upload additional images or videos (max 5 new files, 10MB each)"
+            style={{ marginBottom: 4 }}
+          >
+            <Upload
+              listType="picture-card"
+              fileList={editFileList}
+              onChange={({ fileList: newFileList }) => setEditFileList(newFileList)}
+              beforeUpload={() => false}
+              accept="image/*,video/*"
+              maxCount={5}
+            >
+              {editFileList.length >= 5 ? null : (
+                <div>
+                  <UploadOutlined />
+                  <div style={{ marginTop: 8 }}>Upload</div>
+                </div>
+              )}
+            </Upload>
+          </Form.Item>
         </Form>
       </Modal>
 
@@ -848,6 +935,45 @@ export default function ResidentReportsComplaints() {
                   <p className="text-xs sm:text-sm text-gray-800 leading-relaxed break-words">{viewComplaint.description}</p>
                 </div>
               </div>
+
+              {viewComplaint.attachments && viewComplaint.attachments.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-medium text-gray-500 mb-2">ATTACHMENTS ({viewComplaint.attachments.length})</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {viewComplaint.attachments.map((filename, idx) => {
+                      const isVideo = /\.(mp4|mov|avi|webm)$/i.test(filename);
+                      const fileUrl = `${API_BASE}/api/resident/complaints/${viewComplaint._id}/attachments/${filename}`;
+                      
+                      return (
+                        <div key={idx} className="relative group">
+                          {isVideo ? (
+                            <video 
+                              src={fileUrl} 
+                              controls 
+                              className="w-full h-24 object-cover rounded border"
+                            />
+                          ) : (
+                            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                              <img 
+                                src={fileUrl} 
+                                alt={`Attachment ${idx + 1}`} 
+                                className="w-full h-24 object-cover rounded border hover:opacity-75 transition"
+                              />
+                            </a>
+                          )}
+                          <a 
+                            href={fileUrl}
+                            download
+                            className="absolute top-1 right-1 bg-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <PaperClipOutlined className="text-gray-600" />
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {viewComplaint.response && (
                 <div className="mb-4">
