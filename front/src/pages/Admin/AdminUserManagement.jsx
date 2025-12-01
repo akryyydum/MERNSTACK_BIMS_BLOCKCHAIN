@@ -92,7 +92,13 @@ export default function AdminUserManagement() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [changePasswordForm] = Form.useForm();
   const [changingPassword, setChangingPassword] = useState(false);
-  const [currentPasswordError, setCurrentPasswordError] = useState(false);          
+  const [currentPasswordError, setCurrentPasswordError] = useState(false);
+
+  // Inactive Reason Modal
+  const [inactiveReasonOpen, setInactiveReasonOpen] = useState(false);
+  const [inactiveReasonForm] = Form.useForm();
+  const [settingInactive, setSettingInactive] = useState(false);
+  const [userToDeactivate, setUserToDeactivate] = useState(null);          
 
   const residentStepFields = {                                 
     1: ["username", "password", ["contact","email"], ["contact","mobile"]],
@@ -142,13 +148,38 @@ export default function AdminUserManagement() {
     }
   };
 
-  const handleToggleActive = async (userId, next) => {
+  const handleToggleActive = async (userId, next, reason = null) => {
     try {
-      await apiClient.patch(`/api/admin/users/${userId}`, { isActive: next });
+      const payload = { isActive: next };
+      if (reason) {
+        payload.inactiveReason = reason;
+      }
+      await apiClient.patch(`/api/admin/users/${userId}`, payload);
       message.success(next ? "User activated!" : "User deactivated!");
       fetchUsers();
     } catch (e) {
       message.error(e.response?.data?.message || e.message || "Failed to update active status");
+    }
+  };
+
+  const openInactiveReasonModal = (user) => {
+    setUserToDeactivate(user);
+    inactiveReasonForm.resetFields();
+    setInactiveReasonOpen(true);
+  };
+
+  const submitInactiveReason = async () => {
+    try {
+      const values = await inactiveReasonForm.validateFields();
+      setSettingInactive(true);
+      await handleToggleActive(userToDeactivate._id, false, values.reason);
+      setInactiveReasonOpen(false);
+      setUserToDeactivate(null);
+    } catch (e) {
+      if (e?.errorFields) return;
+      message.error(e.response?.data?.message || e.message || "Failed to deactivate user");
+    } finally {
+      setSettingInactive(false);
     }
   };
 
@@ -488,15 +519,30 @@ export default function AdminUserManagement() {
       dataIndex: "isActive",
       key: "isActive",
       render: (v, r) => (
-        <div style={{ fontFamily: 'inherit', fontSize: 'inherit' }}>
-          <Switch
-            checked={v}
-            onChange={(next) => handleToggleActive(r._id, next)}
-            checkedChildren={null}
-            unCheckedChildren={null}
-            className="bg-transparent"
-            style={{ fontFamily: 'inherit' }}
-          />
+        <Button
+          size="small"
+          type={v ? "primary" : "default"}
+          onClick={() => {
+            if (v) {
+              // If currently active, deactivate with reason
+              openInactiveReasonModal(r);
+            } else {
+              // If currently inactive, activate without reason
+              handleToggleActive(r._id, true);
+            }
+          }}
+        >
+          {v ? "Active" : "Inactive"}
+        </Button>
+      ),
+    },
+    {
+      title: "Inactive Reason",
+      dataIndex: "inactiveReason",
+      key: "inactiveReason",
+      render: (reason) => (
+        <div className="text-xs text-gray-600">
+          {reason || "-"}
         </div>
       ),
     },
@@ -1189,6 +1235,58 @@ export default function AdminUserManagement() {
             >
               <Input.Password 
                 placeholder="Re-enter new password"
+                style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
+              />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        {/* Inactive Reason Modal */}
+        <Modal
+          title="Deactivate User"
+          open={inactiveReasonOpen}
+          onOk={submitInactiveReason}
+          confirmLoading={settingInactive}
+          onCancel={() => {
+            setInactiveReasonOpen(false);
+            setUserToDeactivate(null);
+            inactiveReasonForm.resetFields();
+          }}
+          okText="Deactivate"
+          okButtonProps={{ danger: true }}
+          width={window.innerWidth < 768 ? (window.innerWidth < 480 ? "95vw" : "90vw") : 500}
+          bodyStyle={{ 
+            padding: window.innerWidth < 480 ? 12 : window.innerWidth < 768 ? 16 : 24,
+            maxHeight: window.innerWidth < 768 ? '70vh' : 'auto',
+            overflowY: window.innerWidth < 768 ? 'auto' : 'visible'
+          }}
+          className="user-modal-responsive"
+        >
+          <Alert
+            message="Provide Reason for Deactivation"
+            description={`You are about to deactivate ${userToDeactivate?.fullName || userToDeactivate?.username}. Please provide a reason for this action.`}
+            type="warning"
+            showIcon
+            className="mb-4"
+            style={{
+              fontSize: window.innerWidth < 480 ? '12px' : window.innerWidth < 768 ? '13px' : '14px',
+              padding: window.innerWidth < 480 ? '8px 12px' : window.innerWidth < 768 ? '10px 14px' : '12px 16px',
+              marginBottom: window.innerWidth < 480 ? '8px' : '12px'
+            }}
+          />
+          <div style={{ marginBottom: window.innerWidth < 480 ? 8 : 12 }} />
+          <Form form={inactiveReasonForm} layout="vertical" className="responsive-form">
+            <Form.Item
+              name="reason"
+              label="Reason for Deactivation"
+              rules={[
+                { required: true, message: "Reason is required" },
+              ]}
+              style={{ marginBottom: window.innerWidth < 480 ? '8px' : window.innerWidth < 768 ? '12px' : '24px' }}
+            >
+              <Input.TextArea
+                rows={4}
+                placeholder="Enter the reason for deactivating this user..."
                 style={{ fontSize: window.innerWidth < 480 ? '13px' : '14px' }}
               />
             </Form.Item>

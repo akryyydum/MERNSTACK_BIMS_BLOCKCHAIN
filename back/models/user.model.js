@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
         email: { type: String, lowercase: true, trim: true }
     },
     isActive: { type: Boolean, default: true },
+    inactiveReason: { type: String },
     isVerified: { type: Boolean, default: true },
     verificationToken: { type: String } // keeping for password reset functionality
     ,passwordResetOtpHash: { type: String },

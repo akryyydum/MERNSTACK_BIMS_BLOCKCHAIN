@@ -341,7 +341,7 @@ const ResidentNavbar = () => {
     },
     {
       key: "/resident/payments",
-      icon: <DollarOutlined style={{ fontSize: "13px" }} />,
+      icon: <span style={{ fontSize: "13px", fontWeight: "bold" }}>₱</span>,
       label: <NavLink to="/resident/payments">Payments</NavLink>,
     },
     {

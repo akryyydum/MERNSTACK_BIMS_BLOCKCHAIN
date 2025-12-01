@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
-  DollarSign,
   Info,
   Loader2,
 } from "lucide-react";
@@ -427,7 +426,7 @@ export default function ResidentPayment() {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 sm:px-4 sm:py-3 text-blue-900">
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <span className="text-lg sm:text-xl font-bold text-blue-600">₱</span>
                 <div>
                   <p className="text-[10px] sm:text-xs font-medium text-blue-700">Payment Schedule</p>
                   <p className="text-xs sm:text-sm font-semibold">Monthly (Due end of month)</p>
@@ -468,7 +467,7 @@ export default function ResidentPayment() {
                 <CardContent className="p-2 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 border border-amber-200">
-                      <DollarSign className="text-amber-600 text-lg sm:text-xl" />
+                      <span className="text-amber-600 text-2xl sm:text-3xl font-bold">₱</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Balance Due</p>
@@ -496,7 +495,7 @@ export default function ResidentPayment() {
                 <CardContent className="p-2 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0 border border-emerald-200">
-                      <CheckCircle2 className="text-emerald-600 text-lg sm:text-xl" />
+                      <span className="text-emerald-600 text-2xl sm:text-3xl font-bold">₱</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5 sm:mb-1">Total Paid</p>
@@ -527,7 +526,7 @@ export default function ResidentPayment() {
                 <CardContent className="p-3 sm:px-4 sm:py-5">
                   <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                     <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-orange-100 flex items-center justify-center border border-orange-200">
-                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
+                      <span className="text-orange-600 text-xl sm:text-2xl font-bold">₱</span>
                     </div>
                     <div>
                       <h3 className="text-sm sm:text-base font-semibold text-slate-800">Garbage Fees</h3>
@@ -563,7 +562,7 @@ export default function ResidentPayment() {
                 <CardContent className="p-3 sm:px-4 sm:py-5">
                   <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                     <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-blue-100 flex items-center justify-center border border-blue-200">
-                      <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                      <span className="text-blue-600 text-xl sm:text-2xl font-bold">₱</span>
                     </div>
                     <div>
                       <h3 className="text-sm sm:text-base font-semibold text-slate-800">Streetlight Fees</h3>
@@ -612,7 +611,7 @@ export default function ResidentPayment() {
                 <CardContent className="space-y-2 p-3 sm:space-y-3 sm:px-4 sm:py-5">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-8 w-8 rounded-lg bg-orange-100 flex items-center justify-center border border-orange-200">
-                      <DollarSign className="h-4 w-4 text-orange-600" />
+                      <span className="text-orange-600 text-lg font-bold">₱</span>
                     </div>
                     <p className="text-sm sm:text-base font-semibold text-slate-800">Garbage Collection Fee</p>
                   </div>
@@ -640,7 +639,7 @@ export default function ResidentPayment() {
                 <CardContent className="space-y-2 p-3 sm:space-y-3 sm:px-4 sm:py-5">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center border border-blue-200">
-                      <DollarSign className="h-4 w-4 text-blue-600" />
+                      <span className="text-blue-600 text-lg font-bold">₱</span>
                     </div>
                     <p className="text-sm sm:text-base font-semibold text-slate-800">Streetlight Maintenance Fee</p>
                   </div>
@@ -783,7 +782,7 @@ export default function ResidentPayment() {
                       <tr>
                         <td colSpan={5} className="text-center py-10 sm:py-12">
                           <div className="flex flex-col items-center">
-                            <DollarSign className="h-12 w-12 text-slate-400 mb-3" />
+                            <span className="text-slate-400 text-5xl font-bold mb-3">₱</span>
                             <p className="text-slate-500 font-medium text-base sm:text-lg">No payments found</p>
                             <p className="text-slate-400 text-sm sm:text-base mt-1">
                               {activeTab === 'all' ? 'No payment records available' : `No ${activeTab} payments`}
@@ -797,7 +796,7 @@ export default function ResidentPayment() {
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200">
-                                <DollarSign className="text-slate-600 text-base" />
+                                <span className="text-slate-600 text-lg font-bold">₱</span>
                               </div>
                               <div>
                                 <p className="font-medium text-slate-800 text-sm">{payment.type}</p>

@@ -171,11 +171,13 @@ exports.approve = async (req, res) => {
 exports.deny = async (req, res) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body;
     
     const request = await DocumentRequest.findByIdAndUpdate(
       id,
       { 
         status: 'declined',
+        declineReason: reason || 'No reason provided',
         updatedAt: new Date()
       },
       { new: true }
@@ -224,11 +226,15 @@ exports.deny = async (req, res) => {
     try {
       const residentId = request.requestedBy?._id || request.requestedBy;
       if (residentId) {
+        const declineMessage = reason 
+          ? `Your ${request.documentType} request has been declined. Reason: ${reason}`
+          : `Your ${request.documentType} request has been declined.`;
+        
         await createNotification({
           residentId: residentId,
           type: 'document_request',
           title: 'Document Request Declined',
-          message: `Your ${request.documentType} request has been declined.`,
+          message: declineMessage,
           link: '/resident/requests',
           relatedId: request._id,
           priority: 'high'

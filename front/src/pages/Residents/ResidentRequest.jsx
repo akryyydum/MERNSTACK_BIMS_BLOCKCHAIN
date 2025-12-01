@@ -48,6 +48,8 @@ export default function ResidentRequest() {
   const navigate = useNavigate();
   const [createForm] = Form.useForm();
   const selectedDocType = Form.useWatch("documentType", createForm);
+  const selectedQuantity = Form.useWatch("quantity", createForm);
+  const selectedAmount = Form.useWatch("amount", createForm);
 
 
   useEffect(() => {
@@ -852,6 +854,12 @@ export default function ResidentRequest() {
                         <div className="flex-1">
                           <p className="text-xs font-medium text-slate-800">{viewRequest.status === "accepted" || viewRequest.status === "completed" ? "Approved" : "Rejected"}</p>
                           <p className="text-[11px] text-slate-600 mt-0.5">{viewRequest.updatedAt ? new Date(viewRequest.updatedAt).toLocaleString() : "-"}</p>
+                          {viewRequest.status === "declined" && viewRequest.declineReason && (
+                            <div className="mt-2 bg-rose-50 border border-rose-200 rounded p-2">
+                              <p className="text-[11px] font-medium text-rose-700 mb-1">Reason for rejection:</p>
+                              <p className="text-xs text-rose-600">{viewRequest.declineReason}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1079,20 +1087,28 @@ export default function ResidentRequest() {
                   {/* Amount & Quantity in one row */}
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <Form.Item 
-                        name="amount" 
-                        label={<span className="text-slate-700 font-medium text-sm">Amount</span>}
-                        rules={[{ required: true, message: 'Amount is required' }]}
-                        extra="Amount is auto-calculated based on type and quantity."
-                      >
-                        <InputNumber 
-                          min={0} 
-                          className="w-full" 
-                          disabled
-                          formatter={(value) => `₱ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                          parser={(value) => value.replace(/\₱\s?|(,*)/g, '')}
-                          placeholder="Amount will be calculated automatically"
-                        />
+                      <div className="mb-4">
+                        <label className="text-slate-700 font-medium text-sm block mb-2">Amount</label>
+                        <div className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-md">
+                          {selectedDocType === "Business Clearance" ? (
+                            <>
+                              <span className="text-lg font-semibold text-amber-600">
+                                Not final amount
+                              </span>
+                              <p className="text-xs text-slate-500 mt-1">Amount will be determined by admin</p>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-lg font-semibold text-slate-800">
+                                ₱{(selectedAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <p className="text-xs text-slate-500 mt-1">Auto-calculated based on type and quantity</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Form.Item name="amount" hidden>
+                        <Input type="hidden" />
                       </Form.Item>
                     </div>
                     <div className="w-40">

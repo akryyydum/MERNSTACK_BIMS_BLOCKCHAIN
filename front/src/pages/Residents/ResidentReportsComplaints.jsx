@@ -344,7 +344,7 @@ export default function ResidentReportsComplaints() {
                 onClick={() => setCreateOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-2 w-full sm:w-auto"
               >
-                Submit New
+                Add New
               </Button>
             </div>
           </CardHeader>
