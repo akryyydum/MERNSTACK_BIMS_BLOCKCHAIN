@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { Form, Input, Button, Alert, message, Drawer, Steps, Select, DatePicker, Upload, Descriptions, Switch, Modal } from "antd";
 import { motion, AnimatePresence } from "motion/react";
+import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import bg from "../assets/bg.jpg";
 import { setItem } from "../utils/storage";
@@ -25,6 +26,7 @@ const EMPLOYMENT_STATUS_OPTIONS = [
 ];
 
 const Login = () => {
+  const navigate = useNavigate();
   const [showRegister, setShowRegister] = useState(false);
   const [step, setStep] = useState(1);
   const [regLoading, setRegLoading] = useState(false);
@@ -597,8 +599,18 @@ const Login = () => {
         
         <div className="w-full max-w-md m-8 mt-8">
           {/* Mobile header - only visible on small screens */}
-          <div className="md:hidden flex flex-row gap-3 items-center mb-6">
-            
+          <div className="md:hidden flex flex-col gap-3 mb-6">
+            <motion.button
+              onClick={() => navigate('/')}
+              className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 self-start transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
+            </motion.button>
             <div className="flex flex-col leading-tight items-center justify-center text-center w-full">
               <img
               src={logo}
@@ -610,9 +622,20 @@ const Login = () => {
             </div>
           </div>
           
-          {/* Desktop: Show "Login" title instead of logo */}
-          <div className="hidden md:flex justify-left mb-6">
+          {/* Desktop: Show "Login" title with back button */}
+          <div className="hidden md:flex justify-between items-center mb-6">
             <h1 className="text-4xl font-bold text-gray-800">Login</h1>
+            <motion.button
+              onClick={() => navigate('/')}
+              className="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
+            </motion.button>
           </div>
           
           {/* Pending Verification Alert */}
