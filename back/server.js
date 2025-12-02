@@ -43,7 +43,14 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"], // Consider removing unsafe-inline in production
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: [
+        "'self'",
+        'data:',
+        'https:',
+        'blob:',
+        'http://localhost:4000',
+        'http://127.0.0.1:4000'
+      ],
       connectSrc: [
         "'self'",
         'https://api.latorrenorth.com',
@@ -243,6 +250,8 @@ const adminPublicDocumentRoutes = require("./routes/adminPublicDocumentRoutes");
 app.use("/api/admin/public-documents", adminPublicDocumentRoutes);
 const residentPublicDocumentRoutes = require("./routes/residentPublicDocumentRoutes");
 app.use("/api/resident/public-documents", residentPublicDocumentRoutes);
+const publicAnnouncementRoutes = require('./routes/publicAnnouncementRoutes');
+app.use('/api/public/announcements', publicAnnouncementRoutes);
 const residentComplaintRoutes = require("./routes/residentComplaintRoutes");
 app.use("/api/resident/complaints", residentComplaintRoutes);
 const residentProfileRoutes = require("./routes/residentProfileRoutes");

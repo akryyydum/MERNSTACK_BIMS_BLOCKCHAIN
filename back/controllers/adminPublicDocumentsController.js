@@ -11,61 +11,67 @@ const {
 
 const { getContract } = require("../utils/fabricClient");
 
+const PUBLIC_VISIBILITY_QUERY = {
+  $or: [
+    { visibility: "public" },
+    { visibility: { $exists: false } }
+  ]
+};
+
+async function fetchAugmentedPublicDocs(query = {}, { logContext = "public" } = {}) {
+  const mongoDocs = await PublicDocument.find(query).sort({ createdAt: -1 });
+
+  let blockchainDocs = [];
+  try {
+    blockchainDocs = await getAllPublicDocumentsFromFabric();
+  } catch (err) {
+    console.warn(`Fabric offline, skipping blockchain docs (${logContext})`);
+  }
+
+  const chainMap = new Map();
+  blockchainDocs.forEach(doc => {
+    if (doc && doc.docId) {
+      chainMap.set(doc.docId, doc);
+    }
+  });
+
+  const docs = mongoDocs.map(mDoc => {
+    const docObj = mDoc.toObject();
+    const chainDoc = chainMap.get(mDoc._id.toString());
+    let status = "verified";
+    try {
+      if (!fs.existsSync(mDoc.path)) {
+        status = "deleted";
+      } else if (!chainDoc) {
+        status = "not_registered";
+      } else if (chainDoc.deleted === true) {
+        status = "deleted";
+      } else {
+        const fileBuffer = fs.readFileSync(mDoc.path);
+        const currentHash = crypto
+          .createHash("sha256")
+          .update(fileBuffer)
+          .digest("hex");
+        status = chainDoc.fileHash !== currentHash ? "edited" : "verified";
+      }
+    } catch (err) {
+      console.warn("Status evaluation error for", mDoc._id.toString(), err.message);
+      status = "error";
+    }
+    docObj.status = status;
+    return docObj;
+  });
+
+  return { docs, blockchainDocs };
+}
+
 // ---------------------------------------------
 // LIST FOR ADMIN
 // ---------------------------------------------
-exports.listAdmin = async (req, res) => {
+exports.listAdmin = async (_req, res) => {
   try {
-    const mongoDocs = await PublicDocument.find().sort({ createdAt: -1 });
+    const { docs: augmented, blockchainDocs } = await fetchAugmentedPublicDocs({}, { logContext: "admin list" });
 
-    let blockchainDocs = [];
-    try {
-      blockchainDocs = await getAllPublicDocumentsFromFabric();
-    } catch (err) {
-      console.warn("Fabric offline, skipping blockchain docs");
-    }
-
-    // Build quick lookup map for chain documents by docId
-    const chainMap = new Map();
-    blockchainDocs.forEach(d => {
-      if (d && d.docId) chainMap.set(d.docId, d);
-    });
-
-    // Derive status for each mongo document
-    const augmented = mongoDocs.map(mDoc => {
-      const docObj = mDoc.toObject();
-      const chainDoc = chainMap.get(mDoc._id.toString());
-      let status = "verified"; // optimistic default
-      try {
-        // File missing counts as deleted
-        if (!fs.existsSync(mDoc.path)) {
-          status = "deleted";
-        } else if (!chainDoc) {
-          status = "not_registered"; // no blockchain record
-        } else if (chainDoc.deleted === true) {
-          status = "deleted"; // deleted flag on chain
-        } else {
-          // Compute current hash and compare
-          const fileBuffer = fs.readFileSync(mDoc.path);
-          const currentHash = crypto
-            .createHash("sha256")
-            .update(fileBuffer)
-            .digest("hex");
-          if (chainDoc.fileHash !== currentHash) {
-            status = "edited"; // hash mismatch
-          } else {
-            status = "verified"; // match and not deleted
-          }
-        }
-      } catch (e) {
-        console.warn("Status evaluation error for", mDoc._id.toString(), e.message);
-        status = "error";
-      }
-      docObj.status = status;
-      return docObj;
-    });
-
-    // Aggregate counts by status for quick dashboard use (optional)
     const statusCounts = augmented.reduce((acc, d) => {
       acc[d.status] = (acc[d.status] || 0) + 1;
       return acc;
@@ -74,7 +80,7 @@ exports.listAdmin = async (req, res) => {
     res.json({
       mongoDocs: augmented,
       blockchainDocs,
-      total: mongoDocs.length,
+      total: augmented.length,
       blockchainCount: blockchainDocs.length,
       statusCounts,
     });
@@ -144,54 +150,77 @@ exports.verifyStatus = async (req, res) => {
 // ---------------------------------------------
 exports.listPublic = async (_req, res) => {
   try {
-    // Include docs explicitly marked public or legacy docs without visibility field
-    const mongoDocs = await PublicDocument.find({
-      $or: [
-        { visibility: "public" },
-        { visibility: { $exists: false } }
-      ]
-    })
-      .sort({ createdAt: -1 });
-
-    let blockchainDocs = [];
-    try {
-      blockchainDocs = await getAllPublicDocumentsFromFabric();
-    } catch (err) {
-      console.warn("Fabric offline, skipping blockchain docs (resident list)");
-    }
-
-    const chainMap = new Map();
-    blockchainDocs.forEach(d => {
-      if (d && d.docId) chainMap.set(d.docId, d);
-    });
-
-    const augmented = mongoDocs.map(mDoc => {
-      const obj = mDoc.toObject();
-      const chainDoc = chainMap.get(mDoc._id.toString());
-      let status = "verified";
-      try {
-        if (!fs.existsSync(mDoc.path)) {
-          status = "deleted";
-        } else if (!chainDoc) {
-          status = "not_registered";
-        } else if (chainDoc.deleted === true) {
-          status = "deleted";
-        } else {
-          const fileBuffer = fs.readFileSync(mDoc.path);
-          const currentHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
-          status = chainDoc.fileHash !== currentHash ? "edited" : "verified";
-        }
-      } catch (e) {
-        status = "error";
-      }
-      obj.status = status;
-      return obj;
-    });
-
-    res.json(augmented);
+    const { docs } = await fetchAugmentedPublicDocs(PUBLIC_VISIBILITY_QUERY, { logContext: "resident list" });
+    res.json(docs);
   } catch (err) {
     console.error("Error listing resident public docs:", err);
     res.status(500).json({ message: "Failed to fetch documents" });
+  }
+};
+
+exports.listPublicAnnouncements = async (_req, res) => {
+  try {
+    const { docs } = await fetchAugmentedPublicDocs({
+      $and: [
+        PUBLIC_VISIBILITY_QUERY,
+        { category: { $regex: /^announcement$/i } }
+      ]
+    }, { logContext: "public announcements" });
+
+    const sanitized = docs.map(({
+      _id,
+      title,
+      description,
+      category,
+      createdAt,
+      updatedAt,
+      status,
+      originalName,
+      mimeType
+    }) => ({
+      _id,
+      title,
+      description,
+      category,
+      createdAt,
+      updatedAt,
+      status,
+      originalName,
+      mimeType
+    }));
+
+    res.json(sanitized);
+  } catch (err) {
+    console.error("Error listing landing announcements:", err);
+    res.status(500).json({ message: "Failed to fetch announcements" });
+  }
+};
+
+exports.streamPublicAnnouncementFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await PublicDocument.findById(id);
+
+    if (!doc || (doc.visibility && doc.visibility !== 'public')) {
+      return res.status(404).json({ message: 'Announcement not found' });
+    }
+
+    if (!doc.category || doc.category.toLowerCase() !== 'announcement') {
+      return res.status(403).json({ message: 'File not publicly accessible' });
+    }
+
+    if (!fs.existsSync(doc.path)) {
+      return res.status(410).json({ message: 'Announcement file missing' });
+    }
+
+    res.setHeader('Content-Type', doc.mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.originalName)}"`);
+
+    fs.createReadStream(doc.path).pipe(res);
+  } catch (err) {
+    console.error('streamPublicAnnouncementFile error:', err);
+    res.status(500).json({ message: 'Failed to load announcement file' });
   }
 };
 

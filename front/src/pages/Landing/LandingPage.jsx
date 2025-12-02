@@ -5,11 +5,13 @@ import {
   CreditCard, Clock, CheckCircle, TrendingUp, 
   Database, Lock, Zap, Award, ChevronRight,
   MapPin, Phone, Mail, Calendar, MessageCircle,
-  BarChart3, Globe, Smartphone, HeartHandshake, ArrowUp
+  BarChart3, Globe, Smartphone, HeartHandshake, ArrowUp,
+  Megaphone
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
-import GridDistortion from '../../components/ui/GridDistortion';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import SpotlightCard from '../../components/ui/SpotlightCard';
+import heroFallback from '../../assets/bg.jpg';
+import dayjs from 'dayjs';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -19,6 +21,11 @@ const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState(null);
   const [activeSection, setActiveSection] = useState('home');
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const [currentHeroSlide, setCurrentHeroSlide] = useState(0);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [announcementsError, setAnnouncementsError] = useState('');
+  const [selectedAnnouncementIndex, setSelectedAnnouncementIndex] = useState(0);
   const navItemRefs = {
     home: useRef(null),
     features: useRef(null),
@@ -26,6 +33,19 @@ const LandingPage = () => {
     about: useRef(null),
     contact: useRef(null)
   };
+
+  const apiBaseUrl = useMemo(() => (
+    (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '')
+  ), []);
+
+  const heroSlides = useMemo(() => {
+    const remoteImages = [
+      'https://ik.imagekit.io/hmx0zyuip/La%20Torre%20North/bg.jpg',
+      'https://ik.imagekit.io/hmx0zyuip/La%20Torre%20North/316d061d-e9f4-44b1-9b1a-e61c139966f8.jpg',
+      'https://ik.imagekit.io/hmx0zyuip/La%20Torre%20North/1e725f2c-469c-4a45-b8d1-eeeec75a2eb2.jpg'
+    ].filter(Boolean);
+    return remoteImages.length ? remoteImages : [heroFallback];
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -69,6 +89,14 @@ const LandingPage = () => {
       document.documentElement.style.overflowX = 'auto';
     };
   }, []);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentHeroSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [heroSlides.length]);
 
   // Update indicator position when active section changes
   useEffect(() => {
@@ -121,45 +149,45 @@ const LandingPage = () => {
     };
   }, [mobileMenuOpen]);
 
-  const features = [
-    {
-      icon: <FileText className="w-12 h-12" />,
-      title: "Document Requests",
-      description: "Streamlined document request and processing for barangay certificates and clearances.",
-      color: "from-purple-500 to-purple-600"
-    },
-    {
-      icon: <Shield className="w-12 h-12" />,
-      title: "Blockchain Security",
-      description: "Secure and transparent record-keeping powered by blockchain technology.",
-      color: "from-green-500 to-green-600"
-    },
-    {
-      icon: <Bell className="w-12 h-12" />,
-      title: "Real-time Notifications",
-      description: "Stay updated with instant notifications for requests, payments, and announcements.",
-      color: "from-orange-500 to-orange-600"
-    },
+  useEffect(() => {
+    let isMounted = true;
 
-    {
-      icon: <BarChart3 className="w-12 h-12" />,
-      title: "Analytics & Reports",
-      description: "Comprehensive reporting and data visualization for better decision-making.",
-      color: "from-indigo-500 to-indigo-600"
-    },
-    {
-      icon: <MessageCircle className="w-12 h-12" />,
-      title: "Complaints Management",
-      description: "Easy submission and tracking of barangay complaints and concerns.",
-      color: "from-red-500 to-red-600"
-    },
-    {
-      icon: <HeartHandshake className="w-12 h-12" />,
-      title: "Community Services",
-      description: "Access various barangay services and programs all in one place.",
-      color: "from-teal-500 to-teal-600"
-    }
-  ];
+    const fetchAnnouncements = async () => {
+      setAnnouncementsLoading(true);
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/public/announcements`, {
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch announcements');
+        }
+
+        const data = await response.json();
+        if (isMounted) {
+          setAnnouncements(Array.isArray(data) ? data : []);
+          setSelectedAnnouncementIndex(0);
+          setAnnouncementsError('');
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Announcements fetch error:', error);
+          setAnnouncements([]);
+          setAnnouncementsError('Announcements are temporarily unavailable.');
+        }
+      } finally {
+        if (isMounted) {
+          setAnnouncementsLoading(false);
+        }
+      }
+    };
+
+    fetchAnnouncements();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBaseUrl]);
 
   const benefits = [
     {
@@ -236,15 +264,52 @@ const LandingPage = () => {
   ];
 
   const stats = [
-    { number: "500+", label: "Active Residents", icon: <Users className="w-6 h-6" /> },
+    { number: "Transparency", label: "Active Residents", icon: <Users className="w-6 h-6" /> },
     { number: "1,000+", label: "Documents Issued", icon: <FileText className="w-6 h-6" /> },
     { number: "95%", label: "Satisfaction Rate", icon: <CheckCircle className="w-6 h-6" /> }
   ];
 
+  const { latestAnnouncement, previousAnnouncements } = useMemo(() => {
+    if (!announcements.length) {
+      return { latestAnnouncement: null, previousAnnouncements: [] };
+    }
+    const clampedIndex = Math.min(selectedAnnouncementIndex, announcements.length - 1);
+    const latest = announcements[clampedIndex];
+    const previous = announcements
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => index !== clampedIndex)
+      .slice(0, 4);
+    return { latestAnnouncement: latest, previousAnnouncements: previous };
+  }, [announcements, selectedAnnouncementIndex]);
+
+  const hasPreviousAnnouncements = previousAnnouncements.length > 0;
+
+  const formatAnnouncementDate = (value) => {
+    if (!value) return 'Date unavailable';
+    return dayjs(value).format('MMMM D, YYYY');
+  };
+
+  const truncateText = (text = '', limit = 180) => {
+    if (!text) return 'No description available.';
+    return text.length > limit ? `${text.slice(0, limit).trim()}…` : text;
+  };
+
+  const getAnnouncementImageUrl = (announcement) => {
+    if (!announcement?._id || !announcement?.mimeType) {
+      return null;
+    }
+    if (!/^image\//i.test(announcement.mimeType)) {
+      return null;
+    }
+    return `${apiBaseUrl}/api/public/announcements/${announcement._id}/file`;
+  };
+
+  const latestImageUrl = latestAnnouncement ? getAnnouncementImageUrl(latestAnnouncement) : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Navbar */}
-      <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-md shadow-lg border-b border-blue-100/50 z-50 transition-all duration-300">
+      <nav className="sticky top-0 left-0 right-0 bg-white/95 backdrop-blur-md shadow-lg border-b border-blue-100/50 z-50 transition-all duration-300">
         {/* Animated gradient border */}
         <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-30"></div>
         
@@ -453,17 +518,23 @@ const LandingPage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="flex items-center justify-center min-h-screen px-4 sm:px-6 lg:px-8 relative pt-16 sm:pt-20 overflow-hidden">
-        {/* Grid Distortion Background */}
-        <GridDistortion 
-          cellSize={40}
-          distortionStrength={30}
-          animationSpeed={2}
-          color="#3b82f6"
-          opacity={0.12}
-          className="z-0"
-        />
-        
+      <section
+        id="home"
+        className="flex items-center justify-center min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-5rem)] px-4 sm:px-6 lg:px-8 relative py-10 md:py-12 overflow-hidden"
+      >
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          {heroSlides.map((src, idx) => (
+            <img
+              key={`${src}-${idx}`}
+              src={src}
+              alt="Barangay slideshow"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${idx === currentHeroSlide ? 'opacity-100' : 'opacity-0'}`}
+              draggable={false}
+            />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-blue/70 to-black/60 pointer-events-none" />
+        </div>
+
         {/* Animated Background Elements - positioned safely within viewport */}
         <motion.div 
           className="absolute top-20 left-4 w-64 h-64 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 z-0"
@@ -488,50 +559,28 @@ const LandingPage = () => {
             transition={{ duration: 0.8 }}
             className="flex flex-col items-center justify-center w-full"
           >
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full mb-6 text-sm font-semibold"
-            >
-              <Zap className="w-4 h-4" />
-              Powered by Blockchain Technology
-            </motion.div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6 text-center px-4">
-              Welcome to <span className="text-blue-600">TransparaBrgy</span>
+            
+            <h1 className="text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl font-bold text-white leading-tight mb-4 text-center px-4">
+              Welcome to <br /> <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-blue-400 font-bold transition-all duration-300">La Torre North</span>
+              <span className="block text-base sm:text-lg md:text-xl text-gray-200 mt-2">
+                Bayombong, Nueva Vizcaya
+              </span>
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-8 leading-relaxed text-center px-4 max-w-4xl mx-auto">
-              A modern, secure, and efficient barangay management system powered by blockchain technology. 
-              Simplifying governance and services for our community.
-            </p>
-            {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8 w-full max-w-md mx-auto">
-              {stats.slice(0, 3).map((stat, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                  className="text-center bg-white/80 backdrop-blur-sm rounded-lg p-3 sm:p-4 shadow-sm"
-                >
-                  <div className="text-lg sm:text-2xl font-bold text-blue-600">{stat.number}</div>
-                  <div className="text-xs sm:text-sm text-gray-600">{stat.label}</div>
-                </motion.div>
-              ))}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full px-4 max-w-md sm:max-w-lg mx-auto">
+           
+            
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center w-full px-4 max-w-md sm:max-w-lg mx-auto">
               <motion.button
                 onClick={() => navigate('/login')}
-                className="group px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto"
+                className="group px-6 sm:px-8 py-3 sm:py-4 bg-black text-white rounded-lg font-semibold text-base sm:text-lg hover:bg-black/90 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <span className="text-white">Get Started</span>
+                <span className="text-white   ">Get Started</span>
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform text-white" />
               </motion.button>
               <motion.button
                 onClick={() => document.getElementById('services').scrollIntoView({ behavior: 'smooth' })}
-                className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 border-2 border-blue-600 rounded-lg font-semibold text-base sm:text-lg hover:bg-blue-50 transition-all w-full sm:w-auto"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-black border border-black rounded-lg font-semibold text-base sm:text-lg hover:bg-gray-100 transition-all w-full sm:w-auto"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -568,7 +617,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Announcements Section */}
       <section id="features" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -579,48 +628,133 @@ const LandingPage = () => {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              System Features
+              Community Announcements
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Discover the powerful features that make our barangay management system efficient and user-friendly
+              Stay informed about the latest advisories, activities, and reminders from the barangay hall.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {features.map((feature, index) => (
+          {announcementsLoading ? (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <div className="h-72 rounded-2xl bg-gray-100 animate-pulse" />
+              <div className="space-y-4">
+                {[0, 1, 2].map((skeleton) => (
+                  <div key={skeleton} className="h-24 rounded-2xl bg-gray-100 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ) : announcementsError ? (
+            <div className="text-center text-red-600 font-semibold">
+              {announcementsError}
+            </div>
+          ) : latestAnnouncement ? (
+            <div className={`flex flex-col gap-8 ${hasPreviousAnnouncements ? 'lg:flex-row' : 'items-center'}`}>
               <motion.div
-                key={index}
+                className={`w-full ${hasPreviousAnnouncements ? 'lg:w-2/3' : 'lg:w-3/4'}`}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -5 }}
-                className="w-full"
+                transition={{ duration: 0.5 }}
               >
-                <SpotlightCard 
-                  className="p-4 sm:p-6 lg:p-8 shadow-lg hover:shadow-2xl transition-all group h-full"
-                  spotlightColor="rgba(59, 130, 246, 0.15)"
-                  borderColor="rgba(59, 130, 246, 0.3)"
+                <SpotlightCard
+                  className="p-6 lg:p-10 shadow-xl hover:shadow-2xl transition-all h-full"
+                  spotlightColor="rgba(59, 130, 246, 0.1)"
+                  borderColor="rgba(59, 130, 246, 0.25)"
                 >
-                  <div className={`mb-6 inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br ${feature.color} text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    {feature.icon}
+                  {latestImageUrl && (
+                    <div className="mb-6 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50">
+                      <img
+                        src={latestImageUrl}
+                        alt={`Announcement ${latestAnnouncement.title}`}
+                        className="w-full h-64 object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-blue-600 uppercase tracking-widest text-xs font-semibold mb-4">
+                    <Megaphone className="w-5 h-5" />
+                    Latest Announcement
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">
-                    {feature.title}
+                  <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                    {latestAnnouncement.title}
                   </h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    {feature.description}
+                  <p className="text-gray-600 text-base md:text-lg leading-relaxed">
+                    {latestAnnouncement.description || 'No description provided.'}
                   </p>
-                  <motion.div
-                    className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                    initial={{ x: -10 }}
-                    whileHover={{ x: 0 }}
+                  <div className="mt-6 flex flex-wrap gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>{formatAnnouncementDate(latestAnnouncement.createdAt)}</span>
+                    </div>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold text-xs uppercase tracking-wide">
+                      {latestAnnouncement.category || 'Announcement'}
+                    </span>
+                  </div>
+                  <motion.button
+                    onClick={() => navigate('/login')}
+                    className="mt-8 inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold shadow-lg hover:bg-blue-700 transition-all"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                  </motion.div>
+                    View in Portal
+                    <ChevronRight className="w-4 h-4" />
+                  </motion.button>
                 </SpotlightCard>
               </motion.div>
-            ))}
-          </div>
+
+              {hasPreviousAnnouncements && (
+                <motion.div
+                  className="w-full lg:w-1/3 space-y-4"
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                >
+                  {previousAnnouncements.map(({ item: announcement, index: originalIndex }) => {
+                    const previewImageUrl = getAnnouncementImageUrl(announcement);
+                    return (
+                      <SpotlightCard
+                        key={announcement._id || `announcement-${originalIndex}`}
+                        className="p-5 shadow-md hover:shadow-lg transition-all h-48 flex flex-col justify-between gap-2 cursor-pointer"
+                        spotlightColor="rgba(59, 130, 246, 0.08)"
+                        borderColor="rgba(59, 130, 246, 0.15)"
+                        onClick={() => setSelectedAnnouncementIndex(originalIndex)}
+                      >
+                        {previewImageUrl && (
+                          <div className="mb-3 overflow-hidden rounded-xl border border-blue-50 bg-blue-50/30 h-24">
+                            <img
+                              src={previewImageUrl}
+                              alt={`Announcement ${announcement.title}`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-900 leading-snug">
+                              {announcement.title}
+                            </h4>
+                          </div>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {dayjs(announcement.createdAt).format('MMM D')}
+                          </span>
+                        </div>
+                        <p className="mt-3 text-sm text-gray-600 leading-relaxed overflow-hidden text-ellipsis">
+                          {truncateText(announcement.description, 140)}
+                        </p>
+                      </SpotlightCard>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center text-gray-600 text-lg">
+              No announcements have been posted yet. Please check back soon.
+            </div>
+          )}
         </div>
       </section>
 

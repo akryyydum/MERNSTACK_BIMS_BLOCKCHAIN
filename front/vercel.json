@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self' blob:; img-src 'self' data: https: blob:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.latorrenorth.com wss://api.latorrenorth.com https://*.cloudflare.com wss://*.cloudflare.com; frame-src 'self' blob: https://www.google.com https://www.openstreetmap.org;"
+          "value": "default-src 'self' blob:; img-src 'self' data: https: blob: http://localhost:4000 http://127.0.0.1:4000; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.latorrenorth.com wss://api.latorrenorth.com https://*.cloudflare.com wss://*.cloudflare.com; frame-src 'self' blob: https://www.google.com https://www.openstreetmap.org;"
         },
         {
           "key": "X-Frame-Options",
