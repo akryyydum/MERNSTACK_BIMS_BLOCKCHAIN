@@ -357,7 +357,7 @@ const LandingPage = () => {
               <div className="flex items-center gap-1 xl:gap-2">
                 {[ 
                   { label: 'Home', id: 'home' },
-                  { label: 'Features', id: 'features' },
+                  { label: 'Announcement', id: 'features' },
                   { label: 'Services', id: 'services' },
                   { label: 'About', id: 'about' },
                   { label: 'Contact', id: 'contact' }
@@ -462,7 +462,7 @@ const LandingPage = () => {
                 <div className="px-4 sm:px-6 py-6 sm:py-8 space-y-2">
                   {[
                     { label: 'Home', id: 'home' },
-                    { label: 'Features', id: 'features' },
+                    { label: 'Announcement', id: 'features' },
                     { label: 'Services', id: 'services' },
                     { label: 'About', id: 'about' },
                     { label: 'Contact', id: 'contact' }
@@ -650,58 +650,57 @@ const LandingPage = () => {
             </div>
           ) : latestAnnouncement ? (
             <div className={`flex flex-col gap-8 ${hasPreviousAnnouncements ? 'lg:flex-row' : 'items-center'}`}>
-              <motion.div
-                className={`w-full ${hasPreviousAnnouncements ? 'lg:w-2/3' : 'lg:w-3/4'}`}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-              >
-                <SpotlightCard
-                  className="p-6 lg:p-10 shadow-xl hover:shadow-2xl transition-all h-full"
-                  spotlightColor="rgba(59, 130, 246, 0.1)"
-                  borderColor="rgba(59, 130, 246, 0.25)"
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={latestAnnouncement?._id || `featured-${selectedAnnouncementIndex}`}
+                  className={`w-full ${hasPreviousAnnouncements ? 'lg:w-2/3' : 'lg:w-3/4'}`}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
                 >
-                  {latestImageUrl && (
-                    <div className="mb-6 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50">
-                      <img
-                        src={latestImageUrl}
-                        alt={`Announcement ${latestAnnouncement.title}`}
-                        className="w-full h-64 object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3 text-blue-600 uppercase tracking-widest text-xs font-semibold mb-4">
-                    <Megaphone className="w-5 h-5" />
-                    Latest Announcement
-                  </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                    {latestAnnouncement.title}
-                  </h3>
-                  <p className="text-gray-600 text-base md:text-lg leading-relaxed">
-                    {latestAnnouncement.description || 'No description provided.'}
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>{formatAnnouncementDate(latestAnnouncement.createdAt)}</span>
-                    </div>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold text-xs uppercase tracking-wide">
-                      {latestAnnouncement.category || 'Announcement'}
-                    </span>
-                  </div>
-                  <motion.button
-                    onClick={() => navigate('/login')}
-                    className="mt-8 inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold shadow-lg hover:bg-blue-700 transition-all"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                  <SpotlightCard
+                    className="p-6 lg:p-10 shadow-xl hover:shadow-2xl transition-all h-full"
+                    spotlightColor="rgba(59, 130, 246, 0.1)"
+                    borderColor="rgba(59, 130, 246, 0.25)"
                   >
-                    View in Portal
-                    <ChevronRight className="w-4 h-4" />
-                  </motion.button>
-                </SpotlightCard>
-              </motion.div>
+                    {latestImageUrl && (
+                      <motion.div
+                        className="mb-6 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50"
+                        initial={{ opacity: 0.8, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        <img
+                          src={latestImageUrl}
+                          alt={`Announcement ${latestAnnouncement.title}`}
+                          className="w-full h-64 object-cover"
+                          loading="lazy"
+                        />
+                      </motion.div>
+                    )}
+                    <div className="flex items-center gap-3 text-blue-600 uppercase tracking-widest text-xs font-semibold mb-4">
+                      <Megaphone className="w-5 h-5" />
+                      Latest Announcement
+                    </div>
+                    <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                      {latestAnnouncement.title}
+                    </h3>
+                    <p className="text-gray-600 text-base md:text-lg leading-relaxed">
+                      {latestAnnouncement.description || 'No description provided.'}
+                    </p>
+                    <div className="mt-6 flex flex-wrap gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span>{formatAnnouncementDate(latestAnnouncement.createdAt)}</span>
+                      </div>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold text-xs uppercase tracking-wide">
+                        {latestAnnouncement.category || 'Announcement'}
+                      </span>
+                    </div>
+                  </SpotlightCard>
+                </motion.div>
+              </AnimatePresence>
 
               {hasPreviousAnnouncements && (
                 <motion.div
