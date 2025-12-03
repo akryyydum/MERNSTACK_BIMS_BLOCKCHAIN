@@ -1,11 +1,17 @@
-
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ResidentNavbar from "./ResidentNavbar";
 import PaymentStatusAlert from './PaymentStatusAlert';
 import apiClient from "../../utils/apiClient";
 import { Button, message, Spin, Modal } from "antd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { 
   FileTextOutlined, 
   ClockCircleOutlined, 
@@ -30,9 +36,10 @@ export default function ResidentDashboard() {
   const [payments, setPayments] = useState([]);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
-  const [latestAnnouncement, setLatestAnnouncement] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncement, setLoadingAnnouncement] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [activeAnnouncementIndex, setActiveAnnouncementIndex] = useState(0);
 
   const userData = JSON.parse(localStorage.getItem("userData") || "{}");
   const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
@@ -46,19 +53,18 @@ export default function ResidentDashboard() {
     return isNaN(date.getTime()) ? "Not available" : date.toLocaleDateString();
   };
 
-  // Fetch latest announcement from public documents
+  // Fetch up to 5 latest announcements from public documents
   const fetchLatestAnnouncement = async () => {
     setLoadingAnnouncement(true);
     try {
       const res = await apiClient.get('/api/resident/public-documents');
-      // Filter for announcements only and get the latest one
-      const announcements = res.data.filter(
+      // Filter for announcements only and get up to 5 latest
+      const filtered = (res.data || []).filter(
         doc => doc.category && doc.category.toLowerCase() === 'announcement'
       );
-      if (announcements.length > 0) {
-        // Already sorted by createdAt desc from API
-        setLatestAnnouncement(announcements[0]);
-      }
+      const sorted = filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setAnnouncements(sorted.slice(0, 5));
+      setActiveAnnouncementIndex(0);
     } catch (error) {
       // Silently fail - announcement is optional
       console.error("Error fetching announcements:", error);
@@ -302,6 +308,8 @@ export default function ResidentDashboard() {
     }
     return payments.filter(p => p.status === "pending" && (p.balance || 0) > 0).length;
   }, [paymentStatus, payments]);
+
+  const hasAnnouncements = announcements && announcements.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -592,62 +600,80 @@ export default function ResidentDashboard() {
         </Card>
           </div>
 
-          {/* Right Column: Latest Announcement Card */}
-          {latestAnnouncement && (
-            <Card className="w-full border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-blue-50 shadow-md flex flex-col">
-              <CardContent className="p-3 sm:p-4 flex flex-col flex-1">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="flex-shrink-0">
-                    <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <BellOutlined className="text-blue-600 text-sm sm:text-base" />
-                    </div>
+          {/* Right Column: Announcements Carousel (shadcn) */}
+          {hasAnnouncements && (
+            <Card className="w-full border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-blue-50 shadow-md h-[765px] flex flex-col">
+              <CardContent className="p-3 sm:p-4 flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <BellOutlined className="text-blue-600 text-sm sm:text-base" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <h3 className="text-sm sm:text-base font-semibold text-blue-900">Latest Announcement</h3>
-                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] sm:text-xs font-medium rounded-full">
-                        New
-                      </span>
-                    </div>
-                    <h4 className="text-sm sm:text-base font-bold text-slate-800 mb-2">{latestAnnouncement.title}</h4>
-                    {latestAnnouncement.description && (
-                      <div className="mb-2">
-                        <p className="text-blue-800 text-xs sm:text-sm leading-relaxed">
-                          {latestAnnouncement.description.length > 200
-                            ? `${latestAnnouncement.description.substring(0, 200)}...`
-                            : latestAnnouncement.description}
-                        </p>
-                        {latestAnnouncement.description.length > 200 && (
-                          <Button
-                            type="link"
-                            size="small"
-                            className="p-0 h-auto text-blue-600 hover:text-blue-800 font-medium mt-1"
-                            onClick={() => setShowAnnouncementModal(true)}
-                          >
-                            See More
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 mt-3">
-                      <CalendarOutlined className="text-slate-400" />
-                      <span>Posted {formatDate(latestAnnouncement.createdAt)}</span>
-                    </div>
-                  </div>
+                  <h3 className="text-sm sm:text-base font-semibold text-blue-900">Announcements</h3>
+                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-[10px] sm:text-xs font-medium rounded-full">
+                    {announcements.length} item{announcements.length > 1 ? 's' : ''}
+                  </span>
                 </div>
-                {/* Display announcement image if it's an image type */}
-                {latestAnnouncement.mimeType && latestAnnouncement.mimeType.startsWith('image/') && (
-                  <div className="w-full flex-1 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center">
-                    <img
-                      src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/public-documents/${latestAnnouncement._id}/preview`}
-                      alt={latestAnnouncement.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
+                
+                <Carousel className="w-full">
+                  <CarouselContent>
+                    {announcements.map((announcement, index) => (
+                      <CarouselItem key={announcement._id || index}>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-sm sm:text-base font-bold text-slate-800 truncate">
+                              {announcement.title}
+                            </h4>
+                            <span className="text-[10px] sm:text-xs text-slate-500 whitespace-nowrap">
+                              {formatDate(announcement.createdAt)}
+                            </span>
+                          </div>
+                          
+                          {announcement.description && (
+                            <div className="mb-1">
+                              <p className="text-blue-800 text-xs sm:text-sm leading-relaxed line-clamp-2">
+                                {announcement.description.length > 120
+                                  ? `${announcement.description.substring(0, 120)}...`
+                                  : announcement.description}
+                              </p>
+                              <Button
+                                type="link"
+                                size="small"
+                                className="p-0 h-auto text-blue-600 hover:text-blue-800 font-medium mt-1"
+                                onClick={() => {
+                                  setActiveAnnouncementIndex(index);
+                                  setShowAnnouncementModal(true);
+                                }}
+                              >
+                                {announcement.description.length > 120 ? 'See More' : 'View Details'}
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {announcement.mimeType && announcement.mimeType.startsWith('image/') && (
+                            <div 
+                              className="w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer hover:opacity-90 transition-opacity aspect-[4/3] flex items-center justify-center p-2 sm:p-3"
+                              onClick={() => {
+                                setActiveAnnouncementIndex(index);
+                                setShowAnnouncementModal(true);
+                              }}
+                            >
+                              <img
+                                src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/public-documents/${announcement._id}/preview`}
+                                alt={announcement.title}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="left-2" />
+                  <CarouselNext className="right-2" />
+                </Carousel>
               </CardContent>
             </Card>
           )}
@@ -667,29 +693,29 @@ export default function ResidentDashboard() {
             </div>
           }
         >
-          {latestAnnouncement && (
+          {announcements[activeAnnouncementIndex] && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">{latestAnnouncement.title}</h3>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">{announcements[activeAnnouncementIndex].title}</h3>
                 <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
                   <CalendarOutlined className="text-slate-400" />
-                  <span>Posted {formatDate(latestAnnouncement.createdAt)}</span>
+                  <span>Posted {formatDate(announcements[activeAnnouncementIndex].createdAt)}</span>
                 </div>
               </div>
               
-              {latestAnnouncement.description && (
+              {announcements[activeAnnouncementIndex].description && (
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                   <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap">
-                    {latestAnnouncement.description}
+                    {announcements[activeAnnouncementIndex].description}
                   </p>
                 </div>
               )}
               
-              {latestAnnouncement.mimeType && latestAnnouncement.mimeType.startsWith('image/') && (
+              {announcements[activeAnnouncementIndex].mimeType && announcements[activeAnnouncementIndex].mimeType.startsWith('image/') && (
                 <div className="w-full rounded-lg overflow-hidden border border-slate-200 bg-white">
                   <img
-                    src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/public-documents/${latestAnnouncement._id}/preview`}
-                    alt={latestAnnouncement.title}
+                    src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/resident/public-documents/${announcements[activeAnnouncementIndex]._id}/preview`}
+                    alt={announcements[activeAnnouncementIndex].title}
                     className="w-full h-auto max-h-[500px] object-contain"
                     onError={(e) => {
                       e.target.style.display = 'none';
