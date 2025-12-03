@@ -98,18 +98,34 @@ export default function AdminBlockchainNetwork() {
     }
     if (activeTab === "publicdocs") setLoading(false);
   };
+  // Sync public documents: if a blockchain record no longer exists in AdminPublicDocuments (Mongo), mark as deleted
   const handleSync = async () => {
-    if (activeTab !== "requests") return; // only valid for requests tab
-    setLoading(true);
+    if (activeTab === "publicdocs") setLoading(true);
     try {
-      await apiClient.post('/api/blockchain/sync-from-db');
-      message.success('Sync complete');
-      await handleSearch();
+      const res = await apiClient.get('/api/admin/public-documents');
+      const mongoDocs = res.data?.mongoDocs || [];
+      const blockchainDocs = res.data?.blockchainDocs || [];
+
+      const mongoIdSet = new Set(mongoDocs.map(d => d._id));
+
+      const synced = blockchainDocs.map(bDoc => {
+        const existsInMongo = mongoIdSet.has(bDoc.docId);
+        const mongoStatus = existsInMongo ? (mongoDocs.find(m => m._id === bDoc.docId)?.status || null) : null;
+        const status = existsInMongo
+          ? (mongoStatus || (bDoc.deleted ? 'deleted' : bDoc.edited ? 'edited' : 'verified'))
+          : 'deleted';
+        return { ...bDoc, status };
+      });
+
+      setPublicDocs(synced);
+      setLastFetchedAt(new Date());
+      message.success('Public documents synced');
     } catch (err) {
-      console.error(err);
-      message.error(err?.response?.data?.message || 'Sync failed');
+      console.error('Sync error', err?.response?.status, err?.response?.data);
+      message.error('Sync failed');
+    } finally {
+      if (activeTab === "publicdocs") setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleExportPDF = async () => {
@@ -509,7 +525,10 @@ export default function AdminBlockchainNetwork() {
                   </>
                 )}
                 {activeTab === 'publicdocs' && (
-                  <Button icon={<ReloadOutlined />} onClick={handlePublicDocsFetch} loading={loading} className="w-full sm:w-auto whitespace-nowrap">Refresh</Button>
+                  <>
+                    <Button icon={<ReloadOutlined />} onClick={handlePublicDocsFetch} loading={loading} className="w-full sm:w-auto whitespace-nowrap">Refresh</Button>
+                    <Button icon={<CloudSyncOutlined />} type="primary" onClick={handleSync} loading={loading} className="w-full sm:w-auto whitespace-nowrap">Sync</Button>
+                  </>
                 )}
                 {activeTab === 'finance' && (
                   <Button icon={<ReloadOutlined />} onClick={handleFinanceFetch} loading={loading} className="w-full sm:w-auto whitespace-nowrap">Refresh</Button>

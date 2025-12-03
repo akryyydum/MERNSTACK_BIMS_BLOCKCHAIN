@@ -276,6 +276,22 @@ exports.remove = async (req, res) => {
     if (fs.existsSync(doc.path)) fs.unlinkSync(doc.path);
     await doc.deleteOne();
 
+    // Mirror deletion to blockchain (non-blocking)
+    setImmediate(async () => {
+      try {
+        const { gateway, contract } = await getContract("documentrequest", "PublicDocumentContract");
+        try {
+          await contract.submitTransaction("deleteDocument", doc._id.toString(), (req.user && req.user.id) ? req.user.id.toString() : "admin");
+        } catch (chainErr) {
+          console.warn("Blockchain deleteDocument failed:", chainErr.message);
+        } finally {
+          await gateway.disconnect();
+        }
+      } catch (fabricErr) {
+        console.warn("Fabric gateway error (public doc delete mirror):", fabricErr.message);
+      }
+    });
+
     res.json({ message: "Deleted" });
   } catch {
     res.status(500).json({ message: "Delete failed" });
