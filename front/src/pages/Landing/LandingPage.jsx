@@ -26,10 +26,10 @@ const LandingPage = () => {
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsError, setAnnouncementsError] = useState('');
   const [selectedAnnouncementIndex, setSelectedAnnouncementIndex] = useState(0);
+  const [currentGallerySlide, setCurrentGallerySlide] = useState(0);
   const navItemRefs = {
     home: useRef(null),
     features: useRef(null),
-    services: useRef(null),
     about: useRef(null),
     contact: useRef(null)
   };
@@ -47,6 +47,25 @@ const LandingPage = () => {
     return remoteImages.length ? remoteImages : [heroFallback];
   }, []);
 
+  const galleryImages = useMemo(() => [
+    { src: '/images/FB_IMG_1764781154864.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781247001.jpg', tall: true },
+    { src: '/images/FB_IMG_1764781262641.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781273902.jpg', tall: true },
+    { src: '/images/FB_IMG_1764781360955.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781400196.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781408111.jpg', tall: true },
+    { src: '/images/FB_IMG_1764781417485.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781437953.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781455427.jpg', tall: true },
+    { src: '/images/FB_IMG_1764781765038.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781774291.jpg', tall: true },
+    { src: '/images/FB_IMG_1764781843009.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781910250.jpg', tall: false },
+    { src: '/images/FB_IMG_1764781932136.jpg', tall: true },
+    { src: '/images/FB_IMG_1764781944498.jpg', tall: false }
+  ], []);
+
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -54,7 +73,7 @@ const LandingPage = () => {
       setShowScrollTop(currentScrollY > 300);
       
       // Determine active section based on scroll position
-      const sections = ['home', 'features', 'services', 'about', 'contact'];
+      const sections = ['home', 'features', 'about', 'contact'];
       const navHeight = 80;
       
       // Check if we're near the top (home section)
@@ -97,6 +116,14 @@ const LandingPage = () => {
     }, 7000);
     return () => clearInterval(interval);
   }, [heroSlides.length]);
+
+  // Auto-advance gallery slideshow on mobile
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentGallerySlide((prev) => (prev + 1) % galleryImages.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [galleryImages.length]);
 
   // Update indicator position when active section changes
   useEffect(() => {
@@ -191,19 +218,19 @@ const LandingPage = () => {
 
   const benefits = [
     {
-      icon: <Clock className="w-8 h-8" />,
-      title: "Save Time",
-      description: "Process requests 70% faster than traditional methods"
+      icon: <Users className="w-8 h-8" />,
+      title: "Strong Community",
+      description: "A vibrant barangay united by bayanihan spirit and family values"
     },
     {
-      icon: <Lock className="w-8 h-8" />,
-      title: "Secure Data",
-      description: "Bank-level encryption with blockchain verification"
+      icon: <HeartHandshake className="w-8 h-8" />,
+      title: "Caring Leadership",
+      description: "Dedicated officials committed to transparent and responsive governance"
     },
     {
-      icon: <Zap className="w-8 h-8" />,
-      title: "Instant Updates",
-      description: "Real-time notifications for all transactions"
+      icon: <Shield className="w-8 h-8" />,
+      title: "Safe & Progressive",
+      description: "A peaceful community embracing development while preserving heritage"
     }
   ];
 
@@ -264,9 +291,9 @@ const LandingPage = () => {
   ];
 
   const stats = [
-    { number: "Transparency", label: "Active Residents", icon: <Users className="w-6 h-6" /> },
-    { number: "1,000+", label: "Documents Issued", icon: <FileText className="w-6 h-6" /> },
-    { number: "95%", label: "Satisfaction Rate", icon: <CheckCircle className="w-6 h-6" /> }
+    { number: "2,500+", label: "Barangay Residents", icon: <Users className="w-6 h-6" /> },
+    { number: "850+", label: "Registered Households", icon: <MapPin className="w-6 h-6" /> },
+    { number: "22", label: "Barangay Officials", icon: <Award className="w-6 h-6" /> }
   ];
 
   const { latestAnnouncement, previousAnnouncements } = useMemo(() => {
@@ -358,7 +385,6 @@ const LandingPage = () => {
                 {[ 
                   { label: 'Home', id: 'home' },
                   { label: 'Announcement', id: 'features' },
-                  { label: 'Services', id: 'services' },
                   { label: 'About', id: 'about' },
                   { label: 'Contact', id: 'contact' }
                 ].map((item) => (
@@ -463,7 +489,6 @@ const LandingPage = () => {
                   {[
                     { label: 'Home', id: 'home' },
                     { label: 'Announcement', id: 'features' },
-                    { label: 'Services', id: 'services' },
                     { label: 'About', id: 'about' },
                     { label: 'Contact', id: 'contact' }
                   ].map((item, index) => (
@@ -560,31 +585,31 @@ const LandingPage = () => {
             className="flex flex-col items-center justify-center w-full"
           >
             
-            <h1 className="text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl font-bold text-white leading-tight mb-4 text-center px-4">
-              Welcome to <br /> <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-blue-400 font-bold transition-all duration-300">La Torre North</span>
-              <span className="block text-base sm:text-lg md:text-xl text-gray-200 mt-2">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6 text-center px-4">
+              Welcome to <br /> <span className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-blue-400 font-bold transition-all duration-300">La Torre North</span>
+              <span className="block text-xl sm:text-2xl md:text-3xl text-gray-200 mt-4">
                 Bayombong, Nueva Vizcaya
               </span>
             </h1>
            
             
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center w-full px-4 max-w-md sm:max-w-lg mx-auto">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center w-full px-4 max-w-md sm:max-w-2xl mx-auto">
               <motion.button
                 onClick={() => navigate('/login')}
-                className="group px-6 sm:px-8 py-3 sm:py-4 bg-black text-white rounded-lg font-semibold text-base sm:text-lg hover:bg-black/90 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10"
+                className="group px-8 sm:px-10 py-4 sm:py-5 bg-black text-white rounded-lg font-semibold text-lg sm:text-xl hover:bg-black/90 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <span className="text-white   ">Get Started</span>
-                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform text-white" />
+                <span className="text-white">Get Started</span>
+                <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform text-white" />
               </motion.button>
               <motion.button
-                onClick={() => document.getElementById('services').scrollIntoView({ behavior: 'smooth' })}
-                className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-black border border-black rounded-lg font-semibold text-base sm:text-lg hover:bg-gray-100 transition-all w-full sm:w-auto"
+                onClick={() => document.getElementById('about').scrollIntoView({ behavior: 'smooth' })}
+                className="px-8 sm:px-10 py-4 sm:py-5 bg-white text-black border border-black rounded-lg font-semibold text-lg sm:text-xl hover:bg-gray-100 transition-all w-full sm:w-auto"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                View Services
+                Learn More
               </motion.button>
             </div>
           </motion.div>
@@ -757,140 +782,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Services Section */}
-      <section id="services" className="py-20 bg-gradient-to-b from-white to-gray-50">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Available Services
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Quick and efficient processing of all your barangay document needs
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-12">
-            {services.map((service, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5 }}
-              >
-                <SpotlightCard 
-                  className="h-full"
-                  spotlightColor="rgba(59, 130, 246, 0.06)"
-                  borderColor="rgba(59, 130, 246, 0.15)"
-                >
-                  <div className="p-8 flex flex-col h-full group cursor-pointer">
-                    <div className="mb-5 p-4 bg-blue-50 rounded-xl text-blue-600 w-fit">
-                      {service.icon}
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      {service.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-5 leading-relaxed flex-grow">
-                      {service.description}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 pt-3 border-t border-gray-100">
-                      <Clock className="w-4 h-4" />
-                      <span>{service.time}</span>
-                    </div>
-                  </div>
-                </SpotlightCard>
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center"
-          >
-            <motion.button
-              onClick={() => navigate('/login')}
-              className="px-8 py-4 bg-blue-600 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl inline-flex items-center gap-2"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="text-white">Request a Service</span>
-              <ChevronRight className="w-5 h-5 text-white" />
-            </motion.button>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section id="faq-section" className="py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-xl text-gray-600">
-              Find answers to common questions about our services
-            </p>
-          </motion.div>
-
-          <div className="space-y-4">
-            {faqItems.map((faq, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
-              >
-                <button
-                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
-                >
-                  <span className="font-semibold text-gray-900 text-lg pr-8">
-                    {faq.question}
-                  </span>
-                  <motion.div
-                    animate={{ rotate: openFaq === index ? 180 : 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex-shrink-0"
-                  >
-                    <ChevronRight className="w-6 h-6 text-blue-600 transform rotate-90" />
-                  </motion.div>
-                </button>
-                <AnimatePresence>
-                  {openFaq === index && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-6 pb-5 text-gray-600 leading-relaxed">
-                        {faq.answer}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Stats Section */}
       <section className="py-20 bg-gradient-to-br from-blue-600 to-blue-800 text-white relative">
         <motion.div 
@@ -917,10 +808,10 @@ const LandingPage = () => {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Our Impact in Numbers
+              Our Barangay at a Glance
             </h2>
             <p className="text-xl text-blue-100">
-              Making a difference in our community every day
+              A thriving community serving residents every day
             </p>
           </motion.div>
 
@@ -936,8 +827,8 @@ const LandingPage = () => {
               >
                 <motion.div
                   className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full mb-3 sm:mb-4"
-                  whileHover={{ rotate: 360, scale: 1.1 }}
-                  transition={{ duration: 0.5 }}
+                  whileHover={{ scale: 1.1 }}
+                  transition={{ duration: 0.3 }}
                 >
                   {stat.icon}
                 </motion.div>
@@ -956,69 +847,49 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* About Section */}
+      {/* About Section - Introduction */}
       <section id="about" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              About Barangay La Torre North
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              A vibrant and welcoming community in the heart of Bayombong, Nueva Vizcaya
+            </p>
+          </motion.div>
+
+          {/* Introduction */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-20">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="order-2 lg:order-1"
             >
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                About La Torre North
-              </h2>
-              <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                La Torre North is a progressive barangay in Bayombong, Nueva Vizcaya, committed to 
-                providing excellent service to our residents through modern technology and transparent governance.
+              <h3 className="text-3xl font-bold text-gray-900 mb-6">
+                Welcome to Our Community
+              </h3>
+              <p className="text-lg text-gray-600 leading-relaxed mb-4">
+                Barangay La Torre North is a vibrant and welcoming community nestled in Bayombong, the capital of Nueva Vizcaya. 
+                Known for its strong sense of unity, rich cultural traditions, and deep-rooted family values, our barangay embodies 
+                the spirit of genuine Filipino hospitality and cooperation.
               </p>
-              <p className="text-lg text-gray-600 leading-relaxed mb-8">
-                Our Barangay Management Information System represents our dedication to innovation and efficiency, 
-                leveraging blockchain technology to ensure security, transparency, and reliability in all our services.
+              <p className="text-lg text-gray-600 leading-relaxed mb-4">
+                Our residents take pride in preserving the warmth and camaraderie that define Filipino communities. From everyday 
+                greetings exchanged along our streets to shared meals during community gatherings, the barangay thrives on the 
+                principle of "bayanihan" – the spirit of communal unity and cooperation.
               </p>
-              
-              <div className="space-y-4">
-                <motion.div 
-                  className="flex items-center gap-4"
-                  whileHover={{ x: 10 }}
-                >
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Transparent Governance</h3>
-                    <p className="text-gray-600 text-sm">Open and accountable to our community</p>
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="flex items-center gap-4"
-                  whileHover={{ x: 10 }}
-                >
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Shield className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Secure & Reliable</h3>
-                    <p className="text-gray-600 text-sm">Protected by blockchain technology</p>
-                  </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="flex items-center gap-4"
-                  whileHover={{ x: 10 }}
-                >
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Users className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Community-Focused</h3>
-                    <p className="text-gray-600 text-sm">Designed with residents in mind</p>
-                  </div>
-                </motion.div>
-              </div>
+              <p className="text-lg text-gray-600 leading-relaxed">
+                Life in La Torre North is characterized by peaceful neighborhoods, where children play safely, families grow together, 
+                and neighbors look out for one another. Our community values education, hard work, respect for elders, and active 
+                participation in local affairs, creating a nurturing environment where every resident can flourish.
+              </p>
             </motion.div>
 
             <motion.div
@@ -1026,46 +897,494 @@ const LandingPage = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="relative order-1 lg:order-2"
+              className="relative"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   className="bg-gradient-to-br from-blue-500 to-blue-600 p-8 rounded-2xl text-white shadow-lg"
                 >
-                  <Database className="w-8 h-8 mb-4" />
-                  <div className="text-3xl font-bold mb-2">100%</div>
-                  <div className="text-blue-100">Digital Records</div>
+                  <Users className="w-8 h-8 mb-4" />
+                  <div className="text-2xl font-bold mb-2">Strong Unity</div>
+                  <div className="text-blue-100">Together as One</div>
                 </motion.div>
                 
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   className="bg-gradient-to-br from-green-500 to-green-600 p-8 rounded-2xl text-white shadow-lg mt-8"
                 >
-                  <TrendingUp className="w-8 h-8 mb-4" />
-                  <div className="text-3xl font-bold mb-2">70%</div>
-                  <div className="text-green-100">Faster Processing</div>
+                  <HeartHandshake className="w-8 h-8 mb-4" />
+                  <div className="text-2xl font-bold mb-2">Bayanihan</div>
+                  <div className="text-green-100">Spirit of Cooperation</div>
                 </motion.div>
                 
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   className="bg-gradient-to-br from-purple-500 to-purple-600 p-8 rounded-2xl text-white shadow-lg"
                 >
-                  <Award className="w-8 h-8 mb-4" />
-                  <div className="text-3xl font-bold mb-2">95%</div>
-                  <div className="text-purple-100">Satisfaction</div>
+                  <Shield className="w-8 h-8 mb-4" />
+                  <div className="text-2xl font-bold mb-2">Safe Haven</div>
+                  <div className="text-purple-100">Peaceful Living</div>
                 </motion.div>
                 
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 rounded-2xl text-white shadow-lg mt-8"
                 >
-                  <Smartphone className="w-8 h-8 mb-4" />
-                  <div className="text-3xl font-bold mb-2">Mobile</div>
-                  <div className="text-orange-100">Responsive</div>
+                  <Award className="w-8 h-8 mb-4" />
+                  <div className="text-2xl font-bold mb-2">Progressive</div>
+                  <div className="text-orange-100">Moving Forward</div>
                 </motion.div>
               </div>
             </motion.div>
+          </div>
+
+          {/* Vision & Mission */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-20">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-gradient-to-br from-blue-50 to-white p-8 lg:p-10 rounded-2xl shadow-lg"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">Our Vision</h3>
+              </div>
+              <p className="text-lg text-gray-700 leading-relaxed">
+                Barangay La Torre North is a progressive and self-reliant community with healthy residents who are God-fearing 
+                and peace-loving; who participate in local governance to sustain a friendly and wholesome environment.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-green-50 to-white p-8 lg:p-10 rounded-2xl shadow-lg"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">Our Mission</h3>
+              </div>
+              <p className="text-lg text-gray-700 leading-relaxed">
+                To participate actively in the implementation of programs, projects, and activities of the barangay.
+              </p>
+            </motion.div>
+          </div>
+
+          {/* Goal & Objective - BDRRMC */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-20">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-gradient-to-br from-purple-50 to-white p-8 lg:p-10 rounded-2xl shadow-lg"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">Our Goal</h3>
+              </div>
+              <p className="text-lg text-gray-700 leading-relaxed">
+                To monitor and evaluate the implementation of the Barangay Disaster Risk Reduction Management and regularly 
+                review and test the plan of the local planning programs. And ensure integration of disaster risk reduction and 
+                climate change adaptation into local development plans, programs, budgets as a strategy in the reduction of poverty.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-orange-50 to-white p-8 lg:p-10 rounded-2xl shadow-lg"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center">
+                  <Bell className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">Our Objective</h3>
+              </div>
+              <p className="text-lg text-gray-700 leading-relaxed">
+                To recommend the implementation of forced pre-emptive evacuation of affected local residents in times of any 
+                disaster or emergencies at the barangay. The BDRRMC serves as the main communication link for all the responding units.
+              </p>
+            </motion.div>
+          </div>
+
+          {/* Physical and Geographical Classification */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-green-50 to-white p-8 lg:p-12 rounded-2xl shadow-lg mb-20"
+          >
+            <h3 className="text-3xl font-bold text-gray-900 mb-8 text-center">Location & Geography</h3>
+            
+            {/* Land Area Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[
+                { label: "Total Land Area", value: "362.80 hectares", icon: <Globe className="w-6 h-6" />, color: "blue" },
+                { label: "Agricultural", value: "99.3 hectares", icon: <TrendingUp className="w-6 h-6" />, color: "green" },
+                { label: "Residential", value: "107.10 hectares", icon: <Users className="w-6 h-6" />, color: "purple" },
+                { label: "Timberland", value: "255.7 hectares", icon: <Globe className="w-6 h-6" />, color: "orange" }
+              ].map((stat, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`bg-${stat.color}-50 p-6 rounded-xl text-center shadow-md hover:shadow-lg transition-all`}
+                >
+                  <div className={`w-12 h-12 bg-${stat.color}-600 rounded-full flex items-center justify-center mx-auto mb-3 text-white`}>
+                    {stat.icon}
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</div>
+                  <div className="text-gray-600 text-sm">{stat.label}</div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Location Details */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="space-y-4"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">Location</h4>
+                    <p className="text-gray-700 leading-relaxed">
+                      Located in the northern part of Bayombong, Nueva Vizcaya, our barangay is approximately 
+                      <span className="font-semibold"> 2.5 kilometers</span> from the municipal hall, taking about 
+                      <span className="font-semibold"> 10 minutes</span> to reach the barangay hall.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">Accessibility</h4>
+                    <p className="text-gray-700 leading-relaxed">
+                      The barangay is easily accessible by tricycle or any vehicle, making it convenient for residents 
+                      and visitors to travel to and from the community.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="bg-white p-6 rounded-xl shadow-md"
+              >
+                <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                  Barangay Boundaries
+                </h4>
+                <div className="space-y-3 text-gray-700">
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                    <span className="font-semibold text-blue-600 min-w-[80px]">North:</span>
+                    <span>Barangay Casat</span>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                    <span className="font-semibold text-green-600 min-w-[80px]">East:</span>
+                    <span>Barangay Luyang</span>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
+                    <span className="font-semibold text-purple-600 min-w-[80px]">West:</span>
+                    <span>Barangay Masoc</span>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg">
+                    <span className="font-semibold text-orange-600 min-w-[80px]">South:</span>
+                    <span>Barangay La Torre South</span>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+
+          {/* History */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-gray-50 to-white p-8 lg:p-12 rounded-2xl shadow-lg mb-20"
+          >
+            <h3 className="text-3xl font-bold text-gray-900 mb-6 text-center">Our History</h3>
+            <div className="max-w-4xl mx-auto space-y-6 text-lg text-gray-700 leading-relaxed">
+              <p>
+                The landscape of our barangay is marked by the lush greenery of the Matuno mountain range, where large plant growth 
+                with their verdant tones creates a picturesque natural setting. Unlike areas with Spanish colonial architecture dominated 
+                by towering spires, our community's character is defined by its connection to the natural beauty surrounding it.
+              </p>
+              <p>
+                This barangay was created during the mid-year of <span className="font-semibold">1868</span> during the term of 
+                Governadorcillo (Mayor) <span className="font-semibold">Jacinto Bacani</span> of Bayombong. Originally, the area was 
+                known as <span className="font-semibold">"PIDDIG"</span>, a name given by the intrepid first Ilocano immigrants from 
+                Piddig, Ilocos Norte who inhabited the place. These pioneering settlers chose this name to conserve the memory of their 
+                birthplace, honoring the homeland they left behind as they built a new life in Nueva Vizcaya.
+              </p>
+              <p>
+                The early years saw changes in leadership as Bacani was replaced by <span className="font-semibold">Clemente Cutaran</span> who 
+                served as Governadorcillo of Bayombong during <span className="font-semibold">1870-1871</span>. However, Bacani returned to 
+                office in <span className="font-semibold">1872-1873</span>, marking his second term as Chief Executive of the town.
+              </p>
+              <p>
+                It was during Bacani's second term that a significant transformation occurred. The settlement's name was changed from 
+                Piddig to <span className="font-semibold">LA TORRE</span> in honor of the newly appointed Spanish Provincial Governor of 
+                Nueva Vizcaya, <span className="font-semibold">Ramon dela Torre</span>. This renaming reflected the political realities 
+                of the Spanish colonial period and established the identity that would endure through the generations.
+              </p>
+              <p>
+                The spirit of those intrepid Ilocano pioneers continues to inspire our community today. Their courage in leaving their 
+                homeland to establish a new settlement, their dedication to preserving their cultural identity, and their determination 
+                to build a thriving community have become the foundation upon which modern La Torre North stands. Their legacy reminds 
+                us that our barangay was built on the values of bravery, hard work, and the enduring connection between past and present.
+              </p>
+              <p>
+                Today, Barangay La Torre North honors both its indigenous roots as Piddig and its historical evolution under Spanish 
+                colonial influence. We take pride in our rich heritage, carrying forward the traditions of our Ilocano ancestors while 
+                embracing progress and development for future generations.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Community Values */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+            {[
+              {
+                icon: <HeartHandshake className="w-8 h-8" />,
+                title: "Unity & Cooperation",
+                description: "Working together for the common good through bayanihan spirit"
+              },
+              {
+                icon: <Users className="w-8 h-8" />,
+                title: "Family Values",
+                description: "Strong family ties and respect for elders are our foundation"
+              },
+              {
+                icon: <Shield className="w-8 h-8" />,
+                title: "Peace & Safety",
+                description: "A safe environment where children can grow and families flourish"
+              },
+              {
+                icon: <Award className="w-8 h-8" />,
+                title: "Progress & Development",
+                description: "Embracing positive change while preserving our cultural heritage"
+              }
+            ].map((value, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all"
+              >
+                <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-600">
+                  {value.icon}
+                </div>
+                <h4 className="text-xl font-bold text-gray-900 mb-3">{value.title}</h4>
+                <p className="text-gray-600 leading-relaxed">{value.description}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Community Programs */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-20"
+          >
+            <h3 className="text-3xl font-bold text-gray-900 mb-8 text-center">Community Programs & Initiatives</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                {
+                  title: "Youth Development Programs",
+                  description: "Sports leagues, skills training, scholarship assistance, and leadership seminars to empower our young people",
+                  icon: <Users className="w-6 h-6" />
+                },
+                {
+                  title: "Senior Citizens Support",
+                  description: "Monthly social pension assistance, health check-ups, recreational activities, and special programs honoring our elders",
+                  icon: <HeartHandshake className="w-6 h-6" />
+                },
+                {
+                  title: "Health & Wellness",
+                  description: "Regular health check-ups, vaccination drives, maternal and child health programs, and health education campaigns",
+                  icon: <Shield className="w-6 h-6" />
+                },
+                {
+                  title: "Environmental Programs",
+                  description: "Clean-up drives, tree planting activities, waste segregation initiatives, and campaigns for a greener barangay",
+                  icon: <Globe className="w-6 h-6" />
+                },
+                {
+                  title: "Livelihood & Skills Training",
+                  description: "Workshops on entrepreneurship, skills development, cooperative formation, and income-generating projects",
+                  icon: <TrendingUp className="w-6 h-6" />
+                },
+                {
+                  title: "Public Safety & Security",
+                  description: "Barangay tanod patrols, disaster preparedness training, crime prevention programs, and emergency response coordination",
+                  icon: <Shield className="w-6 h-6" />
+                }
+              ].map((program, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                      {program.icon}
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-900 mb-2">{program.title}</h4>
+                      <p className="text-gray-600 leading-relaxed">{program.description}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Community Gallery - Masonry Layout */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Community Gallery
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Glimpses of life, events, and vibrant moments in Barangay La Torre North
+            </p>
+          </motion.div>
+
+          {/* Mobile Slideshow */}
+          <div className="block sm:hidden relative">
+            <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentGallerySlide}
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute inset-0"
+                >
+                  <img
+                    src={galleryImages[currentGallerySlide].src}
+                    alt={`Barangay La Torre North community moment ${currentGallerySlide + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent">
+                    <div className="absolute bottom-0 left-0 right-0 p-6">
+                      <p className="text-white text-lg font-medium">
+                        Community Life #{currentGallerySlide + 1}
+                      </p>
+                      <p className="text-white/80 text-sm mt-1">
+                        {currentGallerySlide + 1} / {galleryImages.length}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Navigation Arrows */}
+              <button
+                onClick={() => setCurrentGallerySlide((prev) => (prev - 1 + galleryImages.length) % galleryImages.length)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all z-10"
+                aria-label="Previous image"
+              >
+                <ChevronRight className="w-6 h-6 text-gray-800 rotate-180" />
+              </button>
+              <button
+                onClick={() => setCurrentGallerySlide((prev) => (prev + 1) % galleryImages.length)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all z-10"
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-6 h-6 text-gray-800" />
+              </button>
+
+              {/* Dot Indicators */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                {galleryImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentGallerySlide(index)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      index === currentGallerySlide
+                        ? 'bg-white w-8'
+                        : 'bg-white/50 hover:bg-white/75'
+                    }`}
+                    aria-label={`Go to image ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop/Tablet Masonry Grid */}
+          <div className="hidden sm:block">
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+              {galleryImages.map((image, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ scale: 1.02 }}
+                  className={`break-inside-avoid mb-4 ${image.tall ? 'h-auto' : ''}`}
+                >
+                  <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 group">
+                    <img
+                      src={image.src}
+                      alt={`Barangay La Torre North community moment ${index + 1}`}
+                      className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <p className="text-white text-sm font-medium">
+                          Community Life #{index + 1}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -1080,10 +1399,10 @@ const LandingPage = () => {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              How It Works
+              Need a Document?
             </h2>
             <p className="text-xl text-gray-600">
-              Get your documents in just a few simple steps
+              Request your barangay documents in just a few simple steps
             </p>
           </motion.div>
 
@@ -1137,6 +1456,27 @@ const LandingPage = () => {
               </motion.div>
             ))}
           </div>
+
+          {/* CTA Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <motion.button
+              onClick={() => navigate('/login')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+            >
+              <span className="text-white">Request Document Now</span>
+              <ChevronRight className="w-5 h-5 text-white" />
+            </motion.button>
+            <p className="text-gray-600 mt-4 text-sm">
+              Already have an account? <button onClick={() => navigate('/login')} className="text-blue-600 hover:text-blue-700 font-semibold">Sign in here</button>
+            </p>
+          </motion.div>
         </div>
       </section>
 
@@ -1206,7 +1546,7 @@ const LandingPage = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900 mb-1">Contact Number</h4>
-                      <p className="text-gray-600">Available through the system</p>
+                      <p className="text-gray-600">0927 570 6819</p>
                     </div>
                   </motion.div>
 
@@ -1219,7 +1559,7 @@ const LandingPage = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900 mb-1">Email</h4>
-                      <p className="text-gray-600">barangay.latorre@bayombong.gov.ph</p>
+                      <p className="text-gray-600">barangaylatorrenorthnuevvizcay@gmail.com</p>
                     </div>
                   </motion.div>
                 </div>
@@ -1234,7 +1574,7 @@ const LandingPage = () => {
               >
                 <h3 className="text-2xl font-bold mb-4">Need Immediate Assistance?</h3>
                 <p className="text-blue-100 mb-6">
-                  For urgent matters, you can visit our office during business hours or access our online services 24/7.
+                  For urgent matters, you can visit our office during business hours or access our online services.
                 </p>
                 <button
                   onClick={() => navigate('/login')}
@@ -1319,11 +1659,11 @@ const LandingPage = () => {
             viewport={{ once: true }}
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to Get Started?
+              Be Part of La Torre North's Digital Future
             </h2>
             <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              Join hundreds of residents already enjoying the convenience of our digital services. 
-              Experience faster, easier, and more transparent barangay transactions.
+              Join our progressive community where technology meets traditional Filipino values. 
+              Experience seamless barangay services powered by innovation, transparency, and the spirit of bayanihan.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
               <motion.button
@@ -1365,43 +1705,20 @@ const LandingPage = () => {
                   <div className="text-xs sm:text-sm text-gray-400">Bayombong, Nueva Vizcaya</div>
                 </div>
               </div>
-              <p className="text-gray-400 mb-4 text-sm sm:text-base max-w-md">
+              <p className="text-gray-400 text-sm sm:text-base max-w-md">
                 Empowering our community through modern technology and transparent governance. 
                 Building a better tomorrow, today.
               </p>
-              <div className="flex gap-3 sm:gap-4">
-                <motion.a
-                  href="#"
-                  whileHover={{ scale: 1.1, y: -2 }}
-                  className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"
-                >
-                  <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
-                </motion.a>
-                <motion.a
-                  href="#"
-                  whileHover={{ scale: 1.1, y: -2 }}
-                  className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"
-                >
-                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                </motion.a>
-                <motion.a
-                  href="#"
-                  whileHover={{ scale: 1.1, y: -2 }}
-                  className="w-9 h-9 sm:w-10 sm:h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"
-                >
-                  <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
-                </motion.a>
-              </div>
             </div>
 
             {/* Quick Links */}
             <div>
               <h3 className="font-bold text-lg mb-4">Quick Links</h3>
               <ul className="space-y-2">
-                {['Home', 'Features', 'Services', 'About', 'Contact'].map((link, index) => (
+                {['Home', 'Announcement', 'About', 'Contact'].map((link, index) => (
                   <li key={index}>
                     <a 
-                      href={`#${link.toLowerCase()}`}
+                      href={`#${link === 'Announcement' ? 'features' : link.toLowerCase()}`}
                       className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2 group"
                     >
                       <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -1412,21 +1729,18 @@ const LandingPage = () => {
               </ul>
             </div>
 
-            {/* Services */}
+            {/* Contact Info */}
             <div>
-              <h3 className="font-bold text-lg mb-4">Services</h3>
+              <h3 className="font-bold text-lg mb-4">Contact Us</h3>
               <ul className="space-y-2">
-                {['Barangay Clearance', 'Certificates', 'Payments', 'Complaints'].map((service, index) => (
-                  <li key={index}>
-                    <a 
-                      href="#services"
-                      className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2 group"
-                    >
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      {service}
-                    </a>
-                  </li>
-                ))}
+                <li className="text-gray-400 text-sm">
+                  <span className="block font-semibold text-white mb-1">Address</span>
+                  La Torre North, Bayombong, Nueva Vizcaya
+                </li>
+                <li className="text-gray-400 text-sm">
+                  <span className="block font-semibold text-white mb-1">Office Hours</span>
+                  Monday - Friday: 8:00 AM - 5:00 PM
+                </li>
               </ul>
             </div>
           </div>
