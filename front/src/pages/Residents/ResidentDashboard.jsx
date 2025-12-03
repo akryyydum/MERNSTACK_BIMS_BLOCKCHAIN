@@ -602,8 +602,8 @@ export default function ResidentDashboard() {
 
           {/* Right Column: Announcements Carousel (shadcn) */}
           {hasAnnouncements && (
-            <Card className="w-full border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-blue-50 shadow-md h-[765px] flex flex-col">
-              <CardContent className="p-3 sm:p-4 flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <Card className="w-full border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-blue-50 shadow-md h-[500px] sm:h-[600px] lg:h-[765px] flex flex-col">
+              <CardContent className="p-3 sm:p-4 flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                     <BellOutlined className="text-blue-600 text-sm sm:text-base" />
