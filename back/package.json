@@ -34,7 +34,7 @@
     "file-saver": "^2.0.5",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mime-types": "^2.1.35",
+    "mime-types": "^3.0.2",
     "mongoose": "^8.19.3",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
