@@ -9,7 +9,7 @@ const { Option } = Select;
 /**
  * ExportSummaryModal Component
  * 
- * Modal dialog for exporting barangay summary data as CSV
+ * Modal dialog for exporting barangay summary data as Excel (.xlsx)
  * with flexible date range filtering (day, week, month, year)
  * 
  * @param {boolean} visible - Control modal visibility
@@ -59,7 +59,7 @@ const ExportSummaryModal = ({ visible, onClose }) => {
       // Format date as ISO string
       const dateValue = selectedDate.toISOString();
 
-      console.log("[Export CSV] Request:", { type: filterType, date: dateValue });
+      console.log("[Export Excel] Request:", { type: filterType, date: dateValue });
 
       // Make API request with responseType 'blob' for file download
       const response = await apiClient.get("/api/export/summary-csv", {
@@ -70,8 +70,10 @@ const ExportSummaryModal = ({ visible, onClose }) => {
         responseType: "blob", // Important for downloading files
       });
 
-      // Create blob from response
-      const blob = new Blob([response.data], { type: "text/csv" });
+      // Create blob from response with Excel MIME type
+      const blob = new Blob([response.data], { 
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+      });
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -80,7 +82,7 @@ const ExportSummaryModal = ({ visible, onClose }) => {
 
       // Generate filename with timestamp
       const timestamp = dayjs().format("YYYYMMDD_HHmmss");
-      const filename = `bims_summary_${filterType}_${timestamp}.csv`;
+      const filename = `bims_summary_${filterType}_${timestamp}.xlsx`;
       link.setAttribute("download", filename);
 
       // Trigger download
@@ -91,20 +93,20 @@ const ExportSummaryModal = ({ visible, onClose }) => {
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      message.success(`CSV exported successfully: ${filename}`);
+      message.success(`Excel file exported successfully: ${filename}`);
       
       // Close modal after successful download
       onClose();
 
     } catch (error) {
-      console.error("[Export CSV] Error:", error);
+      console.error("[Export Excel] Error:", error);
       
       if (error.response?.status === 403) {
         message.error("Access denied. Admin privileges required.");
       } else if (error.response?.status === 400) {
         message.error("Invalid request parameters");
       } else {
-        message.error("Failed to export CSV. Please try again.");
+        message.error("Failed to export Excel file. Please try again.");
       }
     } finally {
       setLoading(false);

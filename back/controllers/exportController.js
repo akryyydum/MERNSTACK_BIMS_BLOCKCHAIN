@@ -5,6 +5,7 @@ const FinancialTransaction = require("../models/financialTransaction.model");
 const DocumentRequest = require("../models/document.model");
 const Settings = require("../models/settings.model");
 const { getDashboard } = require("./adminFinancialController");
+const XLSX = require("xlsx");
 const dayjs = require("dayjs");
 const isSameOrBefore = require("dayjs/plugin/isSameOrBefore");
 const isSameOrAfter = require("dayjs/plugin/isSameOrAfter");
@@ -415,24 +416,89 @@ const generateSummaryData = async (startDate, endDate) => {
 };
 
 /**
- * Convert summary object to CSV string
- * @param {Object} summary - Summary data object
- * @returns {string} - CSV string
+ * Format field name for display (remove underscores, capitalize words)
+ * @param {string} fieldName - Field name with underscores
+ * @returns {string} - Formatted field name
  */
-const convertToCSV = (summary) => {
-  // Create CSV header (field names)
-  const headers = Object.keys(summary);
+const formatFieldName = (fieldName) => {
+  return fieldName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
+ * Convert summary object to Excel file with auto-width columns
+ * @param {Object} summary - Summary data object
+ * @returns {Buffer} - Excel file buffer
+ */
+const convertToExcel = (summary) => {
+  // Create vertical format data (field name, value)
+  // Filter out blockchain fields and format field names
+  const data = Object.entries(summary)
+    .filter(([key]) => !key.startsWith('blockchain_')) // Exclude blockchain fields
+    .map(([key, value]) => {
+      const formattedKey = formatFieldName(key);
+      return [formattedKey, value];
+    });
   
-  // Create CSV data row (values)
-  const values = Object.values(summary).map(val => sanitizeCsvValue(val));
+  // Create a new workbook and worksheet
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
   
-  // Combine header and values
-  const csvContent = [
-    headers.join(","),
-    values.join(",")
-  ].join("\n");
+  // Calculate column widths based on content
+  const colWidths = [
+    { wch: Math.max(...data.map(row => String(row[0]).length)) + 2 }, // Field name column
+    { wch: Math.max(...data.map(row => String(row[1]).length)) + 2 }  // Value column
+  ];
   
-  return csvContent;
+  ws['!cols'] = colWidths;
+  
+  // Apply styles to all cells
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      if (ws[cellAddress]) {
+        // Initialize cell style object
+        if (!ws[cellAddress].s) ws[cellAddress].s = {};
+        
+        // Apply alignment based on column
+        if (col === 1) {
+          // Second column (B) - center align
+          ws[cellAddress].s = {
+            alignment: { 
+              horizontal: 'center', 
+              vertical: 'center',
+              wrapText: false
+            }
+          };
+        } else {
+          // First column (A) - left align
+          ws[cellAddress].s = {
+            alignment: { 
+              horizontal: 'left', 
+              vertical: 'center',
+              wrapText: false
+            }
+          };
+        }
+      }
+    }
+  }
+  
+  // Add worksheet to workbook
+  XLSX.utils.book_append_sheet(wb, ws, "Summary");
+  
+  // Generate buffer with cell styles
+  const excelBuffer = XLSX.write(wb, { 
+    type: 'buffer', 
+    bookType: 'xlsx',
+    cellStyles: true,
+    bookSST: false
+  });
+  
+  return excelBuffer;
 };
 
 /**
@@ -475,34 +541,34 @@ exports.exportSummaryCSV = async (req, res) => {
     // Calculate date range
     const { startDate, endDate } = calculateDateRange(type, date);
     
-    console.log(`[Export CSV] Type: ${type}, Date: ${date}`);
-    console.log(`[Export CSV] Range: ${startDate.toISOString()} - ${endDate.toISOString()}`);
+    console.log(`[Export Excel] Type: ${type}, Date: ${date}`);
+    console.log(`[Export Excel] Range: ${startDate.toISOString()} - ${endDate.toISOString()}`);
     
     // Generate summary data
     const summary = await generateSummaryData(startDate, endDate);
     
-    // Convert to CSV
-    const csvContent = convertToCSV(summary);
+    // Convert to Excel with auto-width columns
+    const excelBuffer = convertToExcel(summary);
     
     // Generate filename with timestamp
     const timestamp = dayjs().format("YYYYMMDD_HHmmss");
-    const filename = `bims_summary_${type}_${timestamp}.csv`;
+    const filename = `bims_summary_${type}_${timestamp}.xlsx`;
     
-    // Set response headers for CSV download
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    // Set response headers for Excel download
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Pragma", "no-cache");
     
-    // Send CSV content
-    res.status(200).send(csvContent);
+    // Send Excel buffer
+    res.status(200).send(excelBuffer);
     
-    console.log(`[Export CSV] Successfully generated: ${filename}`);
+    console.log(`[Export Excel] Successfully generated: ${filename}`);
     
   } catch (error) {
-    console.error("[Export CSV] Error:", error);
+    console.error("[Export Excel] Error:", error);
     res.status(500).json({ 
-      message: "Failed to generate CSV export",
+      message: "Failed to generate Excel export",
       error: error.message 
     });
   }
