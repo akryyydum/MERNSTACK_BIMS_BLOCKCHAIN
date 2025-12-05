@@ -184,7 +184,7 @@ const ExportSummaryModal = ({ visible, onClose }) => {
       title={
         <div className="flex items-center gap-2">
           <DownloadOutlined className="text-blue-600" />
-          <span className="font-bold">Export Summary CSV</span>
+          <span className="font-bold">Export Summary Excel</span>
         </div>
       }
       open={visible}
@@ -198,7 +198,7 @@ const ExportSummaryModal = ({ visible, onClose }) => {
         {/* Description */}
         <p className="text-sm text-gray-600">
           Export comprehensive barangay data summary for a specific date range.
-          Select a filter type and date to generate your CSV report.
+          Select a filter type and date to generate your Excel report.
         </p>
 
         {/* Filter Type Selection */}
@@ -282,14 +282,14 @@ const ExportSummaryModal = ({ visible, onClose }) => {
             size="large"
             className="bg-blue-600 hover:bg-blue-700"
           >
-            {loading ? "Generating..." : "Download CSV"}
+            {loading ? "Generating..." : "Download Excel"}
           </Button>
         </div>
 
         {/* Info Section */}
         <div className="border-t pt-4 mt-4">
           <p className="text-xs text-gray-500">
-            <strong>CSV includes:</strong> Population demographics, household data, 
+            <strong>Excel includes:</strong> Population demographics, household data, 
             fee collections, financial transactions, document requests, and blockchain records.
           </p>
         </div>

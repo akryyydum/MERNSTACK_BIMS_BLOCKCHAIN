@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { UserOutlined, UsergroupAddOutlined, DashboardOutlined, SafetyOutlined, LogoutOutlined,
-    SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined, ExclamationCircleOutlined,
-    DollarOutlined, DeleteOutlined, BulbOutlined, DownOutlined, RightOutlined, BellOutlined, CheckOutlined
+  SettingOutlined, BarChartOutlined, MonitorOutlined, BlockOutlined, HomeOutlined, ExclamationCircleOutlined,
+  DeleteOutlined, BulbOutlined, DownOutlined, RightOutlined, BellOutlined, CheckOutlined
  } from "@ant-design/icons";
 import { Badge, Popover, List, Button, Empty, Spin } from "antd";
 import { io } from 'socket.io-client';
@@ -33,7 +33,7 @@ const defaultMenu = [
       { to: "/admin/streetlight-fees", label: "Street Light Fees", icon: <BulbOutlined /> },
     ]
   },
-  { to: "/admin/financial-reports", label: "Financial Reports", icon: <DollarOutlined /> },
+  { to: "/admin/financial-reports", label: "Financial Reports", icon: <span className="font-bold">₱</span> },
   { to: "/admin/publicdocuments", label: "Public Documents", icon: <UserOutlined /> },
   { to: "/admin/settings", label: "Settings", icon: <SettingOutlined /> },
 ];
@@ -449,7 +449,7 @@ export default function AdminSidebar({
                           const typeIcons = {
                             complaint: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
                             document_request: <UserOutlined style={{ color: '#1890ff' }} />,
-                            payment: <DollarOutlined style={{ color: '#52c41a' }} />,
+                            payment: <span style={{ color: '#52c41a', fontWeight: 700 }}>₱</span>,
                             resident_registration: <UsergroupAddOutlined style={{ color: '#722ed1' }} />,
                             system: <SettingOutlined style={{ color: '#8c8c8c' }} />
                           };

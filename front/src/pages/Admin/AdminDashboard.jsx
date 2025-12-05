@@ -6,7 +6,7 @@ import apiClient from '../../utils/apiClient';
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Table, Tag, Progress, Space, Divider, message, Button } from 'antd';
-import { UserOutlined, TeamOutlined, FileProtectOutlined, DollarCircleOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, FileProtectOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, DownloadOutlined, MoneyCollectOutlined } from '@ant-design/icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import ExportSummaryModal from '../../components/ExportSummaryModal';
 
@@ -609,7 +609,7 @@ export default function AdminDashboard() {
           />
           {/* Total Financial Transactions */}
           <MetricCard
-            icon={<DollarCircleOutlined />}
+            icon={<span className="font-bold">₱</span>}
             title={<span className="font-bold">Total Financial Transactions</span>}
             value={statsData.totalTransactions.value}
             change={statsData.totalTransactions.change}
@@ -619,7 +619,7 @@ export default function AdminDashboard() {
           />
           {/* Total Revenue */}
           <MetricCard
-            icon={<DollarCircleOutlined />}
+            icon={<span className="font-bold">₱</span>}
             title={<span className="font-bold">Total Revenue</span>}
             value={statsData.totalRevenue.value}
             change={statsData.totalRevenue.change}
@@ -964,7 +964,7 @@ export default function AdminDashboard() {
           <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
             <CardHeader className="p-4 md:p-6">
               <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
-                <DollarCircleOutlined /> Recent Payment Fees
+                <span className="font-bold">₱</span> Recent Payment Fees
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto p-3 md:p-6">
