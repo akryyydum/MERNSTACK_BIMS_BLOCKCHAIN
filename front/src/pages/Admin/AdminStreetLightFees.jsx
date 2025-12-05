@@ -1416,6 +1416,7 @@ export default function AdminStreetLightFees() {
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
         'Monthly Fee': `₱${Number(getStreetlightMonthlyFee()).toFixed(2)}`,
+        'Fee Type': 'Streetlight Fee',
       };
 
       // Add monthly payment status for the year
@@ -1491,6 +1492,7 @@ export default function AdminStreetLightFees() {
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
         'Monthly Fee': `₱${Number(expectedFee).toFixed(2)}`,
+        'Fee Type': 'Streetlight Fee',
         'Paid Amount': `₱${paidAmount}`,
         'Payment Status': status,
         'Balance': `₱${balance}`,

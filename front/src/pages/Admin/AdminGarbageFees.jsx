@@ -1509,6 +1509,7 @@ export default function AdminGarbageFees() {
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
+        'Fee Type': 'Garbage Collection Fee',
         'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
         'Fee Rate': `₱${Number(feeRate).toFixed(2)}`,
       };
@@ -1585,6 +1586,7 @@ export default function AdminGarbageFees() {
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
+        'Fee Type': 'Garbage Collection Fee',
         'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
         'Expected Fee': `₱${Number(expectedFee).toFixed(2)}`,
         'Paid Amount': `₱${paidAmount}`,
