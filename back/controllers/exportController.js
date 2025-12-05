@@ -328,6 +328,7 @@ const generateSummaryData = async (startDate, endDate) => {
     const totalRevenue = dashboardStats?.statistics?.totalRevenue || 0;
     const expenseTotal = dashboardStats?.statistics?.totalExpenses || 0;
     const netBalance = dashboardStats?.statistics?.balance || 0;
+    const totalTransactionCount = dashboardStats?.totalTransactions || 0;
     
     // For backward compatibility, also calculate document request revenue for detail rows
     const docRequestRevenue = revenueDocRequests.reduce((sum, d) => {
@@ -378,7 +379,7 @@ const generateSummaryData = async (startDate, endDate) => {
       // Dashboard Metrics (Top Cards)
       total_residents: totalPopulation,
       pending_document_requests: pendingRequests,
-      total_financial_transactions: financialTransactions.length,
+      total_financial_transactions: totalTransactionCount,
       total_revenue: totalRevenue.toFixed(2),
       
       // Gender Demographics (Pie Chart)
