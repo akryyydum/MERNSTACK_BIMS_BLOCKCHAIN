@@ -4,6 +4,7 @@ const UtilityPayment = require("../models/utilityPayment.model");
 const FinancialTransaction = require("../models/financialTransaction.model");
 const DocumentRequest = require("../models/document.model");
 const Settings = require("../models/settings.model");
+const { getDashboard } = require("./adminFinancialController");
 const dayjs = require("dayjs");
 const isSameOrBefore = require("dayjs/plugin/isSameOrBefore");
 const isSameOrAfter = require("dayjs/plugin/isSameOrAfter");
@@ -86,7 +87,6 @@ const generateSummaryData = async (startDate, endDate) => {
     // Fetch settings for barangay info
     const settings = await Settings.findOne().lean();
     const barangayName = settings?.barangayName || "La Torre North";
-    const municipality = settings?.municipality || "Himamaylan City";
     
     // ==========================
     // RESIDENTS DATA
@@ -187,12 +187,6 @@ const generateSummaryData = async (startDate, endDate) => {
       return dateToCheck >= startDate && dateToCheck <= endDate;
     });
     
-    // Calculate garbage fees collected (in date range)
-    const garbageFeeCollected = garbagePayments.reduce((sum, p) => sum + (Number(p.amountPaid) || 0), 0);
-    
-    // Calculate streetlight fees collected (in date range)
-    const streetlightFeeCollected = streetlightPayments.reduce((sum, p) => sum + (Number(p.amountPaid) || 0), 0);
-    
     // Calculate fee compliance rate based on household expected revenue (matching admin pages logic)
     // Get current year payments for all households to calculate collection rate
     const currentYear = new Date().getFullYear();
@@ -245,23 +239,6 @@ const generateSummaryData = async (startDate, endDate) => {
       : 0;
     
     // ==========================
-    // FINANCIAL DATA
-    // ==========================
-    const financialTransactions = await FinancialTransaction.find({
-      createdAt: { $gte: startDate, $lte: endDate }
-    }).lean();
-    
-    const incomeTotal = financialTransactions
-      .filter(t => t.category === "revenue")
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    
-    const expenseTotal = financialTransactions
-      .filter(t => t.category === "expense")
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    
-    const netBalance = incomeTotal - expenseTotal;
-    
-    // ==========================
     // DOCUMENT REQUESTS DATA
     // ==========================
     // Fetch all document requests with populated fields (same as AdminDocumentRequests.jsx)
@@ -272,13 +249,18 @@ const generateSummaryData = async (startDate, endDate) => {
       .sort({ requestedAt: -1 })
       .lean();
     
-    // Filter by date range using requestedAt field (primary) or createdAt as fallback
+    // Filter by date range using requestedAt field (primary) or createdAt as fallback (for counts only)
     const docRequests = allDocRequests.filter(d => {
       const dateToCheck = new Date(d.requestedAt || d.createdAt);
       return dateToCheck >= startDate && dateToCheck <= endDate;
     });
     
     const totalDocRequests = docRequests.length;
+    
+    // For revenue calculation, use ALL completed/claimed requests (matching dashboard logic - no date filter)
+    const revenueDocRequests = allDocRequests.filter(d => 
+      (d.status === "completed" || d.status === "claimed") && (d.amount > 0 || d.feeAmount > 0)
+    );
     
     // Count by document type (using exact matching like in AdminDocumentRequests)
     const clearanceCount = docRequests.filter(d => 
@@ -320,11 +302,37 @@ const generateSummaryData = async (startDate, endDate) => {
       d.status === "declined"
     ).length;
     
-    // Revenue from document requests (include both amount and feeAmount fields)
-    const docRequestRevenue = docRequests.reduce((sum, d) => {
-      const docAmount = Number(d.amount || d.feeAmount || 0);
-      const qty = Math.max(Number(d.quantity || 1), 1);
-      return sum + (docAmount * qty);
+    // ==========================
+    // FINANCIAL DATA - Get from Financial Dashboard (matching AdminFinancialReports)
+    // ==========================
+    // Fetch financial transactions for counts and blockchain tracking
+    const financialTransactions = await FinancialTransaction.find({
+      createdAt: { $gte: startDate, $lte: endDate }
+    }).lean();
+    
+    // Get total revenue from Financial Dashboard (matching AdminFinancialReports)
+    let dashboardStats = null;
+    try {
+      // Call getDashboard internally to get the same statistics used in AdminFinancialReports
+      const mockReq = { query: {} };
+      const mockRes = {
+        json: (data) => { dashboardStats = data; },
+        status: (code) => ({ json: (data) => { dashboardStats = data; } })
+      };
+      await getDashboard(mockReq, mockRes);
+    } catch (error) {
+      console.error('Error fetching dashboard stats for export:', error);
+    }
+    
+    // Extract revenue statistics from dashboard (same source as AdminFinancialReports)
+    const totalRevenue = dashboardStats?.statistics?.totalRevenue || 0;
+    const expenseTotal = dashboardStats?.statistics?.totalExpenses || 0;
+    const netBalance = dashboardStats?.statistics?.balance || 0;
+    
+    // For backward compatibility, also calculate document request revenue for detail rows
+    const docRequestRevenue = revenueDocRequests.reduce((sum, d) => {
+      const docAmount = Number(d.amount || 0);
+      return sum + docAmount;
     }, 0);
     
     // Most requested document type
@@ -356,7 +364,7 @@ const generateSummaryData = async (startDate, endDate) => {
     ).length;
     
     const totalBlockchainRecords = blockchainResidents + blockchainDocRequests + blockchainFinancial;
-    const verifiedLedgerEntries = totalBlockchainRecords; // Assuming verified if on blockchain
+    const blockchain = totalBlockchainRecords > 0; // Check if blockchain has any records
     
     // ==========================
     // RETURN SUMMARY OBJECT
@@ -364,57 +372,39 @@ const generateSummaryData = async (startDate, endDate) => {
     return {
       // General Info
       barangay_name: barangayName,
-      municipality: municipality,
       report_range_start: dayjs(startDate).format("YYYY-MM-DD"),
       report_range_end: dayjs(endDate).format("YYYY-MM-DD"),
       
-      // Residents
-      total_population: totalPopulation,
-      new_residents_in_range: newResidentsInRange,
+      // Dashboard Metrics (Top Cards)
+      total_residents: totalPopulation,
+      pending_document_requests: pendingRequests,
+      total_financial_transactions: financialTransactions.length,
+      total_revenue: totalRevenue.toFixed(2),
+      
+      // Gender Demographics (Pie Chart)
       male_count: maleCount,
       female_count: femaleCount,
-      age_0_12: age0_12,
-      age_13_17: age13_17,
-      age_18_59: age18_59,
-      age_60_plus: age60Plus,
-      registered_voters: registeredVoters,
-      employed: employed,
-      unemployed: unemployed,
-      students: students,
-      pwd_count: pwdCount,
-      senior_citizen_count: seniorCitizenCount,
-      solo_parent_count: soloParentCount,
+      male_percentage: totalPopulation > 0 ? ((maleCount / totalPopulation) * 100).toFixed(1) + "%" : "0%",
+      female_percentage: totalPopulation > 0 ? ((femaleCount / totalPopulation) * 100).toFixed(1) + "%" : "0%",
       
-      // Households
-      total_households: totalHouseholds,
-      new_households: newHouseholdsInRange,
-      avg_household_size: avgHouseholdSize,
+      // Purok Distribution (Pie Chart)
+      purok_1_count: allResidents.filter(r => r.address?.purok === 'Purok 1').length,
+      purok_2_count: allResidents.filter(r => r.address?.purok === 'Purok 2').length,
+      purok_3_count: allResidents.filter(r => r.address?.purok === 'Purok 3').length,
+      purok_4_count: allResidents.filter(r => r.address?.purok === 'Purok 4').length,
+      purok_5_count: allResidents.filter(r => r.address?.purok === 'Purok 5').length,
       
-      // Fees
-      garbage_fee_collected: garbageFeeCollected.toFixed(2),
-      streetlight_fee_collected: streetlightFeeCollected.toFixed(2),
-      fee_compliance_rate: feeComplianceRate + "%",
-      
-      // Financial
-      income_total: incomeTotal.toFixed(2),
-      expense_total: expenseTotal.toFixed(2),
-      net_balance: netBalance.toFixed(2),
-      
-      // Documents
-      total_doc_requests: totalDocRequests,
-      clearance_count: clearanceCount,
-      indigency_count: indigencyCount,
+      // Document Requests (from Area Chart & Table)
+      barangay_clearance_count: clearanceCount,
+      certificate_of_indigency_count: indigencyCount,
       business_clearance_count: businessClearanceCount,
-      completed_requests: completedRequests,
-      pending_requests: pendingRequests,
-      accepted_requests: acceptedRequests,
-      declined_requests: declinedRequests,
-      doc_request_revenue: docRequestRevenue.toFixed(2),
-      most_requested_document: mostRequestedDocument,
+      completed_doc_requests: completedRequests,
+      accepted_doc_requests: acceptedRequests,
+      declined_doc_requests: declinedRequests,
       
-      // Blockchain
-      total_blockchain_records: totalBlockchainRecords,
-      verified_ledger_entries: verifiedLedgerEntries
+      // Blockchain Network Status
+      blockchain_records: totalBlockchainRecords,
+      blockchain_status: blockchain ? "Active" : "Inactive"
     };
     
   } catch (error) {
