@@ -1599,15 +1599,23 @@ export default function AdminFinancialReports() {
                     disabled={selectedCreateType === 'garbage_fee' && selectedCreateHasBusiness === undefined}
                     style={{ width: '100%' }}
                     dropdownStyle={{ minWidth: 250 }}
+                    filterOption={(input, option) => {
+                      const searchText = input.toLowerCase().trim();
+                      const optionText = (option.label || '').toLowerCase().replace(/\s+/g, ' ');
+                      return optionText.includes(searchText);
+                    }}
                   >
                     {(selectedCreateType === 'garbage_fee'
                       ? getFilteredResidents(selectedCreateHasBusiness)
                       : residents
-                    ).map(r => (
-                      <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.middleName ? r.middleName + ' ' : ''}{r.lastName}
-                      </Select.Option>
-                    ))}
+                    ).map(r => {
+                      const fullName = `${r.firstName} ${r.middleName || ''} ${r.lastName}`.replace(/\s+/g, ' ').trim();
+                      return (
+                        <Select.Option key={r._id} value={r._id} label={fullName}>
+                          {fullName}
+                        </Select.Option>
+                      );
+                    })}
                   </Select>
                 </Form.Item>
               </Col>
@@ -1794,15 +1802,23 @@ export default function AdminFinancialReports() {
                     disabled={selectedEditType === 'garbage_fee' && selectedEditHasBusiness === undefined}
                     style={{ width: '100%' }}
                     dropdownStyle={{ minWidth: 250 }}
+                    filterOption={(input, option) => {
+                      const searchText = input.toLowerCase().trim();
+                      const optionText = (option.label || '').toLowerCase().replace(/\s+/g, ' ');
+                      return optionText.includes(searchText);
+                    }}
                   >
                     {(selectedEditType === 'garbage_fee'
                       ? getFilteredResidents(selectedEditHasBusiness)
                       : residents
-                    ).map(r => (
-                      <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.middleName ? r.middleName + ' ' : ''}{r.lastName}
-                      </Select.Option>
-                    ))}
+                    ).map(r => {
+                      const fullName = `${r.firstName} ${r.middleName || ''} ${r.lastName}`.replace(/\s+/g, ' ').trim();
+                      return (
+                        <Select.Option key={r._id} value={r._id} label={fullName}>
+                          {fullName}
+                        </Select.Option>
+                      );
+                    })}
                   </Select>
                 </Form.Item>
               </Col>
