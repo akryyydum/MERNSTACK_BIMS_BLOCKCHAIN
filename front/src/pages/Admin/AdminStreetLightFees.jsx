@@ -1449,6 +1449,7 @@ export default function AdminStreetLightFees() {
           'Month': dayjs(month).format('MMMM YYYY'),
           'Expected Fee': `₱${Number(monthlyFee).toFixed(2)}`,
           'Amount Paid': `₱${amountPaid.toFixed(2)}`,
+          'Payment Date': payment && payment.createdAt ? dayjs(payment.createdAt).format('MM/DD/YYYY hh:mm A') : 'N/A',
           'Payment Status': status,
           'Month Balance': `₱${monthBalance.toFixed(2)}`,
           'Yearly Total Expected': `₱${expectedTotal.toFixed(2)}`,
