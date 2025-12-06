@@ -456,6 +456,13 @@ export default function AdminFinancialReports() {
       const excelData = [];
       let totalAmount = 0;
       let totalTransactions = 0;
+      
+      // Track totals by type for subtotals
+      const typeTotals = {
+        garbage_fee: { count: 0, amount: 0 },
+        streetlight_fee: { count: 0, amount: 0 },
+        document_request: { count: 0, amount: 0 }
+      };
 
       sortedMonths.forEach((monthGroup, monthIndex) => {
         // Add transactions for this month (sorted by resident name)
@@ -467,31 +474,115 @@ export default function AdminFinancialReports() {
 
         let monthTotal = 0;
         sortedTransactions.forEach(t => {
+          // Extract month from description for garbage and streetlight fees, otherwise use transaction date
+          let paymentMonth = dayjs(t.transactionDate).format('MMMM YYYY');
+          
+          // For garbage and streetlight fees, extract month from description
+          if (t.type === 'garbage_fee' || t.type === 'streetlight_fee') {
+            // Description format: "Garbage Collection Fee - 2025-01" or "Streetlight Fee - 2025-01"
+            const match = t.description?.match(/(\d{4})-(\d{2})/);
+            if (match) {
+              const year = match[1];
+              const month = match[2];
+              paymentMonth = dayjs(`${year}-${month}-01`).format('MMMM YYYY');
+            }
+          }
+          
           excelData.push({
             'Transaction ID': t.transactionId,
-            'Type': t.type,
+            'Type': formatTransactionType(t.type),
             'Description': t.description,
-            'Amount': t.amount,
+            'Amount': `₱${Number(t.amount || 0).toFixed(2)}`,
             'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
-            'Payment Method': t.paymentMethod,
-            'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
-            'Month': dayjs(t.transactionDate).format('MMMM YYYY')
+            'Payment Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
+            'Month': paymentMonth
           });
+          
           monthTotal += Number(t.amount || 0);
           totalAmount += Number(t.amount || 0);
           totalTransactions += 1;
+          
+          // Track by type
+          if (t.type === 'garbage_fee') {
+            typeTotals.garbage_fee.count++;
+            typeTotals.garbage_fee.amount += Number(t.amount || 0);
+          } else if (t.type === 'streetlight_fee') {
+            typeTotals.streetlight_fee.count++;
+            typeTotals.streetlight_fee.amount += Number(t.amount || 0);
+          } else if (t.type === 'document_request') {
+            typeTotals.document_request.count++;
+            typeTotals.document_request.amount += Number(t.amount || 0);
+          }
         });
+      });
+
+      // Add empty row before subtotals
+      excelData.push({
+        'Transaction ID': '',
+        'Type': '',
+        'Description': '',
+        'Amount': '',
+        'Resident': '',
+        'Payment Date': '',
+        'Month': ''
+      });
+
+      // Add subtotals by transaction type
+      if (typeTotals.garbage_fee.count > 0) {
+        excelData.push({
+          'Transaction ID': `GARBAGE FEE TOTAL`,
+          'Type': `${typeTotals.garbage_fee.count} transactions`,
+          'Description': '',
+          'Amount': `₱${typeTotals.garbage_fee.amount.toFixed(2)}`,
+          'Resident': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
+      
+      if (typeTotals.streetlight_fee.count > 0) {
+        excelData.push({
+          'Transaction ID': `STREETLIGHT FEE TOTAL`,
+          'Type': `${typeTotals.streetlight_fee.count} transactions`,
+          'Description': '',
+          'Amount': `₱${typeTotals.streetlight_fee.amount.toFixed(2)}`,
+          'Resident': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
+      
+      if (typeTotals.document_request.count > 0) {
+        excelData.push({
+          'Transaction ID': `DOCUMENT REQUEST FEE TOTAL`,
+          'Type': `${typeTotals.document_request.count} transactions`,
+          'Description': '',
+          'Amount': `₱${typeTotals.document_request.amount.toFixed(2)}`,
+          'Resident': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
+
+      // Add empty row before grand total
+      excelData.push({
+        'Transaction ID': '',
+        'Type': '',
+        'Description': '',
+        'Amount': '',
+        'Resident': '',
+        'Payment Date': '',
+        'Month': ''
       });
 
       // Add grand total
       excelData.push({
-        'Transaction ID': `GRAND TOTAL (${totalTransactions} total transactions)`,
-        'Type': '',
+        'Transaction ID': `GRAND TOTAL`,
+        'Type': `${totalTransactions} total transactions`,
         'Description': '',
-        'Amount': totalAmount,
+        'Amount': `₱${totalAmount.toFixed(2)}`,
         'Resident': '',
-        'Payment Method': '',
-        'Date': '',
+        'Payment Date': '',
         'Month': ''
       });
 
@@ -1400,9 +1491,10 @@ export default function AdminFinancialReports() {
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li><strong>Default:</strong> "All" options export entire financial transactions</li>
                 <li>Select a year first, then choose specific months for that year</li>
+                <li><strong>Month selection:</strong> Based on payment date (when transaction was recorded)</li>
                 <li>Select specific types and months for filtered exports</li>
                 <li>Selecting "All" with other options will keep only "All"</li>
-                <li>Export includes: Transaction ID, Type, Description, Amount, Resident Info, Payment Method, Date, and Month</li>
+                <li>Export includes: Transaction ID, Type, Description, Amount, Resident Info, Payment Date, and Month</li>
               </ul>
             </div>
           </Form>
