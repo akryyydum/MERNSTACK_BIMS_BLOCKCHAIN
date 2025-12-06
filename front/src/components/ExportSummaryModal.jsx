@@ -290,7 +290,7 @@ const ExportSummaryModal = ({ visible, onClose }) => {
         <div className="border-t pt-4 mt-4">
           <p className="text-xs text-gray-500">
             <strong>Excel includes:</strong> Population demographics, household data, 
-            fee collections, financial transactions, document requests, and blockchain records.
+            fee collections, financial transactions, and document requests.
           </p>
         </div>
       </div>

@@ -78,6 +78,7 @@ export default function AdminDashboard() {
     residents: [], officials: [], docRequests: [], complaints: [],
     financialDashboard: null,
     payments: [],
+    allTransactionsCount: 0,
     blockchain: null
   });
   const [loading, setLoading] = useState(true);
@@ -99,9 +100,9 @@ export default function AdminDashboard() {
           apiClient.get('/api/admin/document-requests'),
           apiClient.get('/api/admin/complaints'),
           apiClient.get('/api/admin/financial/dashboard'),
-          apiClient.get('/api/admin/financial/transactions', { params: { limit: 10 } })
+          apiClient.get('/api/admin/financial/transactions') // Fetch all transactions for accurate count
         ]);
-        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = settled.map(
+        const [residents, officials, docRequests, complaints, financialDashboard, allTransactionsResponse] = settled.map(
           (r) => (r.status === 'fulfilled' ? r.value.data : null)
         );
 
@@ -120,7 +121,8 @@ export default function AdminDashboard() {
           docRequests: Array.isArray(docRequests) ? docRequests : [],
           complaints: Array.isArray(complaints) ? complaints : [],
           financialDashboard: financialDashboard || null,
-          payments: paymentsResponse?.transactions || [],
+          payments: allTransactionsResponse?.transactions?.slice(0, 10) || [], // Use first 10 for table
+          allTransactionsCount: allTransactionsResponse?.transactions?.length || 0, // Store total count
           blockchain
         });
       } catch (e) {
@@ -130,11 +132,11 @@ export default function AdminDashboard() {
     return () => abort.abort();
   }, []);
 
-  const { residents, officials, docRequests, complaints, financialDashboard, payments, blockchain } = data;
+  const { residents, officials, docRequests, complaints, financialDashboard, payments, allTransactionsCount, blockchain } = data;
   const totalResidents = residents.length;
   const activeOfficials = officials.filter(o => o.isActive).length;
   const pendingDocRequests = docRequests.filter(d => d.status === 'pending').length;
-  const financialTotal = financialDashboard?.totalTransactions || 0;
+  const financialTotal = allTransactionsCount; // Use count from Financial Reports endpoint
 
   // Calculate statistics with trends
   const statsData = useMemo(() => {
@@ -195,8 +197,8 @@ export default function AdminDashboard() {
     return {
       totalResidents: { value: totalResidents, change: parseFloat(residentsChange), sinceLast: 'Since Last week' },
       pendingRequests: { value: ordersThisWeek, change: parseFloat(ordersChange), sinceLast: 'Since Last week' },
-      totalTransactions: { value: financialTotal, change: parseFloat(transactionChange), sinceLast: 'from last month' },
-      totalRevenue: { value: totalRevenue, change: parseFloat(revenueChange), sinceLast: 'from last month' }
+      totalTransactions: { value: financialTotal, change: parseFloat(transactionChange), sinceLast: 'From last month' },
+      totalRevenue: { value: totalRevenue, change: parseFloat(revenueChange), sinceLast: 'From last month' }
     };
   }, [residents, docRequests, financialDashboard, financialTotal, totalResidents]);
 

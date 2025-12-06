@@ -304,32 +304,73 @@ const generateSummaryData = async (startDate, endDate) => {
     ).length;
     
     // ==========================
-    // FINANCIAL DATA - Get from Financial Dashboard (matching AdminFinancialReports)
+    // FINANCIAL DATA - Get from Financial Reports logic (matching AdminFinancialReports)
     // ==========================
-    // Fetch financial transactions for counts and blockchain tracking
-    const financialTransactions = await FinancialTransaction.find({
-      createdAt: { $gte: startDate, $lte: endDate }
+    // Use the EXACT same logic as getFinancialTransactions to ensure count matches
+    
+    // Fetch regular financial transactions (non-utility)
+    const allFinancialTransactions = await FinancialTransaction.find({}).lean();
+    const nonUtilityTransactions = allFinancialTransactions.filter(
+      (t) => !['garbage_fee', 'streetlight_fee'].includes(t.type)
+    );
+    
+    // Fetch ALL utility payments (no year filter - matches Financial Reports)
+    const allUtilityPayments = await UtilityPayment.find({}).lean();
+    
+    // Convert utility payments to transaction format (flatten payments array)
+    const utilityTransactions = allUtilityPayments
+      .filter(payment => payment.payments && payment.payments.length > 0)
+      .flatMap(payment => {
+        return payment.payments.map(paymentEntry => ({
+          type: payment.type === 'garbage' ? 'garbage_fee' : 
+                payment.type === 'streetlight' ? 'streetlight_fee' : 
+                'utility_fee',
+          category: 'revenue',
+          amount: paymentEntry.amount,
+          transactionDate: paymentEntry.paidAt,
+          description: `${payment.type} fee for ${payment.month}`,
+          month: payment.month,
+          status: 'completed'
+        }));
+      });
+    
+    // Fetch document requests with fees (completed/claimed with amount > 0)
+    const documentRequestsWithFees = await DocumentRequest.find({
+      status: { $in: ['completed', 'claimed'] },
+      amount: { $gt: 0 }
     }).lean();
     
-    // Get total revenue from Financial Dashboard (matching AdminFinancialReports)
-    let dashboardStats = null;
-    try {
-      // Call getDashboard internally to get the same statistics used in AdminFinancialReports
-      const mockReq = { query: {} };
-      const mockRes = {
-        json: (data) => { dashboardStats = data; },
-        status: (code) => ({ json: (data) => { dashboardStats = data; } })
-      };
-      await getDashboard(mockReq, mockRes);
-    } catch (error) {
-      console.error('Error fetching dashboard stats for export:', error);
-    }
+    // Convert document requests to transaction format
+    const documentTransactions = documentRequestsWithFees.map(doc => ({
+      type: 'document_request',
+      category: 'revenue',
+      amount: doc.amount || 0,
+      transactionDate: doc.updatedAt || doc.createdAt,
+      description: `${doc.documentType} request`,
+      status: 'completed'
+    }));
     
-    // Extract revenue statistics from dashboard (same source as AdminFinancialReports)
-    const totalRevenue = dashboardStats?.statistics?.totalRevenue || 0;
-    const expenseTotal = dashboardStats?.statistics?.totalExpenses || 0;
-    const netBalance = dashboardStats?.statistics?.balance || 0;
-    const totalTransactionCount = dashboardStats?.totalTransactions || 0;
+    // Combine all transactions (matches Financial Reports logic exactly)
+    const allTransactions = [...nonUtilityTransactions, ...utilityTransactions, ...documentTransactions];
+    
+    // Filter transactions by selected date range
+    const filteredTransactions = allTransactions.filter(t => {
+      const txDate = new Date(t.transactionDate || t.createdAt);
+      return txDate >= startDate && txDate <= endDate;
+    });
+    
+    const totalTransactionCount = filteredTransactions.length;
+    
+    // Calculate revenue and expenses from filtered transactions only (matching Financial Reports logic)
+    const totalRevenue = filteredTransactions
+      .filter(t => t.category === 'revenue')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    const expenseTotal = filteredTransactions
+      .filter(t => t.category === 'expense')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    const netBalance = totalRevenue - expenseTotal;
     
     // For backward compatibility, also calculate document request revenue for detail rows
     const docRequestRevenue = revenueDocRequests.reduce((sum, d) => {
@@ -361,7 +402,7 @@ const generateSummaryData = async (startDate, endDate) => {
       d.blockchain?.hash || d.blockchain?.lastTxId
     ).length;
     
-    const blockchainFinancial = financialTransactions.filter(t => 
+    const blockchainFinancial = allTransactions.filter(t => 
       t.blockchain?.hash || t.blockchain?.txId
     ).length;
     
@@ -452,7 +493,7 @@ const convertToExcel = (summary) => {
   };
   
   // REPORT HEADER
-  data.push([`BARANGAY SUMMARY REPORT: ${summary.barangay_name}`, ""]);
+  data.push(["BARANGAY SUMMARY REPORT:", summary.barangay_name]);
   
   // Date range row
   addRow("Report Period", `${summary.report_range_start} to ${summary.report_range_end}`);
@@ -461,7 +502,6 @@ const convertToExcel = (summary) => {
   // ========== DASHBOARD METRICS ==========
   addSectionHeader("DASHBOARD METRICS");
   addRow("Total Residents", summary.total_residents);
-  addRow("Pending Document Requests", summary.pending_document_requests);
   addRow("Total Financial Transactions", summary.total_financial_transactions);
   addRow("Total Revenue", `₱ ${summary.total_revenue}`);
   addSpacing();
@@ -483,18 +523,13 @@ const convertToExcel = (summary) => {
   
   // ========== DOCUMENT REQUESTS ==========
   addSectionHeader("DOCUMENT REQUESTS");
-  addRow("Barangay Clearance Count", summary.barangay_clearance_count);
-  addRow("Certificate of Indigency Count", summary.certificate_of_indigency_count);
-  addRow("Business Clearance Count", summary.business_clearance_count);
+  addRow("Pending Document Requests", summary.pending_document_requests);
+  addRow("Total Barangay Clearance", summary.barangay_clearance_count);
+  addRow("Total Certificate of Indigency", summary.certificate_of_indigency_count);
+  addRow("Total Business Clearance", summary.business_clearance_count);
   addRow("Completed Requests", summary.completed_doc_requests);
   addRow("Accepted Requests", summary.accepted_doc_requests);
   addRow("Declined Requests", summary.declined_doc_requests);
-  addSpacing();
-  
-  // ========== BLOCKCHAIN STATUS ==========
-  addSectionHeader("BLOCKCHAIN STATUS");
-  addRow("Blockchain Records", summary.blockchain_records);
-  addRow("Network Status", summary.blockchain_status);
   addSpacing();
   
   // Create worksheet from data array

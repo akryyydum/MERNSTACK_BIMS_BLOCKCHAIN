@@ -1026,10 +1026,10 @@ const handleExport = async () => {
   const { rangeType, period, reportType, docTypeFilter, purokFilter } = await exportForm.validateFields();
       const { start, end } = getRange(rangeType, period);
 
-      // Date range filter
+      // Date range filter - ONLY INCLUDE COMPLETED REQUESTS
       let filtered = requests.filter(r => {
         const t = dayjs(r.requestedAt).valueOf();
-        return t >= start.valueOf() && t <= end.valueOf();
+        return r.status === 'completed' && t >= start.valueOf() && t <= end.valueOf();
       });
 
       // Document type filter
@@ -1090,6 +1090,102 @@ const handleExport = async () => {
           'Requested At': r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
           'Updated At': r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
         }));
+
+        // Add totals section
+        const indigencyCount = filtered.filter(r => r.documentType === "Certificate of Indigency" || r.documentType === "Indigency").length;
+        const barangayClearanceCount = filtered.filter(r => r.documentType === "Barangay Clearance").length;
+        const businessClearanceCount = filtered.filter(r => r.documentType === "Business Clearance").length;
+        const grandTotal = filtered.length;
+
+        // Add empty row separator
+        rows.push({
+          Resident: "",
+          'Civil Status': "",
+          Purok: "",
+          'Document Type': "",
+          Purpose: "",
+          'Business Name': "",
+          'Requested At': "",
+          'Updated At': "",
+        });
+
+        // Add totals based on document type filter
+        if (docFilter === 'all' || !docFilter) {
+          // Show all totals and grand total
+          rows.push({
+            Resident: "TOTAL - Indigency",
+            'Civil Status': indigencyCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+          rows.push({
+            Resident: "TOTAL - Barangay Clearance",
+            'Civil Status': barangayClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+          rows.push({
+            Resident: "TOTAL - Business Clearance",
+            'Civil Status': businessClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+          rows.push({
+            Resident: "GRAND TOTAL",
+            'Civil Status': grandTotal,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        } else if (docFilter === "Certificate of Indigency" || docFilter === "Indigency") {
+          rows.push({
+            Resident: "TOTAL - Indigency",
+            'Civil Status': indigencyCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        } else if (docFilter === "Barangay Clearance") {
+          rows.push({
+            Resident: "TOTAL - Barangay Clearance",
+            'Civil Status': barangayClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        } else if (docFilter === "Business Clearance") {
+          rows.push({
+            Resident: "TOTAL - Business Clearance",
+            'Civil Status': businessClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        }
       }
 
       const filenameBase =
