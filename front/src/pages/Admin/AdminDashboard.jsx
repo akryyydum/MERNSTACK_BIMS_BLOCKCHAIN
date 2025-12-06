@@ -153,18 +153,16 @@ export default function AdminDashboard() {
     }).length;
     const residentsChange = residentsLastWeek > 0 ? ((residentsThisWeek - residentsLastWeek) / residentsLastWeek * 100).toFixed(1) : (residentsThisWeek > 0 ? 100 : 0);
     
-    // New orders (document requests this week)
-    const ordersThisWeek = docRequests.filter(d => {
-      const date = d.requestedAt || d.createdAt;
-      return date && new Date(date) >= lastWeekStart;
-    }).length;
-    const ordersLastWeek = docRequests.filter(d => {
+    // Pending requests (all-time pending document requests)
+    const pendingRequestsNow = docRequests.filter(d => d.status === 'pending').length;
+    const pendingRequestsLastWeek = docRequests.filter(d => {
+      if (d.status !== 'pending') return false;
       const date = d.requestedAt || d.createdAt;
       if (!date) return false;
       const dt = new Date(date);
-      return dt >= new Date(lastWeekStart.getTime() - 7*24*60*60*1000) && dt < lastWeekStart;
+      return dt < lastWeekStart;
     }).length;
-    const ordersChange = ordersLastWeek > 0 ? ((ordersThisWeek - ordersLastWeek) / ordersLastWeek * 100).toFixed(1) : (ordersThisWeek > 0 ? 100 : 0);
+    const pendingRequestsChange = pendingRequestsLastWeek > 0 ? ((pendingRequestsNow - pendingRequestsLastWeek) / pendingRequestsLastWeek * 100).toFixed(1) : (pendingRequestsNow > 0 ? 100 : 0);
     
     // Total financial transactions (from financial dashboard)
     // Note: We show total count, but calculate change based on revenue trend since transaction timestamps aren't available
@@ -196,7 +194,7 @@ export default function AdminDashboard() {
     
     return {
       totalResidents: { value: totalResidents, change: parseFloat(residentsChange), sinceLast: 'Since Last week' },
-      pendingRequests: { value: ordersThisWeek, change: parseFloat(ordersChange), sinceLast: 'Since Last week' },
+      pendingRequests: { value: pendingRequestsNow, change: parseFloat(pendingRequestsChange), sinceLast: 'Since Last week' },
       totalTransactions: { value: financialTotal, change: parseFloat(transactionChange), sinceLast: 'From last month' },
       totalRevenue: { value: totalRevenue, change: parseFloat(revenueChange), sinceLast: 'From last month' }
     };

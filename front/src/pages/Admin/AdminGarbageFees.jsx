@@ -2205,7 +2205,7 @@ export default function AdminGarbageFees() {
       },
     },
     {
-      title: "Current Month Fee",
+      title: "Monthly Fee",
       key: "currentFee",
       columnKey: "currentFee",
       render: (_, record) => {
@@ -2578,7 +2578,7 @@ export default function AdminGarbageFees() {
                     }
                     onSelect={(e) => e.preventDefault()}
                   >
-                    Current Month Fee
+                    Monthly Fee
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={visibleColumns.paymentStatus}
