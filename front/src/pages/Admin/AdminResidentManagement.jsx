@@ -619,10 +619,15 @@ export default function AdminResidentManagement() {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
 
-      // Auto-fit columns
-      const colWidths = Object.keys(excelData[0] || {}).map(key => ({
-        wch: Math.max(key.length, 15)
-      }));
+      // Auto-fit columns based on content width
+      const colWidths = Object.keys(excelData[0] || {}).map((key) => {
+        let maxWidth = key.length + 2;
+        excelData.forEach(row => {
+          const cellValue = row[key] ? String(row[key]) : '';
+          maxWidth = Math.max(maxWidth, cellValue.length + 2);
+        });
+        return { wch: Math.min(Math.max(maxWidth, 12), 50) };
+      });
       ws['!cols'] = colWidths;
 
       // Add worksheet to workbook

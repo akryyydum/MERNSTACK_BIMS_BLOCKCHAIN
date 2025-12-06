@@ -433,69 +433,157 @@ const formatFieldName = (fieldName) => {
  * @returns {Buffer} - Excel file buffer
  */
 const convertToExcel = (summary) => {
-  // Create vertical format data (field name, value)
-  // Filter out blockchain fields and format field names
-  const data = Object.entries(summary)
-    .filter(([key]) => !key.startsWith('blockchain_')) // Exclude blockchain fields
-    .map(([key, value]) => {
-      const formattedKey = formatFieldName(key);
-      return [formattedKey, value];
-    });
-  
-  // Create a new workbook and worksheet
   const wb = XLSX.utils.book_new();
+  const data = [];
+  
+  // Helper function to add section header
+  const addSectionHeader = (title) => {
+    data.push([title, ""]);
+  };
+  
+  // Helper function to add key-value row
+  const addRow = (key, value) => {
+    data.push([key, String(value)]);
+  };
+  
+  // Helper function to add spacing
+  const addSpacing = () => {
+    data.push(["", ""]);
+  };
+  
+  // REPORT HEADER
+  data.push([`BARANGAY SUMMARY REPORT: ${summary.barangay_name}`, ""]);
+  
+  // Date range row
+  addRow("Report Period", `${summary.report_range_start} to ${summary.report_range_end}`);
+  addSpacing();
+  
+  // ========== DASHBOARD METRICS ==========
+  addSectionHeader("DASHBOARD METRICS");
+  addRow("Total Residents", summary.total_residents);
+  addRow("Pending Document Requests", summary.pending_document_requests);
+  addRow("Total Financial Transactions", summary.total_financial_transactions);
+  addRow("Total Revenue", `₱ ${summary.total_revenue}`);
+  addSpacing();
+  
+  // ========== GENDER DEMOGRAPHICS ==========
+  addSectionHeader("GENDER DEMOGRAPHICS");
+  addRow("Male", `${summary.male_count} (${summary.male_percentage})`);
+  addRow("Female", `${summary.female_count} (${summary.female_percentage})`);
+  addSpacing();
+  
+  // ========== PUROK DISTRIBUTION ==========
+  addSectionHeader("PUROK DISTRIBUTION");
+  addRow("Purok 1", summary.purok_1_count);
+  addRow("Purok 2", summary.purok_2_count);
+  addRow("Purok 3", summary.purok_3_count);
+  addRow("Purok 4", summary.purok_4_count);
+  addRow("Purok 5", summary.purok_5_count);
+  addSpacing();
+  
+  // ========== DOCUMENT REQUESTS ==========
+  addSectionHeader("DOCUMENT REQUESTS");
+  addRow("Barangay Clearance Count", summary.barangay_clearance_count);
+  addRow("Certificate of Indigency Count", summary.certificate_of_indigency_count);
+  addRow("Business Clearance Count", summary.business_clearance_count);
+  addRow("Completed Requests", summary.completed_doc_requests);
+  addRow("Accepted Requests", summary.accepted_doc_requests);
+  addRow("Declined Requests", summary.declined_doc_requests);
+  addSpacing();
+  
+  // ========== BLOCKCHAIN STATUS ==========
+  addSectionHeader("BLOCKCHAIN STATUS");
+  addRow("Blockchain Records", summary.blockchain_records);
+  addRow("Network Status", summary.blockchain_status);
+  addSpacing();
+  
+  // Create worksheet from data array
   const ws = XLSX.utils.aoa_to_sheet(data);
   
-  // Calculate column widths based on content
-  const colWidths = [
-    { wch: Math.max(...data.map(row => String(row[0]).length)) + 2 }, // Field name column
-    { wch: Math.max(...data.map(row => String(row[1]).length)) + 2 }  // Value column
+  // Define styling information
+  const headerRowIndex = 0;
+  const sectionHeaderIndices = [];
+  let currentIndex = 0;
+  
+  // Identify section header rows and apply formatting
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    
+    if (i === 0) {
+      // Main title (row 0)
+      const titleCell = XLSX.utils.encode_cell({ r: i, c: 0 });
+      ws[titleCell] = {
+        ...ws[titleCell],
+        s: {
+          font: { bold: true, size: 14, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "1F4E78" } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+    } else if (row[0] && ['DASHBOARD METRICS', 'GENDER DEMOGRAPHICS', 'PUROK DISTRIBUTION', 'DOCUMENT REQUESTS', 'BLOCKCHAIN STATUS'].includes(row[0])) {
+      // Section headers
+      const sectionCell = XLSX.utils.encode_cell({ r: i, c: 0 });
+      ws[sectionCell] = {
+        ...ws[sectionCell],
+        s: {
+          font: { bold: true, size: 12, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "366092" } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+      sectionHeaderIndices.push(i);
+    } else if (row[0] && row[0].trim() !== "" && row[1] && row[1].trim() !== "") {
+      // Data rows - apply light alternating colors
+      const keyCell = XLSX.utils.encode_cell({ r: i, c: 0 });
+      const valueCell = XLSX.utils.encode_cell({ r: i, c: 1 });
+      
+      const bgColor = i % 2 === 0 ? "F2F2F2" : "FFFFFF";
+      
+      ws[keyCell] = {
+        ...ws[keyCell],
+        s: {
+          font: { bold: false, size: 11 },
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+      
+      ws[valueCell] = {
+        ...ws[valueCell],
+        s: {
+          font: { bold: false, size: 11 },
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+    }
+  }
+  
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 40 },  // Column A (field names)
+    { wch: 50 }   // Column B (values)
   ];
   
-  ws['!cols'] = colWidths;
-  
-  // Apply styles to all cells
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  for (let row = range.s.r; row <= range.e.r; row++) {
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-      if (ws[cellAddress]) {
-        // Initialize cell style object
-        if (!ws[cellAddress].s) ws[cellAddress].s = {};
-        
-        // Apply alignment based on column
-        if (col === 1) {
-          // Second column (B) - center align
-          ws[cellAddress].s = {
-            alignment: { 
-              horizontal: 'center', 
-              vertical: 'center',
-              wrapText: false
-            }
-          };
-        } else {
-          // First column (A) - left align
-          ws[cellAddress].s = {
-            alignment: { 
-              horizontal: 'left', 
-              vertical: 'center',
-              wrapText: false
-            }
-          };
-        }
-      }
+  // Set row heights
+  ws['!rows'] = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i === 0) {
+      ws['!rows'][i] = { hpt: 28 }; // Main title
+    } else if (sectionHeaderIndices.includes(i)) {
+      ws['!rows'][i] = { hpt: 22 }; // Section headers
+    } else {
+      ws['!rows'][i] = { hpt: 18 }; // Regular rows
     }
   }
   
   // Add worksheet to workbook
   XLSX.utils.book_append_sheet(wb, ws, "Summary");
   
-  // Generate buffer with cell styles
+  // Generate buffer
   const excelBuffer = XLSX.write(wb, { 
     type: 'buffer', 
-    bookType: 'xlsx',
-    cellStyles: true,
-    bookSST: false
+    bookType: 'xlsx'
   });
   
   return excelBuffer;

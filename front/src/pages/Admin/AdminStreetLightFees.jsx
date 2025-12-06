@@ -164,6 +164,9 @@ export default function AdminStreetLightFees() {
   const [bulkResetLoading, setBulkResetLoading] = useState(false);
   const [selectAllClicked, setSelectAllClicked] = useState(false);
 
+  // State for payment status filter
+  const [tablePaymentStatusFilter, setTablePaymentStatusFilter] = useState('all');
+
   // Dynamic settings for fees
   const [settings, setSettings] = useState(null);
   const getStreetlightMonthlyFee = () => {
@@ -1361,16 +1364,16 @@ export default function AdminStreetLightFees() {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
 
-      // Auto-fit columns
+      // Auto-fit columns based on content width
       const colWidths = exportData.reduce((acc, row) => {
         Object.keys(row).forEach((key, idx) => {
           const value = row[key] ? row[key].toString() : '';
-          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+          const calculatedWidth = Math.max(value.length + 2, key.length + 2);
+          acc[idx] = Math.max(acc[idx] || 0, calculatedWidth);
         });
         return acc;
       }, []);
-      
-      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+      ws['!cols'] = colWidths.map(width => ({ wch: Math.min(Math.max(width, 12), 50) }));
 
       XLSX.utils.book_append_sheet(wb, ws, 'Streetlight Fees Report');
       XLSX.writeFile(wb, filename);
@@ -1400,7 +1403,7 @@ export default function AdminStreetLightFees() {
 
     for (const household of householdList) {
       // Check if household should be included based on payment status filter
-      const householdPayments = paymentData.filter(p => p.household && p.household.householdId === household.householdId);
+      const householdPayments = paymentData.filter(p => p.household?.householdId === household.householdId);
       const hasPaidPayments = householdPayments.some(p => p.amountPaid > 0);
       const hasUnpaidMonths = months.some(month => {
         const payment = householdPayments.find(p => p.month === month);
@@ -1411,44 +1414,62 @@ export default function AdminStreetLightFees() {
       if (paymentStatus === 'paid' && !hasPaidPayments) continue;
       if (paymentStatus === 'unpaid' && !hasUnpaidMonths) continue;
 
-      const baseData = {
-        'Household ID': household.householdId,
-        'Head of Household': fullName(household.headOfHousehold),
-        'Purok': household.address?.purok || 'N/A',
-        'Monthly Fee': `₱${Number(getStreetlightMonthlyFee()).toFixed(2)}`,
-        'Fee Type': 'Streetlight Fee',
-      };
-
-      // Add monthly payment status for the year
-      for (const month of months) {
-        const monthName = dayjs(month).format('MMM YYYY');
-      const payment = paymentData.find(p => 
-        p.household && p.household.householdId && 
-        p.household.householdId === household.householdId && 
-        p.month === month
-      );        console.log(`Checking streetlight payment for ${household.householdId} in ${month}:`, payment);
-        
-        baseData[`${monthName} Status`] = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
-        baseData[`${monthName} Amount`] = payment ? `₱${payment.amountPaid}` : '₱0';
-      }
-
-      // Calculate totals (only count payments with valid household references)
+      const monthlyFee = getStreetlightMonthlyFee();
+      
+      // Calculate yearly totals
       const totalPaid = paymentData
-        .filter(p => p.household && p.household.householdId && 
-                p.household.householdId === household.householdId && 
+        .filter(p => p.household?.householdId === household.householdId && 
                 dayjs(p.month + '-01').year() === currentYear)
         .reduce((sum, p) => sum + p.amountPaid, 0);
         
-      const expectedFee = getStreetlightMonthlyFee();
-      const expectedTotal = expectedFee * 12;
+      const expectedTotal = monthlyFee * 12;
       const balance = expectedTotal - totalPaid;
 
-      baseData['Total Paid'] = `₱${totalPaid}`;
-      baseData['Expected Total'] = `₱${expectedTotal}`;
-      baseData['Balance'] = `₱${balance}`;
+      // Create one row per month (Pivot Layout) - sorted by month sequence
+      for (const month of months) {
+        const payment = paymentData.find(p => 
+          p.household?.householdId === household.householdId && 
+          p.month === month
+        );
+        
+        console.log(`Checking streetlight payment for ${household.householdId} in ${month}:`, payment);
+        
+        const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+        const amountPaid = payment ? Number(payment.amountPaid) : 0;
+        const monthBalance = monthlyFee - amountPaid;
 
-      exportData.push(baseData);
+        // Filter months based on payment status
+        if (paymentStatus === 'paid' && status !== 'Paid') continue;
+        if (paymentStatus === 'unpaid' && status !== 'Unpaid') continue;
+
+        exportData.push({
+          'Household ID': household.householdId,
+          'Head of Household': fullName(household.headOfHousehold),
+          'Purok': household.address?.purok || 'N/A',
+          'Month': dayjs(month).format('MMMM YYYY'),
+          'Expected Fee': `₱${Number(monthlyFee).toFixed(2)}`,
+          'Amount Paid': `₱${amountPaid.toFixed(2)}`,
+          'Payment Status': status,
+          'Month Balance': `₱${monthBalance.toFixed(2)}`,
+          'Yearly Total Expected': `₱${expectedTotal.toFixed(2)}`,
+          'Yearly Total Paid': `₱${totalPaid.toFixed(2)}`,
+          'Yearly Balance': `₱${balance.toFixed(2)}`
+        });
+      }
     }
+
+    // Sort by month first (chronological order), then by household ID
+    exportData.sort((a, b) => {
+      const monthA = dayjs(a['Month'], 'MMMM YYYY').unix();
+      const monthB = dayjs(b['Month'], 'MMMM YYYY').unix();
+      
+      if (monthA !== monthB) {
+        return monthA - monthB;
+      }
+      
+      // If same month, sort by household ID
+      return String(a['Household ID']).localeCompare(String(b['Household ID']));
+    });
 
     return exportData;
   };
@@ -1689,16 +1710,47 @@ export default function AdminStreetLightFees() {
 
   const filteredHouseholds = useMemo(() => {
     const safeHouseholds = Array.isArray(households) ? households : [];
-    if (!search) return safeHouseholds;
-    const term = search.toLowerCase();
+    
     return safeHouseholds.filter((h) => {
+      // Search filter
       const householdId = h.householdId?.toLowerCase() || "";
       const headName = fullName(h.headOfHousehold)?.toLowerCase() || "";
       const street = h.address?.street?.toLowerCase() || "";
       const purok = h.address?.purok?.toLowerCase() || "";
-      return householdId.includes(term) || headName.includes(term) || street.includes(term) || purok.includes(term);
+      const term = search.toLowerCase();
+      
+      const matchesSearch = !search || householdId.includes(term) || headName.includes(term) || street.includes(term) || purok.includes(term);
+      
+      if (!matchesSearch) return false;
+
+      // Payment status filter based on yearly payment completion
+      if (tablePaymentStatusFilter === 'all') return true;
+
+      // Get all payment months for this household in current year
+      const currentYear = new Date().getFullYear();
+      const householdPayments = streetlightPayments.filter(p => 
+        p.household?.householdId === h.householdId && 
+        dayjs(p.month + '-01').year() === currentYear
+      );
+
+      // Count paid months (amountPaid > 0)
+      const paidMonths = householdPayments.filter(p => Number(p.amountPaid) > 0).length;
+      
+      // Fully paid = all 12 months paid
+      // Partially paid = some months paid but not all 12
+      // Unpaid = no months paid (0 paid months)
+
+      if (tablePaymentStatusFilter === 'fully-paid') {
+        return paidMonths === 12;
+      } else if (tablePaymentStatusFilter === 'partially-paid') {
+        return paidMonths > 0 && paidMonths < 12;
+      } else if (tablePaymentStatusFilter === 'unpaid') {
+        return paidMonths === 0;
+      }
+
+      return true;
     });
-  }, [households, search]);
+  }, [households, search, tablePaymentStatusFilter, streetlightPayments]);
 
   return (
     <AdminLayout title="Admin">
@@ -1833,6 +1885,18 @@ export default function AdminStreetLightFees() {
                 className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
               />
               
+              {/* Payment Status Filter */}
+              <Select
+                value={tablePaymentStatusFilter}
+                onChange={setTablePaymentStatusFilter}
+                style={{ width: 180 }}
+              >
+                <Select.Option value="all">All Payment Status</Select.Option>
+                <Select.Option value="fully-paid">Fully Paid</Select.Option>
+                <Select.Option value="partially-paid">Partially Paid</Select.Option>
+                <Select.Option value="unpaid">Unpaid</Select.Option>
+              </Select>
+
               {/* Customize Columns Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

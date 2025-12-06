@@ -105,10 +105,15 @@ export default function AdminFinancialReports() {
   const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
-    fetchDashboard();
-    fetchTransactions();
-    fetchResidents();
-    fetchHouseholds();
+    // Add debounce to prevent too many simultaneous requests
+    const timer = setTimeout(() => {
+      fetchDashboard();
+      fetchTransactions();
+      fetchResidents();
+      fetchHouseholds();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [filters]);
 
   // Reset to page 1 when search or filter changes
@@ -212,7 +217,11 @@ export default function AdminFinancialReports() {
       setDashboardRefreshKey(prev => prev + 1); // Force re-render of statistics cards
     } catch (error) {
       console.error('Error fetching dashboard:', error);
-      message.error('Failed to load financial dashboard');
+      if (error.response?.status === 429) {
+        message.warning('Server is busy. Please wait a moment and try again.');
+      } else {
+        message.error('Failed to load financial dashboard');
+      }
     }
   };
 
@@ -239,7 +248,11 @@ export default function AdminFinancialReports() {
       setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      message.error('Failed to fetch transactions');
+      if (error.response?.status === 429) {
+        message.warning('Server is busy. Please wait a moment and try again.');
+      } else {
+        message.error('Failed to fetch transactions');
+      }
     }
     setLoading(false);
   };
@@ -416,26 +429,90 @@ export default function AdminFinancialReports() {
         setExporting(false);
         return;
       }
-      
-      const excelData = filteredData.map(t => ({
-        'Transaction ID': t.transactionId,
-        'Type': t.type,
-        'Description': t.description,
-        'Amount': t.amount,
-        'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
-        'Payment Method': t.paymentMethod,
-        'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
-        'Month': dayjs(t.transactionDate).format('MMMM YYYY')
-      }));
+
+      // Group transactions by month
+      const groupedByMonth = filteredData.reduce((acc, t) => {
+        const monthKey = dayjs(t.transactionDate).format('YYYY-MM');
+        const monthLabel = dayjs(t.transactionDate).format('MMMM YYYY');
+        
+        if (!acc[monthKey]) {
+          acc[monthKey] = {
+            monthLabel,
+            monthKey,
+            transactions: []
+          };
+        }
+        
+        acc[monthKey].transactions.push(t);
+        return acc;
+      }, {});
+
+      // Sort months chronologically (oldest to newest)
+      const sortedMonths = Object.values(groupedByMonth).sort((a, b) => {
+        return dayjs(a.monthKey).diff(dayjs(b.monthKey));
+      });
+
+      // Build Excel data with month headers
+      const excelData = [];
+      let totalAmount = 0;
+      let totalTransactions = 0;
+
+      sortedMonths.forEach((monthGroup, monthIndex) => {
+        // Add transactions for this month (sorted by resident name)
+        const sortedTransactions = monthGroup.transactions.sort((a, b) => {
+          const nameA = (a.residentName || '').toLowerCase();
+          const nameB = (b.residentName || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+
+        let monthTotal = 0;
+        sortedTransactions.forEach(t => {
+          excelData.push({
+            'Transaction ID': t.transactionId,
+            'Type': t.type,
+            'Description': t.description,
+            'Amount': t.amount,
+            'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
+            'Payment Method': t.paymentMethod,
+            'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
+            'Month': dayjs(t.transactionDate).format('MMMM YYYY')
+          });
+          monthTotal += Number(t.amount || 0);
+          totalAmount += Number(t.amount || 0);
+          totalTransactions += 1;
+        });
+      });
+
+      // Add grand total
+      excelData.push({
+        'Transaction ID': `GRAND TOTAL (${totalTransactions} total transactions)`,
+        'Type': '',
+        'Description': '',
+        'Amount': totalAmount,
+        'Resident': '',
+        'Payment Method': '',
+        'Date': '',
+        'Month': ''
+      });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
       
-      // Auto-fit columns
-      const colWidths = Object.keys(excelData[0] || {}).map(key => ({
-        wch: Math.max(key.length, 15)
-      }));
+      // Auto-fit columns based on content width
+      const colWidths = Object.keys(excelData[0] || {}).map((key, colIndex) => {
+        let maxWidth = key.length + 2; // Header width
+        // Check content width for each row
+        excelData.forEach(row => {
+          const cellValue = row[key] ? String(row[key]) : '';
+          maxWidth = Math.max(maxWidth, cellValue.length + 2);
+        });
+        // Cap at 50 to avoid extremely wide columns, but ensure minimum of 12
+        return { wch: Math.min(Math.max(maxWidth, 12), 50) };
+      });
       ws['!cols'] = colWidths;
+
+      // Freeze panes: freeze header row and first column so they stay visible when scrolling
+      ws['!freeze'] = { xSplit: 1, ySplit: 1 };
 
       XLSX.utils.book_append_sheet(wb, ws, 'Financial_Transactions');
       

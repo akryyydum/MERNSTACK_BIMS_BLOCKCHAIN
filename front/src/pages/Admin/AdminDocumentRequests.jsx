@@ -1108,11 +1108,16 @@ const handleExport = async () => {
       const colWidths = rows.reduce((acc, row) => {
         Object.keys(row).forEach((key, idx) => {
           const value = row[key] ? row[key].toString() : '';
-          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+          // Calculate width based on content and header, with minimum of 12 and maximum of 50
+          const calculatedWidth = Math.max(value.length + 2, key.length + 2);
+          acc[idx] = Math.max(acc[idx] || 0, calculatedWidth);
         });
         return acc;
       }, []);
-      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+      ws['!cols'] = colWidths.map(width => ({ wch: Math.min(Math.max(width, 12), 50) }));
+
+      // Freeze the header row (first row) so it stays visible when scrolling
+      ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
       XLSX.utils.book_append_sheet(wb, ws, 'Document Requests');
       const filename = `${filenamePrefix}-${docSlug}-${purokSlug}-${rangeType}-${filenameBase}.xlsx`;

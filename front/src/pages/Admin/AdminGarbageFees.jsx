@@ -174,6 +174,9 @@ export default function AdminGarbageFees() {
   const [bulkResetLoading, setBulkResetLoading] = useState(false);
   const [selectAllClicked, setSelectAllClicked] = useState(false);
 
+  // State for payment status filter
+  const [tablePaymentStatusFilter, setTablePaymentStatusFilter] = useState('all');
+
   // Dynamic settings for fees
   const [settings, setSettings] = useState(null);
   const getGarbageMonthlyFee = (hasBusiness) => {
@@ -1454,16 +1457,16 @@ export default function AdminGarbageFees() {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
 
-      // Auto-fit columns
+      // Auto-fit columns based on content width
       const colWidths = exportData.reduce((acc, row) => {
         Object.keys(row).forEach((key, idx) => {
           const value = row[key] ? row[key].toString() : '';
-          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+          const calculatedWidth = Math.max(value.length + 2, key.length + 2);
+          acc[idx] = Math.max(acc[idx] || 0, calculatedWidth);
         });
         return acc;
       }, []);
-      
-      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+      ws['!cols'] = colWidths.map(width => ({ wch: Math.min(Math.max(width, 12), 50) }));
 
       XLSX.utils.book_append_sheet(wb, ws, 'Garbage Fees Report');
       XLSX.writeFile(wb, filename);
@@ -1505,18 +1508,18 @@ export default function AdminGarbageFees() {
       if (paymentStatus === 'unpaid' && !hasUnpaidMonths) continue;
 
       const feeRate = getGarbageMonthlyFee(household.hasBusiness);
-      const baseData = {
-        'Household ID': household.householdId,
-        'Head of Household': fullName(household.headOfHousehold),
-        'Purok': household.address?.purok || 'N/A',
-        'Fee Type': 'Garbage Collection Fee',
-        'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
-        'Fee Rate': `₱${Number(feeRate).toFixed(2)}`,
-      };
+      
+      // Calculate yearly totals
+      const totalPaid = paymentData
+        .filter(p => p.household?.householdId === household.householdId && 
+                dayjs(p.month + '-01').year() === currentYear)
+        .reduce((sum, p) => sum + p.amountPaid, 0);
+        
+      const expectedTotal = Number(feeRate) * 12;
+      const balance = expectedTotal - totalPaid;
 
-      // Add monthly payment status for the year
+      // Create one row per month (Pivot Layout) - sorted by month sequence
       for (const month of months) {
-        const monthName = dayjs(month).format('MMM YYYY');
         const payment = paymentData.find(p => 
           p.household?.householdId === household.householdId && 
           p.month === month
@@ -1524,26 +1527,43 @@ export default function AdminGarbageFees() {
         
         console.log(`Checking payment for ${household.householdId} in ${month}:`, payment);
         
-        baseData[`${monthName} Status`] = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
-        baseData[`${monthName} Amount`] = payment ? `₱${payment.amountPaid}` : '₱0';
+        const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+        const amountPaid = payment ? Number(payment.amountPaid) : 0;
+        const monthBalance = feeRate - amountPaid;
+
+        // Filter months based on payment status
+        if (paymentStatus === 'paid' && status !== 'Paid') continue;
+        if (paymentStatus === 'unpaid' && status !== 'Unpaid') continue;
+
+        exportData.push({
+          'Household ID': household.householdId,
+          'Head of Household': fullName(household.headOfHousehold),
+          'Purok': household.address?.purok || 'N/A',
+          'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
+          'Month': dayjs(month).format('MMMM YYYY'),
+          'Expected Fee': `₱${Number(feeRate).toFixed(2)}`,
+          'Amount Paid': `₱${amountPaid.toFixed(2)}`,
+          'Payment Status': status,
+          'Month Balance': `₱${monthBalance.toFixed(2)}`,
+          'Yearly Total Expected': `₱${expectedTotal.toFixed(2)}`,
+          'Yearly Total Paid': `₱${totalPaid.toFixed(2)}`,
+          'Yearly Balance': `₱${balance.toFixed(2)}`
+        });
       }
-
-      // Calculate totals
-      const totalPaid = paymentData
-        .filter(p => p.household?.householdId === household.householdId && 
-                dayjs(p.month + '-01').year() === currentYear)
-        .reduce((sum, p) => sum + p.amountPaid, 0);
-        
-      const expectedFee = getGarbageMonthlyFee(household.hasBusiness);
-      const expectedTotal = Number(expectedFee) * 12;
-      const balance = expectedTotal - totalPaid;
-
-      baseData['Total Paid'] = `₱${totalPaid}`;
-      baseData['Expected Total'] = `₱${expectedTotal}`;
-      baseData['Balance'] = `₱${balance}`;
-
-      exportData.push(baseData);
     }
+
+    // Sort by month first (chronological order), then by household ID
+    exportData.sort((a, b) => {
+      const monthA = dayjs(a['Month'], 'MMMM YYYY').unix();
+      const monthB = dayjs(b['Month'], 'MMMM YYYY').unix();
+      
+      if (monthA !== monthB) {
+        return monthA - monthB;
+      }
+      
+      // If same month, sort by household ID
+      return String(a['Household ID']).localeCompare(String(b['Household ID']));
+    });
 
     return exportData;
   };
@@ -1811,18 +1831,50 @@ export default function AdminGarbageFees() {
   // Filter columns based on visibility
   const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
-  const filteredHouseholds = (Array.isArray(households) ? households : []).filter(h =>
-    [
-      h.householdId,
-      h.address?.street,
-      h.address?.purok,
-      fullName(h.headOfHousehold),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const filteredHouseholds = useMemo(() => {
+    return (Array.isArray(households) ? households : []).filter(h => {
+      // Search filter
+      const matchesSearch = [
+        h.householdId,
+        h.address?.street,
+        h.address?.purok,
+        fullName(h.headOfHousehold),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      // Payment status filter based on yearly payment completion
+      if (tablePaymentStatusFilter === 'all') return true;
+
+      // Get all payment months for this household in current year
+      const currentYear = new Date().getFullYear();
+      const householdPayments = garbagePayments.filter(p => 
+        p.household?.householdId === h.householdId && 
+        dayjs(p.month + '-01').year() === currentYear
+      );
+
+      // Count paid months (amountPaid > 0)
+      const paidMonths = householdPayments.filter(p => Number(p.amountPaid) > 0).length;
+      
+      // Fully paid = all 12 months paid
+      // Partially paid = some months paid but not all 12
+      // Unpaid = no months paid (0 paid months)
+
+      if (tablePaymentStatusFilter === 'fully-paid') {
+        return paidMonths === 12;
+      } else if (tablePaymentStatusFilter === 'partially-paid') {
+        return paidMonths > 0 && paidMonths < 12;
+      } else if (tablePaymentStatusFilter === 'unpaid') {
+        return paidMonths === 0;
+      }
+
+      return true;
+    });
+  }, [households, search, tablePaymentStatusFilter, garbagePayments]);
 
   return (
     <AdminLayout title="Admin">
@@ -1958,6 +2010,18 @@ export default function AdminGarbageFees() {
                 enterButton
                 className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
               />              
+              {/* Payment Status Filter */}
+              <Select
+                value={tablePaymentStatusFilter}
+                onChange={setTablePaymentStatusFilter}
+                style={{ width: 180 }}
+              >
+                <Select.Option value="all">All Payment Status</Select.Option>
+                <Select.Option value="fully-paid">Fully Paid</Select.Option>
+                <Select.Option value="partially-paid">Partially Paid</Select.Option>
+                <Select.Option value="unpaid">Unpaid</Select.Option>
+              </Select>
+
               {/* Customize Columns Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
