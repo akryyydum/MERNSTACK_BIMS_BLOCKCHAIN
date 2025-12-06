@@ -1025,7 +1025,7 @@ export default function AdminFinancialReports() {
                     Net Balance
                   </CardTitle>
                   <div className={`flex items-center gap-1 ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-xs font-semibold`}>
-                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="text-sm md:text-base font-bold">₱</span>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1074,7 +1074,7 @@ export default function AdminFinancialReports() {
                     Streetlight Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="text-sm md:text-base font-bold">₱</span>
                   </div>
                 </CardHeader>
                 <CardContent>
