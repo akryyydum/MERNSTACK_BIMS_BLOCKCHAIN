@@ -293,7 +293,7 @@ const LandingPage = () => {
   const stats = [
     { number: "2,500+", label: "Barangay Residents", icon: <Users className="w-6 h-6" /> },
     { number: "850+", label: "Registered Households", icon: <MapPin className="w-6 h-6" /> },
-    { number: "12", label: "Barangay Officials", icon: <Award className="w-6 h-6" /> }
+    { number: "35", label: "Barangay Officials", icon: <Award className="w-6 h-6" /> }
   ];
 
   const { latestAnnouncement, previousAnnouncements } = useMemo(() => {
@@ -1172,58 +1172,63 @@ const LandingPage = () => {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-20"
+            className="bg-gradient-to-br from-blue-50 to-white p-8 lg:p-12 rounded-2xl shadow-lg mb-20"
           >
-            <h3 className="text-3xl font-bold text-gray-900 mb-8 text-center">Barangay Officials</h3>
+            <h3 className="text-3xl font-bold text-gray-900 mb-10 text-center">Barangay Organizational Chart</h3>
             
             {/* Punong Barangay */}
-            <div className="mb-8">
+            <div className="max-w-3xl mx-auto mb-10">
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                whileHover={{ scale: 1.02 }}
+                className="relative overflow-hidden bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-500 text-white p-10 rounded-2xl shadow-2xl"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Users className="w-8 h-8 text-white" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-4 border-white/30">
+                    <Users className="w-10 h-10 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-blue-600 mb-1">Punong Barangay</div>
-                    <div className="text-xl font-bold text-gray-900">KGG. AMANTE M. PALLAYA</div>
+                  <div>
+                    <div className="text-sm font-semibold mb-2 opacity-90 uppercase tracking-widest">Punong Barangay</div>
+                    <div className="text-3xl font-bold">Joel C. Castriciones</div>
                   </div>
                 </div>
               </motion.div>
             </div>
 
             {/* Kagawads */}
-            <div className="mb-8">
-              <h4 className="text-xl font-semibold text-gray-900 mb-4">Sangguniang Barangay Members</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="max-w-6xl mx-auto mb-10">
+              <h4 className="text-xl font-bold text-gray-900 mb-6 text-center">Sangguniang Barangay Members</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  "KGG. JOEL C. CASTRICIONES",
-                  "KGG. EMILIO V. CALAMUG JR.",
-                  "KGG. MELITA P. SANCHEZ",
-                  "KGG. VILLAFUERTE T. MARTINEZ, JR.",
-                  "KGG. MILAGROS P. PADILLA",
-                  "KGG. VIRGINIA A. PABUNAN",
-                  "KGG. ORLANDO M. PALLAYA"
+                  "Milagros P. Padilla",
+                  "Villafuerte T. Martinez Jr.",
+                  "Melita P. Sanchez",
+                  "Irene C. Bajo",
+                  "Virgil P. Covita",
+                  "Carolina V. Vicente",
+                  "Joseph P. Esteban"
                 ].map((name, index) => (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-                    whileInView={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -5, scale: 1.02 }}
+                    className="relative group bg-white p-5 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 text-blue-600">
-                        <Shield className="w-6 h-6" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative flex items-start gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform">
+                        <Shield className="w-5 h-5 text-white" />
                       </div>
-                      <div>
-                        <div className="text-sm font-semibold text-blue-600 mb-1">Kagawad</div>
-                        <div className="text-base font-bold text-gray-900">{name}</div>
+                      <div className="flex-1">
+                        <div className="text-xs text-blue-500 mb-1 font-bold uppercase tracking-wide">Brgy. Kagawad</div>
+                        <div className="text-sm font-bold text-gray-900 leading-tight">{name}</div>
                       </div>
                     </div>
                   </motion.div>
@@ -1231,81 +1236,199 @@ const LandingPage = () => {
               </div>
             </div>
 
-            {/* SK Chairman and Staff */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* SK Chairman */}
+            {/* SK Chairman */}
+            <div className="max-w-6xl mx-auto mb-10">
               <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="bg-gradient-to-br from-green-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+                whileHover={{ scale: 1.02 }}
+                className="relative overflow-hidden bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500 text-white p-8 rounded-2xl shadow-xl max-w-md mx-auto"
               >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Award className="w-6 h-6 text-white" />
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
+                <div className="relative flex items-center gap-4">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-3 border-white/30">
+                    <Award className="w-8 h-8 text-white" />
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-green-600 mb-1">SK Chairman</div>
-                    <div className="text-base font-bold text-gray-900">KGG. ADRIAN PAUL B. PALLAYA</div>
+                  <div className="text-left">
+                    <div className="text-xs font-semibold mb-1 opacity-90 uppercase tracking-widest">SK Chairman</div>
+                    <div className="text-lg font-bold leading-tight">Samuel James B. Del Rosario</div>
                   </div>
                 </div>
               </motion.div>
+            </div>
 
-              {/* Secretary */}
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                className="bg-gradient-to-br from-purple-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 text-purple-600">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-purple-600 mb-1">Secretary</div>
-                    <div className="text-base font-bold text-gray-900">KGG. MARIETTA B. LAS-ANG</div>
-                  </div>
-                </div>
-              </motion.div>
+            {/* Administrative Staff */}
+            <div className="max-w-6xl mx-auto mb-10">
+              <h4 className="text-xl font-bold text-gray-900 mb-6 text-center">Administrative Staff</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { position: "Brgy. Secretary", name: "Jefferson F. Agravante" },
+                  { position: "Brgy. Treasurer", name: "Veronica A. Alcantara" },
+                  { position: "Admin Asst.", name: "Lerma C. Miranda" }
+                ].map((staff, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ y: -5 }}
+                    className="relative group bg-gradient-to-br from-white to-purple-50 p-6 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-purple-100 overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-purple-100 rounded-full -mr-10 -mt-10 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="relative">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg flex items-center justify-center shadow-md">
+                          <FileText className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="text-xs text-purple-500 font-bold uppercase tracking-wide">{staff.position}</div>
+                      </div>
+                      <div className="text-base font-bold text-gray-900 leading-tight">{staff.name}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
 
-              {/* Treasurer */}
-              <motion.div
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
-                className="bg-gradient-to-br from-orange-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 text-orange-600">
-                    <CreditCard className="w-6 h-6" />
+            {/* Health & Nutrition Staff */}
+            <div className="max-w-6xl mx-auto mb-10">
+              <h4 className="text-xl font-bold text-gray-900 mb-6 text-center">Health & Nutrition Staff</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -4 }}
+                  className="relative group bg-white p-4 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-pink-400 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative">
+                    <div className="text-xs text-pink-500 mb-2 font-bold uppercase tracking-wide">Brgy. Nutrition Scholar</div>
+                    <div className="text-sm font-bold text-gray-900">Erlinda D. Pallaya</div>
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-orange-600 mb-1">Treasurer</div>
-                    <div className="text-base font-bold text-gray-900">KGG. MANNY P. DUMELOD</div>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.05 }}
+                  whileHover={{ y: -4 }}
+                  className="relative group bg-white p-4 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-pink-400 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative">
+                    <div className="text-xs text-pink-500 mb-2 font-bold uppercase tracking-wide">Day Care Worker</div>
+                    <div className="text-sm font-bold text-gray-900">Lorna D. Covita</div>
                   </div>
-                </div>
-              </motion.div>
+                </motion.div>
+                {[
+                  "Potenciana C. Crisostomo",
+                  "Lorena S. Alindayu",
+                  "Loreta M. Juan",
+                  "Leilanie B. Osio",
+                  "Elisa C. Yuzon"
+                ].map((name, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: (index + 2) * 0.05 }}
+                    whileHover={{ y: -4 }}
+                    className="relative group bg-white p-4 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-pink-400 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-pink-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative">
+                      <div className="text-xs text-pink-500 mb-2 font-bold uppercase tracking-wide">Brgy. Health Worker</div>
+                      <div className="text-sm font-bold text-gray-900">{name}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
 
-              {/* Admin Assistant */}
-              <motion.div
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1 }}
-                className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-600">
-                    <Users className="w-6 h-6" />
+            {/* Utility Workers */}
+            <div className="max-w-6xl mx-auto mb-10">
+              <h4 className="text-xl font-bold text-gray-900 mb-6 text-center">Utility & Sanitation Staff</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { position: "Brgy. Utility Worker", name: "Rogelio B. Gurieza" },
+                  { position: "Brgy. Utility Worker", name: "Dahlia D. Gurieza" },
+                  { position: "SWM Driver", name: "Levi C. Lantion" },
+                  { position: "Garbage Collector", name: "Antonio B. Alindayu" },
+                  { position: "Garbage Collector", name: "Andy D. Pallaya" },
+                  { position: "Garbage Collector", name: "Jericson B. Furuc" }
+                ].map((staff, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -4 }}
+                    className="relative group bg-white p-4 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-amber-400 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-amber-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative">
+                      <div className="text-xs text-amber-500 mb-2 font-bold uppercase tracking-wide">{staff.position}</div>
+                      <div className="text-sm font-bold text-gray-900">{staff.name}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Barangay Tanod */}
+            <div className="max-w-6xl mx-auto">
+              <h4 className="text-xl font-bold text-gray-900 mb-6 text-center">Barangay Tanod</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  whileHover={{ scale: 1.01 }}
+                  className="relative overflow-hidden bg-gradient-to-r from-rose-400 via-rose-500 to-pink-500 text-white p-6 rounded-2xl shadow-xl col-span-1 md:col-span-2 lg:col-span-4"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                  <div className="relative flex items-center justify-center gap-3">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs font-semibold mb-1 opacity-90 uppercase tracking-widest">Brgy. Chief Tanod</div>
+                      <div className="text-lg font-bold">June G. Agravante</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-gray-600 mb-1">Admin. Assistant</div>
-                    <div className="text-base font-bold text-gray-900">KGG. VERONICA A. ALCANTARA</div>
-                  </div>
-                </div>
-              </motion.div>
+                </motion.div>
+                {[
+                  "Amado P. Bacani",
+                  "Ronald S. Crisostomo",
+                  "Ranie D. Furuc",
+                  "Romulo B. Magno Jr.",
+                  "Tommy M. Pallaya",
+                  "Elmer G. Pallaya",
+                  "Leonardo M. Piedad",
+                  "Marycar P. Covita",
+                  "Eduardo P. Obaña"
+                ].map((name, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: (index + 1) * 0.05 }}
+                    whileHover={{ y: -4 }}
+                    className="relative group bg-white p-4 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border-l-4 border-rose-400 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-rose-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative">
+                      <div className="text-xs text-rose-500 mb-2 font-bold uppercase tracking-wide">Brgy. Tanod</div>
+                      <div className="text-sm font-bold text-gray-900">{name}</div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </motion.div>
 
