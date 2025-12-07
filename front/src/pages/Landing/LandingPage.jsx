@@ -293,7 +293,7 @@ const LandingPage = () => {
   const stats = [
     { number: "2,500+", label: "Barangay Residents", icon: <Users className="w-6 h-6" /> },
     { number: "850+", label: "Registered Households", icon: <MapPin className="w-6 h-6" /> },
-    { number: "22", label: "Barangay Officials", icon: <Award className="w-6 h-6" /> }
+    { number: "12", label: "Barangay Officials", icon: <Award className="w-6 h-6" /> }
   ];
 
   const { latestAnnouncement, previousAnnouncements } = useMemo(() => {
@@ -1129,7 +1129,7 @@ const LandingPage = () => {
             className="bg-gradient-to-br from-gray-50 to-white p-8 lg:p-12 rounded-2xl shadow-lg mb-20"
           >
             <h3 className="text-3xl font-bold text-gray-900 mb-6 text-center">Our History</h3>
-            <div className="max-w-4xl mx-auto space-y-6 text-lg text-gray-700 leading-relaxed">
+            <div className="max-w-4xl mx-auto space-y-6 text-lg text-gray-700 leading-relaxed text-justify">
               <p>
                 The landscape of our barangay is marked by the lush greenery of the Matuno mountain range, where large plant growth 
                 with their verdant tones creates a picturesque natural setting. Unlike areas with Spanish colonial architecture dominated 
@@ -1164,6 +1164,148 @@ const LandingPage = () => {
                 colonial influence. We take pride in our rich heritage, carrying forward the traditions of our Ilocano ancestors while 
                 embracing progress and development for future generations.
               </p>
+            </div>
+          </motion.div>
+
+          {/* Barangay Organizational Chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-20"
+          >
+            <h3 className="text-3xl font-bold text-gray-900 mb-8 text-center">Barangay Officials</h3>
+            
+            {/* Punong Barangay */}
+            <div className="mb-8">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-blue-600 mb-1">Punong Barangay</div>
+                    <div className="text-xl font-bold text-gray-900">KGG. AMANTE M. PALLAYA</div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Kagawads */}
+            <div className="mb-8">
+              <h4 className="text-xl font-semibold text-gray-900 mb-4">Sangguniang Barangay Members</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[
+                  "KGG. JOEL C. CASTRICIONES",
+                  "KGG. EMILIO V. CALAMUG JR.",
+                  "KGG. MELITA P. SANCHEZ",
+                  "KGG. VILLAFUERTE T. MARTINEZ, JR.",
+                  "KGG. MILAGROS P. PADILLA",
+                  "KGG. VIRGINIA A. PABUNAN",
+                  "KGG. ORLANDO M. PALLAYA"
+                ].map((name, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 text-blue-600">
+                        <Shield className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-blue-600 mb-1">Kagawad</div>
+                        <div className="text-base font-bold text-gray-900">{name}</div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* SK Chairman and Staff */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* SK Chairman */}
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-green-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Award className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-green-600 mb-1">SK Chairman</div>
+                    <div className="text-base font-bold text-gray-900">KGG. ADRIAN PAUL B. PALLAYA</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Secretary */}
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-purple-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 text-purple-600">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-purple-600 mb-1">Secretary</div>
+                    <div className="text-base font-bold text-gray-900">KGG. MARIETTA B. LAS-ANG</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Treasurer */}
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-orange-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 text-orange-600">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-orange-600 mb-1">Treasurer</div>
+                    <div className="text-base font-bold text-gray-900">KGG. MANNY P. DUMELOD</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Admin Assistant */}
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-600">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-600 mb-1">Admin. Assistant</div>
+                    <div className="text-base font-bold text-gray-900">KGG. VERONICA A. ALCANTARA</div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </motion.div>
 
