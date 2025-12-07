@@ -361,6 +361,18 @@ const generateSummaryData = async (startDate, endDate) => {
     
     const totalTransactionCount = filteredTransactions.length;
     
+    // Count garbage and streetlight transactions separately
+    const totalGarbageTransactions = filteredTransactions.filter(t => t.type === 'garbage_fee').length;
+    const totalStreetlightTransactions = filteredTransactions.filter(t => t.type === 'streetlight_fee').length;
+    
+    // Count document request transactions (completed/claimed with fees)
+    const totalDocumentRequestTransactions = filteredTransactions.filter(t => t.type === 'document_request').length;
+    
+    // Count other transactions (revenue from manual 'Add Transaction' - non-utility, non-document)
+    const totalOtherTransactions = filteredTransactions.filter(t => 
+      !['garbage_fee', 'streetlight_fee', 'document_request'].includes(t.type) && t.category === 'revenue'
+    ).length;
+    
     // Calculate revenue and expenses from filtered transactions only (matching Financial Reports logic)
     const totalRevenue = filteredTransactions
       .filter(t => t.category === 'revenue')
@@ -421,8 +433,14 @@ const generateSummaryData = async (startDate, endDate) => {
       // Dashboard Metrics (Top Cards)
       total_residents: totalPopulation,
       pending_document_requests: pendingRequests,
+      total_garbage_transactions: totalGarbageTransactions,
+      total_streetlight_transactions: totalStreetlightTransactions,
+      total_document_request_transactions: totalDocumentRequestTransactions,
+      total_other_transactions: totalOtherTransactions,
       total_financial_transactions: totalTransactionCount,
       total_revenue: totalRevenue.toFixed(2),
+      total_expenses: expenseTotal.toFixed(2),
+      total_net_balance: netBalance.toFixed(2),
       
       // Gender Demographics (Pie Chart)
       male_count: maleCount,
@@ -504,6 +522,16 @@ const convertToExcel = (summary) => {
   addRow("Total Residents", summary.total_residents);
   addRow("Total Financial Transactions", summary.total_financial_transactions);
   addRow("Total Revenue", `₱ ${summary.total_revenue}`);
+  addRow("Total Expenses", `₱ ${summary.total_expenses}`);
+  addRow("Total Net Balance (Revenue - Expenses)", `₱ ${summary.total_net_balance}`);
+  addSpacing();
+  
+  // ========== TRANSACTION BREAKDOWN ==========
+  addSectionHeader("TRANSACTION BREAKDOWN");
+  addRow("Total Garbage Transactions", summary.total_garbage_transactions);
+  addRow("Total Streetlight Transactions", summary.total_streetlight_transactions);
+  addRow("Total Document Request Transactions", summary.total_document_request_transactions);
+  addRow("Other Transactions", summary.total_other_transactions);
   addSpacing();
   
   // ========== GENDER DEMOGRAPHICS ==========
