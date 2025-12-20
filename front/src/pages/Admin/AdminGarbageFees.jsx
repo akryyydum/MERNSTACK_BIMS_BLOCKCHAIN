@@ -174,6 +174,9 @@ export default function AdminGarbageFees() {
   const [bulkResetLoading, setBulkResetLoading] = useState(false);
   const [selectAllClicked, setSelectAllClicked] = useState(false);
 
+  // State for payment status filter
+  const [tablePaymentStatusFilter, setTablePaymentStatusFilter] = useState('all');
+
   // Dynamic settings for fees
   const [settings, setSettings] = useState(null);
   const getGarbageMonthlyFee = (hasBusiness) => {
@@ -1454,16 +1457,16 @@ export default function AdminGarbageFees() {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
 
-      // Auto-fit columns
+      // Auto-fit columns based on content width
       const colWidths = exportData.reduce((acc, row) => {
         Object.keys(row).forEach((key, idx) => {
           const value = row[key] ? row[key].toString() : '';
-          acc[idx] = Math.max(acc[idx] || 0, value.length + 2, key.length + 2);
+          const calculatedWidth = Math.max(value.length + 2, key.length + 2);
+          acc[idx] = Math.max(acc[idx] || 0, calculatedWidth);
         });
         return acc;
       }, []);
-      
-      ws['!cols'] = colWidths.map(width => ({ width: Math.min(width, 50) }));
+      ws['!cols'] = colWidths.map(width => ({ wch: Math.min(Math.max(width, 12), 50) }));
 
       XLSX.utils.book_append_sheet(wb, ws, 'Garbage Fees Report');
       XLSX.writeFile(wb, filename);
@@ -1491,57 +1494,362 @@ export default function AdminGarbageFees() {
     console.log('Households for export:', householdList);
     console.log('Payment status filter:', paymentStatus);
 
+    // Categorize households
+    const categorizedHouseholds = {
+      'fully-paid': [],
+      'partially-paid': [],
+      'unpaid': []
+    };
+
+    // Subtotals for each category
+    const subtotals = {
+      'fully-paid': { count: 0, totalExpected: 0, totalPaid: 0, totalBalance: 0 },
+      'partially-paid': { count: 0, totalExpected: 0, totalPaid: 0, totalBalance: 0 },
+      'unpaid': { count: 0, totalExpected: 0, totalPaid: 0, totalBalance: 0 }
+    };
+
     for (const household of householdList) {
-      // Check if household should be included based on payment status filter
       const householdPayments = paymentData.filter(p => p.household?.householdId === household.householdId);
-      const hasPaidPayments = householdPayments.some(p => p.amountPaid > 0);
-      const hasUnpaidMonths = months.some(month => {
-        const payment = householdPayments.find(p => p.month === month);
-        return !payment || payment.amountPaid === 0;
-      });
-
-      // Apply payment status filter
-      if (paymentStatus === 'paid' && !hasPaidPayments) continue;
-      if (paymentStatus === 'unpaid' && !hasUnpaidMonths) continue;
-
       const feeRate = getGarbageMonthlyFee(household.hasBusiness);
-      const baseData = {
-        'Household ID': household.householdId,
-        'Head of Household': fullName(household.headOfHousehold),
-        'Purok': household.address?.purok || 'N/A',
-        'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
-        'Fee Rate': `₱${Number(feeRate).toFixed(2)}`,
-      };
-
-      // Add monthly payment status for the year
-      for (const month of months) {
-        const monthName = dayjs(month).format('MMM YYYY');
-        const payment = paymentData.find(p => 
-          p.household?.householdId === household.householdId && 
-          p.month === month
-        );
-        
-        console.log(`Checking payment for ${household.householdId} in ${month}:`, payment);
-        
-        baseData[`${monthName} Status`] = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
-        baseData[`${monthName} Amount`] = payment ? `₱${payment.amountPaid}` : '₱0';
-      }
-
-      // Calculate totals
+      
+      // Calculate yearly totals
       const totalPaid = paymentData
         .filter(p => p.household?.householdId === household.householdId && 
                 dayjs(p.month + '-01').year() === currentYear)
         .reduce((sum, p) => sum + p.amountPaid, 0);
         
-      const expectedFee = getGarbageMonthlyFee(household.hasBusiness);
-      const expectedTotal = Number(expectedFee) * 12;
+      const expectedTotal = Number(feeRate) * 12;
       const balance = expectedTotal - totalPaid;
 
-      baseData['Total Paid'] = `₱${totalPaid}`;
-      baseData['Expected Total'] = `₱${expectedTotal}`;
-      baseData['Balance'] = `₱${balance}`;
+      // Determine payment category
+      let category;
+      if (totalPaid === 0) {
+        category = 'unpaid';
+      } else if (balance === 0) {
+        category = 'fully-paid';
+      } else {
+        category = 'partially-paid';
+      }
 
-      exportData.push(baseData);
+      // Apply payment status filter
+      if (paymentStatus !== 'all' && paymentStatus !== category) continue;
+
+      // Add to category
+      categorizedHouseholds[category].push(household);
+      subtotals[category].count++;
+      subtotals[category].totalExpected += expectedTotal;
+      subtotals[category].totalPaid += totalPaid;
+      subtotals[category].totalBalance += balance;
+
+      // Create one row per month (Pivot Layout)
+      for (const month of months) {
+        const payment = paymentData.find(p => 
+          p.household?.householdId === household.householdId && 
+          p.month === month
+        );
+        
+        const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
+        const amountPaid = payment ? Number(payment.amountPaid) : 0;
+        const monthBalance = feeRate - amountPaid;
+
+        const categoryLabel = category === 'fully-paid' ? 'Fully Paid' : category === 'partially-paid' ? 'Partially Paid' : 'Unpaid';
+        
+        const rowData = {
+          'Household ID': household.householdId,
+          'Head of Household': fullName(household.headOfHousehold),
+          'Purok': household.address?.purok || 'N/A',
+          'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
+          'Expected Fee': `₱${Number(feeRate).toFixed(2)}`,
+          'Amount Paid': `₱${amountPaid.toFixed(2)}`,
+          'Payment Status': `${status} (${categoryLabel})`,
+          'Payment Date': payment && payment.createdAt ? dayjs(payment.createdAt).format('YYYY-MM-DD HH:mm') : 'N/A',
+          'Month': dayjs(month).format('MMMM YYYY')
+        };
+
+        // Conditionally add columns based on payment status
+        if (paymentStatus === 'all' || paymentStatus === 'partially-paid' || paymentStatus === 'unpaid') {
+          rowData['Month Balance'] = `₱${monthBalance.toFixed(2)}`;
+        }
+        if (paymentStatus === 'all' || paymentStatus === 'unpaid') {
+          rowData['Yearly Total Expected'] = `₱${expectedTotal.toFixed(2)}`;
+        }
+        if (paymentStatus === 'all') {
+          rowData['Yearly Total Paid'] = `₱${totalPaid.toFixed(2)}`;
+          rowData['Yearly Balance'] = `₱${balance.toFixed(2)}`;
+        }
+        
+        exportData.push(rowData);
+      }
+    }
+
+    // Sort by category first, then by month, then by household ID
+    const categoryOrder = { 'Fully Paid': 1, 'Partially Paid': 2, 'Unpaid': 3 };
+    exportData.sort((a, b) => {
+      // Extract category from Payment Status
+      const getCat = (status) => {
+        if (status.includes('Fully Paid')) return 'Fully Paid';
+        if (status.includes('Partially Paid')) return 'Partially Paid';
+        return 'Unpaid';
+      };
+      
+      const catCompare = categoryOrder[getCat(a['Payment Status'])] - categoryOrder[getCat(b['Payment Status'])];
+      if (catCompare !== 0) return catCompare;
+
+      const monthA = dayjs(a['Month'], 'MMMM YYYY').unix();
+      const monthB = dayjs(b['Month'], 'MMMM YYYY').unix();
+      
+      if (monthA !== monthB) {
+        return monthA - monthB;
+      }
+      
+      return String(a['Household ID']).localeCompare(String(b['Household ID']));
+    });
+
+    // Add subtotals based on selected payment status
+    if (exportData.length > 0) {
+      // Add empty row separator
+      exportData.push({});
+
+      if (paymentStatus === 'all') {
+        // Show subtotals for each category
+        const categories = [
+          { key: 'fully-paid', label: 'FULLY PAID SUBTOTAL' },
+          { key: 'partially-paid', label: 'PARTIALLY PAID SUBTOTAL' },
+          { key: 'unpaid', label: 'UNPAID SUBTOTAL' }
+        ];
+
+        categories.forEach(({ key, label }) => {
+          if (subtotals[key].count > 0) {
+            const subtotalRow1 = {
+              'Household ID': label,
+              'Head of Household': `${subtotals[key].count}`,
+              'Purok': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Amount Paid': '',
+              'Payment Status': '',
+              'Payment Date': '',
+              'Month': ''
+            };
+            subtotalRow1['Month Balance'] = '';
+            subtotalRow1['Yearly Total Expected'] = '';
+            subtotalRow1['Yearly Total Paid'] = '';
+            subtotalRow1['Yearly Balance'] = '';
+            exportData.push(subtotalRow1);
+            
+            const subtotalRow2 = {
+              'Household ID': 'Expected Fee',
+              'Head of Household': `₱${subtotals[key].totalExpected.toFixed(2)}`,
+              'Purok': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Amount Paid': '',
+              'Payment Status': '',
+              'Payment Date': '',
+              'Month': ''
+            };
+            subtotalRow2['Month Balance'] = '';
+            subtotalRow2['Yearly Total Expected'] = '';
+            subtotalRow2['Yearly Total Paid'] = '';
+            subtotalRow2['Yearly Balance'] = '';
+            exportData.push(subtotalRow2);
+            
+            const subtotalRow3 = {
+              'Household ID': 'Paid Amount',
+              'Head of Household': `₱${subtotals[key].totalPaid.toFixed(2)}`,
+              'Purok': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Amount Paid': '',
+              'Payment Status': '',
+              'Payment Date': '',
+              'Month': ''
+            };
+            subtotalRow3['Month Balance'] = '';
+            subtotalRow3['Yearly Total Expected'] = '';
+            subtotalRow3['Yearly Total Paid'] = '';
+            subtotalRow3['Yearly Balance'] = '';
+            exportData.push(subtotalRow3);
+            
+            const subtotalRow4 = {
+              'Household ID': 'Balance',
+              'Head of Household': `₱${subtotals[key].totalBalance.toFixed(2)}`,
+              'Purok': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Amount Paid': '',
+              'Payment Status': '',
+              'Payment Date': '',
+              'Month': ''
+            };
+            subtotalRow4['Month Balance'] = '';
+            subtotalRow4['Yearly Total Expected'] = '';
+            subtotalRow4['Yearly Total Paid'] = '';
+            subtotalRow4['Yearly Balance'] = '';
+            exportData.push(subtotalRow4);
+            
+            exportData.push({}); // Empty row after each subtotal
+          }
+        });
+
+        // Add grand total
+        const grandTotal = {
+          count: subtotals['fully-paid'].count + subtotals['partially-paid'].count + subtotals['unpaid'].count,
+          totalExpected: subtotals['fully-paid'].totalExpected + subtotals['partially-paid'].totalExpected + subtotals['unpaid'].totalExpected,
+          totalPaid: subtotals['fully-paid'].totalPaid + subtotals['partially-paid'].totalPaid + subtotals['unpaid'].totalPaid,
+          totalBalance: subtotals['fully-paid'].totalBalance + subtotals['partially-paid'].totalBalance + subtotals['unpaid'].totalBalance
+        };
+
+        const grandTotalRow1 = {
+          'Household ID': 'GRAND TOTAL',
+          'Head of Household': `${grandTotal.count}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        grandTotalRow1['Month Balance'] = '';
+        grandTotalRow1['Yearly Total Expected'] = '';
+        grandTotalRow1['Yearly Total Paid'] = '';
+        grandTotalRow1['Yearly Balance'] = '';
+        exportData.push(grandTotalRow1);
+        
+        const grandTotalRow2 = {
+          'Household ID': 'Expected Fee',
+          'Head of Household': `₱${grandTotal.totalExpected.toFixed(2)}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        grandTotalRow2['Month Balance'] = '';
+        grandTotalRow2['Yearly Total Expected'] = '';
+        grandTotalRow2['Yearly Total Paid'] = '';
+        grandTotalRow2['Yearly Balance'] = '';
+        exportData.push(grandTotalRow2);
+        
+        const grandTotalRow3 = {
+          'Household ID': 'Paid Amount',
+          'Head of Household': `₱${grandTotal.totalPaid.toFixed(2)}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        grandTotalRow3['Month Balance'] = '';
+        grandTotalRow3['Yearly Total Expected'] = '';
+        grandTotalRow3['Yearly Total Paid'] = '';
+        grandTotalRow3['Yearly Balance'] = '';
+        exportData.push(grandTotalRow3);
+        
+        const grandTotalRow4 = {
+          'Household ID': 'Balance',
+          'Head of Household': `₱${grandTotal.totalBalance.toFixed(2)}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        grandTotalRow4['Month Balance'] = '';
+        grandTotalRow4['Yearly Total Expected'] = '';
+        grandTotalRow4['Yearly Total Paid'] = '';
+        grandTotalRow4['Yearly Balance'] = '';
+        exportData.push(grandTotalRow4);
+      } else {
+        // Show subtotal for the selected category only
+        const selectedCategory = paymentStatus;
+        const categoryLabel = selectedCategory === 'fully-paid' ? 'FULLY PAID TOTAL' : 
+                             selectedCategory === 'partially-paid' ? 'PARTIALLY PAID TOTAL' : 
+                             'UNPAID TOTAL';
+        
+        const catRow1 = {
+          'Household ID': categoryLabel,
+          'Head of Household': `${subtotals[selectedCategory].count}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        if (paymentStatus === 'partially-paid' || paymentStatus === 'unpaid') {
+          catRow1['Month Balance'] = '';
+        }
+        if (paymentStatus === 'unpaid') {
+          catRow1['Yearly Total Expected'] = '';
+        }
+        exportData.push(catRow1);
+        
+        const catRow2 = {
+          'Household ID': 'Expected Fee',
+          'Head of Household': `₱${subtotals[selectedCategory].totalExpected.toFixed(2)}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        if (paymentStatus === 'partially-paid' || paymentStatus === 'unpaid') {
+          catRow2['Month Balance'] = '';
+        }
+        if (paymentStatus === 'unpaid') {
+          catRow2['Yearly Total Expected'] = '';
+        }
+        exportData.push(catRow2);
+        
+        const catRow3 = {
+          'Household ID': 'Paid Amount',
+          'Head of Household': `₱${subtotals[selectedCategory].totalPaid.toFixed(2)}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        if (paymentStatus === 'partially-paid' || paymentStatus === 'unpaid') {
+          catRow3['Month Balance'] = '';
+        }
+        if (paymentStatus === 'unpaid') {
+          catRow3['Yearly Total Expected'] = '';
+        }
+        exportData.push(catRow3);
+        
+        const catRow4 = {
+          'Household ID': 'Balance',
+          'Head of Household': `₱${subtotals[selectedCategory].totalBalance.toFixed(2)}`,
+          'Purok': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Amount Paid': '',
+          'Payment Status': '',
+          'Payment Date': '',
+          'Month': ''
+        };
+        if (paymentStatus === 'partially-paid' || paymentStatus === 'unpaid') {
+          catRow4['Month Balance'] = '';
+        }
+        if (paymentStatus === 'unpaid') {
+          catRow4['Yearly Total Expected'] = '';
+        }
+        exportData.push(catRow4);
+      }
     }
 
     return exportData;
@@ -1557,6 +1865,13 @@ export default function AdminGarbageFees() {
     console.log('Households:', householdList);
     console.log('Payment status filter:', paymentStatus);
 
+    // Subtotals for each category
+    const subtotals = {
+      'fully-paid': { count: 0, totalExpected: 0, totalPaid: 0, totalBalance: 0 },
+      'partially-paid': { count: 0, totalExpected: 0, totalPaid: 0, totalBalance: 0 },
+      'unpaid': { count: 0, totalExpected: 0, totalPaid: 0, totalBalance: 0 }
+    };
+
     for (const household of householdList) {
       const payment = paymentData.find(p => 
         p.household?.householdId === household.householdId && 
@@ -1567,32 +1882,243 @@ export default function AdminGarbageFees() {
 
       const expectedFee = getGarbageMonthlyFee(household.hasBusiness);
       const paidAmount = payment ? payment.amountPaid : 0;
-      const status = payment && payment.amountPaid > 0 ? 'Paid' : 'Unpaid';
       const balance = expectedFee - paidAmount;
 
+      // Determine payment category
+      let category;
+      if (paidAmount === 0) {
+        category = 'unpaid';
+      } else if (balance === 0) {
+        category = 'fully-paid';
+      } else {
+        category = 'partially-paid';
+      }
+
       // Apply payment status filter
-      if (paymentStatus === 'paid' && status !== 'Paid') continue;
-      if (paymentStatus === 'unpaid' && status !== 'Unpaid') continue;
+      if (paymentStatus !== 'all' && paymentStatus !== category) continue;
+
+      // Update subtotals
+      subtotals[category].count++;
+      subtotals[category].totalExpected += expectedFee;
+      subtotals[category].totalPaid += paidAmount;
+      subtotals[category].totalBalance += balance;
 
       // Get the latest payment date from payments array
       let paymentDate = 'Not Paid';
       if (payment && payment.payments && payment.payments.length > 0) {
         const latestPayment = payment.payments[payment.payments.length - 1];
-        paymentDate = dayjs(latestPayment.paidAt).format('MMMM DD, YYYY');
+        paymentDate = dayjs(latestPayment.paidAt).format('YYYY-MM-DD HH:mm');
       }
+
+      const status = paidAmount > 0 ? 'Paid' : 'Unpaid';
+      const categoryLabel = category === 'fully-paid' ? 'Fully Paid' : category === 'partially-paid' ? 'Partially Paid' : 'Unpaid';
 
       exportData.push({
         'Household ID': household.householdId,
         'Head of Household': fullName(household.headOfHousehold),
         'Purok': household.address?.purok || 'N/A',
+        'Fee Type': 'Garbage Collection Fee',
         'Business Status': household.hasBusiness ? 'With Business' : 'No Business',
         'Expected Fee': `₱${Number(expectedFee).toFixed(2)}`,
-        'Paid Amount': `₱${paidAmount}`,
-        'Payment Status': status,
-        'Balance': `₱${balance}`,
+        'Paid Amount': `₱${paidAmount.toFixed(2)}`,
+        'Payment Status': `${status} (${categoryLabel})`,
+        'Balance': `₱${balance.toFixed(2)}`,
         'Payment Date': paymentDate,
         'Month': targetMonth.format('MMMM YYYY')
       });
+    }
+
+    // Add subtotals based on selected payment status
+    if (exportData.length > 0) {
+      // Add empty row separator
+      exportData.push({});
+
+      if (paymentStatus === 'all') {
+        // Show subtotals for each category
+        const categories = [
+          { key: 'fully-paid', label: 'FULLY PAID SUBTOTAL' },
+          { key: 'partially-paid', label: 'PARTIALLY PAID SUBTOTAL' },
+          { key: 'unpaid', label: 'UNPAID SUBTOTAL' }
+        ];
+
+        categories.forEach(({ key, label }) => {
+          if (subtotals[key].count > 0) {
+            exportData.push({
+              'Household ID': label,
+              'Head of Household': `${subtotals[key].count}`,
+              'Purok': '',
+              'Fee Type': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Paid Amount': '',
+              'Payment Status': '',
+              'Balance': '',
+              'Payment Date': '',
+              'Month': ''
+            });
+            exportData.push({
+              'Household ID': 'Expected Fee',
+              'Head of Household': `₱${subtotals[key].totalExpected.toFixed(2)}`,
+              'Purok': '',
+              'Fee Type': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Paid Amount': '',
+              'Payment Status': '',
+              'Balance': '',
+              'Payment Date': '',
+              'Month': ''
+            });
+            exportData.push({
+              'Household ID': 'Paid Amount',
+              'Head of Household': `₱${subtotals[key].totalPaid.toFixed(2)}`,
+              'Purok': '',
+              'Fee Type': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Paid Amount': '',
+              'Payment Status': '',
+              'Balance': '',
+              'Payment Date': '',
+              'Month': ''
+            });
+            exportData.push({
+              'Household ID': 'Balance',
+              'Head of Household': `₱${subtotals[key].totalBalance.toFixed(2)}`,
+              'Purok': '',
+              'Fee Type': '',
+              'Business Status': '',
+              'Expected Fee': '',
+              'Paid Amount': '',
+              'Payment Status': '',
+              'Balance': '',
+              'Payment Date': '',
+              'Month': ''
+            });
+            exportData.push({}); // Empty row after each subtotal
+          }
+        });
+
+        // Add grand total
+        const grandTotal = {
+          count: subtotals['fully-paid'].count + subtotals['partially-paid'].count + subtotals['unpaid'].count,
+          totalExpected: subtotals['fully-paid'].totalExpected + subtotals['partially-paid'].totalExpected + subtotals['unpaid'].totalExpected,
+          totalPaid: subtotals['fully-paid'].totalPaid + subtotals['partially-paid'].totalPaid + subtotals['unpaid'].totalPaid,
+          totalBalance: subtotals['fully-paid'].totalBalance + subtotals['partially-paid'].totalBalance + subtotals['unpaid'].totalBalance
+        };
+
+        exportData.push({
+          'Household ID': 'GRAND TOTAL',
+          'Head of Household': `${grandTotal.count}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+        exportData.push({
+          'Household ID': 'Expected Fee',
+          'Head of Household': `₱${grandTotal.totalExpected.toFixed(2)}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+        exportData.push({
+          'Household ID': 'Paid Amount',
+          'Head of Household': `₱${grandTotal.totalPaid.toFixed(2)}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+        exportData.push({
+          'Household ID': 'Balance',
+          'Head of Household': `₱${grandTotal.totalBalance.toFixed(2)}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      } else {
+        // Show subtotal for the selected category only
+        const selectedCategory = paymentStatus;
+        const categoryLabel = selectedCategory === 'fully-paid' ? 'FULLY PAID TOTAL' : 
+                             selectedCategory === 'partially-paid' ? 'PARTIALLY PAID TOTAL' : 
+                             'UNPAID TOTAL';
+        
+        exportData.push({
+          'Household ID': categoryLabel,
+          'Head of Household': `${subtotals[selectedCategory].count}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+        exportData.push({
+          'Household ID': 'Expected Fee',
+          'Head of Household': `₱${subtotals[selectedCategory].totalExpected.toFixed(2)}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+        exportData.push({
+          'Household ID': 'Paid Amount',
+          'Head of Household': `₱${subtotals[selectedCategory].totalPaid.toFixed(2)}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+        exportData.push({
+          'Household ID': 'Balance',
+          'Head of Household': `₱${subtotals[selectedCategory].totalBalance.toFixed(2)}`,
+          'Purok': '',
+          'Fee Type': '',
+          'Business Status': '',
+          'Expected Fee': '',
+          'Paid Amount': '',
+          'Payment Status': '',
+          'Balance': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
     }
 
     console.log('Generated export data:', exportData);
@@ -1679,7 +2205,7 @@ export default function AdminGarbageFees() {
       },
     },
     {
-      title: "Current Month Fee",
+      title: "Monthly Fee",
       key: "currentFee",
       columnKey: "currentFee",
       render: (_, record) => {
@@ -1809,18 +2335,50 @@ export default function AdminGarbageFees() {
   // Filter columns based on visibility
   const columns = allColumns.filter(col => visibleColumns[col.columnKey]);
 
-  const filteredHouseholds = (Array.isArray(households) ? households : []).filter(h =>
-    [
-      h.householdId,
-      h.address?.street,
-      h.address?.purok,
-      fullName(h.headOfHousehold),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const filteredHouseholds = useMemo(() => {
+    return (Array.isArray(households) ? households : []).filter(h => {
+      // Search filter
+      const matchesSearch = [
+        h.householdId,
+        h.address?.street,
+        h.address?.purok,
+        fullName(h.headOfHousehold),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      // Payment status filter based on yearly payment completion
+      if (tablePaymentStatusFilter === 'all') return true;
+
+      // Get all payment months for this household in current year
+      const currentYear = new Date().getFullYear();
+      const householdPayments = garbagePayments.filter(p => 
+        p.household?.householdId === h.householdId && 
+        dayjs(p.month + '-01').year() === currentYear
+      );
+
+      // Count paid months (amountPaid > 0)
+      const paidMonths = householdPayments.filter(p => Number(p.amountPaid) > 0).length;
+      
+      // Fully paid = all 12 months paid
+      // Partially paid = some months paid but not all 12
+      // Unpaid = no months paid (0 paid months)
+
+      if (tablePaymentStatusFilter === 'fully-paid') {
+        return paidMonths === 12;
+      } else if (tablePaymentStatusFilter === 'partially-paid') {
+        return paidMonths > 0 && paidMonths < 12;
+      } else if (tablePaymentStatusFilter === 'unpaid') {
+        return paidMonths === 0;
+      }
+
+      return true;
+    });
+  }, [households, search, tablePaymentStatusFilter, garbagePayments]);
 
   return (
     <AdminLayout title="Admin">
@@ -1956,6 +2514,18 @@ export default function AdminGarbageFees() {
                 enterButton
                 className="w-full sm:min-w-[350px] md:min-w-[500px] max-w-full"
               />              
+              {/* Payment Status Filter */}
+              <Select
+                value={tablePaymentStatusFilter}
+                onChange={setTablePaymentStatusFilter}
+                style={{ width: 180 }}
+              >
+                <Select.Option value="all">All Payment Status</Select.Option>
+                <Select.Option value="fully-paid">Fully Paid</Select.Option>
+                <Select.Option value="partially-paid">Partially Paid</Select.Option>
+                <Select.Option value="unpaid">Unpaid</Select.Option>
+              </Select>
+
               {/* Customize Columns Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -2008,7 +2578,7 @@ export default function AdminGarbageFees() {
                     }
                     onSelect={(e) => e.preventDefault()}
                   >
-                    Current Month Fee
+                    Monthly Fee
                   </DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem
                     checked={visibleColumns.paymentStatus}
@@ -3257,9 +3827,10 @@ export default function AdminGarbageFees() {
               rules={[{ required: true, message: 'Please select payment status' }]}
             >
               <Select placeholder="Select payment status to export">
-                <Select.Option value="all">All (Paid and Unpaid)</Select.Option>
-                <Select.Option value="paid">Paid Only</Select.Option>
-                <Select.Option value="unpaid">Unpaid Only</Select.Option>
+                <Select.Option value="all">All</Select.Option>
+                <Select.Option value="fully-paid">Fully Paid</Select.Option>
+                <Select.Option value="partially-paid">Partially Paid</Select.Option>
+                <Select.Option value="unpaid">Unpaid</Select.Option>
               </Select>
             </Form.Item>
 
@@ -3321,9 +3892,10 @@ export default function AdminGarbageFees() {
                   
                   const getPaymentStatusText = () => {
                     switch(paymentStatus) {
-                      case 'paid': return 'Paid households only';
+                      case 'fully-paid': return 'Fully Paid households only';
+                      case 'partially-paid': return 'Partially Paid households only';
                       case 'unpaid': return 'Unpaid households only';
-                      default: return 'All households (paid and unpaid)';
+                      default: return 'All households (Fully Paid, Partially Paid and Unpaid)';
                     }
                   };
                   

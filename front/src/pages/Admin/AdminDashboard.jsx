@@ -6,7 +6,7 @@ import apiClient from '../../utils/apiClient';
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Table, Tag, Progress, Space, Divider, message, Button } from 'antd';
-import { UserOutlined, TeamOutlined, FileProtectOutlined, DollarCircleOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, FileProtectOutlined, ThunderboltOutlined, CloudServerOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, DownloadOutlined, MoneyCollectOutlined } from '@ant-design/icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import ExportSummaryModal from '../../components/ExportSummaryModal';
 
@@ -78,6 +78,7 @@ export default function AdminDashboard() {
     residents: [], officials: [], docRequests: [], complaints: [],
     financialDashboard: null,
     payments: [],
+    allTransactionsCount: 0,
     blockchain: null
   });
   const [loading, setLoading] = useState(true);
@@ -99,9 +100,9 @@ export default function AdminDashboard() {
           apiClient.get('/api/admin/document-requests'),
           apiClient.get('/api/admin/complaints'),
           apiClient.get('/api/admin/financial/dashboard'),
-          apiClient.get('/api/admin/financial/transactions', { params: { limit: 10 } })
+          apiClient.get('/api/admin/financial/transactions') // Fetch all transactions for accurate count
         ]);
-        const [residents, officials, docRequests, complaints, financialDashboard, paymentsResponse] = settled.map(
+        const [residents, officials, docRequests, complaints, financialDashboard, allTransactionsResponse] = settled.map(
           (r) => (r.status === 'fulfilled' ? r.value.data : null)
         );
 
@@ -120,7 +121,8 @@ export default function AdminDashboard() {
           docRequests: Array.isArray(docRequests) ? docRequests : [],
           complaints: Array.isArray(complaints) ? complaints : [],
           financialDashboard: financialDashboard || null,
-          payments: paymentsResponse?.transactions || [],
+          payments: allTransactionsResponse?.transactions?.slice(0, 10) || [], // Use first 10 for table
+          allTransactionsCount: allTransactionsResponse?.transactions?.length || 0, // Store total count
           blockchain
         });
       } catch (e) {
@@ -130,11 +132,11 @@ export default function AdminDashboard() {
     return () => abort.abort();
   }, []);
 
-  const { residents, officials, docRequests, complaints, financialDashboard, payments, blockchain } = data;
+  const { residents, officials, docRequests, complaints, financialDashboard, payments, allTransactionsCount, blockchain } = data;
   const totalResidents = residents.length;
   const activeOfficials = officials.filter(o => o.isActive).length;
   const pendingDocRequests = docRequests.filter(d => d.status === 'pending').length;
-  const financialTotal = financialDashboard?.totalTransactions || 0;
+  const financialTotal = allTransactionsCount; // Use count from Financial Reports endpoint
 
   // Calculate statistics with trends
   const statsData = useMemo(() => {
@@ -151,18 +153,16 @@ export default function AdminDashboard() {
     }).length;
     const residentsChange = residentsLastWeek > 0 ? ((residentsThisWeek - residentsLastWeek) / residentsLastWeek * 100).toFixed(1) : (residentsThisWeek > 0 ? 100 : 0);
     
-    // New orders (document requests this week)
-    const ordersThisWeek = docRequests.filter(d => {
-      const date = d.requestedAt || d.createdAt;
-      return date && new Date(date) >= lastWeekStart;
-    }).length;
-    const ordersLastWeek = docRequests.filter(d => {
+    // Pending requests (all-time pending document requests)
+    const pendingRequestsNow = docRequests.filter(d => d.status === 'pending').length;
+    const pendingRequestsLastWeek = docRequests.filter(d => {
+      if (d.status !== 'pending') return false;
       const date = d.requestedAt || d.createdAt;
       if (!date) return false;
       const dt = new Date(date);
-      return dt >= new Date(lastWeekStart.getTime() - 7*24*60*60*1000) && dt < lastWeekStart;
+      return dt < lastWeekStart;
     }).length;
-    const ordersChange = ordersLastWeek > 0 ? ((ordersThisWeek - ordersLastWeek) / ordersLastWeek * 100).toFixed(1) : (ordersThisWeek > 0 ? 100 : 0);
+    const pendingRequestsChange = pendingRequestsLastWeek > 0 ? ((pendingRequestsNow - pendingRequestsLastWeek) / pendingRequestsLastWeek * 100).toFixed(1) : (pendingRequestsNow > 0 ? 100 : 0);
     
     // Total financial transactions (from financial dashboard)
     // Note: We show total count, but calculate change based on revenue trend since transaction timestamps aren't available
@@ -194,9 +194,9 @@ export default function AdminDashboard() {
     
     return {
       totalResidents: { value: totalResidents, change: parseFloat(residentsChange), sinceLast: 'Since Last week' },
-      pendingRequests: { value: ordersThisWeek, change: parseFloat(ordersChange), sinceLast: 'Since Last week' },
-      totalTransactions: { value: financialTotal, change: parseFloat(transactionChange), sinceLast: 'from last month' },
-      totalRevenue: { value: totalRevenue, change: parseFloat(revenueChange), sinceLast: 'from last month' }
+      pendingRequests: { value: pendingRequestsNow, change: parseFloat(pendingRequestsChange), sinceLast: 'Since Last week' },
+      totalTransactions: { value: financialTotal, change: parseFloat(transactionChange), sinceLast: 'From last month' },
+      totalRevenue: { value: totalRevenue, change: parseFloat(revenueChange), sinceLast: 'From last month' }
     };
   }, [residents, docRequests, financialDashboard, financialTotal, totalResidents]);
 
@@ -609,7 +609,7 @@ export default function AdminDashboard() {
           />
           {/* Total Financial Transactions */}
           <MetricCard
-            icon={<DollarCircleOutlined />}
+            icon={<span className="font-bold">₱</span>}
             title={<span className="font-bold">Total Financial Transactions</span>}
             value={statsData.totalTransactions.value}
             change={statsData.totalTransactions.change}
@@ -619,7 +619,7 @@ export default function AdminDashboard() {
           />
           {/* Total Revenue */}
           <MetricCard
-            icon={<DollarCircleOutlined />}
+            icon={<span className="font-bold">₱</span>}
             title={<span className="font-bold">Total Revenue</span>}
             value={statsData.totalRevenue.value}
             change={statsData.totalRevenue.change}
@@ -964,7 +964,7 @@ export default function AdminDashboard() {
           <Card className="bg-white border border-gray-200 rounded-lg shadow-sm">
             <CardHeader className="p-4 md:p-6">
               <CardTitle className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
-                <DollarCircleOutlined /> Recent Payment Fees
+                <span className="font-bold">₱</span> Recent Payment Fees
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto p-3 md:p-6">

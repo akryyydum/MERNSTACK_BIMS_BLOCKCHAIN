@@ -10,6 +10,7 @@ import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
+import * as XLSX from "xlsx";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -1018,34 +1019,17 @@ function getRange(rangeType, period) {
   return { start: p.startOf('month'), end: p.endOf('month') };
 }
 
-function toCsv(rows) {
-  if (!rows || !rows.length) return '';
-  const headers = Object.keys(rows[0]);
-  const esc = (v) => {
-    if (v == null) return '';
-    const s = String(v);
-    if (/[",\n]/.test(s)) {
-      return '"' + s.replace(/"/g, '""') + '"';
-    }
-    return s;
-  };
-  const lines = [];
-  lines.push(headers.join(','));
-  for (const row of rows) {
-    lines.push(headers.map((h) => esc(row[h])).join(','));
-  }
-  return lines.join('\n');
-}
+// XLSX is preferred to allow column auto-fit like fees pages
 
 const handleExport = async () => {
   try {
   const { rangeType, period, reportType, docTypeFilter, purokFilter } = await exportForm.validateFields();
       const { start, end } = getRange(rangeType, period);
 
-      // Date range filter
+      // Date range filter - ONLY INCLUDE COMPLETED REQUESTS
       let filtered = requests.filter(r => {
         const t = dayjs(r.requestedAt).valueOf();
-        return t >= start.valueOf() && t <= end.valueOf();
+        return r.status === 'completed' && t >= start.valueOf() && t <= end.valueOf();
       });
 
       // Document type filter
@@ -1088,27 +1072,122 @@ const handleExport = async () => {
         rows = ranked.map((entry, idx) => ({
           Rank: idx + 1,
           Resident: formatResidentName(entry.resident),
-          ResidentId: entry.id,
+          'Resident Id': entry.id,
           Requests: entry.count,
-          DocumentTypeFilter: docFilter,
-          PurokFilter: purokVal,
+          'Document Type Filter': docFilter,
+          'Purok Filter': purokVal,
         }));
         filenamePrefix = 'TopRequesters';
       } else {
         // Detailed rows
         rows = filtered.map(r => ({
           Resident: formatResidentName(r.residentId),
-          CivilStatus: r.residentId?.civilStatus || "-",
+          'Civil Status': r.residentId?.civilStatus || "-",
           Purok: r.residentId?.address?.purok || "-",
-          DocumentType: r.documentType,
+          'Document Type': r.documentType,
           Purpose: r.purpose || "",
-          BusinessName: r.documentType === "Business Clearance" ? (r.businessName || "") : "",
-          RequestedAt: r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
-          UpdatedAt: r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
+          'Business Name': r.documentType === "Business Clearance" ? (r.businessName || "") : "",
+          'Requested At': r.requestedAt ? dayjs(r.requestedAt).format("YYYY-MM-DD HH:mm") : "",
+          'Updated At': r.updatedAt ? dayjs(r.updatedAt).format("YYYY-MM-DD HH:mm") : "",
         }));
+
+        // Add totals section
+        const indigencyCount = filtered.filter(r => r.documentType === "Certificate of Indigency" || r.documentType === "Indigency").length;
+        const barangayClearanceCount = filtered.filter(r => r.documentType === "Barangay Clearance").length;
+        const businessClearanceCount = filtered.filter(r => r.documentType === "Business Clearance").length;
+        const grandTotal = filtered.length;
+
+        // Add empty row separator
+        rows.push({
+          Resident: "",
+          'Civil Status': "",
+          Purok: "",
+          'Document Type': "",
+          Purpose: "",
+          'Business Name': "",
+          'Requested At': "",
+          'Updated At': "",
+        });
+
+        // Add totals based on document type filter
+        if (docFilter === 'all' || !docFilter) {
+          // Show all totals and grand total
+          rows.push({
+            Resident: "TOTAL - Indigency",
+            'Civil Status': indigencyCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+          rows.push({
+            Resident: "TOTAL - Barangay Clearance",
+            'Civil Status': barangayClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+          rows.push({
+            Resident: "TOTAL - Business Clearance",
+            'Civil Status': businessClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+          rows.push({
+            Resident: "GRAND TOTAL",
+            'Civil Status': grandTotal,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        } else if (docFilter === "Certificate of Indigency" || docFilter === "Indigency") {
+          rows.push({
+            Resident: "TOTAL - Indigency",
+            'Civil Status': indigencyCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        } else if (docFilter === "Barangay Clearance") {
+          rows.push({
+            Resident: "TOTAL - Barangay Clearance",
+            'Civil Status': barangayClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        } else if (docFilter === "Business Clearance") {
+          rows.push({
+            Resident: "TOTAL - Business Clearance",
+            'Civil Status': businessClearanceCount,
+            Purok: "",
+            'Document Type': "",
+            Purpose: "",
+            'Business Name': "",
+            'Requested At': "",
+            'Updated At': "",
+          });
+        }
       }
 
-      const csv = toCsv(rows);
       const filenameBase =
         rangeType === "day"
           ? dayjs(period).format("YYYYMMDD")
@@ -1118,9 +1197,28 @@ const handleExport = async () => {
 
       const docSlug = (docFilter || 'all').replace(/\s+/g, '_').toLowerCase();
       const purokSlug = (purokVal || 'all').toString().replace(/\s+/g, '_').toLowerCase();
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      saveAs(blob, `${filenamePrefix}-${docSlug}-${purokSlug}-${rangeType}-${filenameBase}.csv`);
-      message.success("Export generated.");
+      // Build Excel workbook with auto-fit columns (like AdminGarbageFees)
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+
+      const colWidths = rows.reduce((acc, row) => {
+        Object.keys(row).forEach((key, idx) => {
+          const value = row[key] ? row[key].toString() : '';
+          // Calculate width based on content and header, with minimum of 12 and maximum of 50
+          const calculatedWidth = Math.max(value.length + 2, key.length + 2);
+          acc[idx] = Math.max(acc[idx] || 0, calculatedWidth);
+        });
+        return acc;
+      }, []);
+      ws['!cols'] = colWidths.map(width => ({ wch: Math.min(Math.max(width, 12), 50) }));
+
+      // Freeze the header row (first row) so it stays visible when scrolling
+      ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Document Requests');
+      const filename = `${filenamePrefix}-${docSlug}-${purokSlug}-${rangeType}-${filenameBase}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      message.success("Excel file exported successfully!");
       setExportOpen(false);
   } catch (e) {
     // validation or other errors

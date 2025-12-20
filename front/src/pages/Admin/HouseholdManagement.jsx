@@ -463,26 +463,16 @@ export default function HouseholdManagement() {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(exportData);
 
-      // Auto-fit columns
-      const colWidths = [
-        { wch: 15 }, // HOUSEHOLD ID
-        { wch: 10 }, // PUROK
-        { wch: 18 }, // ROLE
-        { wch: 15 }, // LAST NAME
-        { wch: 15 }, // FIRST NAME
-        { wch: 15 }, // MIDDLE NAME
-        { wch: 8 },  // EXT
-        { wch: 20 }, // PLACE OF BIRTH
-        { wch: 15 }, // DATE OF BIRTH
-        { wch: 5 },  // AGE
-        { wch: 10 }, // SEX
-        { wch: 15 }, // CIVIL STATUS
-        { wch: 15 }, // CITIZENSHIP
-        { wch: 20 }, // OCCUPATION
-        { wch: 25 }, // SEC. INFO
-      ];
-      
-      ws['!cols'] = colWidths;
+      // Auto-fit columns based on content width
+      const colWidths = exportData.reduce((acc, row) => {
+        Object.keys(row).forEach((key, idx) => {
+          const value = row[key] ? row[key].toString() : '';
+          const calculatedWidth = Math.max(value.length + 2, key.length + 2);
+          acc[idx] = Math.max(acc[idx] || 0, calculatedWidth);
+        });
+        return acc;
+      }, []);
+      ws['!cols'] = colWidths.map(width => ({ wch: Math.min(Math.max(width, 12), 50) }));
 
       XLSX.utils.book_append_sheet(wb, ws, 'Household Members');
       

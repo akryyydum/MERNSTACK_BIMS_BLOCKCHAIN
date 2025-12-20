@@ -590,7 +590,7 @@ export default function AdminResidentManagement() {
         return;
       }
 
-      // Prepare data for Excel
+      // Prepare data for Excel (removed Municipality, Province, ZIP Code)
       const excelData = filtered.map(r => ({
         "Full Name": [r.firstName, r.middleName, r.lastName, r.suffix].filter(Boolean).join(" "),
         "Sex": r.sex || "",
@@ -609,20 +609,105 @@ export default function AdminResidentManagement() {
         "Email": r.contact?.email || "",
         "Purok": r.address?.purok || "",
         "Barangay": r.address?.barangay || "",
-        "Municipality": r.address?.municipality || "",
-        "Province": r.address?.province || "",
-        "ZIP Code": r.address?.zipCode || "",
         "Created At": r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
       }));
 
+      // Calculate totals for summary section
+      const purokCounts = {};
+      const ethnicityCounts = {};
+      const religionCounts = {};
+      let seniorCount = 0;
+      let nonSeniorCount = 0;
+      
+      filtered.forEach(r => {
+        // Purok counts
+        const purok = r.address?.purok || "Unknown";
+        purokCounts[purok] = (purokCounts[purok] || 0) + 1;
+        
+        // Ethnicity counts
+        const ethnicity = r.ethnicity || "Not Specified";
+        ethnicityCounts[ethnicity] = (ethnicityCounts[ethnicity] || 0) + 1;
+        
+        // Religion counts
+        const religion = r.religion || "Not Specified";
+        religionCounts[religion] = (religionCounts[religion] || 0) + 1;
+        
+        // Age counts (Senior vs Non-Senior)
+        const age = calculateAge(r.dateOfBirth);
+        if (age >= 60) {
+          seniorCount++;
+        } else {
+          nonSeniorCount++;
+        }
+      });
+      
+      // Create summary data rows
+      const summaryData = [];
+      
+      // Add spacing
+      summaryData.push({});
+      summaryData.push({});
+      
+      // Purok Distribution Summary
+      summaryData.push({ "Full Name": "PUROK DISTRIBUTION" });
+      Object.entries(purokCounts).sort((a, b) => {
+        // Sort Purok 1-5 first, then others
+        const purokA = a[0].match(/Purok (\d+)/)?.[1];
+        const purokB = b[0].match(/Purok (\d+)/)?.[1];
+        if (purokA && purokB) return parseInt(purokA) - parseInt(purokB);
+        if (purokA) return -1;
+        if (purokB) return 1;
+        return a[0].localeCompare(b[0]);
+      }).forEach(([purok, count]) => {
+        summaryData.push({ "Full Name": purok, "Sex": count.toString() });
+      });
+      summaryData.push({ "Full Name": "TOTAL", "Sex": filtered.length.toString() });
+      summaryData.push({});
+      
+      // Age Distribution Summary (only if age filter was used)
+      if (filterType === "age") {
+        summaryData.push({ "Full Name": "AGE DISTRIBUTION" });
+        summaryData.push({ "Full Name": "Senior Citizens (60+)", "Sex": seniorCount.toString() });
+        summaryData.push({ "Full Name": "Non-Senior Citizens", "Sex": nonSeniorCount.toString() });
+        summaryData.push({ "Full Name": "TOTAL", "Sex": filtered.length.toString() });
+        summaryData.push({});
+      }
+      
+      // Ethnicity Distribution Summary (only if ethnicity filter was used or show all)
+      if (filterType === "ethnicity" || filterType === null) {
+        summaryData.push({ "Full Name": "ETHNICITY DISTRIBUTION" });
+        Object.entries(ethnicityCounts).sort((a, b) => b[1] - a[1]).forEach(([ethnicity, count]) => {
+          summaryData.push({ "Full Name": ethnicity, "Sex": count.toString() });
+        });
+        summaryData.push({ "Full Name": "TOTAL", "Sex": filtered.length.toString() });
+        summaryData.push({});
+      }
+      
+      // Religion Distribution Summary (only if religion filter was used or show all)
+      if (filterType === "religion" || filterType === null) {
+        summaryData.push({ "Full Name": "RELIGION DISTRIBUTION" });
+        Object.entries(religionCounts).sort((a, b) => b[1] - a[1]).forEach(([religion, count]) => {
+          summaryData.push({ "Full Name": religion, "Sex": count.toString() });
+        });
+        summaryData.push({ "Full Name": "TOTAL", "Sex": filtered.length.toString() });
+      }
+      
+      // Combine main data with summary data
+      const combinedData = [...excelData, ...summaryData];
+
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
+      const ws = XLSX.utils.json_to_sheet(combinedData);
 
-      // Auto-fit columns
-      const colWidths = Object.keys(excelData[0] || {}).map(key => ({
-        wch: Math.max(key.length, 15)
-      }));
+      // Auto-fit columns based on content width
+      const colWidths = Object.keys(excelData[0] || {}).map((key) => {
+        let maxWidth = key.length + 2;
+        combinedData.forEach(row => {
+          const cellValue = row[key] ? String(row[key]) : '';
+          maxWidth = Math.max(maxWidth, cellValue.length + 2);
+        });
+        return { wch: Math.min(Math.max(maxWidth, 12), 50) };
+      });
       ws['!cols'] = colWidths;
 
       // Add worksheet to workbook

@@ -4,6 +4,8 @@ const UtilityPayment = require("../models/utilityPayment.model");
 const FinancialTransaction = require("../models/financialTransaction.model");
 const DocumentRequest = require("../models/document.model");
 const Settings = require("../models/settings.model");
+const { getDashboard } = require("./adminFinancialController");
+const XLSX = require("xlsx");
 const dayjs = require("dayjs");
 const isSameOrBefore = require("dayjs/plugin/isSameOrBefore");
 const isSameOrAfter = require("dayjs/plugin/isSameOrAfter");
@@ -86,7 +88,6 @@ const generateSummaryData = async (startDate, endDate) => {
     // Fetch settings for barangay info
     const settings = await Settings.findOne().lean();
     const barangayName = settings?.barangayName || "La Torre North";
-    const municipality = settings?.municipality || "Himamaylan City";
     
     // ==========================
     // RESIDENTS DATA
@@ -187,12 +188,6 @@ const generateSummaryData = async (startDate, endDate) => {
       return dateToCheck >= startDate && dateToCheck <= endDate;
     });
     
-    // Calculate garbage fees collected (in date range)
-    const garbageFeeCollected = garbagePayments.reduce((sum, p) => sum + (Number(p.amountPaid) || 0), 0);
-    
-    // Calculate streetlight fees collected (in date range)
-    const streetlightFeeCollected = streetlightPayments.reduce((sum, p) => sum + (Number(p.amountPaid) || 0), 0);
-    
     // Calculate fee compliance rate based on household expected revenue (matching admin pages logic)
     // Get current year payments for all households to calculate collection rate
     const currentYear = new Date().getFullYear();
@@ -245,23 +240,6 @@ const generateSummaryData = async (startDate, endDate) => {
       : 0;
     
     // ==========================
-    // FINANCIAL DATA
-    // ==========================
-    const financialTransactions = await FinancialTransaction.find({
-      createdAt: { $gte: startDate, $lte: endDate }
-    }).lean();
-    
-    const incomeTotal = financialTransactions
-      .filter(t => t.category === "revenue")
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    
-    const expenseTotal = financialTransactions
-      .filter(t => t.category === "expense")
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    
-    const netBalance = incomeTotal - expenseTotal;
-    
-    // ==========================
     // DOCUMENT REQUESTS DATA
     // ==========================
     // Fetch all document requests with populated fields (same as AdminDocumentRequests.jsx)
@@ -272,13 +250,18 @@ const generateSummaryData = async (startDate, endDate) => {
       .sort({ requestedAt: -1 })
       .lean();
     
-    // Filter by date range using requestedAt field (primary) or createdAt as fallback
+    // Filter by date range using requestedAt field (primary) or createdAt as fallback (for counts only)
     const docRequests = allDocRequests.filter(d => {
       const dateToCheck = new Date(d.requestedAt || d.createdAt);
       return dateToCheck >= startDate && dateToCheck <= endDate;
     });
     
     const totalDocRequests = docRequests.length;
+    
+    // For revenue calculation, use ALL completed/claimed requests (matching dashboard logic - no date filter)
+    const revenueDocRequests = allDocRequests.filter(d => 
+      (d.status === "completed" || d.status === "claimed") && (d.amount > 0 || d.feeAmount > 0)
+    );
     
     // Count by document type (using exact matching like in AdminDocumentRequests)
     const clearanceCount = docRequests.filter(d => 
@@ -320,11 +303,91 @@ const generateSummaryData = async (startDate, endDate) => {
       d.status === "declined"
     ).length;
     
-    // Revenue from document requests (include both amount and feeAmount fields)
-    const docRequestRevenue = docRequests.reduce((sum, d) => {
-      const docAmount = Number(d.amount || d.feeAmount || 0);
-      const qty = Math.max(Number(d.quantity || 1), 1);
-      return sum + (docAmount * qty);
+    // ==========================
+    // FINANCIAL DATA - Get from Financial Reports logic (matching AdminFinancialReports)
+    // ==========================
+    // Use the EXACT same logic as getFinancialTransactions to ensure count matches
+    
+    // Fetch regular financial transactions (non-utility)
+    const allFinancialTransactions = await FinancialTransaction.find({}).lean();
+    const nonUtilityTransactions = allFinancialTransactions.filter(
+      (t) => !['garbage_fee', 'streetlight_fee'].includes(t.type)
+    );
+    
+    // Fetch ALL utility payments (no year filter - matches Financial Reports)
+    const allUtilityPayments = await UtilityPayment.find({}).lean();
+    
+    // Convert utility payments to transaction format (flatten payments array)
+    const utilityTransactions = allUtilityPayments
+      .filter(payment => payment.payments && payment.payments.length > 0)
+      .flatMap(payment => {
+        return payment.payments.map(paymentEntry => ({
+          type: payment.type === 'garbage' ? 'garbage_fee' : 
+                payment.type === 'streetlight' ? 'streetlight_fee' : 
+                'utility_fee',
+          category: 'revenue',
+          amount: paymentEntry.amount,
+          transactionDate: paymentEntry.paidAt,
+          description: `${payment.type} fee for ${payment.month}`,
+          month: payment.month,
+          status: 'completed'
+        }));
+      });
+    
+    // Fetch document requests with fees (completed/claimed with amount > 0)
+    const documentRequestsWithFees = await DocumentRequest.find({
+      status: { $in: ['completed', 'claimed'] },
+      amount: { $gt: 0 }
+    }).lean();
+    
+    // Convert document requests to transaction format
+    const documentTransactions = documentRequestsWithFees.map(doc => ({
+      type: 'document_request',
+      category: 'revenue',
+      amount: doc.amount || 0,
+      transactionDate: doc.updatedAt || doc.createdAt,
+      description: `${doc.documentType} request`,
+      status: 'completed'
+    }));
+    
+    // Combine all transactions (matches Financial Reports logic exactly)
+    const allTransactions = [...nonUtilityTransactions, ...utilityTransactions, ...documentTransactions];
+    
+    // Filter transactions by selected date range
+    const filteredTransactions = allTransactions.filter(t => {
+      const txDate = new Date(t.transactionDate || t.createdAt);
+      return txDate >= startDate && txDate <= endDate;
+    });
+    
+    const totalTransactionCount = filteredTransactions.length;
+    
+    // Count garbage and streetlight transactions separately
+    const totalGarbageTransactions = filteredTransactions.filter(t => t.type === 'garbage_fee').length;
+    const totalStreetlightTransactions = filteredTransactions.filter(t => t.type === 'streetlight_fee').length;
+    
+    // Count document request transactions (completed/claimed with fees)
+    const totalDocumentRequestTransactions = filteredTransactions.filter(t => t.type === 'document_request').length;
+    
+    // Count other transactions (revenue from manual 'Add Transaction' - non-utility, non-document)
+    const totalOtherTransactions = filteredTransactions.filter(t => 
+      !['garbage_fee', 'streetlight_fee', 'document_request'].includes(t.type) && t.category === 'revenue'
+    ).length;
+    
+    // Calculate revenue and expenses from filtered transactions only (matching Financial Reports logic)
+    const totalRevenue = filteredTransactions
+      .filter(t => t.category === 'revenue')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    const expenseTotal = filteredTransactions
+      .filter(t => t.category === 'expense')
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    const netBalance = totalRevenue - expenseTotal;
+    
+    // For backward compatibility, also calculate document request revenue for detail rows
+    const docRequestRevenue = revenueDocRequests.reduce((sum, d) => {
+      const docAmount = Number(d.amount || 0);
+      return sum + docAmount;
     }, 0);
     
     // Most requested document type
@@ -351,12 +414,12 @@ const generateSummaryData = async (startDate, endDate) => {
       d.blockchain?.hash || d.blockchain?.lastTxId
     ).length;
     
-    const blockchainFinancial = financialTransactions.filter(t => 
+    const blockchainFinancial = allTransactions.filter(t => 
       t.blockchain?.hash || t.blockchain?.txId
     ).length;
     
     const totalBlockchainRecords = blockchainResidents + blockchainDocRequests + blockchainFinancial;
-    const verifiedLedgerEntries = totalBlockchainRecords; // Assuming verified if on blockchain
+    const blockchain = totalBlockchainRecords > 0; // Check if blockchain has any records
     
     // ==========================
     // RETURN SUMMARY OBJECT
@@ -364,57 +427,45 @@ const generateSummaryData = async (startDate, endDate) => {
     return {
       // General Info
       barangay_name: barangayName,
-      municipality: municipality,
       report_range_start: dayjs(startDate).format("YYYY-MM-DD"),
       report_range_end: dayjs(endDate).format("YYYY-MM-DD"),
       
-      // Residents
-      total_population: totalPopulation,
-      new_residents_in_range: newResidentsInRange,
+      // Dashboard Metrics (Top Cards)
+      total_residents: totalPopulation,
+      pending_document_requests: pendingRequests,
+      total_garbage_transactions: totalGarbageTransactions,
+      total_streetlight_transactions: totalStreetlightTransactions,
+      total_document_request_transactions: totalDocumentRequestTransactions,
+      total_other_transactions: totalOtherTransactions,
+      total_financial_transactions: totalTransactionCount,
+      total_revenue: totalRevenue.toFixed(2),
+      total_expenses: expenseTotal.toFixed(2),
+      total_net_balance: netBalance.toFixed(2),
+      
+      // Gender Demographics (Pie Chart)
       male_count: maleCount,
       female_count: femaleCount,
-      age_0_12: age0_12,
-      age_13_17: age13_17,
-      age_18_59: age18_59,
-      age_60_plus: age60Plus,
-      registered_voters: registeredVoters,
-      employed: employed,
-      unemployed: unemployed,
-      students: students,
-      pwd_count: pwdCount,
-      senior_citizen_count: seniorCitizenCount,
-      solo_parent_count: soloParentCount,
+      male_percentage: totalPopulation > 0 ? ((maleCount / totalPopulation) * 100).toFixed(1) + "%" : "0%",
+      female_percentage: totalPopulation > 0 ? ((femaleCount / totalPopulation) * 100).toFixed(1) + "%" : "0%",
       
-      // Households
-      total_households: totalHouseholds,
-      new_households: newHouseholdsInRange,
-      avg_household_size: avgHouseholdSize,
+      // Purok Distribution (Pie Chart)
+      purok_1_count: allResidents.filter(r => r.address?.purok === 'Purok 1').length,
+      purok_2_count: allResidents.filter(r => r.address?.purok === 'Purok 2').length,
+      purok_3_count: allResidents.filter(r => r.address?.purok === 'Purok 3').length,
+      purok_4_count: allResidents.filter(r => r.address?.purok === 'Purok 4').length,
+      purok_5_count: allResidents.filter(r => r.address?.purok === 'Purok 5').length,
       
-      // Fees
-      garbage_fee_collected: garbageFeeCollected.toFixed(2),
-      streetlight_fee_collected: streetlightFeeCollected.toFixed(2),
-      fee_compliance_rate: feeComplianceRate + "%",
-      
-      // Financial
-      income_total: incomeTotal.toFixed(2),
-      expense_total: expenseTotal.toFixed(2),
-      net_balance: netBalance.toFixed(2),
-      
-      // Documents
-      total_doc_requests: totalDocRequests,
-      clearance_count: clearanceCount,
-      indigency_count: indigencyCount,
+      // Document Requests (from Area Chart & Table)
+      barangay_clearance_count: clearanceCount,
+      certificate_of_indigency_count: indigencyCount,
       business_clearance_count: businessClearanceCount,
-      completed_requests: completedRequests,
-      pending_requests: pendingRequests,
-      accepted_requests: acceptedRequests,
-      declined_requests: declinedRequests,
-      doc_request_revenue: docRequestRevenue.toFixed(2),
-      most_requested_document: mostRequestedDocument,
+      completed_doc_requests: completedRequests,
+      accepted_doc_requests: acceptedRequests,
+      declined_doc_requests: declinedRequests,
       
-      // Blockchain
-      total_blockchain_records: totalBlockchainRecords,
-      verified_ledger_entries: verifiedLedgerEntries
+      // Blockchain Network Status
+      blockchain_records: totalBlockchainRecords,
+      blockchain_status: blockchain ? "Active" : "Inactive"
     };
     
   } catch (error) {
@@ -424,24 +475,181 @@ const generateSummaryData = async (startDate, endDate) => {
 };
 
 /**
- * Convert summary object to CSV string
- * @param {Object} summary - Summary data object
- * @returns {string} - CSV string
+ * Format field name for display (remove underscores, capitalize words)
+ * @param {string} fieldName - Field name with underscores
+ * @returns {string} - Formatted field name
  */
-const convertToCSV = (summary) => {
-  // Create CSV header (field names)
-  const headers = Object.keys(summary);
+const formatFieldName = (fieldName) => {
+  return fieldName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
+ * Convert summary object to Excel file with auto-width columns
+ * @param {Object} summary - Summary data object
+ * @returns {Buffer} - Excel file buffer
+ */
+const convertToExcel = (summary) => {
+  const wb = XLSX.utils.book_new();
+  const data = [];
   
-  // Create CSV data row (values)
-  const values = Object.values(summary).map(val => sanitizeCsvValue(val));
+  // Helper function to add section header
+  const addSectionHeader = (title) => {
+    data.push([title, ""]);
+  };
   
-  // Combine header and values
-  const csvContent = [
-    headers.join(","),
-    values.join(",")
-  ].join("\n");
+  // Helper function to add key-value row
+  const addRow = (key, value) => {
+    data.push([key, String(value)]);
+  };
   
-  return csvContent;
+  // Helper function to add spacing
+  const addSpacing = () => {
+    data.push(["", ""]);
+  };
+  
+  // REPORT HEADER
+  data.push(["BARANGAY SUMMARY REPORT:", summary.barangay_name]);
+  
+  // Date range row
+  addRow("Report Period", `${summary.report_range_start} to ${summary.report_range_end}`);
+  addSpacing();
+  
+  // ========== DASHBOARD METRICS ==========
+  addSectionHeader("DASHBOARD METRICS");
+  addRow("Total Residents", summary.total_residents);
+  addRow("Total Financial Transactions", summary.total_financial_transactions);
+  addRow("Total Revenue", `₱ ${summary.total_revenue}`);
+  addRow("Total Expenses", `₱ ${summary.total_expenses}`);
+  addRow("Total Net Balance (Revenue - Expenses)", `₱ ${summary.total_net_balance}`);
+  addSpacing();
+  
+  // ========== TRANSACTION BREAKDOWN ==========
+  addSectionHeader("TRANSACTION BREAKDOWN");
+  addRow("Total Garbage Transactions", summary.total_garbage_transactions);
+  addRow("Total Streetlight Transactions", summary.total_streetlight_transactions);
+  addRow("Total Document Request Transactions", summary.total_document_request_transactions);
+  addRow("Other Transactions", summary.total_other_transactions);
+  addSpacing();
+  
+  // ========== GENDER DEMOGRAPHICS ==========
+  addSectionHeader("GENDER DEMOGRAPHICS");
+  addRow("Male", `${summary.male_count} (${summary.male_percentage})`);
+  addRow("Female", `${summary.female_count} (${summary.female_percentage})`);
+  addSpacing();
+  
+  // ========== PUROK DISTRIBUTION ==========
+  addSectionHeader("PUROK DISTRIBUTION");
+  addRow("Purok 1", summary.purok_1_count);
+  addRow("Purok 2", summary.purok_2_count);
+  addRow("Purok 3", summary.purok_3_count);
+  addRow("Purok 4", summary.purok_4_count);
+  addRow("Purok 5", summary.purok_5_count);
+  addSpacing();
+  
+  // ========== DOCUMENT REQUESTS ==========
+  addSectionHeader("DOCUMENT REQUESTS");
+  addRow("Pending Document Requests", summary.pending_document_requests);
+  addRow("Total Barangay Clearance", summary.barangay_clearance_count);
+  addRow("Total Certificate of Indigency", summary.certificate_of_indigency_count);
+  addRow("Total Business Clearance", summary.business_clearance_count);
+  addRow("Completed Requests", summary.completed_doc_requests);
+  addRow("Accepted Requests", summary.accepted_doc_requests);
+  addRow("Declined Requests", summary.declined_doc_requests);
+  addSpacing();
+  
+  // Create worksheet from data array
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  
+  // Define styling information
+  const headerRowIndex = 0;
+  const sectionHeaderIndices = [];
+  let currentIndex = 0;
+  
+  // Identify section header rows and apply formatting
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    
+    if (i === 0) {
+      // Main title (row 0)
+      const titleCell = XLSX.utils.encode_cell({ r: i, c: 0 });
+      ws[titleCell] = {
+        ...ws[titleCell],
+        s: {
+          font: { bold: true, size: 14, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "1F4E78" } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+    } else if (row[0] && ['DASHBOARD METRICS', 'GENDER DEMOGRAPHICS', 'PUROK DISTRIBUTION', 'DOCUMENT REQUESTS', 'BLOCKCHAIN STATUS'].includes(row[0])) {
+      // Section headers
+      const sectionCell = XLSX.utils.encode_cell({ r: i, c: 0 });
+      ws[sectionCell] = {
+        ...ws[sectionCell],
+        s: {
+          font: { bold: true, size: 12, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "366092" } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+      sectionHeaderIndices.push(i);
+    } else if (row[0] && row[0].trim() !== "" && row[1] && row[1].trim() !== "") {
+      // Data rows - apply light alternating colors
+      const keyCell = XLSX.utils.encode_cell({ r: i, c: 0 });
+      const valueCell = XLSX.utils.encode_cell({ r: i, c: 1 });
+      
+      const bgColor = i % 2 === 0 ? "F2F2F2" : "FFFFFF";
+      
+      ws[keyCell] = {
+        ...ws[keyCell],
+        s: {
+          font: { bold: false, size: 11 },
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+      
+      ws[valueCell] = {
+        ...ws[valueCell],
+        s: {
+          font: { bold: false, size: 11 },
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        }
+      };
+    }
+  }
+  
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 40 },  // Column A (field names)
+    { wch: 50 }   // Column B (values)
+  ];
+  
+  // Set row heights
+  ws['!rows'] = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i === 0) {
+      ws['!rows'][i] = { hpt: 28 }; // Main title
+    } else if (sectionHeaderIndices.includes(i)) {
+      ws['!rows'][i] = { hpt: 22 }; // Section headers
+    } else {
+      ws['!rows'][i] = { hpt: 18 }; // Regular rows
+    }
+  }
+  
+  // Add worksheet to workbook
+  XLSX.utils.book_append_sheet(wb, ws, "Summary");
+  
+  // Generate buffer
+  const excelBuffer = XLSX.write(wb, { 
+    type: 'buffer', 
+    bookType: 'xlsx'
+  });
+  
+  return excelBuffer;
 };
 
 /**
@@ -484,34 +692,34 @@ exports.exportSummaryCSV = async (req, res) => {
     // Calculate date range
     const { startDate, endDate } = calculateDateRange(type, date);
     
-    console.log(`[Export CSV] Type: ${type}, Date: ${date}`);
-    console.log(`[Export CSV] Range: ${startDate.toISOString()} - ${endDate.toISOString()}`);
+    console.log(`[Export Excel] Type: ${type}, Date: ${date}`);
+    console.log(`[Export Excel] Range: ${startDate.toISOString()} - ${endDate.toISOString()}`);
     
     // Generate summary data
     const summary = await generateSummaryData(startDate, endDate);
     
-    // Convert to CSV
-    const csvContent = convertToCSV(summary);
+    // Convert to Excel with auto-width columns
+    const excelBuffer = convertToExcel(summary);
     
     // Generate filename with timestamp
     const timestamp = dayjs().format("YYYYMMDD_HHmmss");
-    const filename = `bims_summary_${type}_${timestamp}.csv`;
+    const filename = `bims_summary_${type}_${timestamp}.xlsx`;
     
-    // Set response headers for CSV download
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    // Set response headers for Excel download
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Pragma", "no-cache");
     
-    // Send CSV content
-    res.status(200).send(csvContent);
+    // Send Excel buffer
+    res.status(200).send(excelBuffer);
     
-    console.log(`[Export CSV] Successfully generated: ${filename}`);
+    console.log(`[Export Excel] Successfully generated: ${filename}`);
     
   } catch (error) {
-    console.error("[Export CSV] Error:", error);
+    console.error("[Export Excel] Error:", error);
     res.status(500).json({ 
-      message: "Failed to generate CSV export",
+      message: "Failed to generate Excel export",
       error: error.message 
     });
   }

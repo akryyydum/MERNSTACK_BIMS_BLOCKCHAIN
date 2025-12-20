@@ -105,10 +105,15 @@ export default function AdminFinancialReports() {
   const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
-    fetchDashboard();
-    fetchTransactions();
-    fetchResidents();
-    fetchHouseholds();
+    // Add debounce to prevent too many simultaneous requests
+    const timer = setTimeout(() => {
+      fetchDashboard();
+      fetchTransactions();
+      fetchResidents();
+      fetchHouseholds();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [filters]);
 
   // Reset to page 1 when search or filter changes
@@ -212,7 +217,11 @@ export default function AdminFinancialReports() {
       setDashboardRefreshKey(prev => prev + 1); // Force re-render of statistics cards
     } catch (error) {
       console.error('Error fetching dashboard:', error);
-      message.error('Failed to load financial dashboard');
+      if (error.response?.status === 429) {
+        message.warning('Server is busy. Please wait a moment and try again.');
+      } else {
+        message.error('Failed to load financial dashboard');
+      }
     }
   };
 
@@ -239,7 +248,11 @@ export default function AdminFinancialReports() {
       setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      message.error('Failed to fetch transactions');
+      if (error.response?.status === 429) {
+        message.warning('Server is busy. Please wait a moment and try again.');
+      } else {
+        message.error('Failed to fetch transactions');
+      }
     }
     setLoading(false);
   };
@@ -416,26 +429,181 @@ export default function AdminFinancialReports() {
         setExporting(false);
         return;
       }
+
+      // Group transactions by month
+      const groupedByMonth = filteredData.reduce((acc, t) => {
+        const monthKey = dayjs(t.transactionDate).format('YYYY-MM');
+        const monthLabel = dayjs(t.transactionDate).format('MMMM YYYY');
+        
+        if (!acc[monthKey]) {
+          acc[monthKey] = {
+            monthLabel,
+            monthKey,
+            transactions: []
+          };
+        }
+        
+        acc[monthKey].transactions.push(t);
+        return acc;
+      }, {});
+
+      // Sort months chronologically (oldest to newest)
+      const sortedMonths = Object.values(groupedByMonth).sort((a, b) => {
+        return dayjs(a.monthKey).diff(dayjs(b.monthKey));
+      });
+
+      // Build Excel data with month headers
+      const excelData = [];
+      let totalAmount = 0;
+      let totalTransactions = 0;
       
-      const excelData = filteredData.map(t => ({
-        'Transaction ID': t.transactionId,
-        'Type': t.type,
-        'Description': t.description,
-        'Amount': t.amount,
-        'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
-        'Payment Method': t.paymentMethod,
-        'Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
-        'Month': dayjs(t.transactionDate).format('MMMM YYYY')
-      }));
+      // Track totals by type for subtotals
+      const typeTotals = {
+        garbage_fee: { count: 0, amount: 0 },
+        streetlight_fee: { count: 0, amount: 0 },
+        document_request: { count: 0, amount: 0 }
+      };
+
+      sortedMonths.forEach((monthGroup, monthIndex) => {
+        // Add transactions for this month (sorted by resident name)
+        const sortedTransactions = monthGroup.transactions.sort((a, b) => {
+          const nameA = (a.residentName || '').toLowerCase();
+          const nameB = (b.residentName || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+
+        let monthTotal = 0;
+        sortedTransactions.forEach(t => {
+          // Extract month from description for garbage and streetlight fees, otherwise use transaction date
+          let paymentMonth = dayjs(t.transactionDate).format('MMMM YYYY');
+          
+          // For garbage and streetlight fees, extract month from description
+          if (t.type === 'garbage_fee' || t.type === 'streetlight_fee') {
+            // Description format: "Garbage Collection Fee - 2025-01" or "Streetlight Fee - 2025-01"
+            const match = t.description?.match(/(\d{4})-(\d{2})/);
+            if (match) {
+              const year = match[1];
+              const month = match[2];
+              paymentMonth = dayjs(`${year}-${month}-01`).format('MMMM YYYY');
+            }
+          }
+          
+          excelData.push({
+            'Transaction ID': t.transactionId,
+            'Type': formatTransactionType(t.type),
+            'Description': t.description,
+            'Amount': `₱${Number(t.amount || 0).toFixed(2)}`,
+            'Resident': t.residentName || (t.residentId ? `${t.residentId.firstName} ${t.residentId.lastName}` : (t.resident || '-')),
+            'Payment Date': dayjs(t.transactionDate).format('YYYY-MM-DD HH:mm'),
+            'Month': paymentMonth
+          });
+          
+          monthTotal += Number(t.amount || 0);
+          totalAmount += Number(t.amount || 0);
+          totalTransactions += 1;
+          
+          // Track by type
+          if (t.type === 'garbage_fee') {
+            typeTotals.garbage_fee.count++;
+            typeTotals.garbage_fee.amount += Number(t.amount || 0);
+          } else if (t.type === 'streetlight_fee') {
+            typeTotals.streetlight_fee.count++;
+            typeTotals.streetlight_fee.amount += Number(t.amount || 0);
+          } else if (t.type === 'document_request') {
+            typeTotals.document_request.count++;
+            typeTotals.document_request.amount += Number(t.amount || 0);
+          }
+        });
+      });
+
+      // Add empty row before subtotals
+      excelData.push({
+        'Transaction ID': '',
+        'Type': '',
+        'Description': '',
+        'Amount': '',
+        'Resident': '',
+        'Payment Date': '',
+        'Month': ''
+      });
+
+      // Add subtotals by transaction type
+      if (typeTotals.garbage_fee.count > 0) {
+        excelData.push({
+          'Transaction ID': `GARBAGE FEE TOTAL`,
+          'Type': `${typeTotals.garbage_fee.count} transactions`,
+          'Description': '',
+          'Amount': `₱${typeTotals.garbage_fee.amount.toFixed(2)}`,
+          'Resident': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
+      
+      if (typeTotals.streetlight_fee.count > 0) {
+        excelData.push({
+          'Transaction ID': `STREETLIGHT FEE TOTAL`,
+          'Type': `${typeTotals.streetlight_fee.count} transactions`,
+          'Description': '',
+          'Amount': `₱${typeTotals.streetlight_fee.amount.toFixed(2)}`,
+          'Resident': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
+      
+      if (typeTotals.document_request.count > 0) {
+        excelData.push({
+          'Transaction ID': `DOCUMENT REQUEST FEE TOTAL`,
+          'Type': `${typeTotals.document_request.count} transactions`,
+          'Description': '',
+          'Amount': `₱${typeTotals.document_request.amount.toFixed(2)}`,
+          'Resident': '',
+          'Payment Date': '',
+          'Month': ''
+        });
+      }
+
+      // Add empty row before grand total
+      excelData.push({
+        'Transaction ID': '',
+        'Type': '',
+        'Description': '',
+        'Amount': '',
+        'Resident': '',
+        'Payment Date': '',
+        'Month': ''
+      });
+
+      // Add grand total
+      excelData.push({
+        'Transaction ID': `GRAND TOTAL`,
+        'Type': `${totalTransactions} total transactions`,
+        'Description': '',
+        'Amount': `₱${totalAmount.toFixed(2)}`,
+        'Resident': '',
+        'Payment Date': '',
+        'Month': ''
+      });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
       
-      // Auto-fit columns
-      const colWidths = Object.keys(excelData[0] || {}).map(key => ({
-        wch: Math.max(key.length, 15)
-      }));
+      // Auto-fit columns based on content width
+      const colWidths = Object.keys(excelData[0] || {}).map((key, colIndex) => {
+        let maxWidth = key.length + 2; // Header width
+        // Check content width for each row
+        excelData.forEach(row => {
+          const cellValue = row[key] ? String(row[key]) : '';
+          maxWidth = Math.max(maxWidth, cellValue.length + 2);
+        });
+        // Cap at 50 to avoid extremely wide columns, but ensure minimum of 12
+        return { wch: Math.min(Math.max(maxWidth, 12), 50) };
+      });
       ws['!cols'] = colWidths;
+
+      // Freeze panes: freeze header row and first column so they stay visible when scrolling
+      ws['!freeze'] = { xSplit: 1, ySplit: 1 };
 
       XLSX.utils.book_append_sheet(wb, ws, 'Financial_Transactions');
       
@@ -948,7 +1116,7 @@ export default function AdminFinancialReports() {
                     Net Balance
                   </CardTitle>
                   <div className={`flex items-center gap-1 ${balance >= 0 ? 'text-blue-600' : 'text-orange-600'} text-xs font-semibold`}>
-                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="text-sm md:text-base font-bold">₱</span>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -997,7 +1165,7 @@ export default function AdminFinancialReports() {
                     Streetlight Revenue
                   </CardTitle>
                   <div className="flex items-center gap-1 text-gray-400 text-xs font-semibold">
-                    <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="text-sm md:text-base font-bold">₱</span>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1323,9 +1491,10 @@ export default function AdminFinancialReports() {
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li><strong>Default:</strong> "All" options export entire financial transactions</li>
                 <li>Select a year first, then choose specific months for that year</li>
+                <li><strong>Month selection:</strong> Based on payment date (when transaction was recorded)</li>
                 <li>Select specific types and months for filtered exports</li>
                 <li>Selecting "All" with other options will keep only "All"</li>
-                <li>Export includes: Transaction ID, Type, Description, Amount, Resident Info, Payment Method, Date, and Month</li>
+                <li>Export includes: Transaction ID, Type, Description, Amount, Resident Info, Payment Date, and Month</li>
               </ul>
             </div>
           </Form>
@@ -1430,15 +1599,23 @@ export default function AdminFinancialReports() {
                     disabled={selectedCreateType === 'garbage_fee' && selectedCreateHasBusiness === undefined}
                     style={{ width: '100%' }}
                     dropdownStyle={{ minWidth: 250 }}
+                    filterOption={(input, option) => {
+                      const searchText = input.toLowerCase().trim();
+                      const optionText = (option.label || '').toLowerCase().replace(/\s+/g, ' ');
+                      return optionText.includes(searchText);
+                    }}
                   >
                     {(selectedCreateType === 'garbage_fee'
                       ? getFilteredResidents(selectedCreateHasBusiness)
                       : residents
-                    ).map(r => (
-                      <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.middleName ? r.middleName + ' ' : ''}{r.lastName}
-                      </Select.Option>
-                    ))}
+                    ).map(r => {
+                      const fullName = `${r.firstName} ${r.middleName || ''} ${r.lastName}`.replace(/\s+/g, ' ').trim();
+                      return (
+                        <Select.Option key={r._id} value={r._id} label={fullName}>
+                          {fullName}
+                        </Select.Option>
+                      );
+                    })}
                   </Select>
                 </Form.Item>
               </Col>
@@ -1625,15 +1802,23 @@ export default function AdminFinancialReports() {
                     disabled={selectedEditType === 'garbage_fee' && selectedEditHasBusiness === undefined}
                     style={{ width: '100%' }}
                     dropdownStyle={{ minWidth: 250 }}
+                    filterOption={(input, option) => {
+                      const searchText = input.toLowerCase().trim();
+                      const optionText = (option.label || '').toLowerCase().replace(/\s+/g, ' ');
+                      return optionText.includes(searchText);
+                    }}
                   >
                     {(selectedEditType === 'garbage_fee'
                       ? getFilteredResidents(selectedEditHasBusiness)
                       : residents
-                    ).map(r => (
-                      <Select.Option key={r._id} value={r._id}>
-                        {r.firstName} {r.middleName ? r.middleName + ' ' : ''}{r.lastName}
-                      </Select.Option>
-                    ))}
+                    ).map(r => {
+                      const fullName = `${r.firstName} ${r.middleName || ''} ${r.lastName}`.replace(/\s+/g, ' ').trim();
+                      return (
+                        <Select.Option key={r._id} value={r._id} label={fullName}>
+                          {fullName}
+                        </Select.Option>
+                      );
+                    })}
                   </Select>
                 </Form.Item>
               </Col>

@@ -163,7 +163,7 @@ const sensitiveLimiter = rateLimit({
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 5000, // Increased from 1000 to allow more requests for admin operations
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false }
