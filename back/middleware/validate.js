@@ -4,7 +4,6 @@ function sanitizeString(val) {
   return typeof val === 'string' ? val.trim() : '';
 }
 
-// Basic registration pre-validation (controller has deeper checks)
 function validateRegister(req, res, next) {
   try {
     const body = req.body || {};
