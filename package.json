@@ -2,7 +2,7 @@
   "dependencies": {
     "@emotion/unitless": "^0.10.0",
     "antd": "^5.27.2",
-    "motion": "^12.23.24",
+    "motion": "^12.29.2",
     "tailwindcss": "^4.1.12"
   }
 }
